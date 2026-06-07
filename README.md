@@ -54,3 +54,4 @@ Backend API: `Skout AI Backend` monorepo (`apps/api`).
 ## Deploy
 
 Vercel (recommended for MVP) — see [04-technology-stack](docs) for scale path.
+# Skout-AI-Frontend
