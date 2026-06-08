@@ -16,9 +16,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# env
+# env (secrets — use .env*.example as templates)
 .env
 .env*.local
+.env.dev
+.env.uat
+.env.prod
 
 # typescript
 *.tsbuildinfo

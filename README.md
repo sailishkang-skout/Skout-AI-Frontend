@@ -51,7 +51,23 @@ Husky runs unit tests before each commit (`npm test` → vitest). Hooks install 
 
 Backend API: `Skout AI Backend` monorepo (`apps/api`).
 
+## Docker (local)
+
+Requires the backend API on port **3001** (run `pnpm docker:local` in `Skout AI Backend` first).
+
+```bash
+npm run docker:local
+# or
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000). Client-side API calls use `NEXT_PUBLIC_API_URL` (default `http://localhost:3001`).
+
 ## Deploy
 
-Vercel (recommended for MVP) — see [04-technology-stack](docs) for scale path.
-# Skout-AI-Frontend
+| Environment | How |
+| --- | --- |
+| **Local** | `npm run dev` or `npm run docker:local` |
+| **Dev / Prod** | GitHub Actions builds Docker image → AWS ECR → ECS (see backend `infra/README.md`) |
+
+AWS CDK and CI/CD pipelines live in the **Skout AI Backend** repo (`infra/`, `.github/workflows/deploy-*.yml`).

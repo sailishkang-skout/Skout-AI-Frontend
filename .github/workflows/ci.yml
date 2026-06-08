@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, development, uat]
   pull_request:
-    branches: [main, develop]
+    branches: [main, development, uat]
 
 jobs:
   lint-and-build:
@@ -20,3 +20,11 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build web image
+        run: docker build -f Dockerfile -t skout-web:ci .

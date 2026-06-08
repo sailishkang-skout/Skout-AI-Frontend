@@ -1,0 +1,17 @@
+# Local dev overlay — use with backend stack running
+#
+# 1. Start backend (from Skout AI Backend repo):
+#    docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# 2. Start frontend (from this repo):
+#    docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#
+# Browser calls API at localhost:3001 (NEXT_PUBLIC_* is baked for client-side fetch).
+
+services:
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001

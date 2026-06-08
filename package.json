@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docker:up": "docker compose up --build",
+    "docker:local": "docker compose -f docker-compose.yml -f docker-compose.local.yml up --build"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
