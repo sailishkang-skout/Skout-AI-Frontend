@@ -18,7 +18,9 @@ export async function apiFetch<T>(
   const { workspaceId, ...init } = options ?? {};
   const headers = new Headers(init.headers);
 
-  headers.set("Content-Type", "application/json");
+  if (init.body !== undefined && init.body !== null) {
+    headers.set("Content-Type", "application/json");
+  }
   if (workspaceId) {
     headers.set("X-Workspace-Id", workspaceId);
   }

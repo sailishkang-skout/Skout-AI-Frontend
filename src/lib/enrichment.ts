@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./api-client";
 import type {
   ActivationRecord,
@@ -9,6 +10,20 @@ import type {
   ProspectList,
   ProspectSnapshotInput,
 } from "@/types/api";
+
+export const CREDITS_QUERY_KEY = ["enrichment", "credits"] as const;
+export const JOBS_QUERY_KEY = ["enrichment", "jobs"] as const;
+
+/** Immediately adjust cached balance after an enrich call; then refetch from API. */
+export function syncCreditsAfterEnrich(queryClient: QueryClient, creditsUsed: number) {
+  if (creditsUsed > 0) {
+    queryClient.setQueryData<CreditsResponse>(CREDITS_QUERY_KEY, (old) =>
+      old ? { ...old, balance: Math.max(0, old.balance - creditsUsed) } : old
+    );
+  }
+  void queryClient.refetchQueries({ queryKey: CREDITS_QUERY_KEY });
+  void queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY });
+}
 
 /**
  * Demo workspace — matches the API's default tenant context
@@ -81,4 +96,11 @@ export const enrichmentApi = {
         workspaceId: WORKSPACE_ID,
       }
     ),
+
+  addToList: (listId: string, prospects: ProspectSnapshotInput[]) =>
+    apiFetch<ProspectList>(`/api/v1/lists/${listId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ prospects }),
+      workspaceId: WORKSPACE_ID,
+    }),
 };

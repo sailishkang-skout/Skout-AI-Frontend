@@ -152,6 +152,49 @@ export interface CreditsResponse {
   balance: number;
 }
 
+export interface IcpConfig {
+  industries?: string[];
+  countries?: string[];
+  seniorities?: string[];
+  minEmployees?: number;
+  maxEmployees?: number;
+}
+
+export interface IcpResponse {
+  workspaceId: string;
+  config: IcpConfig;
+  version?: number;
+}
+
+export interface SmartListFilters {
+  query?: string;
+  industry?: string;
+  country?: string;
+  seniority?: string;
+  minEmployees?: number;
+  maxEmployees?: number;
+  tech?: string;
+  signal?: string;
+}
+
+export interface SmartList {
+  id: string;
+  workspaceId: string;
+  name: string;
+  filters: SmartListFilters;
+  lastRunCount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SmartListRunResult {
+  list: SmartList;
+  hits: ProspectSummary[];
+  total: number;
+  /** True when OpenSearch was unavailable and demo corpus was used. */
+  demo?: boolean;
+}
+
 export interface ScoreResult {
   prospectId: string;
   icpScore: number;
