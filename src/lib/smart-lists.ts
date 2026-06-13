@@ -1,6 +1,11 @@
 import { apiFetch } from "./api-client";
 import { WORKSPACE_ID } from "./enrichment";
-import type { SmartList, SmartListFilters, SmartListRunResult } from "@/types/api";
+import type {
+  SmartList,
+  SmartListActivateResult,
+  SmartListFilters,
+  SmartListRunResult,
+} from "@/types/api";
 
 interface ListEnvelope<T> {
   workspaceId: string;
@@ -22,6 +27,13 @@ export const smartListApi = {
   run: (id: string) =>
     apiFetch<SmartListRunResult>(`/api/v1/smart-lists/${id}/run`, {
       method: "POST",
+      workspaceId: WORKSPACE_ID,
+    }),
+
+  activate: (id: string, listName?: string) =>
+    apiFetch<SmartListActivateResult>(`/api/v1/smart-lists/${id}/activate`, {
+      method: "POST",
+      body: JSON.stringify(listName ? { listName } : {}),
       workspaceId: WORKSPACE_ID,
     }),
 };

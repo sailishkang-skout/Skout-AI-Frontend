@@ -195,6 +195,15 @@ export interface SmartListRunResult {
   demo?: boolean;
 }
 
+export interface SmartListActivateResult {
+  list: ProspectList;
+  smartList: SmartList;
+  hits: ProspectSummary[];
+  total: number;
+  activated: number;
+  demo?: boolean;
+}
+
 export interface ScoreResult {
   prospectId: string;
   icpScore: number;

@@ -67,7 +67,7 @@ export default function ListsPage() {
     <PageShell>
       <PageHeader
         title="Lists"
-        description="Group prospects from search, then bulk-enrich the whole list in one action."
+        description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
       />
 
       <DemoBanner />
@@ -85,6 +85,10 @@ export default function ListsPage() {
             Name your list, then add prospects from{" "}
             <Link href="/prospects/search" className="text-primary underline underline-offset-2">
               prospect search
+            </Link>{" "}
+            or{" "}
+            <Link href="/smart-lists" className="text-primary underline underline-offset-2">
+              smart lists
             </Link>
             .
           </CardDescription>
