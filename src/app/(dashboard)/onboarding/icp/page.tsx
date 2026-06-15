@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EMPTY_ICP, IcpForm } from "@/components/icp/icp-form";
 import { useIcpApi } from "@/lib/icp";
+import { useAuthReady } from "@/lib/api-client";
 import type { IcpConfig } from "@/types/api";
 
 const STEPS = [
@@ -23,13 +24,14 @@ export default function IcpOnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
+  const authReady = useAuthReady();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [config, setConfig] = useState<IcpConfig>(EMPTY_ICP);
 
   useQuery({
     queryKey: ["icp"],
     queryFn: icpApi.get,
-    retry: false,
+    enabled: authReady,
   });
 
   const save = useMutation({

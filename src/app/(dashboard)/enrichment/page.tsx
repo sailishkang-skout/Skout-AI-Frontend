@@ -12,12 +12,17 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, useAuthReady } from "@/lib/api-client";
 import {
   useEnrichmentApi,
   syncCreditsAfterEnrich,
   CREDITS_QUERY_KEY,
   JOBS_QUERY_KEY,
+  refreshCredits,
+  createOptimisticJobId,
+  prependOptimisticJob,
+  removeJobFromCache,
+  upsertJobFromEnrichResponse,
 } from "@/lib/enrichment";
 import { formatJobTime, resultValue, shortId } from "@/lib/enrichment-display";
 import { cn } from "@/lib/utils";
@@ -33,6 +38,7 @@ const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
 export default function EnrichmentPage() {
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
+  const authReady = useAuthReady();
   const [domain, setDomain] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
@@ -45,20 +51,20 @@ export default function EnrichmentPage() {
   const credits = useQuery({
     queryKey: CREDITS_QUERY_KEY,
     queryFn: enrichmentApi.getCredits,
-    retry: false,
+    enabled: authReady,
     staleTime: 0,
   });
 
   const jobs = useQuery({
     queryKey: JOBS_QUERY_KEY,
     queryFn: enrichmentApi.listJobs,
-    retry: false,
+    enabled: authReady,
     refetchInterval: (q) => {
       const hasActive = q.state.data?.data.some(
         (j: EnrichmentJob) => j.status === "running" || j.status === "queued"
       );
       if (!hasActive && q.state.data?.data.length) {
-        void queryClient.refetchQueries({ queryKey: CREDITS_QUERY_KEY });
+        refreshCredits(queryClient);
       }
       return hasActive ? 2000 : false;
     },
@@ -80,12 +86,31 @@ export default function EnrichmentPage() {
         },
         fields
       ),
-    onSuccess: (data) => {
+    onMutate: () => {
+      const optimisticId = createOptimisticJobId();
+      prependOptimisticJob(queryClient, {
+        id: optimisticId,
+        prospectId: domain.trim() || "…",
+        fieldsRequested: fields,
+      });
+      return { optimisticId };
+    },
+    onSuccess: (data, _vars, context) => {
       setFormError(null);
+      upsertJobFromEnrichResponse(
+        queryClient,
+        data,
+        domain.trim(),
+        fields,
+        context?.optimisticId
+      );
       syncCreditsAfterEnrich(queryClient, data.creditsUsed);
       if (data.jobId) setSelectedJobId(data.jobId);
     },
-    onError: (err) => {
+    onError: (err, _vars, context) => {
+      if (context?.optimisticId) {
+        removeJobFromCache(queryClient, context.optimisticId);
+      }
       if (err instanceof ApiError && err.status === 402) {
         setFormError("Insufficient credits — top up to run more enrichments.");
       } else if (err instanceof ApiError) {
@@ -234,10 +259,12 @@ export default function EnrichmentPage() {
             <CardDescription>Click a job for full details.</CardDescription>
           </CardHeader>
           <CardContent>
-            {jobs.error && (
+            {authReady && jobs.error && (
               <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>
             )}
-            {jobList.length ? (
+            {(!authReady || jobs.isLoading) && !jobList.length ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading jobs…</p>
+            ) : jobList.length ? (
               <ul className="divide-y">
                 {jobList.map((job) => (
                   <JobListItem
@@ -249,6 +276,7 @@ export default function EnrichmentPage() {
                 ))}
               </ul>
             ) : (
+              authReady &&
               !jobs.error && (
                 <p className="py-8 text-center text-sm text-muted-foreground">No jobs yet.</p>
               )
@@ -292,13 +320,16 @@ function JobListItem({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{shortId(job.prospectId, 16)}</span>
             <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+            {(job.status === "running" || job.status === "queued") && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+            )}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {job.fieldsRequested.join(", ")}
             {email ? ` · ${email}` : ""}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-            {formatJobTime(job.completedAt ?? job.queuedAt)} · {job.creditsUsed} cr
+            {formatJobTime(job.completedAt ?? job.startedAt ?? job.queuedAt)} · {job.creditsUsed} cr
           </p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

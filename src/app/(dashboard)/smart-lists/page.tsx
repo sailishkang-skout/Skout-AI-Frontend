@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError } from "@/lib/api-client";
-import { smartListApi } from "@/lib/smart-lists";
+import { ApiError, useAuthReady } from "@/lib/api-client";
+import { useSmartListApi } from "@/lib/smart-lists";
 import type { ProspectSummary, SmartListFilters } from "@/types/api";
 
 const EMPTY_FILTERS: SmartListFilters = {};
@@ -34,6 +34,8 @@ const PREVIEW_LIMIT = 10;
 
 export default function SmartListsPage() {
   const queryClient = useQueryClient();
+  const smartListApi = useSmartListApi();
+  const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [filters, setFilters] = useState<SmartListFilters>(EMPTY_FILTERS);
   const [runError, setRunError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function SmartListsPage() {
   const lists = useQuery({
     queryKey: ["smart-lists"],
     queryFn: smartListApi.list,
-    retry: false,
+    enabled: authReady,
   });
 
   const create = useMutation({

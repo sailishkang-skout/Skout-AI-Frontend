@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { useEnrichmentApi, JOBS_QUERY_KEY } from "@/lib/enrichment";
+import { useAuthReady } from "@/lib/api-client";
 import { fieldLabel, formatJobTime, shortId } from "@/lib/enrichment-display";
 import type { EnrichmentJob, FieldResult } from "@/types/api";
 
@@ -21,10 +22,11 @@ export function JobDetailSheet({
   onClose: () => void;
 }) {
   const enrichmentApi = useEnrichmentApi();
+  const authReady = useAuthReady();
   const detail = useQuery({
     queryKey: [...JOBS_QUERY_KEY, jobId],
     queryFn: () => enrichmentApi.getJob(jobId!),
-    enabled: open && !!jobId,
+    enabled: authReady && open && !!jobId,
     initialData: fallbackJob?.id === jobId ? fallbackJob : undefined,
     refetchInterval: (q) =>
       q.state.data?.status === "running" || q.state.data?.status === "queued" ? 2000 : false,

@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { useApiFetch } from "@/lib/api-client";
-import { useEnrichmentApi, syncCreditsAfterEnrich, WORKSPACE_ID } from "@/lib/enrichment";
+import { useApiFetch, useAuthReady } from "@/lib/api-client";
+import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
   const api = useApiFetch();
+  const authReady = useAuthReady();
   const enrichmentApi = useEnrichmentApi();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -34,15 +35,14 @@ export default function ProspectSearchPage() {
       api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
         body: JSON.stringify({ query, page: 1, pageSize: 25 }),
-        workspaceId: WORKSPACE_ID,
       }),
-    retry: false,
+    enabled: authReady,
   });
 
   const lists = useQuery({
     queryKey: ["lists"],
     queryFn: enrichmentApi.listLists,
-    retry: false,
+    enabled: authReady,
   });
 
   const results = search.data?.results ?? [];
@@ -78,6 +78,12 @@ export default function ProspectSearchPage() {
       enrichmentApi.enrichProspect(p.prospectId, toSnapshot(p), ["company", "email", "validation"]),
     onSuccess: (data, p) => {
       syncCreditsAfterEnrich(queryClient, data.creditsUsed);
+      upsertJobFromEnrichResponse(
+        queryClient,
+        data,
+        p.prospectId,
+        ["company", "email", "validation"]
+      );
       setEnriched((cur) => ({
         ...cur,
         [p.prospectId]: {
@@ -181,8 +187,8 @@ export default function ProspectSearchPage() {
           <div className="min-w-0">
             <CardTitle className="text-base sm:text-lg">Results</CardTitle>
             <CardDescription>
-              {search.isLoading && "Loading…"}
-              {search.error && "API unavailable — start the backend."}
+              {(!authReady || search.isLoading) && "Loading…"}
+              {authReady && search.error && "API unavailable — start the backend."}
               {search.data &&
                 `${search.data.total.toLocaleString()} matches · ${search.data.cached ? "cached" : "live"}`}
             </CardDescription>
@@ -194,7 +200,9 @@ export default function ProspectSearchPage() {
           )}
         </CardHeader>
         <CardContent>
-          {search.error && <Alert variant="warning" className="mb-4">Could not reach search API.</Alert>}
+          {authReady && search.error && (
+            <Alert variant="warning" className="mb-4">Could not reach search API.</Alert>
+          )}
           {results.length ? (
             <ul>
               {results.map((p) => {

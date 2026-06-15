@@ -6,7 +6,7 @@ const nextConfig = {
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ??
-      (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001"),
+      (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:3001"),
   },
 };
 

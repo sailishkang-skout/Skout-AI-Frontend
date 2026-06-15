@@ -1,5 +1,4 @@
-import { apiFetch } from "./api-client";
-import { WORKSPACE_ID } from "./enrichment";
+import { useApiFetch } from "./api-client";
 import type {
   SmartList,
   SmartListActivateResult,
@@ -13,27 +12,27 @@ interface ListEnvelope<T> {
   total: number;
 }
 
-export const smartListApi = {
-  list: () =>
-    apiFetch<ListEnvelope<SmartList>>("/api/v1/smart-lists", { workspaceId: WORKSPACE_ID }),
+export function useSmartListApi() {
+  const fetchApi = useApiFetch();
 
-  create: (name: string, filters: SmartListFilters) =>
-    apiFetch<SmartList>("/api/v1/smart-lists", {
-      method: "POST",
-      body: JSON.stringify({ name, filters }),
-      workspaceId: WORKSPACE_ID,
-    }),
+  return {
+    list: () => fetchApi<ListEnvelope<SmartList>>("/api/v1/smart-lists"),
 
-  run: (id: string) =>
-    apiFetch<SmartListRunResult>(`/api/v1/smart-lists/${id}/run`, {
-      method: "POST",
-      workspaceId: WORKSPACE_ID,
-    }),
+    create: (name: string, filters: SmartListFilters) =>
+      fetchApi<SmartList>("/api/v1/smart-lists", {
+        method: "POST",
+        body: JSON.stringify({ name, filters }),
+      }),
 
-  activate: (id: string, listName?: string) =>
-    apiFetch<SmartListActivateResult>(`/api/v1/smart-lists/${id}/activate`, {
-      method: "POST",
-      body: JSON.stringify(listName ? { listName } : {}),
-      workspaceId: WORKSPACE_ID,
-    }),
-};
+    run: (id: string) =>
+      fetchApi<SmartListRunResult>(`/api/v1/smart-lists/${id}/run`, {
+        method: "POST",
+      }),
+
+    activate: (id: string, listName?: string) =>
+      fetchApi<SmartListActivateResult>(`/api/v1/smart-lists/${id}/activate`, {
+        method: "POST",
+        body: JSON.stringify(listName ? { listName } : {}),
+      }),
+  };
+}

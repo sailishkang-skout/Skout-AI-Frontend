@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton, useAuth } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,7 +19,12 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useApiFetch } from "@/lib/api-client";
+import { useApiFetch, useAuthReady } from "@/lib/api-client";
+import {
+  CREDITS_QUERY_KEY,
+  useEnrichmentApi,
+  WORKSPACE_CURRENT_QUERY_KEY,
+} from "@/lib/enrichment";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export type NavItem = {
@@ -169,27 +174,32 @@ export function SidebarPanel({
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const apiFetch = useApiFetch();
-  const { isLoaded, isSignedIn } = useAuth();
-  const ready = isLoaded && !!isSignedIn;
+  const enrichmentApi = useEnrichmentApi();
+  const authReady = useAuthReady();
 
   const { data: workspace } = useQuery<WorkspaceData>({
-    queryKey: ["workspace-current"],
+    queryKey: WORKSPACE_CURRENT_QUERY_KEY,
     queryFn: () => apiFetch("/api/v1/workspaces/current"),
-    enabled: ready,
+    enabled: authReady,
     staleTime: 30_000,
-    retry: 1,
+  });
+
+  const { data: creditsData } = useQuery({
+    queryKey: CREDITS_QUERY_KEY,
+    queryFn: enrichmentApi.getCredits,
+    enabled: authReady,
+    staleTime: 0,
   });
 
   const { data: me } = useQuery<MeData>({
     queryKey: ["me"],
     queryFn: () => apiFetch("/api/v1/me"),
-    enabled: ready,
+    enabled: authReady,
     staleTime: 30_000,
-    retry: 1,
   });
 
   const workspaceName = workspace?.data?.name ?? "Workspace";
-  const credits = workspace?.data?.balance;
+  const credits = creditsData?.balance ?? workspace?.data?.balance;
   const role = me?.role ?? "member";
 
   return (

@@ -12,7 +12,8 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useEnrichmentApi, CREDITS_QUERY_KEY } from "@/lib/enrichment";
+import { useEnrichmentApi, refreshCredits, refreshJobs } from "@/lib/enrichment";
+import { useAuthReady } from "@/lib/api-client";
 import { formatJobTime } from "@/lib/enrichment-display";
 import { cn } from "@/lib/utils";
 import type { EnrichmentBatch, ProspectList } from "@/types/api";
@@ -20,13 +21,14 @@ import type { EnrichmentBatch, ProspectList } from "@/types/api";
 export default function ListsPage() {
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
+  const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
 
   const lists = useQuery({
     queryKey: ["lists"],
     queryFn: enrichmentApi.listLists,
-    retry: false,
+    enabled: authReady,
   });
 
   const listData = lists.data?.data ?? [];
@@ -50,7 +52,8 @@ export default function ListsPage() {
       const batch = await enrichmentApi.getBatch(batchId);
       setBatches((cur) => ({ ...cur, [batch.id]: batch }));
       if (batch.status === "completed" || batch.status === "failed") {
-        void queryClient.refetchQueries({ queryKey: CREDITS_QUERY_KEY });
+        refreshCredits(queryClient);
+        refreshJobs(queryClient);
         return;
       }
       await new Promise((r) => setTimeout(r, 1500));

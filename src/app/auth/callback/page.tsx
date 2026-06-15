@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
 export default async function AuthCallbackPage() {
   const { userId, getToken } = await auth();
@@ -24,9 +24,10 @@ export default async function AuthCallbackPage() {
       if (!data?.data) {
         redirect("/onboarding/icp");
       }
+      redirect("/prospects/search");
     }
   } catch {
-    // Backend unreachable — fall through to search; UserProvisioner will retry
+    // Backend unreachable — continue to app; user can open Setup wizard from sidebar.
   }
 
   redirect("/prospects/search");
