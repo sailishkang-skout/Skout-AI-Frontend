@@ -23,7 +23,7 @@ export default async function SignUpPage() {
           routing="path"
           path="/sign-up"
           signInUrl="/sign-in"
-          forceRedirectUrl="/prospects/search"
+          forceRedirectUrl="/auth/callback"
         />
       ) : (
         <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">

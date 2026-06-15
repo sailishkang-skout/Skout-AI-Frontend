@@ -42,7 +42,6 @@ describe("UserProvisioner", () => {
   it("does nothing when user is not signed in", async () => {
     mockUseAuth.mockReturnValue({ isSignedIn: false, getToken: vi.fn() } as unknown as ReturnType<typeof useAuth>);
     render(<UserProvisioner />);
-    // wait a tick to confirm no side effects happen
     await new Promise((r) => setTimeout(r, 10));
     expect(mockApiFetch).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
@@ -59,12 +58,12 @@ describe("UserProvisioner", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("does nothing when /api/v1/me returns null (backend down)", async () => {
+  it("does nothing when /api/v1/icp call fails (backend down)", async () => {
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
       getToken: vi.fn().mockResolvedValue("tok_test"),
     } as unknown as ReturnType<typeof useAuth>);
-    mockApiFetch.mockRejectedValueOnce(new Error("network error")); // /me throws
+    mockApiFetch.mockRejectedValueOnce(new Error("network error"));
     render(<UserProvisioner />);
     await new Promise((r) => setTimeout(r, 10));
     expect(push).not.toHaveBeenCalled();
@@ -75,9 +74,7 @@ describe("UserProvisioner", () => {
       isSignedIn: true,
       getToken: vi.fn().mockResolvedValue("tok_test"),
     } as unknown as ReturnType<typeof useAuth>);
-    mockApiFetch
-      .mockResolvedValueOnce({ userId: "u1" })           // /api/v1/me
-      .mockResolvedValueOnce({ data: null });             // /api/v1/icp
+    mockApiFetch.mockResolvedValueOnce({ data: null }); // /api/v1/icp
 
     render(<UserProvisioner />);
 
@@ -91,42 +88,47 @@ describe("UserProvisioner", () => {
       isSignedIn: true,
       getToken: vi.fn().mockResolvedValue("tok_test"),
     } as unknown as ReturnType<typeof useAuth>);
-    mockApiFetch
-      .mockResolvedValueOnce({ userId: "u1" })
-      .mockResolvedValueOnce({ data: { industries: ["SaaS"] } }); // ICP present
+    mockApiFetch.mockResolvedValueOnce({ data: { industries: ["SaaS"] } }); // ICP present
 
     render(<UserProvisioner />);
     await new Promise((r) => setTimeout(r, 50));
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("does not redirect when /api/v1/icp call itself fails", async () => {
+  it("does not redirect when /api/v1/icp itself fails", async () => {
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
       getToken: vi.fn().mockResolvedValue("tok_test"),
     } as unknown as ReturnType<typeof useAuth>);
-    mockApiFetch
-      .mockResolvedValueOnce({ userId: "u1" })
-      .mockRejectedValueOnce(new Error("icp fetch failed"));
+    mockApiFetch.mockRejectedValueOnce(new Error("icp fetch failed"));
 
     render(<UserProvisioner />);
     await new Promise((r) => setTimeout(r, 50));
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("calls /api/v1/me and /api/v1/icp with the auth token", async () => {
+  it("calls /api/v1/icp with the auth token", async () => {
     mockUseAuth.mockReturnValue({
       isSignedIn: true,
       getToken: vi.fn().mockResolvedValue("tok_xyz"),
     } as unknown as ReturnType<typeof useAuth>);
-    mockApiFetch
-      .mockResolvedValueOnce({ userId: "u1" })
-      .mockResolvedValueOnce({ data: { industries: ["SaaS"] } });
+    mockApiFetch.mockResolvedValueOnce({ data: { industries: ["SaaS"] } });
 
     render(<UserProvisioner />);
     await waitFor(() => {
-      expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/me", { authToken: "tok_xyz" });
       expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/icp", { authToken: "tok_xyz" });
     });
+  });
+
+  it("makes only one API call (no /me roundtrip)", async () => {
+    mockUseAuth.mockReturnValue({
+      isSignedIn: true,
+      getToken: vi.fn().mockResolvedValue("tok_xyz"),
+    } as unknown as ReturnType<typeof useAuth>);
+    mockApiFetch.mockResolvedValueOnce({ data: null });
+
+    render(<UserProvisioner />);
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
   });
 });

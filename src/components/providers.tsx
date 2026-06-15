@@ -14,8 +14,6 @@ export function UserProvisioner() {
     if (!isSignedIn) return;
     getToken().then(async (token) => {
       if (!token) return;
-      const me = await apiFetch("/api/v1/me", { authToken: token }).catch(() => null);
-      if (!me) return;
       const icp = await apiFetch<{ data: unknown | null }>("/api/v1/icp", { authToken: token }).catch(() => null);
       if (icp !== null && !icp?.data) {
         router.push("/onboarding/icp");
@@ -46,7 +44,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+    >
       <QueryClientProvider client={queryClient}>
         <UserProvisioner />
         {children}
