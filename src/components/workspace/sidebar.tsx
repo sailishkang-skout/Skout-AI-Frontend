@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -169,19 +169,23 @@ export function SidebarPanel({
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const apiFetch = useApiFetch();
+  const { isLoaded, isSignedIn } = useAuth();
+  const ready = isLoaded && !!isSignedIn;
 
   const { data: workspace } = useQuery<WorkspaceData>({
     queryKey: ["workspace-current"],
     queryFn: () => apiFetch("/api/v1/workspaces/current"),
-    staleTime: 60_000,
-    retry: false,
+    enabled: ready,
+    staleTime: 30_000,
+    retry: 1,
   });
 
   const { data: me } = useQuery<MeData>({
     queryKey: ["me"],
     queryFn: () => apiFetch("/api/v1/me"),
-    staleTime: 60_000,
-    retry: false,
+    enabled: ready,
+    staleTime: 30_000,
+    retry: 1,
   });
 
   const workspaceName = workspace?.data?.name ?? "Workspace";
