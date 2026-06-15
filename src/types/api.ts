@@ -89,6 +89,7 @@ export interface ProspectSnapshotInput {
   country?: string;
   companyDomain: string;
   email?: string;
+  linkedinUrl?: string;
   employeeCount?: number;
   signals?: string[];
 }
@@ -103,6 +104,15 @@ export interface FieldResult {
   isPrimary?: boolean;
 }
 
+export interface AttemptLog {
+  order: number;
+  provider: string;
+  operation: string;
+  status: string;
+  latencyMs: number;
+  detail?: string;
+}
+
 export interface EnrichmentJob {
   id: string;
   workspaceId: string;
@@ -111,6 +121,7 @@ export interface EnrichmentJob {
   trigger: string;
   fieldsRequested: string[];
   results: FieldResult[];
+  attempts?: AttemptLog[];
   creditsUsed: number;
   errorMessage: string | null;
   queuedAt: string;
@@ -145,6 +156,7 @@ export interface EnrichTriggerResponse {
   status: JobStatus;
   creditsUsed: number;
   results: FieldResult[];
+  attempts?: AttemptLog[];
 }
 
 export interface CreditsResponse {
