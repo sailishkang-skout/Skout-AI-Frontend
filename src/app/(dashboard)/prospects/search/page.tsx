@@ -5,14 +5,15 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { apiFetch } from "@/lib/api-client";
+import { useApiFetch } from "@/lib/api-client";
 import type { SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
+  const api = useApiFetch();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["prospects", "search"],
     queryFn: () =>
-      apiFetch<SearchProspectsResponse>("/api/v1/search/prospects", {
+      api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
         body: JSON.stringify({ page: 1, pageSize: 25 }),
         workspaceId: "demo",
