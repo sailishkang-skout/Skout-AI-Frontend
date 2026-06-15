@@ -1,18 +1,20 @@
-import { apiFetch } from "./api-client";
+import { useApiFetch } from "./api-client";
 import { WORKSPACE_ID } from "./enrichment";
 import type { IcpConfig, IcpResponse } from "@/types/api";
 
-export const icpApi = {
-  get: () =>
-    apiFetch<IcpResponse>("/api/v1/workspace/icp", { workspaceId: WORKSPACE_ID }),
-
-  save: (config: IcpConfig) =>
-    apiFetch<IcpResponse>("/api/v1/workspace/icp", {
-      method: "PUT",
-      body: JSON.stringify(config),
-      workspaceId: WORKSPACE_ID,
-    }),
-};
+export function useIcpApi() {
+  const fetchApi = useApiFetch();
+  return {
+    get: () =>
+      fetchApi<IcpResponse>("/api/v1/workspace/icp", { workspaceId: WORKSPACE_ID }),
+    save: (config: IcpConfig) =>
+      fetchApi<IcpResponse>("/api/v1/workspace/icp", {
+        method: "PUT",
+        body: JSON.stringify(config),
+        workspaceId: WORKSPACE_ID,
+      }),
+  };
+}
 
 export const ICP_INDUSTRIES = [
   "Software",

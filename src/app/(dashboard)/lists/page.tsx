@@ -12,13 +12,14 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { enrichmentApi, CREDITS_QUERY_KEY } from "@/lib/enrichment";
+import { useEnrichmentApi, CREDITS_QUERY_KEY } from "@/lib/enrichment";
 import { formatJobTime } from "@/lib/enrichment-display";
 import { cn } from "@/lib/utils";
 import type { EnrichmentBatch, ProspectList } from "@/types/api";
 
 export default function ListsPage() {
   const queryClient = useQueryClient();
+  const enrichmentApi = useEnrichmentApi();
   const [name, setName] = useState("");
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
 

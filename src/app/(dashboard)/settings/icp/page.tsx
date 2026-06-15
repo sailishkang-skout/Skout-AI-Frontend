@@ -11,11 +11,12 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EMPTY_ICP, IcpForm } from "@/components/icp/icp-form";
-import { icpApi } from "@/lib/icp";
+import { useIcpApi } from "@/lib/icp";
 import type { IcpConfig } from "@/types/api";
 
 export default function IcpSettingsPage() {
   const queryClient = useQueryClient();
+  const icpApi = useIcpApi();
   const [config, setConfig] = useState<IcpConfig>(EMPTY_ICP);
   const [saved, setSaved] = useState(false);
 

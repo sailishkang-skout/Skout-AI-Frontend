@@ -15,11 +15,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useApiFetch } from "@/lib/api-client";
-import { enrichmentApi, syncCreditsAfterEnrich, WORKSPACE_ID } from "@/lib/enrichment";
+import { useEnrichmentApi, syncCreditsAfterEnrich, WORKSPACE_ID } from "@/lib/enrichment";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
   const api = useApiFetch();
+  const enrichmentApi = useEnrichmentApi();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
