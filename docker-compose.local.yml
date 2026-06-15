@@ -6,12 +6,17 @@
 # 2. Start frontend (from this repo):
 #    docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 #
-# Browser calls API at localhost:3001 (NEXT_PUBLIC_* is baked for client-side fetch).
+# Loads Clerk + API URL from .env.local (NEXT_PUBLIC_* baked at image build time).
 
 services:
   web:
+    env_file:
+      - .env.local
     build:
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}

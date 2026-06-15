@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import {
-  enrichmentApi,
+  useEnrichmentApi,
   syncCreditsAfterEnrich,
   CREDITS_QUERY_KEY,
   JOBS_QUERY_KEY,
@@ -32,6 +32,7 @@ const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
 
 export default function EnrichmentPage() {
   const queryClient = useQueryClient();
+  const enrichmentApi = useEnrichmentApi();
   const [domain, setDomain] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");

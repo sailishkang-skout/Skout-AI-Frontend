@@ -1,8 +1,29 @@
 "use client";
 
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+
+export function UserProvisioner() {
+  const { isSignedIn, getToken } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    getToken().then(async (token) => {
+      if (!token) return;
+      const icp = await apiFetch<{ data: unknown | null }>("/api/v1/icp", { authToken: token }).catch(() => null);
+      if (icp !== null && !icp?.data) {
+        router.push("/onboarding/icp");
+      }
+    });
+  }, [isSignedIn, getToken, router]);
+
+  return null;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -17,9 +38,28 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  if (!publishableKey) {
+    return (
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+      >
+        <QueryClientProvider client={queryClient}>
+          <UserProvisioner />
+          {children}
+        </QueryClientProvider>
+      </ClerkProvider>
     </ThemeProvider>
   );
 }

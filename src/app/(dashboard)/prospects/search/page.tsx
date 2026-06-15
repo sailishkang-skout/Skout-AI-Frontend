@@ -14,11 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api-client";
-import { enrichmentApi, syncCreditsAfterEnrich, WORKSPACE_ID } from "@/lib/enrichment";
+import { useApiFetch } from "@/lib/api-client";
+import { useEnrichmentApi, syncCreditsAfterEnrich, WORKSPACE_ID } from "@/lib/enrichment";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
+  const api = useApiFetch();
+  const enrichmentApi = useEnrichmentApi();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -29,7 +31,7 @@ export default function ProspectSearchPage() {
   const search = useQuery({
     queryKey: ["prospects", "search"],
     queryFn: () =>
-      apiFetch<SearchProspectsResponse>("/api/v1/search/prospects", {
+      api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
         body: JSON.stringify({ query, page: 1, pageSize: 25 }),
         workspaceId: WORKSPACE_ID,

@@ -1,5 +1,7 @@
 "use client";
 
+import { UserButton, useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useApiFetch } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export type NavItem = {
@@ -73,6 +76,20 @@ export const otherNav: NavGroup[] = [
     ],
   },
 ];
+
+interface WorkspaceData {
+  data: {
+    id: string;
+    name: string;
+    slug: string;
+    createdAt: string;
+    balance: number | null;
+  };
+}
+
+interface MeData {
+  role?: string;
+}
 
 function NavLink({ href, label, icon: Icon, onNavigate }: NavItem & { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -151,6 +168,30 @@ export function SidebarPanel({
 }
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+  const apiFetch = useApiFetch();
+  const { isLoaded, isSignedIn } = useAuth();
+  const ready = isLoaded && !!isSignedIn;
+
+  const { data: workspace } = useQuery<WorkspaceData>({
+    queryKey: ["workspace-current"],
+    queryFn: () => apiFetch("/api/v1/workspaces/current"),
+    enabled: ready,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const { data: me } = useQuery<MeData>({
+    queryKey: ["me"],
+    queryFn: () => apiFetch("/api/v1/me"),
+    enabled: ready,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const workspaceName = workspace?.data?.name ?? "Workspace";
+  const credits = workspace?.data?.balance;
+  const role = me?.role ?? "member";
+
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -167,13 +208,19 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           </button>
         )}
         <p className="truncate text-sm text-muted-foreground">
-          <span className="hidden sm:inline">Workspace · </span>
-          <span className="font-medium text-foreground">Demo</span>
+          Workspace: <span className="font-medium text-foreground">{workspaceName}</span>
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {credits !== null && credits !== undefined && (
+          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+            <Zap className="h-3 w-3" />
+            {credits.toLocaleString()}
+          </span>
+        )}
         <ThemeToggle />
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">Owner</span>
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize">{role}</span>
+        <UserButton afterSignOutUrl="/sign-in" />
       </div>
     </header>
   );

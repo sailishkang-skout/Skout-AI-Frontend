@@ -37,15 +37,15 @@ src/
 
 ```bash
 cp .env.example .env.local
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Prospect search calls the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:3001`).
 
 ## Pre-commit hooks
 
-Husky runs unit tests before each commit (`npm test` → vitest). Hooks install automatically via `npm install` (`prepare` script). Requires a git repo — run `git init` if cloning fresh files without `.git`.
+Husky runs unit tests before each commit (`pnpm test`). Hooks install automatically via `pnpm install` (`prepare` script). Requires a git repo — run `git init` if cloning fresh files without `.git`.
 
 ## Related repo
 
@@ -58,7 +58,7 @@ Backend API: `Skout AI Backend` monorepo (`apps/api`).
 Requires the backend API on port **3001** (run `pnpm docker:local` in `Skout AI Backend` first).
 
 ```bash
-npm run docker:local
+pnpm run docker:local
 # or
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
@@ -69,7 +69,7 @@ Open [http://localhost:3000](http://localhost:3000). Client-side API calls use `
 
 | Environment | How |
 | --- | --- |
-| **Local** | `npm run dev` or `npm run docker:local` |
+| **Local** | `pnpm dev` or `pnpm docker:local` |
 | **Dev / Prod** | GitHub Actions builds Docker image → AWS ECR → ECS (see backend `infra/README.md`) |
 
 AWS CDK and CI/CD pipelines live in the **Skout AI Backend** repo (`infra/`, `.github/workflows/deploy-*.yml`).

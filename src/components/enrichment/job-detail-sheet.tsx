@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
-import { enrichmentApi, JOBS_QUERY_KEY } from "@/lib/enrichment";
+import { useEnrichmentApi, JOBS_QUERY_KEY } from "@/lib/enrichment";
 import { fieldLabel, formatJobTime, shortId } from "@/lib/enrichment-display";
 import type { EnrichmentJob, FieldResult } from "@/types/api";
 
@@ -20,6 +20,7 @@ export function JobDetailSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const enrichmentApi = useEnrichmentApi();
   const detail = useQuery({
     queryKey: [...JOBS_QUERY_KEY, jobId],
     queryFn: () => enrichmentApi.getJob(jobId!),

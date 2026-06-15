@@ -15,6 +15,7 @@
     "docker:local": "docker compose -f docker-compose.yml -f docker-compose.local.yml up --build"
   },
   "dependencies": {
+    "@clerk/nextjs": "^5.7.6",
     "@tanstack/react-query": "^5.62.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

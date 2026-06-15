@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  output: process.platform === "win32" ? undefined : "standalone",
   reactStrictMode: true,
   env: {
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
