@@ -27,7 +27,7 @@ const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
   { id: "company", label: "Firmographics" },
   { id: "email", label: "Email finder" },
   { id: "validation", label: "Email verify" },
-  { id: "phone", label: "Phone", hint: "Score > 80" },
+  { id: "phone", label: "Phone", hint: "score gate" },
 ];
 
 export default function EnrichmentPage() {
@@ -36,6 +36,7 @@ export default function EnrichmentPage() {
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
   const [email, setEmail] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [fields, setFields] = useState<EnrichField[]>(["company", "email", "validation"]);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function EnrichmentPage() {
           fullName: fullName.trim() || undefined,
           title: title.trim() || undefined,
           email: email.trim() || undefined,
+          linkedinUrl: linkedinUrl.trim() || undefined,
         },
         fields
       ),
@@ -125,7 +127,8 @@ export default function EnrichmentPage() {
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">Enrich a prospect</CardTitle>
             <CardDescription>
-              Enter a company domain. Phone lookup runs only when the lead score is above 80.
+              Enter a company domain. Add a LinkedIn profile URL for better phone match rates (Datagma →
+              ContactOut).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -143,6 +146,13 @@ export default function EnrichmentPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input
+                placeholder="LinkedIn profile URL (optional)"
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                className="sm:col-span-2"
               />
             </div>
 
