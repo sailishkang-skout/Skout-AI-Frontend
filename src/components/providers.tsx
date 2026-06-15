@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 
 export function UserProvisioner() {
   const { isSignedIn, getToken } = useAuth();
@@ -40,19 +41,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   if (!publishableKey) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </ThemeProvider>
+    );
   }
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-    >
-      <QueryClientProvider client={queryClient}>
-        <UserProvisioner />
-        {children}
-      </QueryClientProvider>
-    </ClerkProvider>
+    <ThemeProvider>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+      >
+        <QueryClientProvider client={queryClient}>
+          <UserProvisioner />
+          {children}
+        </QueryClientProvider>
+      </ClerkProvider>
+    </ThemeProvider>
   );
 }

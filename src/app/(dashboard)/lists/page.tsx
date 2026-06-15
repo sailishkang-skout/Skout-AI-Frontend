@@ -1,11 +1,279 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { ListIcon, Loader2, Plus, Search, Users, Zap } from "lucide-react";
+import { DemoBanner } from "@/components/layout/demo-banner";
+import { PageHeader } from "@/components/layout/page-header";
+import { PageShell } from "@/components/layout/page-shell";
+import { Alert } from "@/components/ui/alert";
+import { Badge, statusTone } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { enrichmentApi, CREDITS_QUERY_KEY } from "@/lib/enrichment";
+import { formatJobTime } from "@/lib/enrichment-display";
+import { cn } from "@/lib/utils";
+import type { EnrichmentBatch, ProspectList } from "@/types/api";
 
 export default function ListsPage() {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
+
+  const lists = useQuery({
+    queryKey: ["lists"],
+    queryFn: enrichmentApi.listLists,
+    retry: false,
+  });
+
+  const listData = lists.data?.data ?? [];
+
+  const stats = useMemo(() => {
+    const totalProspects = listData.reduce((sum, l) => sum + l.prospectCount, 0);
+    const ready = listData.filter((l) => l.prospectCount > 0).length;
+    return { totalLists: listData.length, totalProspects, ready };
+  }, [listData]);
+
+  const createList = useMutation({
+    mutationFn: () => enrichmentApi.createList(name.trim(), []),
+    onSuccess: () => {
+      setName("");
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+    },
+  });
+
+  const pollBatch = async (batchId: string) => {
+    for (let i = 0; i < 30; i += 1) {
+      const batch = await enrichmentApi.getBatch(batchId);
+      setBatches((cur) => ({ ...cur, [batch.id]: batch }));
+      if (batch.status === "completed" || batch.status === "failed") {
+        void queryClient.refetchQueries({ queryKey: CREDITS_QUERY_KEY });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  };
+
+  const enrichList = useMutation({
+    mutationFn: (listId: string) => enrichmentApi.enrichList(listId, ["company", "email", "validation"]),
+    onSuccess: (res) => {
+      void pollBatch(res.batchId);
+    },
+  });
+
   return (
-    <PlaceholderPage
-      title="Lists"
-      description="Saved segments and activated prospect lists (workspace-scoped PostgreSQL)."
-      apiPath="/api/v1/lists"
-    />
+    <PageShell>
+      <PageHeader
+        title="Lists"
+        description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
+      />
+
+      <DemoBanner />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard icon={ListIcon} label="Lists" value={stats.totalLists} />
+        <StatCard icon={Users} label="Total prospects" value={stats.totalProspects} />
+        <StatCard icon={Zap} label="Ready to enrich" value={stats.ready} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg">Create a list</CardTitle>
+          <CardDescription>
+            Name your list, then add prospects from{" "}
+            <Link href="/prospects/search" className="text-primary underline underline-offset-2">
+              prospect search
+            </Link>{" "}
+            or{" "}
+            <Link href="/smart-lists" className="text-primary underline underline-offset-2">
+              smart lists
+            </Link>
+            .
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center">
+            <Input
+              placeholder="e.g. Seed SaaS — US VPs"
+              className="min-w-0 flex-1 bg-background"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && name.trim() && createList.mutate()}
+            />
+            <Button
+              onClick={() => createList.mutate()}
+              disabled={!name.trim() || createList.isPending}
+              className="w-full shrink-0 sm:w-auto"
+            >
+              {createList.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Create list
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Your lists</h2>
+            <p className="text-sm text-muted-foreground">
+              {lists.error ? "API unavailable" : `${listData.length} list(s) in this workspace`}
+            </p>
+          </div>
+          <Link
+            href="/prospects/search"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent sm:w-auto"
+          >
+            <Search className="h-4 w-4" />
+            Find prospects
+          </Link>
+        </div>
+
+        {lists.error && <Alert variant="warning">Could not load lists.</Alert>}
+
+        {listData.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {listData.map((list) => (
+              <ListCard
+                key={list.id}
+                list={list}
+                batch={Object.values(batches).find((b) => b.listId === list.id)}
+                enriching={enrichList.isPending && enrichList.variables === list.id}
+                onEnrich={() => enrichList.mutate(list.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          !lists.error && (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+                <div className="rounded-full bg-muted p-4">
+                  <ListIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium">No lists yet</p>
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    Create a list above, then add prospects from search using checkboxes.
+                  </p>
+                </div>
+                <Link
+                  href="/prospects/search"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
+                >
+                  <Search className="h-4 w-4" />
+                  Go to search
+                </Link>
+              </CardContent>
+            </Card>
+          )
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="rounded-md bg-muted p-2">
+          <Icon className="h-5 w-5 text-muted-foreground" aria-hidden />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-2xl font-semibold tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ListCard({
+  list,
+  batch,
+  enriching,
+  onEnrich,
+}: {
+  list: ProspectList;
+  batch?: EnrichmentBatch;
+  enriching: boolean;
+  onEnrich: () => void;
+}) {
+  const empty = list.prospectCount === 0;
+  const progress = batch && batch.total > 0 ? Math.round((batch.done / batch.total) * 100) : 0;
+
+  return (
+    <Card className={cn("flex flex-col", empty && "opacity-90")}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="line-clamp-2 text-base leading-snug">{list.name}</CardTitle>
+          <Badge tone={empty ? "warning" : "success"} className="shrink-0">
+            {list.prospectCount}
+          </Badge>
+        </div>
+        <CardDescription>Created {formatJobTime(list.createdAt)}</CardDescription>
+      </CardHeader>
+      <CardContent className="mt-auto space-y-3 pt-0">
+        {empty ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Empty —{" "}
+            <Link href="/prospects/search" className="underline underline-offset-2">
+              add prospects
+            </Link>
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {list.prospectCount} prospect{list.prospectCount === 1 ? "" : "s"} ready for enrichment
+          </p>
+        )}
+
+        {batch && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <Badge tone={statusTone(batch.status)}>{batch.status}</Badge>
+              <span className="text-muted-foreground">
+                {batch.done}/{batch.total}
+                {batch.failed > 0 && ` · ${batch.failed} failed`}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <Button
+          size="sm"
+          variant={empty ? "outline" : "default"}
+          onClick={onEnrich}
+          disabled={enriching || empty}
+          className="w-full"
+        >
+          {enriching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Zap className="h-4 w-4" />
+          )}
+          Bulk enrich
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

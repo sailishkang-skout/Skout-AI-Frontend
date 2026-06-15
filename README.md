@@ -51,6 +51,8 @@ Husky runs unit tests before each commit (`npm test` → vitest). Hooks install 
 
 Backend API: `Skout AI Backend` monorepo (`apps/api`).
 
+**Repo layout (backend + frontend):** see `docs/repo-structure.md` in the backend repo — explains App Router folders, API client patterns, and how deploy pipelines connect both repos.
+
 ## Docker (local)
 
 Requires the backend API on port **3001** (run `pnpm docker:local` in `Skout AI Backend` first).
