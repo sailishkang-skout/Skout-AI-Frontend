@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEnrichmentApi, refreshCredits, refreshJobs } from "@/lib/enrichment";
+import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { useAuthReady } from "@/lib/api-client";
 import { formatJobTime } from "@/lib/enrichment-display";
@@ -26,6 +27,7 @@ export default function ListsPage() {
   const [name, setName] = useState("");
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
   const { redirectToIcpSetup } = useRedirectToIcpSetup();
+  const { showInsufficientCredits } = useCreditsModal();
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -66,6 +68,9 @@ export default function ListsPage() {
     mutationFn: (listId: string) => enrichmentApi.enrichList(listId, ["company", "email", "validation"]),
     onSuccess: (res) => {
       void pollBatch(res.batchId);
+    },
+    onError: (err) => {
+      handleCreditsError(err, showInsufficientCredits);
     },
   });
 

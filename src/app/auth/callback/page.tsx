@@ -20,8 +20,20 @@ export default async function AuthCallbackPage() {
     });
 
     if (res.ok) {
-      const data = (await res.json()) as { data: unknown | null };
-      if (!data?.data) {
+      const payload = (await res.json()) as {
+        data?: { config?: Record<string, unknown> } | null;
+      };
+      const config = payload?.data?.config;
+      const configured =
+        Boolean(config) &&
+        (Boolean(
+          (config?.industries as string[] | undefined)?.length ||
+            (config?.countries as string[] | undefined)?.length ||
+            (config?.seniorities as string[] | undefined)?.length ||
+            config?.minEmployees != null ||
+            config?.maxEmployees != null
+        ));
+      if (!payload?.data || !configured) {
         redirect("/onboarding/icp");
       }
       redirect("/dashboard");

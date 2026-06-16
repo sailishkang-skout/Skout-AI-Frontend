@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { isRetryableAuthError } from "@/lib/api-client";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { CreditsModalProvider } from "@/components/credits/insufficient-credits-modal";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -27,7 +28,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!publishableKey) {
     return (
       <ThemeProvider>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <CreditsModalProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </CreditsModalProvider>
       </ThemeProvider>
     );
   }
@@ -39,7 +42,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         signInUrl="/sign-in"
         signUpUrl="/sign-up"
       >
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <CreditsModalProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </CreditsModalProvider>
       </ClerkProvider>
     </ThemeProvider>
   );

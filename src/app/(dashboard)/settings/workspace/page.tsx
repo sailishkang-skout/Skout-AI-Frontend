@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Check, Coins, Loader2 } from "lucide-react";
+import { Check, Coins, Loader2, Plus } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -11,8 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuthReady } from "@/lib/api-client";
-import { CREDITS_QUERY_KEY, WORKSPACE_CURRENT_QUERY_KEY } from "@/lib/enrichment";
+import {
+  CREDITS_QUERY_KEY,
+  WORKSPACE_CURRENT_QUERY_KEY,
+  refreshCredits,
+} from "@/lib/enrichment";
 import { useWorkspaceApi } from "@/lib/workspace";
+
+const TRANSACTIONS_QUERY_KEY = ["credits", "transactions"] as const;
 
 export default function WorkspaceSettingsPage() {
   const queryClient = useQueryClient();
@@ -20,34 +26,47 @@ export default function WorkspaceSettingsPage() {
   const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [topUpMsg, setTopUpMsg] = useState<string | null>(null);
 
   const workspace = useQuery({
     queryKey: WORKSPACE_CURRENT_QUERY_KEY,
-    queryFn: async () => (await workspaceApi.getCurrent()).data,
+    queryFn: workspaceApi.getCurrent,
     enabled: authReady,
   });
 
   const transactions = useQuery({
-    queryKey: ["credits", "transactions"],
+    queryKey: TRANSACTIONS_QUERY_KEY,
     queryFn: async () => (await workspaceApi.getTransactions()).data,
     enabled: authReady,
   });
 
+  const ws = workspace.data?.data;
+
   useEffect(() => {
-    if (workspace.data?.name) setName(workspace.data.name);
-  }, [workspace.data?.name]);
+    if (ws?.name) setName(ws.name);
+  }, [ws?.name]);
 
   const rename = useMutation({
     mutationFn: () => workspaceApi.rename(name.trim()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WORKSPACE_CURRENT_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: CREDITS_QUERY_KEY });
+      refreshCredits(queryClient);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     },
   });
 
-  const balance = workspace.data?.balance;
+  const topUp = useMutation({
+    mutationFn: () => workspaceApi.topUpCredits(100),
+    onSuccess: (res) => {
+      setTopUpMsg(`Added ${res.data.amount} credits. New balance: ${res.data.balance.toLocaleString()}.`);
+      refreshCredits(queryClient);
+      queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
+      setTimeout(() => setTopUpMsg(null), 4000);
+    },
+  });
+
+  const balance = ws?.balance;
 
   return (
     <PageShell width="narrow">
@@ -76,12 +95,14 @@ export default function WorkspaceSettingsPage() {
               id="workspace-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder={workspace.isLoading ? "Loading…" : "Workspace name"}
               maxLength={100}
+              disabled={workspace.isLoading}
             />
           </div>
           <Button
             onClick={() => rename.mutate()}
-            disabled={rename.isPending || !name.trim()}
+            disabled={rename.isPending || !name.trim() || workspace.isLoading}
             className="w-full sm:w-auto"
           >
             {rename.isPending ? (
@@ -102,9 +123,26 @@ export default function WorkspaceSettingsPage() {
           </CardTitle>
           <CardDescription>Current balance for enrichment and exports.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-3xl font-semibold tabular-nums">
-            {balance != null ? balance.toLocaleString() : "—"}
+            {balance != null ? balance.toLocaleString() : workspace.isLoading ? "…" : "—"}
+          </p>
+          {topUpMsg && <Alert variant="success">{topUpMsg}</Alert>}
+          <Button
+            variant="outline"
+            onClick={() => topUp.mutate()}
+            disabled={topUp.isPending}
+            className="w-full sm:w-auto"
+          >
+            {topUp.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            Add 100 credits
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Beta top-up — Stripe billing will replace this later.
           </p>
         </CardContent>
       </Card>
@@ -115,7 +153,13 @@ export default function WorkspaceSettingsPage() {
           <CardDescription>Recent credit transactions.</CardDescription>
         </CardHeader>
         <CardContent>
-          {transactions.data?.length ? (
+          {transactions.isLoading && (
+            <p className="text-sm text-muted-foreground">Loading transactions…</p>
+          )}
+          {transactions.error && (
+            <Alert variant="warning">Could not load usage history.</Alert>
+          )}
+          {!transactions.isLoading && transactions.data?.length ? (
             <ul className="divide-y rounded-md border">
               {transactions.data.map((tx) => (
                 <li
@@ -142,7 +186,13 @@ export default function WorkspaceSettingsPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No transactions yet.</p>
+            !transactions.isLoading &&
+            !transactions.error && (
+              <p className="text-sm text-muted-foreground">
+                No transactions yet. Use &quot;Add 100 credits&quot; or run an enrichment to see
+                activity here.
+              </p>
+            )
           )}
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SidebarPanel, TopBar } from "@/components/workspace/sidebar";
+import { IcpEnforcement } from "@/components/layout/icp-enforcement";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden">
+      <IcpEnforcement />
       {/* Desktop sidebar */}
       <div className="hidden w-64 shrink-0 border-r lg:block">
         <SidebarPanel className="h-full w-64" />
