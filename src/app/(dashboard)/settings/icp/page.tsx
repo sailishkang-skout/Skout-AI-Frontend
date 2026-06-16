@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,7 +17,7 @@ import { isIcpConfigured } from "@/lib/scoring";
 import { useAuthReady } from "@/lib/api-client";
 import type { IcpConfig } from "@/types/api";
 
-export default function IcpSettingsPage() {
+function IcpSettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnPath = searchParams.get("return");
@@ -97,5 +97,19 @@ export default function IcpSettingsPage() {
         </CardContent>
       </Card>
     </PageShell>
+  );
+}
+
+export default function IcpSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell width="narrow">
+          <PageHeader title="ICP settings" description="Loading…" />
+        </PageShell>
+      }
+    >
+      <IcpSettingsContent />
+    </Suspense>
   );
 }
