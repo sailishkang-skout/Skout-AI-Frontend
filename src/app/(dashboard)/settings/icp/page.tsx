@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -12,10 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EMPTY_ICP, IcpForm } from "@/components/icp/icp-form";
 import { useIcpApi } from "@/lib/icp";
+import { isIcpConfigured } from "@/lib/scoring";
 import { useAuthReady } from "@/lib/api-client";
 import type { IcpConfig } from "@/types/api";
 
 export default function IcpSettingsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = searchParams.get("return");
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
   const authReady = useAuthReady();
@@ -37,9 +42,15 @@ export default function IcpSettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["icp"] });
       setSaved(true);
+      if (returnPath && isIcpConfigured(config)) {
+        router.replace(returnPath);
+        return;
+      }
       setTimeout(() => setSaved(false), 2500);
     },
   });
+
+  const setupRequired = Boolean(returnPath);
 
   return (
     <PageShell width="narrow">
@@ -57,6 +68,12 @@ export default function IcpSettingsPage() {
       />
 
       <DemoBanner />
+
+      {setupRequired && !isIcpConfigured(config) && (
+        <Alert variant="warning">
+          Configure your ICP before running enrichment. Save your profile below to continue.
+        </Alert>
+      )}
 
       {icp.error && <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>}
 

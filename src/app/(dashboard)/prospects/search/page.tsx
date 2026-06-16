@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
-import { Check, Loader2, Search, UserPlus, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Loader2, Search, Target, UserPlus, Zap } from "lucide-react";
+import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,23 +15,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { useApiFetch, useAuthReady } from "@/lib/api-client";
+import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
+import { useIcpApi } from "@/lib/icp";
+import { isIcpConfigured } from "@/lib/scoring";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
   const api = useApiFetch();
   const authReady = useAuthReady();
   const enrichmentApi = useEnrichmentApi();
+  const icpApi = useIcpApi();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string }>>({});
+  const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
+  const [scoreError, setScoreError] = useState<string | null>(null);
+
+  const icp = useQuery({
+    queryKey: ["icp"],
+    queryFn: icpApi.get,
+    enabled: authReady,
+  });
+
+  const icpReady = isIcpConfigured(icp.data?.config);
 
   const search = useQuery({
-    queryKey: ["prospects", "search"],
+    queryKey: ["prospects", "search", query],
     queryFn: () =>
       api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
@@ -46,6 +60,24 @@ export default function ProspectSearchPage() {
   });
 
   const results = search.data?.results ?? [];
+  const prospectIds = useMemo(() => results.map((p) => p.prospectId), [results]);
+
+  const storedScores = useQuery({
+    queryKey: ["scores", prospectIds],
+    queryFn: async () => {
+      const res = await enrichmentApi.lookupScores(prospectIds);
+      return res.scores;
+    },
+    enabled: authReady && prospectIds.length > 0,
+  });
+
+  const scores = useMemo(() => {
+    const base = { ...storedScores.data };
+    for (const [id, score] of Object.entries(scoreOverrides)) {
+      base[id] = { prospectId: id, score, priority: null, reasoning: null, scoredAt: "" };
+    }
+    return base;
+  }, [storedScores.data, scoreOverrides]);
 
   const toSnapshot = (p: ProspectSummary): ProspectSnapshotInput => ({
     prospectId: p.prospectId,
@@ -78,12 +110,11 @@ export default function ProspectSearchPage() {
       enrichmentApi.enrichProspect(p.prospectId, toSnapshot(p), ["company", "email", "validation"]),
     onSuccess: (data, p) => {
       syncCreditsAfterEnrich(queryClient, data.creditsUsed);
-      upsertJobFromEnrichResponse(
-        queryClient,
-        data,
-        p.prospectId,
-        ["company", "email", "validation"]
-      );
+      upsertJobFromEnrichResponse(queryClient, data, p.prospectId, [
+        "company",
+        "email",
+        "validation",
+      ]);
       setEnriched((cur) => ({
         ...cur,
         [p.prospectId]: {
@@ -91,6 +122,22 @@ export default function ProspectSearchPage() {
           status: data.results.find((r) => r.field === "email_status")?.value,
         },
       }));
+    },
+  });
+
+  const scoreLead = useMutation({
+    mutationFn: (p: ProspectSummary) => enrichmentApi.scoreProspect(toSnapshot(p)),
+    onSuccess: (data) => {
+      setScoreError(null);
+      setScoreOverrides((cur) => ({ ...cur, [data.prospectId]: data.icpScore }));
+      void storedScores.refetch();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 400) {
+        setScoreError("Set up your ICP before scoring leads.");
+      } else {
+        setScoreError("Could not score this lead.");
+      }
     },
   });
 
@@ -111,10 +158,26 @@ export default function ProspectSearchPage() {
     <PageShell>
       <PageHeader
         title="Prospect search"
-        description="Search the corpus, enrich contacts, and add them to lists for bulk enrichment."
+        description="Search the corpus, score against your ICP, enrich contacts, and add them to lists."
       />
 
       <DemoBanner />
+
+      {!icp.isLoading && !icpReady && (
+        <Alert variant="warning">
+          ICP is not configured — scoring is disabled until you set it up.{" "}
+          <Link href="/settings/icp" className="font-medium underline underline-offset-2">
+            ICP settings
+          </Link>{" "}
+          or{" "}
+          <Link href="/onboarding/icp" className="font-medium underline underline-offset-2">
+            setup wizard
+          </Link>
+          .
+        </Alert>
+      )}
+
+      {scoreError && <Alert variant="warning">{scoreError}</Alert>}
 
       <Card>
         <CardHeader>
@@ -201,32 +264,58 @@ export default function ProspectSearchPage() {
         </CardHeader>
         <CardContent>
           {authReady && search.error && (
-            <Alert variant="warning" className="mb-4">Could not reach search API.</Alert>
+            <Alert variant="warning" className="mb-4">
+              Could not reach search API.
+            </Alert>
           )}
           {results.length ? (
             <ul>
               {results.map((p) => {
                 const e = enriched[p.prospectId];
-                const pending = enrich.isPending && enrich.variables?.prospectId === p.prospectId;
+                const pendingEnrich =
+                  enrich.isPending && enrich.variables?.prospectId === p.prospectId;
+                const pendingScore =
+                  scoreLead.isPending && scoreLead.variables?.prospectId === p.prospectId;
                 const isSelected = selected.has(p.prospectId);
+                const score = scores?.[p.prospectId]?.score;
                 return (
                   <ListRow
                     key={p.prospectId}
                     actions={
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => enrich.mutate(p)}
-                        disabled={pending}
-                        className="w-full sm:w-auto"
-                      >
-                        {pending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        {score != null ? (
+                          <ScoreBadge score={score} className="justify-center sm:self-center" />
                         ) : (
-                          <Zap className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => scoreLead.mutate(p)}
+                            disabled={pendingScore || !icpReady}
+                            className="w-full sm:w-auto"
+                          >
+                            {pendingScore ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Target className="h-4 w-4" />
+                            )}
+                            Score
+                          </Button>
                         )}
-                        Enrich
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => enrich.mutate(p)}
+                          disabled={pendingEnrich}
+                          className="w-full sm:w-auto"
+                        >
+                          {pendingEnrich ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Zap className="h-4 w-4" />
+                          )}
+                          Enrich
+                        </Button>
+                      </div>
                     }
                   >
                     <div className="flex items-start gap-3">

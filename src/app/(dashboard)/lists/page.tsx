@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEnrichmentApi, refreshCredits, refreshJobs } from "@/lib/enrichment";
+import { useRedirectToIcpSetup } from "@/lib/icp";
 import { useAuthReady } from "@/lib/api-client";
 import { formatJobTime } from "@/lib/enrichment-display";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ export default function ListsPage() {
   const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
+  const { redirectToIcpSetup } = useRedirectToIcpSetup();
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -149,7 +151,10 @@ export default function ListsPage() {
                 list={list}
                 batch={Object.values(batches).find((b) => b.listId === list.id)}
                 enriching={enrichList.isPending && enrichList.variables === list.id}
-                onEnrich={() => enrichList.mutate(list.id)}
+                onEnrich={() => {
+                  if (redirectToIcpSetup("/lists")) return;
+                  enrichList.mutate(list.id);
+                }}
               />
             ))}
           </div>
@@ -224,7 +229,9 @@ function ListCard({
     <Card className={cn("flex flex-col", empty && "opacity-90")}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-2 text-base leading-snug">{list.name}</CardTitle>
+          <Link href={`/lists/${list.id}`} className="min-w-0 hover:underline">
+            <CardTitle className="line-clamp-2 text-base leading-snug">{list.name}</CardTitle>
+          </Link>
           <Badge tone={empty ? "warning" : "success"} className="shrink-0">
             {list.prospectCount}
           </Badge>
@@ -262,6 +269,13 @@ function ListCard({
             </div>
           </div>
         )}
+
+        <Link
+          href={`/lists/${list.id}`}
+          className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-accent"
+        >
+          Open list
+        </Link>
 
         <Button
           size="sm"

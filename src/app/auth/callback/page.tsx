@@ -24,11 +24,11 @@ export default async function AuthCallbackPage() {
       if (!data?.data) {
         redirect("/onboarding/icp");
       }
-      redirect("/prospects/search");
+      redirect("/dashboard");
     }
   } catch {
     // Backend unreachable — continue to app; user can open Setup wizard from sidebar.
   }
 
-  redirect("/prospects/search");
+  redirect("/dashboard");
 }

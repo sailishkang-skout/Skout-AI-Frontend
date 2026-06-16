@@ -38,7 +38,7 @@ export default function IcpOnboardingPage() {
     mutationFn: () => icpApi.save(config),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["icp"] });
-      router.push("/prospects/search");
+      router.push("/dashboard");
     },
   });
 
@@ -84,7 +84,7 @@ export default function IcpOnboardingPage() {
         {isLast ? (
           <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full sm:w-auto">
             {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save & go to search
+            Save & go to dashboard
           </Button>
         ) : (
           <Button

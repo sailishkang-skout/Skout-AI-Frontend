@@ -7,8 +7,11 @@ import type {
   EnrichmentBatch,
   EnrichmentJob,
   EnrichTriggerResponse,
+  ListDetail,
   ProspectList,
+  ProspectScoreRecord,
   ProspectSnapshotInput,
+  ScoreResult,
 } from "@/types/api";
 
 export const CREDITS_QUERY_KEY = ["enrichment", "credits"] as const;
@@ -216,6 +219,34 @@ export function useEnrichmentApi() {
       fetchApi<ProspectList>(`/api/v1/lists/${listId}/members`, {
         method: "POST",
         body: JSON.stringify({ prospects }),
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    getList: (listId: string) =>
+      fetchApi<ListDetail>(`/api/v1/lists/${listId}`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    scoreList: (listId: string) =>
+      fetchApi<{ listId: string; scored: number; results: Array<{ prospectId: string; icpScore: number; icpBand: string }> }>(
+        `/api/v1/lists/${listId}/score`,
+        { method: "POST", workspaceId: WORKSPACE_ID }
+      ),
+
+    lookupScores: (prospectIds: string[]) =>
+      fetchApi<{ scores: Record<string, ProspectScoreRecord> }>(
+        "/api/v1/enrichment/scores/lookup",
+        {
+          method: "POST",
+          body: JSON.stringify({ prospectIds }),
+          workspaceId: WORKSPACE_ID,
+        }
+      ),
+
+    scoreProspect: (prospect: ProspectSnapshotInput) =>
+      fetchApi<ScoreResult>("/api/v1/enrichment/score", {
+        method: "POST",
+        body: JSON.stringify({ prospect }),
         workspaceId: WORKSPACE_ID,
       }),
   };

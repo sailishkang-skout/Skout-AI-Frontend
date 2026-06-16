@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, Coins, Loader2, Mail, Phone, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -25,6 +25,7 @@ import {
   upsertJobFromEnrichResponse,
 } from "@/lib/enrichment";
 import { formatJobTime, resultValue, shortId } from "@/lib/enrichment-display";
+import { useRedirectToIcpSetup } from "@/lib/icp";
 import { cn } from "@/lib/utils";
 import type { EnrichField, EnrichmentJob } from "@/types/api";
 
@@ -47,6 +48,13 @@ export default function EnrichmentPage() {
   const [fields, setFields] = useState<EnrichField[]>(["company", "email", "validation"]);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
+
+  useEffect(() => {
+    if (!icpLoading && !configured) {
+      redirectToIcpSetup("/enrichment");
+    }
+  }, [icpLoading, configured, redirectToIcpSetup]);
 
   const credits = useQuery({
     queryKey: CREDITS_QUERY_KEY,
@@ -125,6 +133,24 @@ export default function EnrichmentPage() {
     setFields((cur) => (cur.includes(id) ? cur.filter((f) => f !== id) : [...cur, id]));
 
   const canSubmit = domain.trim().length > 0 && fields.length > 0 && !enrich.isPending;
+
+  const handleEnrich = () => {
+    if (redirectToIcpSetup("/enrichment")) return;
+    enrich.mutate();
+  };
+
+  if (authReady && icpLoading) {
+    return (
+      <PageShell>
+        <PageHeader title="Enrichment" description="Loading…" />
+        <p className="text-sm text-muted-foreground">Checking ICP configuration…</p>
+      </PageShell>
+    );
+  }
+
+  if (authReady && !configured) {
+    return null;
+  }
 
   return (
     <PageShell>
@@ -208,7 +234,7 @@ export default function EnrichmentPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button onClick={() => enrich.mutate()} disabled={!canSubmit} className="w-full sm:w-auto">
+              <Button onClick={handleEnrich} disabled={!canSubmit} className="w-full sm:w-auto">
                 {enrich.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

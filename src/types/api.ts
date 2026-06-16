@@ -225,3 +225,55 @@ export interface ScoreResult {
   outreachReadiness: string;
   reasoning: string;
 }
+
+export interface ProspectScoreRecord {
+  prospectId: string;
+  score: number;
+  priority: string | null;
+  reasoning: string | null;
+  scoredAt: string;
+}
+
+export interface DashboardSummary {
+  workspaceName: string;
+  credits: number;
+  listCount: number;
+  totalProspectsInLists: number;
+  icpConfigured: boolean;
+  recentJobs: Array<{
+    id: string;
+    prospectId: string;
+    status: string;
+    creditsUsed: number;
+    queuedAt: string;
+    completedAt: string | null;
+  }>;
+}
+
+export interface ListMemberDetail {
+  prospectId: string;
+  snapshot: Record<string, unknown>;
+  score: ProspectScoreRecord | null;
+}
+
+export interface ListDetail {
+  list: ProspectList;
+  members: ListMemberDetail[];
+}
+
+export interface CreditTransaction {
+  id: string;
+  workspaceId: string;
+  amount: number;
+  action: string;
+  referenceId: string | null;
+  createdAt: string;
+}
+
+export interface WorkspaceCurrent {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  balance: number | null;
+}

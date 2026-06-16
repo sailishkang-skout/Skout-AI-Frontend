@@ -40,6 +40,10 @@ export type NavGroup = {
 
 export const enrichmentNav: NavGroup[] = [
   {
+    label: "Home",
+    items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3 }],
+  },
+  {
     label: "Discover",
     items: [
       { href: "/prospects/search", label: "Prospect search", icon: Search },
