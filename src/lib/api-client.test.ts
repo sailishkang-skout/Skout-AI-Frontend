@@ -22,11 +22,19 @@ function makeResponse(status: number, body: unknown, ok = status >= 200 && statu
 }
 
 describe("apiFetch", () => {
-  it("sends Content-Type: application/json", async () => {
+  it("does not set Content-Type on GET without a body", async () => {
     mockFetch.mockResolvedValue(makeResponse(200, {}));
     await apiFetch("/api/v1/test");
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get("Content-Type")).toBeNull();
+  });
+
+  it("sets Content-Type and empty JSON body on POST without a body", async () => {
+    mockFetch.mockResolvedValue(makeResponse(200, {}));
+    await apiFetch("/api/v1/test", { method: "POST" });
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
+    expect(init.body).toBe("{}");
   });
 
   it("builds the URL from NEXT_PUBLIC_API_URL + path", async () => {
@@ -113,6 +121,7 @@ describe("apiFetch", () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe("POST");
     expect(init.body).toBe(JSON.stringify({ x: 1 }));
+    expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
   });
 });
 

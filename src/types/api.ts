@@ -297,6 +297,24 @@ export interface HubSpotConnectResponse {
   authorizationUrl: string;
 }
 
+export interface HubSpotListSummary {
+  listId: string;
+  name: string;
+  size: number;
+}
+
+export interface HubSpotListsResponse {
+  data: HubSpotListSummary[];
+  total: number;
+}
+
+export interface HubSpotImportResponse {
+  listId: string;
+  imported: number;
+  skipped: number;
+  source: string;
+}
+
 export interface CrmExportJob {
   id: string;
   jobType: string;

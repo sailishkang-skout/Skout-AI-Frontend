@@ -4,6 +4,8 @@ import type {
   CrmConnectionsResponse,
   CrmExportJob,
   HubSpotConnectResponse,
+  HubSpotImportResponse,
+  HubSpotListsResponse,
 } from "@/types/api";
 
 export function useCrmApi() {
@@ -21,6 +23,21 @@ export function useCrmApi() {
     disconnectHubSpot: () =>
       fetchApi<void>("/api/v1/crm/hubspot", {
         method: "DELETE",
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    listHubSpotLists: () =>
+      fetchApi<HubSpotListsResponse>("/api/v1/crm/hubspot/lists", { workspaceId: WORKSPACE_ID }),
+
+    importFromHubSpot: (body: {
+      source: "all" | "list";
+      hubspotListId?: string;
+      targetListId?: string;
+      newListName?: string;
+    }) =>
+      fetchApi<HubSpotImportResponse>("/api/v1/crm/hubspot/import", {
+        method: "POST",
+        body: JSON.stringify(body),
         workspaceId: WORKSPACE_ID,
       }),
 
