@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ListIcon, Loader2, Plus, Search, Users, Zap } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ListIcon, Loader2, Pencil, Plus, Search, Trash2, Users, X, Zap } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -33,7 +33,7 @@ export default function ListsPage() {
     enabled: authReady,
   });
 
-  const listData = lists.data?.data ?? [];
+  const listData = useMemo(() => lists.data?.data ?? [], [lists.data]);
 
   const stats = useMemo(() => {
     const totalProspects = listData.reduce((sum, l) => sum + l.prospectCount, 0);
@@ -67,6 +67,17 @@ export default function ListsPage() {
     onSuccess: (res) => {
       void pollBatch(res.batchId);
     },
+  });
+
+  const renameList = useMutation({
+    mutationFn: ({ listId, name: n }: { listId: string; name: string }) =>
+      enrichmentApi.renameList(listId, n),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lists"] }),
+  });
+
+  const deleteList = useMutation({
+    mutationFn: (listId: string) => enrichmentApi.deleteList(listId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lists"] }),
   });
 
   return (
@@ -155,6 +166,10 @@ export default function ListsPage() {
                   if (redirectToIcpSetup("/lists")) return;
                   enrichList.mutate(list.id);
                 }}
+                onRename={(n) => renameList.mutate({ listId: list.id, name: n })}
+                onDelete={() => deleteList.mutate(list.id)}
+                renaming={renameList.isPending && renameList.variables?.listId === list.id}
+                deleting={deleteList.isPending && deleteList.variables === list.id}
               />
             ))}
           </div>
@@ -216,28 +231,100 @@ function ListCard({
   batch,
   enriching,
   onEnrich,
+  onRename,
+  onDelete,
+  renaming,
+  deleting,
 }: {
   list: ProspectList;
   batch?: EnrichmentBatch;
   enriching: boolean;
   onEnrich: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+  renaming: boolean;
+  deleting: boolean;
 }) {
   const empty = list.prospectCount === 0;
   const progress = batch && batch.total > 0 ? Math.round((batch.done / batch.total) * 100) : 0;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(list.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit() {
+    setDraft(list.name);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function commitRename() {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== list.name) onRename(trimmed);
+    setEditing(false);
+  }
 
   return (
-    <Card className={cn("flex flex-col", empty && "opacity-90")}>
+    <Card className={cn("flex flex-col", (empty || deleting) && "opacity-80")}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/lists/${list.id}`} className="min-w-0 hover:underline">
-            <CardTitle className="line-clamp-2 text-base leading-snug">{list.name}</CardTitle>
-          </Link>
-          <Badge tone={empty ? "warning" : "success"} className="shrink-0">
-            {list.prospectCount}
-          </Badge>
+          {editing ? (
+            <input
+              ref={inputRef}
+              className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-0.5 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+          ) : (
+            <Link href={`/lists/${list.id}`} className="min-w-0 hover:underline">
+              <CardTitle className="line-clamp-2 text-base leading-snug">{list.name}</CardTitle>
+            </Link>
+          )}
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={startEdit}
+              disabled={renaming || deleting}
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+              aria-label="Rename list"
+            >
+              {renaming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleting}
+              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+              aria-label="Delete list"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+            <Badge tone={empty ? "warning" : "success"}>{list.prospectCount}</Badge>
+          </div>
         </div>
         <CardDescription>Created {formatJobTime(list.createdAt)}</CardDescription>
       </CardHeader>
+
+      {confirmDelete && (
+        <div className="mx-4 mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          <p className="mb-2 font-medium text-destructive">Delete &ldquo;{list.name}&rdquo;?</p>
+          <div className="flex gap-2">
+            <Button size="sm" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { onDelete(); setConfirmDelete(false); }}>
+              Delete
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+              <X className="h-3.5 w-3.5" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       <CardContent className="mt-auto space-y-3 pt-0">
         {empty ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -267,6 +354,11 @@ function ListCard({
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {batch.status === "completed" && (
+              <p className="text-xs text-green-700 dark:text-green-400">
+                Enrichment complete — {batch.done} done{batch.failed > 0 ? `, ${batch.failed} failed` : ""}.
+              </p>
+            )}
           </div>
         )}
 

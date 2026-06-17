@@ -222,6 +222,26 @@ export function useEnrichmentApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
+    renameList: (listId: string, name: string) =>
+      fetchApi<ProspectList>(`/api/v1/lists/${listId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    deleteList: (listId: string) =>
+      fetchApi<void>(`/api/v1/lists/${listId}`, {
+        method: "DELETE",
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    removeMembers: (listId: string, prospectIds: string[]) =>
+      fetchApi<ProspectList>(`/api/v1/lists/${listId}/members`, {
+        method: "DELETE",
+        body: JSON.stringify({ prospectIds }),
+        workspaceId: WORKSPACE_ID,
+      }),
+
     getList: (listId: string) =>
       fetchApi<ListDetail>(`/api/v1/lists/${listId}`, {
         workspaceId: WORKSPACE_ID,
