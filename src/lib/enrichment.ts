@@ -198,10 +198,10 @@ export function useEnrichmentApi() {
     listLists: () =>
       fetchApi<ListEnvelope<ProspectList>>("/api/v1/lists", { workspaceId: WORKSPACE_ID }),
 
-    createList: (name: string, prospects: ProspectSnapshotInput[]) =>
+    createList: (name: string) =>
       fetchApi<ProspectList>("/api/v1/lists", {
         method: "POST",
-        body: JSON.stringify({ name, prospects }),
+        body: JSON.stringify({ name }),
         workspaceId: WORKSPACE_ID,
       }),
 
@@ -215,15 +215,20 @@ export function useEnrichmentApi() {
         }
       ),
 
-    addToList: (listId: string, prospects: ProspectSnapshotInput[]) =>
+    addToList: (listId: string, prospectIds: string[]) =>
       fetchApi<ProspectList>(`/api/v1/lists/${listId}/members`, {
         method: "POST",
-        body: JSON.stringify({ prospects }),
+        body: JSON.stringify({ prospectIds }),
         workspaceId: WORKSPACE_ID,
       }),
 
     getList: (listId: string) =>
       fetchApi<ListDetail>(`/api/v1/lists/${listId}`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    getListMembers: (listId: string) =>
+      fetchApi<ListMemberDetail[]>(`/api/v1/lists/${listId}/members`, {
         workspaceId: WORKSPACE_ID,
       }),
 

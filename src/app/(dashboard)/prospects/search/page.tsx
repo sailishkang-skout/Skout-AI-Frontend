@@ -59,7 +59,7 @@ export default function ProspectSearchPage() {
     enabled: authReady,
   });
 
-  const results = search.data?.results ?? [];
+  const results = useMemo(() => search.data?.results ?? [], [search.data]);
   const prospectIds = useMemo(() => results.map((p) => p.prospectId), [results]);
 
   const storedScores = useQuery({
@@ -143,8 +143,8 @@ export default function ProspectSearchPage() {
 
   const addToList = useMutation({
     mutationFn: () => {
-      const prospects = results.filter((p) => selected.has(p.prospectId)).map(toSnapshot);
-      return enrichmentApi.addToList(addListId, prospects);
+      const prospectIds = results.filter((p) => selected.has(p.prospectId)).map((p) => p.prospectId);
+      return enrichmentApi.addToList(addListId, prospectIds);
     },
     onSuccess: (list) => {
       setAddedMsg(`Added ${selected.size} to "${list.name}"`);

@@ -33,7 +33,7 @@ export default function ListsPage() {
     enabled: authReady,
   });
 
-  const listData = lists.data?.data ?? [];
+  const listData = useMemo(() => lists.data?.data ?? [], [lists.data]);
 
   const stats = useMemo(() => {
     const totalProspects = listData.reduce((sum, l) => sum + l.prospectCount, 0);
@@ -42,7 +42,7 @@ export default function ListsPage() {
   }, [listData]);
 
   const createList = useMutation({
-    mutationFn: () => enrichmentApi.createList(name.trim(), []),
+    mutationFn: () => enrichmentApi.createList(name.trim()),
     onSuccess: () => {
       setName("");
       queryClient.invalidateQueries({ queryKey: ["lists"] });
