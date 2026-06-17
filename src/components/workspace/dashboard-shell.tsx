@@ -22,7 +22,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [mobileOpen]);
 
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="flex h-svh min-h-0 w-full overflow-hidden">
       <IcpEnforcement />
       {/* Desktop sidebar */}
       <div className="hidden w-64 shrink-0 border-r lg:block">
@@ -46,7 +46,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
-        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6")}>{children}</main>
+        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6")}>
+          {children}
+        </main>
       </div>
     </div>
   );
