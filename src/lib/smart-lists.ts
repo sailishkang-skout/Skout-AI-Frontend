@@ -29,10 +29,10 @@ export function useSmartListApi() {
         method: "POST",
       }),
 
-    activate: (id: string, listName?: string) =>
+    activate: (id: string, opts?: { listName?: string; listId?: string }) =>
       fetchApi<SmartListActivateResult>(`/api/v1/smart-lists/${id}/activate`, {
         method: "POST",
-        body: JSON.stringify(listName ? { listName } : {}),
+        body: JSON.stringify(opts ?? {}),
       }),
   };
 }

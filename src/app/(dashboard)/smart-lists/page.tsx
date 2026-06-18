@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
+import { useEnrichmentApi } from "@/lib/enrichment";
 import { useSmartListApi } from "@/lib/smart-lists";
+import { Select } from "@/components/ui/select";
 import type { ProspectSummary, SmartListFilters } from "@/types/api";
 
 const EMPTY_FILTERS: SmartListFilters = {};
@@ -35,12 +37,15 @@ const PREVIEW_LIMIT = 10;
 export default function SmartListsPage() {
   const queryClient = useQueryClient();
   const smartListApi = useSmartListApi();
+  const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [filters, setFilters] = useState<SmartListFilters>(EMPTY_FILTERS);
   const [runError, setRunError] = useState<string | null>(null);
   const [activateError, setActivateError] = useState<string | null>(null);
   const [activationListName, setActivationListName] = useState("");
+  const [addMode, setAddMode] = useState<"new" | "existing">("new");
+  const [selectedListId, setSelectedListId] = useState("");
   const [lastRun, setLastRun] = useState<{
     listId: string;
     listName: string;
@@ -53,6 +58,12 @@ export default function SmartListsPage() {
   const lists = useQuery({
     queryKey: ["smart-lists"],
     queryFn: smartListApi.list,
+    enabled: authReady,
+  });
+
+  const prospectLists = useQuery({
+    queryKey: ["lists"],
+    queryFn: enrichmentApi.listLists,
     enabled: authReady,
   });
 
@@ -71,6 +82,8 @@ export default function SmartListsPage() {
       setRunError(null);
       setActivateError(null);
       setActivatedListId(null);
+      setAddMode("new");
+      setSelectedListId("");
       setActivationListName(`${data.list.name} — ${new Date().toISOString().slice(0, 10)}`);
       setLastRun({
         listId: data.list.id,
@@ -87,11 +100,13 @@ export default function SmartListsPage() {
   });
 
   const activate = useMutation({
-    mutationFn: ({ id, listName }: { id: string; listName?: string }) =>
-      smartListApi.activate(id, listName),
+    mutationFn: ({ id, listName, listId }: { id: string; listName?: string; listId?: string }) =>
+      smartListApi.activate(id, { listName, listId }),
     onSuccess: (data) => {
       setActivateError(null);
       setActivatedListId(data.list.id);
+      setAddMode("new");
+      setSelectedListId("");
       setLastRun({
         listId: data.smartList.id,
         listName: data.smartList.name,
@@ -237,43 +252,89 @@ export default function SmartListsPage() {
               </p>
             )}
 
-            <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <label htmlFor="activation-list-name" className="text-xs font-medium text-muted-foreground">
-                  Activation list name
-                </label>
-                <Input
-                  id="activation-list-name"
-                  value={activationListName}
-                  onChange={(e) => setActivationListName(e.target.value)}
-                  placeholder="Name for the new prospect list"
-                />
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              {/* Mode toggle */}
+              <div className="flex rounded-md border border-border overflow-hidden w-fit text-sm">
+                <button
+                  type="button"
+                  onClick={() => setAddMode("new")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${addMode === "new" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
+                >
+                  New list
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddMode("existing")}
+                  className={`px-3 py-1.5 font-medium border-l border-border transition-colors ${addMode === "existing" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
+                >
+                  Existing list
+                </button>
               </div>
-              <Button
-                onClick={() =>
-                  activate.mutate({
-                    id: lastRun.listId,
-                    listName: activationListName.trim() || undefined,
-                  })
-                }
-                disabled={activate.isPending || lastRun.total === 0}
-                className="w-full shrink-0 sm:w-auto"
-              >
-                {activate.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                {addMode === "new" ? (
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <label htmlFor="activation-list-name" className="text-xs font-medium text-muted-foreground">
+                      New list name
+                    </label>
+                    <Input
+                      id="activation-list-name"
+                      value={activationListName}
+                      onChange={(e) => setActivationListName(e.target.value)}
+                      placeholder="Name for the new prospect list"
+                    />
+                  </div>
                 ) : (
-                  <Users className="h-4 w-4" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <label htmlFor="existing-list-select" className="text-xs font-medium text-muted-foreground">
+                      Add to existing list
+                    </label>
+                    <Select
+                      id="existing-list-select"
+                      value={selectedListId}
+                      onChange={(e) => setSelectedListId(e.target.value)}
+                    >
+                      <option value="">— Select a list —</option>
+                      {(prospectLists.data?.data ?? []).map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} ({l.prospectCount})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 )}
-                Create activation list ({lastRun.total.toLocaleString()})
-              </Button>
+                <Button
+                  onClick={() =>
+                    activate.mutate(
+                      addMode === "existing"
+                        ? { id: lastRun.listId, listId: selectedListId || undefined }
+                        : { id: lastRun.listId, listName: activationListName.trim() || undefined }
+                    )
+                  }
+                  disabled={
+                    activate.isPending ||
+                    lastRun.total === 0 ||
+                    (addMode === "existing" && !selectedListId)
+                  }
+                  className="w-full shrink-0 sm:w-auto"
+                >
+                  {activate.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                  {addMode === "new"
+                    ? `Create list (${lastRun.total.toLocaleString()})`
+                    : `Add to list (${lastRun.total.toLocaleString()})`}
+                </Button>
+              </div>
             </div>
 
             {activatedListId && (
               <Alert variant="success">
-                <span className="font-medium">{lastRun.total.toLocaleString()} prospects</span> activated
-                and added to your list.{" "}
-                <Link href="/lists" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
-                  Open lists
+                <span className="font-medium">{lastRun.total.toLocaleString()} prospects</span> added to list.{" "}
+                <Link href={`/lists/${activatedListId}`} className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                  Open list
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               </Alert>

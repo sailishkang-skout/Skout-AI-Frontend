@@ -3,11 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
-import { ArrowLeft, Loader2, Target } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowLeft, Download, Loader2, Pencil, Target, Trash2, X } from "lucide-react";
+import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
-import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,35 @@ import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import type { ListMemberDetail } from "@/types/api";
 
-function memberLabel(m: ListMemberDetail) {
-  const name = m.snapshot.fullName ?? m.prospectId;
-  const parts = [m.snapshot.title, m.snapshot.companyName].filter(Boolean);
-  return { name, subtitle: parts.join(" · ") };
+function snap(m: ListMemberDetail, key: string): string {
+  const v = m.snapshot[key];
+  return typeof v === "string" ? v : "";
+}
+
+function exportToCsv(listName: string, members: ListMemberDetail[]) {
+  const headers = ["Full Name", "Title", "Company Domain", "Industry", "Country", "Email", "Email Status", "ICP Score"];
+  const rows = members.map((m) => [
+    snap(m, "fullName"),
+    snap(m, "title"),
+    snap(m, "companyDomain"),
+    snap(m, "industry"),
+    snap(m, "country"),
+    snap(m, "email"),
+    snap(m, "emailStatus"),
+    (m as ListMemberDetail & { score?: { score: number } }).score?.score?.toString() ?? "",
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${listName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function ListDetailPage() {
@@ -28,7 +53,13 @@ export default function ListDetailPage() {
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
+
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
     queryKey: ["lists", listId],
@@ -36,30 +67,69 @@ export default function ListDetailPage() {
     enabled: authReady && Boolean(listId),
   });
 
+  const list = detail.data;
+  const members = detail.data?.members ?? [];
+
   const scoreAll = useMutation({
     mutationFn: () => enrichmentApi.scoreList(listId),
     onSuccess: () => {
       setScoreError(null);
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
-      queryClient.invalidateQueries({ queryKey: ["lists", listId, "members"] });
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.status === 400) {
-        setScoreError("Set up your ICP before scoring leads.");
-      } else {
-        setScoreError("Could not score this list.");
-      }
+      setScoreError(
+        err instanceof ApiError && err.status === 400
+          ? "Set up your ICP before scoring leads."
+          : "Could not score this list."
+      );
     },
   });
 
-  const membersQuery = useQuery({
-    queryKey: ["lists", listId, "members"],
-    queryFn: () => enrichmentApi.getListMembers(listId),
-    enabled: authReady && Boolean(listId),
+  const renameList = useMutation({
+    mutationFn: (name: string) => enrichmentApi.renameList(listId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists", listId] });
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+    },
   });
 
-  const list = detail.data;
-  const members = membersQuery.data ?? [];
+  const removeMembers = useMutation({
+    mutationFn: (ids: string[]) => enrichmentApi.removeMembers(listId, ids),
+    onSuccess: () => {
+      setSelected(new Set());
+      setConfirmRemove(null);
+      queryClient.invalidateQueries({ queryKey: ["lists", listId] });
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+    },
+  });
+
+  function startEditName() {
+    setNameDraft(list?.name ?? "");
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.select(), 0);
+  }
+
+  function commitRename() {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== list?.name) renameList.mutate(trimmed);
+    setEditingName(false);
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selected.size === members.length) setSelected(new Set());
+    else setSelected(new Set(members.map((m) => m.prospectId)));
+  }
+
+  const allSelected = members.length > 0 && selected.size === members.length;
 
   return (
     <PageShell>
@@ -73,14 +143,50 @@ export default function ListDetailPage() {
         </Link>
       </div>
 
-      <PageHeader
-        title={list?.name ?? "List"}
-        description={
-          list
-            ? `${list.prospectCount} prospect${list.prospectCount === 1 ? "" : "s"}`
-            : "Loading list…"
-        }
-        actions={
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          {editingName ? (
+            <input
+              ref={nameInputRef}
+              className="rounded border border-border bg-background px-2 py-0.5 text-xl font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+            />
+          ) : (
+            <>
+              <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+                {list?.name ?? "List"}
+              </h1>
+              <button
+                type="button"
+                onClick={startEditName}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Rename list"
+              >
+                {renameList.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Pencil className="h-4 w-4" />
+                )}
+              </button>
+            </>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!members.length}
+            onClick={() => exportToCsv(list?.name ?? "list", members)}
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -94,69 +200,167 @@ export default function ListDetailPage() {
             )}
             Score all
           </Button>
-        }
-      />
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {list ? `${list.prospectCount} prospect${list.prospectCount === 1 ? "" : "s"}` : "Loading list…"}
+      </p>
 
       <DemoBanner />
 
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {detail.error && <Alert variant="warning">List not found or API unavailable.</Alert>}
 
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
+          <span className="font-medium">{selected.size} selected</span>
+          <Button
+            size="sm"
+            onClick={() => setConfirmRemove("bulk")}
+            disabled={removeMembers.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {removeMembers.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Remove selected
+          </Button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="ml-auto text-muted-foreground hover:text-foreground"
+            aria-label="Clear selection"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {confirmRemove === "bulk" && (
+        <Alert variant="warning">
+          <p className="mb-2 font-medium">
+            Remove {selected.size} prospect{selected.size === 1 ? "" : "s"} from this list?
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => removeMembers.mutate(Array.from(selected))}
+            >
+              Remove
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setConfirmRemove(null)}>
+              Cancel
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Members</CardTitle>
-          {list && list.prospectCount > 0 && (
-            <CardDescription>
-              {list.prospectCount} prospect{list.prospectCount === 1 ? "" : "s"} in this list.{" "}
-              <Link href="/lists" className="text-primary underline underline-offset-2">
-                Go to enrichment
-              </Link>{" "}
-              to bulk-enrich, or{" "}
-              <Link href="/prospects/search" className="text-primary underline underline-offset-2">
-                search
-              </Link>{" "}
-              to add more.
-            </CardDescription>
-          )}
-          {(!list || list.prospectCount === 0) && (
-            <CardDescription>ICP scores reflect your workspace ICP settings.</CardDescription>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Members</CardTitle>
+              {list && list.prospectCount > 0 ? (
+                <CardDescription>
+                  ICP scores reflect your workspace ICP settings.{" "}
+                  <Link href="/enrichment" className="text-primary underline underline-offset-2">
+                    Go to enrichment
+                  </Link>{" "}
+                  to bulk-enrich, or{" "}
+                  <Link href="/prospects/search" className="text-primary underline underline-offset-2">
+                    search
+                  </Link>{" "}
+                  to add more.
+                </CardDescription>
+              ) : (
+                <CardDescription>ICP scores reflect your workspace ICP settings.</CardDescription>
+              )}
+            </div>
+            {members.length > 0 && (
+              <Button size="sm" variant="outline" onClick={selectAll} className="w-full sm:w-auto">
+                {allSelected ? "Deselect all" : "Select all"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {(detail.isLoading || membersQuery.isLoading) && (
+          {detail.isLoading && (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
           )}
-          {membersQuery.error && (
-            <Alert variant="warning">Could not load members.</Alert>
-          )}
-          {!detail.isLoading && !membersQuery.isLoading && members.length > 0 && (
+          {!detail.isLoading && members.length > 0 && (
             <ul>
               {members.map((m) => {
-                const { name, subtitle } = memberLabel(m);
+                const name = snap(m, "fullName") || m.prospectId;
+                const subtitle = [snap(m, "title"), snap(m, "companyDomain")].filter(Boolean).join(" · ");
+                const email = snap(m, "email");
+                const isSelected = selected.has(m.prospectId);
+                const confirming = confirmRemove === m.prospectId;
+                const memberScore = (m as ListMemberDetail & { score?: { score: number } }).score;
+
                 return (
                   <ListRow key={m.prospectId}>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="font-medium">{name}</p>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(m.prospectId)}
+                        aria-label={`Select ${name}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{name}</p>
+                          {memberScore && <ScoreBadge score={memberScore.score} />}
+                        </div>
                         {subtitle && (
                           <p className="text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
                         )}
-                        {m.snapshot.email && (
-                          <p className="text-xs text-muted-foreground">{m.snapshot.email}</p>
+                        {email && <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>}
+                      </div>
+                      <div className="shrink-0">
+                        {confirming ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => removeMembers.mutate([m.prospectId])}
+                              disabled={removeMembers.isPending}
+                            >
+                              {removeMembers.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Remove"
+                              )}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirmRemove(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRemove(m.prospectId)}
+                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Remove ${name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         )}
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">Not scored</span>
                     </div>
                   </ListRow>
                 );
               })}
             </ul>
           )}
-          {!detail.isLoading && !membersQuery.isLoading && !membersQuery.error && members.length === 0 && (
+          {!detail.isLoading && !detail.error && members.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No prospects in this list yet. Add some from{" "}
+              No prospects in this list yet.{" "}
               <Link href="/prospects/search" className="text-primary underline underline-offset-2">
-                search
+                Add some from search
               </Link>
               .
             </p>
