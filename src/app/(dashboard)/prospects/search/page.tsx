@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Check, Loader2, Search, Target, UserPlus, Zap } from "lucide-react";
+import { Check, Loader2, RefreshCw, Search, Target, UserPlus, Zap } from "lucide-react";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -16,8 +16,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
-import { useIcpApi } from "@/lib/icp";
+import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
 import { isIcpConfigured } from "@/lib/scoring";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
@@ -26,10 +27,14 @@ export default function ProspectSearchPage() {
   const authReady = useAuthReady();
   const enrichmentApi = useEnrichmentApi();
   const icpApi = useIcpApi();
+  const { redirectToIcpSetup } = useRedirectToIcpSetup();
+  const { showInsufficientCredits } = useCreditsModal();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string }>>({});
+  const [enriched, setEnriched] = useState<
+    Record<string, { email?: string; status?: string; failed?: boolean }>
+  >({});
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
@@ -120,10 +125,20 @@ export default function ProspectSearchPage() {
         [p.prospectId]: {
           email: data.results.find((r) => r.field === "email")?.value,
           status: data.results.find((r) => r.field === "email_status")?.value,
+          failed: data.status === "failed",
         },
       }));
     },
+    onError: (err, p) => {
+      if (handleCreditsError(err, showInsufficientCredits)) return;
+      setEnriched((cur) => ({ ...cur, [p.prospectId]: { failed: true } }));
+    },
   });
+
+  const handleEnrich = (p: ProspectSummary) => {
+    if (redirectToIcpSetup("/prospects/search")) return;
+    enrich.mutate(p);
+  };
 
   const scoreLead = useMutation({
     mutationFn: (p: ProspectSummary) => enrichmentApi.scoreProspect(toSnapshot(p)),
@@ -304,16 +319,18 @@ export default function ProspectSearchPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => enrich.mutate(p)}
+                          onClick={() => handleEnrich(p)}
                           disabled={pendingEnrich}
                           className="w-full sm:w-auto"
                         >
                           {pendingEnrich ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : e?.failed ? (
+                            <RefreshCw className="h-4 w-4" />
                           ) : (
                             <Zap className="h-4 w-4" />
                           )}
-                          Enrich
+                          {e?.failed ? "Retry" : "Enrich"}
                         </Button>
                       </div>
                     }
@@ -338,6 +355,11 @@ export default function ProspectSearchPage() {
                           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                             <span className="break-all font-medium">{e.email}</span>
                             {e.status && <Badge tone={statusTone(e.status)}>{e.status}</Badge>}
+                          </p>
+                        )}
+                        {e?.failed && !pendingEnrich && (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                            Enrichment failed — try again
                           </p>
                         )}
                       </div>

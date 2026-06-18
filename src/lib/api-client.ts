@@ -50,17 +50,28 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { workspaceId, authToken, ...init } = options ?? {};
   const headers = new Headers(init.headers);
+  const method = (init.method ?? "GET").toUpperCase();
+  let body = init.body;
 
-  headers.set("Content-Type", "application/json");
+  // Fastify rejects Content-Type: application/json with an empty body.
+  const sendsJsonBody = ["POST", "PUT", "PATCH"].includes(method);
+  if ((body === undefined || body === null || body === "") && sendsJsonBody) {
+    body = "{}";
+  }
+
   if (authToken) {
     headers.set("Authorization", `Bearer ${authToken}`);
   }
   if (workspaceId) {
     headers.set("X-Workspace-Id", workspaceId);
   }
+  if (body !== undefined && body !== null && body !== "") {
+    headers.set("Content-Type", "application/json");
+  }
 
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
+    body,
     headers,
     credentials: "include",
   });

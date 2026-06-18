@@ -283,3 +283,58 @@ export interface WorkspaceCurrent {
   createdAt: string;
   balance: number | null;
 }
+
+export interface CrmConnection {
+  id: string;
+  provider: string;
+  status: string;
+  externalAccountId: string | null;
+  connectedAt: string;
+  tokenExpiresAt: string | null;
+}
+
+export interface CrmConnectionsResponse {
+  workspaceId: string;
+  data: CrmConnection[];
+  total: number;
+}
+
+export interface HubSpotConnectResponse {
+  authorizationUrl: string;
+}
+
+export interface HubSpotListSummary {
+  listId: string;
+  name: string;
+  size: number;
+}
+
+export interface HubSpotListsResponse {
+  data: HubSpotListSummary[];
+  total: number;
+}
+
+export interface HubSpotImportResponse {
+  listId: string;
+  imported: number;
+  skipped: number;
+  source: string;
+}
+
+export interface CrmExportJob {
+  id: string;
+  jobType: string;
+  status: string;
+  entityType: string | null;
+  entityId: string | null;
+  result?: {
+    total?: number;
+    pushed?: number;
+    skippedNoEmail?: number;
+    errors?: string[];
+  } | null;
+  errorMessage: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}

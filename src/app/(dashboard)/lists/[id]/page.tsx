@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, Download, Loader2, Pencil, Target, Trash2, X } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
+import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -13,7 +14,8 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
-import { useEnrichmentApi } from "@/lib/enrichment";
+import { useCrmApi } from "@/lib/crm";
+import { refreshCredits, useEnrichmentApi } from "@/lib/enrichment";
 import type { ListMemberDetail } from "@/types/api";
 
 function snap(m: ListMemberDetail, key: string): string {
@@ -52,9 +54,13 @@ export default function ListDetailPage() {
   const listId = params.id;
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
+  const crmApi = useCrmApi();
   const authReady = useAuthReady();
+  const { showInsufficientCredits } = useCreditsModal();
 
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -67,8 +73,19 @@ export default function ListDetailPage() {
     enabled: authReady && Boolean(listId),
   });
 
+  const connections = useQuery({
+    queryKey: ["crm", "connections"],
+    queryFn: crmApi.listConnections,
+    enabled: authReady,
+  });
+
+  const hubspotConnected = connections.data?.data.some(
+    (c) => c.provider === "hubspot" && c.status === "connected"
+  );
+
   const list = detail.data;
   const members = detail.data?.members ?? [];
+  const creditCost = members.length;
 
   const scoreAll = useMutation({
     mutationFn: () => enrichmentApi.scoreList(listId),
@@ -100,6 +117,52 @@ export default function ListDetailPage() {
       setConfirmRemove(null);
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
       queryClient.invalidateQueries({ queryKey: ["lists"] });
+    },
+  });
+
+  const exportHubSpot = useMutation({
+    mutationFn: () => crmApi.exportListToHubSpot(listId),
+    onSuccess: async (data) => {
+      setExportError(null);
+      setExportMsg("Export started…");
+      const poll = async (attempts = 0): Promise<void> => {
+        const job = await crmApi.getExportJob(data.jobId);
+        if (job.status === "completed" && job.result) {
+          setExportMsg(
+            `Pushed ${job.result.pushed ?? 0} contact(s) to HubSpot` +
+              (job.result.skippedNoEmail
+                ? ` (${job.result.skippedNoEmail} skipped — no email)`
+                : "")
+          );
+          refreshCredits(queryClient);
+          return;
+        }
+        if (job.status === "failed") {
+          setExportError(job.errorMessage ?? "HubSpot export failed.");
+          setExportMsg(null);
+          return;
+        }
+        if (attempts < 30) {
+          await new Promise((r) => setTimeout(r, 2000));
+          return poll(attempts + 1);
+        }
+        setExportMsg("Export is still running — check HubSpot shortly.");
+      };
+      void poll();
+    },
+    onError: (err) => {
+      setExportMsg(null);
+      if (err instanceof ApiError && err.status === 400) {
+        setExportError(
+          err.message === "hubspot_not_connected"
+            ? "Connect HubSpot in CRM settings first."
+            : err.message === "list_empty"
+              ? "This list has no members to export."
+              : "Could not start HubSpot export."
+        );
+      } else if (!handleCreditsError(err, showInsufficientCredits)) {
+        setExportError("Could not start HubSpot export.");
+      }
     },
   });
 
@@ -200,6 +263,18 @@ export default function ListDetailPage() {
             )}
             Score all
           </Button>
+          <Button
+            size="sm"
+            disabled={!members.length || !hubspotConnected || exportHubSpot.isPending}
+            onClick={() => exportHubSpot.mutate()}
+          >
+            {exportHubSpot.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Export to HubSpot
+          </Button>
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -208,7 +283,18 @@ export default function ListDetailPage() {
 
       <DemoBanner />
 
+      {!hubspotConnected && members.length > 0 && (
+        <Alert variant="warning">
+          <Link href="/settings/crm" className="font-medium underline underline-offset-2">
+            Connect HubSpot
+          </Link>{" "}
+          to export this list ({creditCost} credit{creditCost === 1 ? "" : "s"}).
+        </Alert>
+      )}
+
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
+      {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
+      {exportError && <Alert variant="warning">{exportError}</Alert>}
       {detail.error && <Alert variant="warning">List not found or API unavailable.</Alert>}
 
       {selected.size > 0 && (

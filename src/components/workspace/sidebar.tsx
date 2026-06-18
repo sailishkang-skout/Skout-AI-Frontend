@@ -81,6 +81,7 @@ export const otherNav: NavGroup[] = [
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/settings/crm", label: "CRM sync", icon: Settings },
+      { href: "/settings/integrations", label: "Integrations", icon: Zap },
       { href: "/settings/workspace", label: "Workspace", icon: Users },
     ],
   },
@@ -161,7 +162,7 @@ export function SidebarPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent md:hidden"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
@@ -207,13 +208,13 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const role = me?.role ?? "member";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         {onMenuClick && (
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent lg:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent lg:hidden"
             aria-label="Open menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -221,19 +222,24 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             </svg>
           </button>
         )}
-        <p className="truncate text-sm text-muted-foreground">
-          Workspace: <span className="font-medium text-foreground">{workspaceName}</span>
+        <p className="min-w-0 truncate text-sm text-muted-foreground">
+          <span className="sm:hidden font-medium text-foreground">Skout</span>
+          <span className="hidden sm:inline">
+            Workspace: <span className="font-medium text-foreground">{workspaceName}</span>
+          </span>
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {credits !== null && credits !== undefined && (
-          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          <span className="hidden items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 sm:flex">
             <Zap className="h-3 w-3" />
             {credits.toLocaleString()}
           </span>
         )}
         <ThemeToggle />
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize">{role}</span>
+        <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize md:inline">
+          {role}
+        </span>
         <UserButton afterSignOutUrl="/sign-in" />
       </div>
     </header>

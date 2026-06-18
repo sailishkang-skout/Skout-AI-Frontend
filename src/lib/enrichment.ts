@@ -8,6 +8,7 @@ import type {
   EnrichmentJob,
   EnrichTriggerResponse,
   ListDetail,
+  ListMemberDetail,
   ProspectList,
   ProspectScoreRecord,
   ProspectSnapshotInput,
@@ -276,3 +277,4 @@ export function useEnrichmentApi() {
       }),
   };
 }
+

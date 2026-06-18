@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronRight, Coins, Loader2, Mail, Phone, Zap } from "lucide-react";
+import { ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
+import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -49,6 +50,7 @@ export default function EnrichmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
+  const { showInsufficientCredits } = useCreditsModal();
 
   useEffect(() => {
     if (!icpLoading && !configured) {
@@ -119,13 +121,28 @@ export default function EnrichmentPage() {
       if (context?.optimisticId) {
         removeJobFromCache(queryClient, context.optimisticId);
       }
-      if (err instanceof ApiError && err.status === 402) {
-        setFormError("Insufficient credits — top up to run more enrichments.");
-      } else if (err instanceof ApiError) {
+      if (handleCreditsError(err, showInsufficientCredits)) return;
+      if (err instanceof ApiError) {
         setFormError(`API error (${err.status}). Check that the backend is running.`);
       } else {
         setFormError("Could not reach the API. Start the backend on port 3001.");
       }
+    },
+  });
+
+  const retryJob = useMutation({
+    mutationFn: (job: EnrichmentJob) =>
+      enrichmentApi.enrichProspect(
+        job.prospectId,
+        { companyDomain: job.prospectId, prospectId: job.prospectId },
+        job.fieldsRequested as EnrichField[]
+      ),
+    onSuccess: (data, job) => {
+      upsertJobFromEnrichResponse(queryClient, data, job.prospectId, job.fieldsRequested as EnrichField[]);
+      syncCreditsAfterEnrich(queryClient, data.creditsUsed);
+    },
+    onError: (err) => {
+      handleCreditsError(err, showInsufficientCredits);
     },
   });
 
@@ -298,6 +315,15 @@ export default function EnrichmentPage() {
                     job={job}
                     selected={selectedJobId === job.id}
                     onSelect={() => setSelectedJobId(job.id)}
+                    onRetry={
+                      job.status === "failed"
+                        ? () => {
+                            if (redirectToIcpSetup("/enrichment")) return;
+                            retryJob.mutate(job);
+                          }
+                        : undefined
+                    }
+                    retrying={retryJob.isPending && retryJob.variables?.id === job.id}
                   />
                 ))}
               </ul>
@@ -325,41 +351,69 @@ function JobListItem({
   job,
   selected,
   onSelect,
+  onRetry,
+  retrying,
 }: {
   job: EnrichmentJob;
   selected: boolean;
   onSelect: () => void;
+  onRetry?: () => void;
+  retrying?: boolean;
 }) {
   const email = resultValue(job.results, "email");
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={onSelect}
+      <div
         className={cn(
-          "flex w-full items-center gap-3 py-3 text-left text-sm transition-colors hover:bg-accent/50",
+          "flex w-full items-center gap-2 py-3 text-sm transition-colors",
           selected && "bg-accent/60"
         )}
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{shortId(job.prospectId, 16)}</span>
-            <Badge tone={statusTone(job.status)}>{job.status}</Badge>
-            {(job.status === "running" || job.status === "queued") && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
-            )}
+        <button
+          type="button"
+          onClick={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-accent/50"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{shortId(job.prospectId, 16)}</span>
+              <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+              {(job.status === "running" || job.status === "queued") && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {job.fieldsRequested.join(", ")}
+              {email ? ` · ${email}` : ""}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+              {formatJobTime(job.completedAt ?? job.startedAt ?? job.queuedAt)} · {job.creditsUsed} cr
+            </p>
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {job.fieldsRequested.join(", ")}
-            {email ? ` · ${email}` : ""}
-          </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-            {formatJobTime(job.completedAt ?? job.startedAt ?? job.queuedAt)} · {job.creditsUsed} cr
-          </p>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-      </button>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        </button>
+        {onRetry && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            disabled={retrying}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetry();
+            }}
+          >
+            {retrying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Retry
+          </Button>
+        )}
+      </div>
     </li>
   );
 }
