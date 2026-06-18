@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+import { withSentryConfig } from "@sentry/nextjs";
+
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const nextConfig = {
@@ -25,4 +27,7 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+});

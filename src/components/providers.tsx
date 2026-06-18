@@ -7,6 +7,7 @@ import { isRetryableAuthError } from "@/lib/api-client";
 import { getAppOrigin } from "@/lib/app-url";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { CreditsModalProvider } from "@/components/credits/insufficient-credits-modal";
+import { PostHogProvider } from "@/components/posthog-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -30,29 +31,33 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!publishableKey) {
     return (
       <ThemeProvider>
-        <CreditsModalProvider>
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </CreditsModalProvider>
+        <PostHogProvider>
+          <CreditsModalProvider>
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          </CreditsModalProvider>
+        </PostHogProvider>
       </ThemeProvider>
     );
   }
 
   return (
     <ThemeProvider>
-      <ClerkProvider
-        publishableKey={publishableKey}
-        signInUrl={appOrigin ? `${appOrigin}/sign-in` : "/sign-in"}
-        signUpUrl={appOrigin ? `${appOrigin}/sign-up` : "/sign-up"}
-        signInFallbackRedirectUrl={appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback"}
-        signUpFallbackRedirectUrl={appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback"}
-        {...(appOrigin
-          ? { allowedRedirectOrigins: [appOrigin] as [string, ...string[]] }
-          : {})}
-      >
+      <PostHogProvider>
+        <ClerkProvider
+          publishableKey={publishableKey}
+          signInUrl={appOrigin ? `${appOrigin}/sign-in` : "/sign-in"}
+          signUpUrl={appOrigin ? `${appOrigin}/sign-up` : "/sign-up"}
+          signInFallbackRedirectUrl={appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback"}
+          signUpFallbackRedirectUrl={appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback"}
+          {...(appOrigin
+            ? { allowedRedirectOrigins: [appOrigin] as [string, ...string[]] }
+            : {})}
+        >
         <CreditsModalProvider>
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </CreditsModalProvider>
       </ClerkProvider>
+      </PostHogProvider>
     </ThemeProvider>
   );
 }

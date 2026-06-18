@@ -2,12 +2,17 @@
 
 Next.js web app for the Skout AI GTM platform.
 
-## Stack
+## Tech stack
 
-- **Next.js 14+** (App Router)
-- **TypeScript**
-- **Tailwind CSS** + shadcn-style components
-- **TanStack Query** for server state
+| Layer | Technology |
+| --- | --- |
+| **Framework** | Next.js 14 (App Router), React 18, TypeScript |
+| **Styling** | Tailwind CSS, shadcn-style UI components |
+| **State** | TanStack Query (server state) |
+| **Auth** | Clerk (`@clerk/nextjs`) |
+| **API** | REST → backend `@skout/api` (Fastify) |
+| **Observability** | `createClientLogger()` in `src/lib/logger.ts` (structured console; Sentry/PostHog optional) |
+| **Deploy** | Docker → AWS ECR → ECS (via backend CI/CD) |
 
 ## Structure
 
@@ -15,61 +20,101 @@ Next.js web app for the Skout AI GTM platform.
 src/
 ├── app/
 │   ├── (dashboard)/          # Authenticated workspace shell
-│   │   ├── prospects/search/ # Global corpus search (P0)
+│   │   ├── prospects/search/
 │   │   ├── lists/
 │   │   ├── enrichment/
-│   │   ├── sequences/
-│   │   ├── inbox/
-│   │   ├── deliverability/
-│   │   ├── ai/review/
-│   │   ├── analytics/
-│   │   └── settings/
-│   ├── layout.tsx
-│   └── page.tsx
+│   │   ├── settings/crm/     # HubSpot connect + import
+│   │   ├── settings/integrations/  # BYOK keys
+│   │   └── …
+│   ├── icon.tsx              # Favicon (generated)
+│   └── layout.tsx
 ├── components/
-│   ├── ui/                   # Base UI primitives
-│   └── workspace/            # Shell, sidebar, nav
-├── lib/                      # API client, utilities
-└── types/                    # API types (mirror backend shared pkg)
+├── lib/                      # api-client, crm, enrichment, logger
+└── types/
 ```
 
 ## Getting started
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env.local     # fill keys — see below
 pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Prospect search calls the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:3001`).
+Open [http://localhost:3000](http://localhost:3000).
+
+**Requires backend** on port 3001 — see `Skout AI Backend` README.
+
+## Environment variables
+
+| File | Purpose |
+| --- | --- |
+| `.env.local` | Your local keys (**gitignored**) |
+| `.env.example` | Safe template (committed) |
+
+| Variable | Required? | Where to get |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | Yes | `http://127.0.0.1:3001` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | [Clerk Dashboard](https://dashboard.clerk.com) → API Keys |
+| `CLERK_SECRET_KEY` | Yes | Same Clerk page |
+| `NEXT_PUBLIC_WORKSPACE_ID` | Yes (demo) | `00000000-0000-4000-8000-000000000001` after `pnpm db:seed` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional | [Sentry](https://sentry.io) → Frontend project → Client Keys |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Optional | [PostHog](https://posthog.com) → Project API key |
+
+## Test locally (with backend)
+
+```bash
+# Terminal 1 — backend
+cd "../Skout AI Backend"
+docker compose up -d postgres redis
+pnpm dev
+
+# Terminal 2 — frontend
+pnpm dev
+```
+
+1. Sign in at [http://localhost:3000](http://localhost:3000)
+2. Open browser DevTools → **Console** — client logs show as `[module] message`
+3. Backend logs appear in Terminal 1 as JSON (see backend README § Observability)
+4. CRM: **Settings → CRM** — connect HubSpot, test import
+5. Favicon: check browser tab for blue **S** icon
+
+## Observability
+
+| What | Where |
+| --- | --- |
+| **API logs** | Backend terminal (local) or CloudWatch `/skout/dev/api` (AWS) |
+| **Frontend logs** | Browser console (`createClientLogger`) |
+| **Errors (prod)** | Sentry when `NEXT_PUBLIC_SENTRY_DSN` is set |
+| **Analytics** | PostHog when `NEXT_PUBLIC_POSTHOG_KEY` is set |
+
+Use the backend README for CloudWatch Logs Insights queries and full observability testing.
 
 ## Pre-commit hooks
 
-Husky runs unit tests before each commit (`pnpm test`). Hooks install automatically via `pnpm install` (`prepare` script). Requires a git repo — run `git init` if cloning fresh files without `.git`.
+```bash
+pnpm test
+```
+
+Hooks install via `pnpm install` (husky).
 
 ## Related repo
 
-Backend API: `Skout AI Backend` monorepo (`apps/api`).
-
-**Repo layout (backend + frontend):** see `docs/repo-structure.md` in the backend repo — explains App Router folders, API client patterns, and how deploy pipelines connect both repos.
+Backend: **`Skout AI Backend`** (`apps/api`, `infra/`, deploy workflows).
 
 ## Docker (local)
 
-Requires the backend API on port **3001** (run `pnpm docker:local` in `Skout AI Backend` first).
+Requires backend API on port **3001**.
 
 ```bash
 pnpm run docker:local
-# or
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
-
-Open [http://localhost:3000](http://localhost:3000). Client-side API calls use `NEXT_PUBLIC_API_URL` (default `http://localhost:3001`).
 
 ## Deploy
 
 | Environment | How |
 | --- | --- |
-| **Local** | `pnpm dev` or `pnpm docker:local` |
-| **Dev / Prod** | GitHub Actions builds Docker image → AWS ECR → ECS (see backend `infra/README.md`) |
+| **Local** | `pnpm dev` |
+| **Dev / Prod** | Push backend `develop` / `main` — CI builds web image → ECR → ECS |
 
-AWS CDK and CI/CD pipelines live in the **Skout AI Backend** repo (`infra/`, `.github/workflows/deploy-*.yml`).
+AWS CDK and pipelines: backend `infra/README.md`.
