@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Loader2, Target } from "lucide-react";
-import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,12 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
+import type { ListMemberDetail } from "@/types/api";
 
-function memberLabel(snapshot: Record<string, unknown>, prospectId: string) {
-  const name = typeof snapshot.fullName === "string" ? snapshot.fullName : prospectId;
-  const title = typeof snapshot.title === "string" ? snapshot.title : "";
-  const domain = typeof snapshot.companyDomain === "string" ? snapshot.companyDomain : "";
-  return { name, subtitle: [title, domain].filter(Boolean).join(" · ") };
+function memberLabel(m: ListMemberDetail) {
+  const name = m.snapshot.fullName ?? m.prospectId;
+  const parts = [m.snapshot.title, m.snapshot.companyName].filter(Boolean);
+  return { name, subtitle: parts.join(" · ") };
 }
 
 export default function ListDetailPage() {
@@ -42,6 +41,7 @@ export default function ListDetailPage() {
     onSuccess: () => {
       setScoreError(null);
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
+      queryClient.invalidateQueries({ queryKey: ["lists", listId, "members"] });
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 400) {
@@ -52,8 +52,14 @@ export default function ListDetailPage() {
     },
   });
 
-  const list = detail.data?.list;
-  const members = detail.data?.members ?? [];
+  const membersQuery = useQuery({
+    queryKey: ["lists", listId, "members"],
+    queryFn: () => enrichmentApi.getListMembers(listId),
+    enabled: authReady && Boolean(listId),
+  });
+
+  const list = detail.data;
+  const members = membersQuery.data ?? [];
 
   return (
     <PageShell>
@@ -94,41 +100,59 @@ export default function ListDetailPage() {
       <DemoBanner />
 
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
-
-      {detail.error && (
-        <Alert variant="warning">List not found or API unavailable.</Alert>
-      )}
+      {detail.error && <Alert variant="warning">List not found or API unavailable.</Alert>}
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Members</CardTitle>
-          <CardDescription>ICP scores reflect your workspace ICP settings.</CardDescription>
+          {list && list.prospectCount > 0 && (
+            <CardDescription>
+              {list.prospectCount} prospect{list.prospectCount === 1 ? "" : "s"} in this list.{" "}
+              <Link href="/lists" className="text-primary underline underline-offset-2">
+                Go to enrichment
+              </Link>{" "}
+              to bulk-enrich, or{" "}
+              <Link href="/prospects/search" className="text-primary underline underline-offset-2">
+                search
+              </Link>{" "}
+              to add more.
+            </CardDescription>
+          )}
+          {(!list || list.prospectCount === 0) && (
+            <CardDescription>ICP scores reflect your workspace ICP settings.</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
-          {members.length ? (
+          {(detail.isLoading || membersQuery.isLoading) && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          )}
+          {membersQuery.error && (
+            <Alert variant="warning">Could not load members.</Alert>
+          )}
+          {!detail.isLoading && !membersQuery.isLoading && members.length > 0 && (
             <ul>
               {members.map((m) => {
-                const { name, subtitle } = memberLabel(m.snapshot, m.prospectId);
+                const { name, subtitle } = memberLabel(m);
                 return (
                   <ListRow key={m.prospectId}>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <p className="font-medium">{name}</p>
                         {subtitle && (
                           <p className="text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
                         )}
+                        {m.snapshot.email && (
+                          <p className="text-xs text-muted-foreground">{m.snapshot.email}</p>
+                        )}
                       </div>
-                      {m.score ? (
-                        <ScoreBadge score={m.score.score} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Not scored</span>
-                      )}
+                      <span className="shrink-0 text-xs text-muted-foreground">Not scored</span>
                     </div>
                   </ListRow>
                 );
               })}
             </ul>
-          ) : (
+          )}
+          {!detail.isLoading && !membersQuery.isLoading && !membersQuery.error && members.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No prospects in this list yet. Add some from{" "}
               <Link href="/prospects/search" className="text-primary underline underline-offset-2">

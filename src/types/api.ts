@@ -252,12 +252,18 @@ export interface DashboardSummary {
 
 export interface ListMemberDetail {
   prospectId: string;
-  snapshot: Record<string, unknown>;
-  score: ProspectScoreRecord | null;
+  companyId: string;
+  addedAt: string;
+  snapshot: {
+    fullName?: string;
+    email?: string;
+    title?: string;
+    companyName?: string;
+    [key: string]: unknown;
+  };
 }
 
-export interface ListDetail {
-  list: ProspectList;
+export interface ListDetail extends ProspectList {
   members: ListMemberDetail[];
 }
 
