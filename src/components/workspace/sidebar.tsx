@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
+import { CLERK_ENABLED } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -240,7 +241,9 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize md:inline">
           {role}
         </span>
-        <UserButton afterSignOutUrl="/sign-in" />
+        {CLERK_ENABLED ? (
+          <UserButton afterSignOutUrl="/sign-in" />
+        ) : null}
       </div>
     </header>
   );

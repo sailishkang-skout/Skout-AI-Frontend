@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/nextjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
-const CLERK_ENABLED = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+export const CLERK_ENABLED = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const AUTH_LOAD_POLL_MS = 25;
 const AUTH_LOAD_TIMEOUT_MS = 8_000;
@@ -20,10 +20,16 @@ export class ApiError extends Error {
 }
 
 /** True once Clerk has hydrated and the user has an active session. */
-export function useAuthReady(): boolean {
+function useAuthReadyClerk(): boolean {
   const { isLoaded, isSignedIn } = useAuth();
   return isLoaded && !!isSignedIn;
 }
+
+function useAuthReadyStub(): boolean {
+  return true;
+}
+
+export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
 
 export function isRetryableAuthError(error: unknown): boolean {
   if (!(error instanceof ApiError)) return false;
@@ -119,17 +125,13 @@ export async function getClerkApiToken(
   throw new ApiError("Missing Clerk session token — sign in again", 401);
 }
 
-export function useApiFetch() {
+function useApiFetchClerk() {
   const auth = useAuth();
 
   return async function fetchWithAuth<T>(
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<T> {
-    if (!CLERK_ENABLED) {
-      return apiFetch<T>(path, options);
-    }
-
     await waitForClerkLoaded(auth.isLoaded, () => auth.isLoaded);
 
     if (!auth.isSignedIn) {
@@ -144,5 +146,16 @@ export function useApiFetch() {
     });
   };
 }
+
+function useApiFetchStub() {
+  return async function fetchWithAuth<T>(
+    path: string,
+    options?: RequestInit & { workspaceId?: string }
+  ): Promise<T> {
+    return apiFetch<T>(path, options);
+  };
+}
+
+export const useApiFetch = CLERK_ENABLED ? useApiFetchClerk : useApiFetchStub;
 
 export { API_URL };
