@@ -15,25 +15,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
-import { refreshCredits, useEnrichmentApi } from "@/lib/enrichment";
+import { refreshCredits, syncCreditsAfterEnrich, useEnrichmentApi } from "@/lib/enrichment";
+import {
+  memberCompanyLabel,
+  memberDisplayName,
+  memberSnap,
+  memberSubtitle,
+} from "@/lib/list-members";
 import type { ListMemberDetail } from "@/types/api";
-
-function snap(m: ListMemberDetail, key: string): string {
-  const v = m.snapshot[key];
-  return typeof v === "string" ? v : "";
-}
 
 function exportToCsv(listName: string, members: ListMemberDetail[]) {
   const headers = ["Full Name", "Title", "Company Domain", "Industry", "Country", "Email", "Email Status", "ICP Score"];
   const rows = members.map((m) => [
-    snap(m, "fullName"),
-    snap(m, "title"),
-    snap(m, "companyDomain"),
-    snap(m, "industry"),
-    snap(m, "country"),
-    snap(m, "email"),
-    snap(m, "emailStatus"),
-    (m as ListMemberDetail & { score?: { score: number } }).score?.score?.toString() ?? "",
+    memberDisplayName(m),
+    memberSnap(m, "title"),
+    memberCompanyLabel(m),
+    memberSnap(m, "industry"),
+    memberSnap(m, "country"),
+    memberSnap(m, "email"),
+    memberSnap(m, "emailStatus"),
+    (m.score?.score?.toString() ?? ""),
   ]);
 
   const csvContent = [headers, ...rows]
@@ -85,15 +86,18 @@ export default function ListDetailPage() {
 
   const list = detail.data;
   const members = detail.data?.members ?? [];
-  const creditCost = members.length;
+  const hubspotCreditCost = members.length;
+  const scoreCreditCost = members.length * 2;
 
   const scoreAll = useMutation({
     mutationFn: () => enrichmentApi.scoreList(listId),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setScoreError(null);
+      syncCreditsAfterEnrich(queryClient, data.creditsUsed ?? scoreCreditCost);
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
     },
     onError: (err) => {
+      if (handleCreditsError(err, showInsufficientCredits)) return;
       setScoreError(
         err instanceof ApiError && err.status === 400
           ? "Set up your ICP before scoring leads."
@@ -288,7 +292,7 @@ export default function ListDetailPage() {
           <Link href="/settings/crm" className="font-medium underline underline-offset-2">
             Connect HubSpot
           </Link>{" "}
-          to export this list ({creditCost} credit{creditCost === 1 ? "" : "s"}).
+          to export this list ({hubspotCreditCost} credit{hubspotCreditCost === 1 ? "" : "s"}).
         </Alert>
       )}
 
@@ -379,12 +383,12 @@ export default function ListDetailPage() {
           {!detail.isLoading && members.length > 0 && (
             <ul>
               {members.map((m) => {
-                const name = snap(m, "fullName") || m.prospectId;
-                const subtitle = [snap(m, "title"), snap(m, "companyDomain")].filter(Boolean).join(" · ");
-                const email = snap(m, "email");
+                const name = memberDisplayName(m);
+                const subtitle = memberSubtitle(m);
+                const email = memberSnap(m, "email");
                 const isSelected = selected.has(m.prospectId);
                 const confirming = confirmRemove === m.prospectId;
-                const memberScore = (m as ListMemberDetail & { score?: { score: number } }).score;
+                const memberScore = m.score;
 
                 return (
                   <ListRow key={m.prospectId}>
@@ -399,7 +403,9 @@ export default function ListDetailPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{name}</p>
-                          {memberScore && <ScoreBadge score={memberScore.score} />}
+                          {memberScore && (
+                            <ScoreBadge score={memberScore.score} reasoning={memberScore.reasoning} />
+                          )}
                         </div>
                         {subtitle && (
                           <p className="text-xs text-muted-foreground sm:text-sm">{subtitle}</p>

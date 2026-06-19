@@ -6,6 +6,8 @@ export function isIcpConfigured(config: IcpConfig | null | undefined): boolean {
     config.industries?.length ||
       config.countries?.length ||
       config.seniorities?.length ||
+      config.titles?.length ||
+      config.keywords?.length ||
       config.minEmployees != null ||
       config.maxEmployees != null
   );

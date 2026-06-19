@@ -168,6 +168,8 @@ export interface IcpConfig {
   industries?: string[];
   countries?: string[];
   seniorities?: string[];
+  titles?: string[];
+  keywords?: string[];
   minEmployees?: number;
   maxEmployees?: number;
 }
@@ -224,6 +226,8 @@ export interface ScoreResult {
   painPoints: string[];
   outreachReadiness: string;
   reasoning: string;
+  source?: "llm" | "heuristic";
+  creditsUsed?: number;
 }
 
 export interface ProspectScoreRecord {
@@ -261,6 +265,7 @@ export interface ListMemberDetail {
     companyName?: string;
     [key: string]: unknown;
   };
+  score?: ProspectScoreRecord | null;
 }
 
 export interface ListDetail extends ProspectList {

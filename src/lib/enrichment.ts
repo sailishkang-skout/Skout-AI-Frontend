@@ -254,10 +254,12 @@ export function useEnrichmentApi() {
       }),
 
     scoreList: (listId: string) =>
-      fetchApi<{ listId: string; scored: number; results: Array<{ prospectId: string; icpScore: number; icpBand: string }> }>(
-        `/api/v1/lists/${listId}/score`,
-        { method: "POST", workspaceId: WORKSPACE_ID }
-      ),
+      fetchApi<{
+        listId: string;
+        scored: number;
+        creditsUsed?: number;
+        results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
+      }>(`/api/v1/lists/${listId}/score`, { method: "POST", workspaceId: WORKSPACE_ID }),
 
     lookupScores: (prospectIds: string[]) =>
       fetchApi<{ scores: Record<string, ProspectScoreRecord> }>(

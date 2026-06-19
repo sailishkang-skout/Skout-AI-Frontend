@@ -144,10 +144,12 @@ export default function ProspectSearchPage() {
     mutationFn: (p: ProspectSummary) => enrichmentApi.scoreProspect(toSnapshot(p)),
     onSuccess: (data) => {
       setScoreError(null);
+      syncCreditsAfterEnrich(queryClient, data.creditsUsed ?? 2);
       setScoreOverrides((cur) => ({ ...cur, [data.prospectId]: data.icpScore }));
       void storedScores.refetch();
     },
     onError: (err) => {
+      if (handleCreditsError(err, showInsufficientCredits)) return;
       if (err instanceof ApiError && err.status === 400) {
         setScoreError("Set up your ICP before scoring leads.");
       } else {
@@ -299,7 +301,11 @@ export default function ProspectSearchPage() {
                     actions={
                       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                         {score != null ? (
-                          <ScoreBadge score={score} className="justify-center sm:self-center" />
+                          <ScoreBadge
+                            score={score}
+                            reasoning={scores?.[p.prospectId]?.reasoning}
+                            className="justify-center sm:self-center"
+                          />
                         ) : (
                           <Button
                             size="sm"
