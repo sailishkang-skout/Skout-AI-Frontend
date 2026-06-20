@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { Check, Loader2, RefreshCw, Search, Target, UserPlus, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Loader2, RefreshCw, Target, UserPlus, Zap } from "lucide-react";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -19,8 +19,57 @@ import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
+import { COMPANY_SIZE_BUCKETS, REVENUE_RANGES, EMPTY_FILTER_DRAFT, type FilterDraft } from "@/lib/search-constants";
 import { isIcpConfigured } from "@/lib/scoring";
-import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
+import { ContactFilterSheet } from "@/components/prospects/contact-filter-sheet";
+import { CompanyFilterSheet } from "@/components/prospects/company-filter-sheet";
+import type { ProspectSearchFilters, ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
+
+function buildApiFilters(draft: FilterDraft): ProspectSearchFilters | undefined {
+  const f: ProspectSearchFilters = {};
+  // Contact
+  if (draft.jobTitle) f.jobTitle = draft.jobTitle;
+  if (draft.department) f.department = draft.department;
+  if (draft.seniority) f.seniority = draft.seniority;
+  if (draft.jobFunction) f.jobFunction = draft.jobFunction;
+  if (draft.emailAvailable) f.emailAvailable = true;
+  if (draft.phoneAvailable) f.phoneAvailable = true;
+  if (draft.linkedInAvailable) f.linkedInAvailable = true;
+  if (draft.minYearsAtCompany) f.minYearsAtCompany = Number(draft.minYearsAtCompany);
+  if (draft.minYearsInRole) f.minYearsInRole = Number(draft.minYearsInRole);
+  if (draft.previousCompany) f.previousCompany = draft.previousCompany;
+  if (draft.contactSignals.length) f.contactSignals = draft.contactSignals;
+  // Company — Basic
+  if (draft.companyName) f.companyName = draft.companyName;
+  if (draft.industry) f.industry = draft.industry;
+  if (draft.subIndustry) f.subIndustry = draft.subIndustry;
+  if (draft.country) f.country = draft.country;
+  if (draft.state) f.state = draft.state;
+  if (draft.city) f.city = draft.city;
+  if (draft.companySize) {
+    const bucket = COMPANY_SIZE_BUCKETS.find((b) => b.value === draft.companySize);
+    if (bucket) {
+      f.minEmployees = bucket.min;
+      if (bucket.max !== undefined) f.maxEmployees = bucket.max;
+    }
+  }
+  // Company — Stage & Funding
+  if (draft.companyStage) f.companyStage = draft.companyStage;
+  if (draft.lastFundingRound) f.lastFundingRound = draft.lastFundingRound;
+  if (draft.revenueRange) {
+    const bucket = REVENUE_RANGES.find((b) => b.value === draft.revenueRange);
+    if (bucket) {
+      f.minRevenue = bucket.min;
+      if (bucket.max !== undefined) f.maxRevenue = bucket.max;
+    }
+  }
+  // Company — Hiring
+  if (draft.currentlyHiring) f.currentlyHiring = true;
+  if (draft.hiringDepartments.length) f.hiringDepartments = draft.hiringDepartments;
+  // Company — Signals
+  if (draft.companySignals.length) f.companySignals = draft.companySignals;
+  return Object.keys(f).length ? f : undefined;
+}
 
 export default function ProspectSearchPage() {
   const api = useApiFetch();
@@ -31,10 +80,15 @@ export default function ProspectSearchPage() {
   const { showInsufficientCredits } = useCreditsModal();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState<FilterDraft>(EMPTY_FILTER_DRAFT);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [enriched, setEnriched] = useState<
-    Record<string, { email?: string; status?: string; failed?: boolean }>
-  >({});
+  const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string }>>({});
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), 400);
+    return () => clearTimeout(id);
+  }, [query]);
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
@@ -49,11 +103,16 @@ export default function ProspectSearchPage() {
   const icpReady = isIcpConfigured(icp.data?.config);
 
   const search = useQuery({
-    queryKey: ["prospects", "search", query],
+    queryKey: ["prospects", "search", debouncedQuery, appliedFilters],
     queryFn: () =>
       api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
-        body: JSON.stringify({ query, page: 1, pageSize: 25 }),
+        body: JSON.stringify({
+          query: debouncedQuery || undefined,
+          filters: buildApiFilters(appliedFilters),
+          page: 1,
+          pageSize: 25,
+        }),
       }),
     enabled: authReady,
   });
@@ -199,21 +258,18 @@ export default function ProspectSearchPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Search</CardTitle>
-          <CardDescription>Filter by title, industry, geography, or headcount.</CardDescription>
+          <CardDescription>Keyword search combined with contact and company filters.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
-              placeholder="e.g. VP Sales, Software, US…"
+              placeholder="e.g. VP Sales, fintech, Series B…"
               className="min-w-0 flex-1"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && search.refetch()}
             />
-            <Button onClick={() => search.refetch()} className="w-full shrink-0 sm:w-auto">
-              <Search className="h-4 w-4" />
-              Search
-            </Button>
+            <ContactFilterSheet value={appliedFilters} onApply={setAppliedFilters} />
+            <CompanyFilterSheet value={appliedFilters} onApply={setAppliedFilters} />
           </div>
         </CardContent>
       </Card>
