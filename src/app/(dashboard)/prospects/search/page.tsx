@@ -83,7 +83,7 @@ export default function ProspectSearchPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [appliedFilters, setAppliedFilters] = useState<FilterDraft>(EMPTY_FILTER_DRAFT);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string }>>({});
+  const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string; failed?: boolean }>>({});
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), 400);
