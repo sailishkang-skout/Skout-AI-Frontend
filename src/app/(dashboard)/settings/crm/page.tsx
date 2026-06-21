@@ -145,7 +145,9 @@ function CrmSettingsContent() {
       {importError && <Alert variant="warning">{importError}</Alert>}
 
       {connections.error && (
-        <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>
+        <Alert variant="error" title="Something went wrong" dismissible>
+          We couldn&apos;t load your CRM connections. Please try again.
+        </Alert>
       )}
 
       <Card>
@@ -279,7 +281,7 @@ function CrmSettingsContent() {
                           cd ~/hubspot-skout-app/skout-crm && hs project upload
                         </code>
                       </li>
-                      <li>Restart the Skout API</li>
+                      <li>Reconnect your HubSpot account</li>
                       <li>
                         Click <strong>Disconnect</strong>, then <strong>Connect HubSpot</strong> again
                       </li>

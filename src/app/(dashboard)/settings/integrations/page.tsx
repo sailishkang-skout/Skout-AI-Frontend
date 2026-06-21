@@ -208,7 +208,9 @@ export default function IntegrationsSettingsPage() {
       <DemoBanner />
 
       {integrations.error && (
-        <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>
+        <Alert variant="error" title="Something went wrong" dismissible>
+          We couldn&apos;t load your integrations. Please try again.
+        </Alert>
       )}
 
       {integrations.isLoading && (

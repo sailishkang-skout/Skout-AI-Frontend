@@ -75,7 +75,11 @@ function IcpSettingsContent() {
         </Alert>
       )}
 
-      {icp.error && <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>}
+      {icp.error && (
+        <Alert variant="error" title="Something went wrong" dismissible>
+          We couldn&apos;t load your ICP settings. Please try again.
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
