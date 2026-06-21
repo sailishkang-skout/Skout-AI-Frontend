@@ -52,11 +52,6 @@ export default function EnrichmentPage() {
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
 
-  useEffect(() => {
-    if (!icpLoading && !configured) {
-      redirectToIcpSetup("/enrichment");
-    }
-  }, [icpLoading, configured, redirectToIcpSetup]);
 
   const credits = useQuery({
     queryKey: CREDITS_QUERY_KEY,
@@ -165,9 +160,6 @@ export default function EnrichmentPage() {
     );
   }
 
-  if (authReady && !configured) {
-    return null;
-  }
 
   return (
     <PageShell>

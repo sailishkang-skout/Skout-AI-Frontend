@@ -19,9 +19,45 @@ export interface ProspectSummary {
   employeeCount?: number;
 }
 
+export interface ProspectSearchFilters {
+  // Contact
+  jobTitle?: string;
+  department?: string;
+  seniority?: string;
+  jobFunction?: string;
+  emailAvailable?: boolean;
+  phoneAvailable?: boolean;
+  linkedInAvailable?: boolean;
+  // Experience
+  minYearsAtCompany?: number;
+  minYearsInRole?: number;
+  previousCompany?: string;
+  // Contact Activity
+  contactSignals?: string[];
+  // Company — Basic
+  companyName?: string;
+  industry?: string;
+  subIndustry?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  minEmployees?: number;
+  maxEmployees?: number;
+  // Company — Stage & Funding
+  companyStage?: string;
+  lastFundingRound?: string;
+  minRevenue?: number;
+  maxRevenue?: number;
+  // Company — Hiring
+  currentlyHiring?: boolean;
+  hiringDepartments?: string[];
+  // Company — Signals
+  companySignals?: string[];
+}
+
 export interface SearchProspectsRequest {
   query?: string;
-  filters?: Record<string, string | string[] | number>;
+  filters?: ProspectSearchFilters;
   page?: number;
   pageSize?: number;
 }
