@@ -8,6 +8,9 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  // CI Playwright only — never set in production.
+  if (process.env.E2E_AUTH_BYPASS === "true") return;
+
   if (!isPublicRoute(request)) {
     auth().protect();
   }

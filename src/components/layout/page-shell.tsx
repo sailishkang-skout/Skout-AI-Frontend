@@ -12,12 +12,18 @@ export function PageShell({
   children,
   className,
   width = "default",
+  ...props
 }: {
   children: React.ReactNode;
   className?: string;
   width?: PageShellWidth;
-}) {
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("mx-auto w-full space-y-6", widthClass[width], className)}>{children}</div>
+    <div
+      className={cn("mx-auto w-full space-y-6", widthClass[width], className)}
+      {...props}
+    >
+      {children}
+    </div>
   );
 }

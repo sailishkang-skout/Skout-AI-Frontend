@@ -8,6 +8,7 @@ import { getAppOrigin } from "@/lib/app-url";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { CreditsModalProvider } from "@/components/credits/insufficient-credits-modal";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { ExtensionAuthSync } from "@/components/extension-auth-sync";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -53,6 +54,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             ? { allowedRedirectOrigins: [appOrigin] as [string, ...string[]] }
             : {})}
         >
+        <ExtensionAuthSync />
         <CreditsModalProvider>
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </CreditsModalProvider>

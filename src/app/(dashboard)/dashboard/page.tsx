@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const data = summary.data;
 
   return (
-    <PageShell>
+    <PageShell data-testid="page-dashboard">
       <PageHeader
         title="Dashboard"
         description={
@@ -81,9 +81,9 @@ export default function DashboardPage() {
             <CardDescription>Jump into your core workflows.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <QuickLink href="/prospects/search" icon={Search} label="Prospect search" />
-            <QuickLink href="/lists" icon={List} label="Lists" />
-            <QuickLink href="/enrichment" icon={Zap} label="Enrichment" />
+            <QuickLink href="/prospects/search" icon={Search} label="Prospect search" testId="quick-action-search" />
+            <QuickLink href="/lists" icon={List} label="Lists" testId="quick-action-lists" />
+            <QuickLink href="/enrichment" icon={Zap} label="Enrichment" testId="quick-action-enrichment" />
           </CardContent>
         </Card>
 
@@ -156,14 +156,17 @@ function QuickLink({
   href,
   icon: Icon,
   label,
+  testId,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  testId?: string;
 }) {
   return (
     <Link
       href={href}
+      data-testid={testId}
       className="flex items-center justify-between rounded-md border px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
     >
       <span className="flex items-center gap-2">

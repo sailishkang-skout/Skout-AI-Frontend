@@ -68,6 +68,7 @@ export interface SearchProspectsResponse {
   page: number;
   pageSize: number;
   cached: boolean;
+  creditsUsed?: number;
 }
 
 export interface ProspectList {

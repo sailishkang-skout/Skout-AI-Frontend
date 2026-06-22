@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { useApiFetch } from "./api-client";
+import { useApiFetch, CLERK_ENABLED, ApiError } from "./api-client";
 import type {
   ActivationRecord,
   CreditsResponse,
@@ -260,6 +260,21 @@ export function useEnrichmentApi() {
         creditsUsed?: number;
         results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
       }>(`/api/v1/lists/${listId}/score`, { method: "POST", workspaceId: WORKSPACE_ID }),
+
+    exportListCsv: async (listId: string) => {
+      const headers = new Headers();
+      if (!CLERK_ENABLED) {
+        headers.set("x-stub-user-email", "stub@example.com");
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001"}/api/v1/lists/${listId}/export/csv`, {
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new ApiError("CSV export failed", res.status);
+      }
+      return res.blob();
+    },
 
     lookupScores: (prospectIds: string[]) =>
       fetchApi<{ scores: Record<string, ProspectScoreRecord> }>(

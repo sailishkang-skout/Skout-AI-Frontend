@@ -86,7 +86,7 @@ export default function ListsPage() {
   });
 
   return (
-    <PageShell>
+    <PageShell data-testid="page-lists">
       <PageHeader
         title="Lists"
         description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
@@ -125,6 +125,7 @@ export default function ListsPage() {
               onKeyDown={(e) => e.key === "Enter" && name.trim() && createList.mutate()}
             />
             <Button
+              data-testid="create-list-button"
               onClick={() => createList.mutate()}
               disabled={!name.trim() || createList.isPending}
               className="w-full shrink-0 sm:w-auto"

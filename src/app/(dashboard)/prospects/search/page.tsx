@@ -104,16 +104,28 @@ export default function ProspectSearchPage() {
 
   const search = useQuery({
     queryKey: ["prospects", "search", debouncedQuery, appliedFilters],
-    queryFn: () =>
-      api<SearchProspectsResponse>("/api/v1/search/prospects", {
-        method: "POST",
-        body: JSON.stringify({
-          query: debouncedQuery || undefined,
-          filters: buildApiFilters(appliedFilters),
-          page: 1,
-          pageSize: 25,
-        }),
-      }),
+    queryFn: async () => {
+      try {
+        const data = await api<SearchProspectsResponse>("/api/v1/search/prospects", {
+          method: "POST",
+          body: JSON.stringify({
+            query: debouncedQuery || undefined,
+            filters: buildApiFilters(appliedFilters),
+            page: 1,
+            pageSize: 25,
+          }),
+        });
+        if (data.creditsUsed && data.creditsUsed > 0) {
+          syncCreditsAfterEnrich(queryClient, data.creditsUsed);
+        }
+        return data;
+      } catch (error) {
+        if (handleCreditsError(error, showInsufficientCredits)) {
+          throw error;
+        }
+        throw error;
+      }
+    },
     enabled: authReady,
   });
 
@@ -231,7 +243,7 @@ export default function ProspectSearchPage() {
   });
 
   return (
-    <PageShell>
+    <PageShell data-testid="page-prospect-search">
       <PageHeader
         title="Prospect search"
         description="Search the corpus, score against your ICP, enrich contacts, and add them to lists."
@@ -326,7 +338,7 @@ export default function ProspectSearchPage() {
               {(!authReady || search.isLoading) && "Loading…"}
               {authReady && search.error && "API unavailable — start the backend."}
               {search.data &&
-                `${search.data.total.toLocaleString()} matches · ${search.data.cached ? "cached" : "live"}`}
+                `${search.data.total.toLocaleString()} matches · ${search.data.cached ? "cached" : "live"}${search.data.creditsUsed ? ` · ${search.data.creditsUsed} credit used` : ""}`}
             </CardDescription>
           </div>
           {results.length > 0 && (
@@ -338,7 +350,9 @@ export default function ProspectSearchPage() {
         <CardContent>
           {authReady && search.error && (
             <Alert variant="warning" className="mb-4">
-              Could not reach search API.
+              {search.error instanceof ApiError && search.error.status === 402
+                ? "Not enough credits to run this search."
+                : "Could not reach search API."}
             </Alert>
           )}
           {results.length ? (

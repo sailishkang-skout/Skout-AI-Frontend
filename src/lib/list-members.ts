@@ -22,6 +22,18 @@ function isUsableCompanyLabel(value: string): boolean {
   return v.length > 1 && v !== "name" && v !== "company" && v !== "unknown";
 }
 
+/** LinkedIn extension uses synthetic domains like acme.linkedin for identity — not real websites. */
+export function isSyntheticCaptureDomain(domain: string): boolean {
+  const d = domain.trim().toLowerCase();
+  return d.endsWith(".linkedin") || d === "linkedin-capture.local";
+}
+
+export function memberCompanyDomain(m: ListMemberDetail): string {
+  const domain = memberSnap(m, "companyDomain");
+  if (domain && !isSyntheticCaptureDomain(domain)) return domain;
+  return "";
+}
+
 /** Prefer HubSpot/import fields over noisy firmographics nested company names. */
 export function memberCompanyLabel(m: ListMemberDetail): string {
   const snap = parseSnapshot(m);
@@ -29,7 +41,7 @@ export function memberCompanyLabel(m: ListMemberDetail): string {
   if (topName && isUsableCompanyLabel(topName)) return topName;
 
   const domain = typeof snap.companyDomain === "string" ? snap.companyDomain.trim() : "";
-  if (domain) return domain;
+  if (domain && isUsableCompanyLabel(domain) && !isSyntheticCaptureDomain(domain)) return domain;
 
   const nested = snap.company;
   if (nested && typeof nested === "object" && "companyName" in nested) {

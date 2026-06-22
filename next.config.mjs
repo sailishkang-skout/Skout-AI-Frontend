@@ -1,5 +1,8 @@
+import { createRequire } from "module";
 /** @type {import('next').NextConfig} */
 import { withSentryConfig } from "@sentry/nextjs";
+
+const require = createRequire(import.meta.url);
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -24,6 +27,20 @@ const nextConfig = {
         ...(appUrl ? [new URL(appUrl).host] : []),
       ],
     },
+  },
+  webpack: (config) => {
+    // pnpm can fail to resolve Next.js internal flight loaders from the project root.
+    const loaderDir = "next/dist/build/webpack/loaders";
+    config.resolveLoader = {
+      ...config.resolveLoader,
+      alias: {
+        ...(config.resolveLoader?.alias ?? {}),
+        "next-flight-client-entry-loader": require.resolve(`${loaderDir}/next-flight-client-entry-loader`),
+        "next-flight-action-entry-loader": require.resolve(`${loaderDir}/next-flight-action-entry-loader`),
+        "next-flight-client-module-loader": require.resolve(`${loaderDir}/next-flight-client-module-loader`),
+      },
+    };
+    return config;
   },
 };
 

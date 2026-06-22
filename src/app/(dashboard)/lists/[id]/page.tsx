@@ -4,9 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, Download, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
+import { ProspectMemberSheet } from "@/components/prospects/prospect-member-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageShell } from "@/components/layout/page-shell";
@@ -24,32 +25,6 @@ import {
 } from "@/lib/list-members";
 import type { ListMemberDetail } from "@/types/api";
 
-function exportToCsv(listName: string, members: ListMemberDetail[]) {
-  const headers = ["Full Name", "Title", "Company Domain", "Industry", "Country", "Email", "Email Status", "ICP Score"];
-  const rows = members.map((m) => [
-    memberDisplayName(m),
-    memberSnap(m, "title"),
-    memberCompanyLabel(m),
-    memberSnap(m, "industry"),
-    memberSnap(m, "country"),
-    memberSnap(m, "email"),
-    memberSnap(m, "emailStatus"),
-    (m.score?.score?.toString() ?? ""),
-  ]);
-
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${listName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
   const listId = params.id;
@@ -66,6 +41,7 @@ export default function ListDetailPage() {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [detailMember, setDetailMember] = useState<ListMemberDetail | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
@@ -198,6 +174,24 @@ export default function ListDetailPage() {
 
   const allSelected = members.length > 0 && selected.size === members.length;
 
+  async function handleExportCsv() {
+    if (!listId) return;
+    setExportError(null);
+    setExportMsg(null);
+    try {
+      const blob = await enrichmentApi.exportListCsv(listId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${(list?.name ?? "list").replace(/[^a-z0-9]/gi, "-").toLowerCase()}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setExportMsg("CSV downloaded.");
+    } catch {
+      setExportError("Could not export this list.");
+    }
+  }
+
   return (
     <PageShell>
       <div className="mb-4">
@@ -249,7 +243,7 @@ export default function ListDetailPage() {
             size="sm"
             variant="outline"
             disabled={!members.length}
-            onClick={() => exportToCsv(list?.name ?? "list", members)}
+            onClick={() => void handleExportCsv()}
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -402,7 +396,13 @@ export default function ListDetailPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{name}</p>
+                          <button
+                            type="button"
+                            onClick={() => setDetailMember(m)}
+                            className="text-left font-medium hover:text-primary hover:underline"
+                          >
+                            {name}
+                          </button>
                           {memberScore && (
                             <ScoreBadge score={memberScore.score} reasoning={memberScore.reasoning} />
                           )}
@@ -412,7 +412,15 @@ export default function ListDetailPage() {
                         )}
                         {email && <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>}
                       </div>
-                      <div className="shrink-0">
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDetailMember(m)}
+                          aria-label={`View details for ${name}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
                         {confirming ? (
                           <div className="flex items-center gap-1">
                             <Button
@@ -459,6 +467,12 @@ export default function ListDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ProspectMemberSheet
+        member={detailMember}
+        open={Boolean(detailMember)}
+        onClose={() => setDetailMember(null)}
+      />
     </PageShell>
   );
 }
