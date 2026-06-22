@@ -363,6 +363,53 @@ export interface HubSpotImportResponse {
   source: string;
 }
 
+export interface ManualProspectInput {
+  // Contact
+  fullName: string;
+  jobTitle?: string;
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  department?: string;
+  seniority?: string;
+  jobFunction?: string;
+  yearsAtCompany?: number;
+  yearsInRole?: number;
+  previousCompany?: string;
+  // Company
+  companyName?: string;
+  companyDomain?: string;
+  industry?: string;
+  subIndustry?: string;
+  companyDescription?: string;
+  keywords?: string[];
+  country?: string;
+  state?: string;
+  city?: string;
+  companySize?: string;
+  employeeCount?: number;
+  companyStage?: string;
+  // Revenue & Funding
+  annualRevenue?: string;
+  revenueRange?: string;
+  totalFundingRaised?: string;
+  lastFundingDate?: string;
+  lastFundingRound?: string;
+  investors?: string[];
+  // Hiring & Tech
+  currentlyHiring?: boolean;
+  openJobCount?: number;
+  hiringDepartments?: string[];
+  crmUsed?: string;
+  techStackKeywords?: string[];
+}
+
+export interface ManualProspectResponse {
+  prospectId: string;
+  companyId?: string;
+  message: string;
+}
+
 export interface CrmExportJob {
   id: string;
   jobType: string;
