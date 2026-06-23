@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { isIcpConfigured } from "@/lib/scoring";
+import type { IcpConfig } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
@@ -12,7 +14,7 @@ export default async function AuthCallbackPage() {
 
   try {
     const token = await getToken();
-    const res = await fetch(`${API_URL}/api/v1/icp`, {
+    const res = await fetch(`${API_URL}/api/v1/workspace/icp`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -20,20 +22,8 @@ export default async function AuthCallbackPage() {
     });
 
     if (res.ok) {
-      const payload = (await res.json()) as {
-        data?: { config?: Record<string, unknown> } | null;
-      };
-      const config = payload?.data?.config;
-      const configured =
-        Boolean(config) &&
-        (Boolean(
-          (config?.industries as string[] | undefined)?.length ||
-            (config?.countries as string[] | undefined)?.length ||
-            (config?.seniorities as string[] | undefined)?.length ||
-            config?.minEmployees != null ||
-            config?.maxEmployees != null
-        ));
-      if (!payload?.data || !configured) {
+      const payload = (await res.json()) as { config?: IcpConfig };
+      if (!isIcpConfigured(payload.config ?? {})) {
         redirect("/onboarding/icp");
       }
       redirect("/dashboard");

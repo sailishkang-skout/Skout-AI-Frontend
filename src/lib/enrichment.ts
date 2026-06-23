@@ -138,6 +138,21 @@ export function upsertJobFromEnrichResponse(
   void queryClient.refetchQueries({ queryKey: JOBS_QUERY_KEY });
 }
 
+/** Poll a list score job until complete (mirrors CRM export polling). */
+export async function pollScoreJob(
+  getJob: (jobId: string) => Promise<import("@/types/api").ListScoreJob>,
+  jobId: string,
+  maxAttempts = 60,
+  intervalMs = 2000
+): Promise<import("@/types/api").ListScoreJob> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const job = await getJob(jobId);
+    if (job.status === "completed" || job.status === "failed") return job;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return getJob(jobId);
+}
+
 export function refreshJobs(queryClient: QueryClient) {
   void queryClient.refetchQueries({ queryKey: JOBS_QUERY_KEY });
 }
@@ -253,13 +268,49 @@ export function useEnrichmentApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
-    scoreList: (listId: string) =>
+    scoreList: async (listId: string) => {
+      const res = await fetchApi<
+        | { jobId: string; status: "pending" }
+        | {
+            status: "completed";
+            listId: string;
+            scored: number;
+            skipped?: number;
+            creditsUsed?: number;
+            results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
+          }
+      >(`/api/v1/lists/${listId}/score`, { method: "POST", workspaceId: WORKSPACE_ID });
+      return res;
+    },
+
+    getScoreJob: (jobId: string) =>
+      fetchApi<import("@/types/api").ListScoreJob>(`/api/v1/enrichment/score-jobs/${jobId}`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    listScrapeJobs: () =>
+      fetchApi<{ data: import("@/types/api").ScrapeJobRow[]; total: number }>("/api/v1/scrape/jobs", {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    triggerScrapeJob: (body: { source: string; seeds: string[] }) =>
       fetchApi<{
-        listId: string;
-        scored: number;
-        creditsUsed?: number;
-        results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
-      }>(`/api/v1/lists/${listId}/score`, { method: "POST", workspaceId: WORKSPACE_ID }),
+        jobId: string;
+        source: string;
+        status: string;
+        seeds?: string[];
+        warning?: string;
+        error?: string;
+      }>("/api/v1/scrape/jobs", {
+        method: "POST",
+        body: JSON.stringify(body),
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    getScrapeJob: (jobId: string) =>
+      fetchApi<import("@/types/api").ScrapeJobRow>(`/api/v1/scrape/jobs/${jobId}`, {
+        workspaceId: WORKSPACE_ID,
+      }),
 
     exportListCsv: async (listId: string) => {
       const headers = new Headers();

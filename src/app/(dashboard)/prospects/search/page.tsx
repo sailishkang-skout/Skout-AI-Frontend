@@ -145,11 +145,22 @@ export default function ProspectSearchPage() {
 
   const scores = useMemo(() => {
     const base = { ...storedScores.data };
+    for (const p of results) {
+      if (p.icpScore != null && !base[p.prospectId]) {
+        base[p.prospectId] = {
+          prospectId: p.prospectId,
+          score: p.icpScore,
+          priority: p.outreachReadiness ?? null,
+          reasoning: p.painPoints?.length ? `Pain: ${p.painPoints.join(", ")}` : null,
+          scoredAt: "",
+        };
+      }
+    }
     for (const [id, score] of Object.entries(scoreOverrides)) {
       base[id] = { prospectId: id, score, priority: null, reasoning: null, scoredAt: "" };
     }
     return base;
-  }, [storedScores.data, scoreOverrides]);
+  }, [storedScores.data, scoreOverrides, results]);
 
   const toSnapshot = (p: ProspectSummary): ProspectSnapshotInput => ({
     prospectId: p.prospectId,

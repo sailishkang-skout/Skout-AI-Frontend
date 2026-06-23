@@ -17,6 +17,7 @@ import {
   Target,
   UserPlus,
   Users,
+  RefreshCw,
   X,
   Zap,
 } from "lucide-react";
@@ -85,6 +86,7 @@ export const otherNav: NavGroup[] = [
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/settings/crm", label: "CRM sync", icon: Settings },
       { href: "/settings/integrations", label: "Integrations", icon: Zap },
+      { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw },
       { href: "/settings/workspace", label: "Workspace", icon: Users },
     ],
   },

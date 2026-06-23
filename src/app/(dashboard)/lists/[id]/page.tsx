@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
-import { refreshCredits, syncCreditsAfterEnrich, useEnrichmentApi } from "@/lib/enrichment";
+import { refreshCredits, syncCreditsAfterEnrich, useEnrichmentApi, pollScoreJob } from "@/lib/enrichment";
 import {
   memberCompanyLabel,
   memberDisplayName,
@@ -34,6 +34,7 @@ export default function ListDetailPage() {
   const authReady = useAuthReady();
   const { showInsufficientCredits } = useCreditsModal();
 
+  const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -66,13 +67,32 @@ export default function ListDetailPage() {
   const scoreCreditCost = members.length * 2;
 
   const scoreAll = useMutation({
-    mutationFn: () => enrichmentApi.scoreList(listId),
+    mutationFn: async () => {
+      const started = await enrichmentApi.scoreList(listId);
+      if ("jobId" in started && started.status === "pending") {
+        const job = await pollScoreJob((id) => enrichmentApi.getScoreJob(id), started.jobId);
+        if (job.status === "failed") {
+          throw new ApiError(job.errorMessage ?? "score_failed", 500);
+        }
+        return job.result ?? { listId, scored: 0, creditsUsed: 0, results: [] };
+      }
+      return started;
+    },
     onSuccess: (data) => {
       setScoreError(null);
-      syncCreditsAfterEnrich(queryClient, data.creditsUsed ?? scoreCreditCost);
+      const credits = "creditsUsed" in data ? (data.creditsUsed ?? scoreCreditCost) : scoreCreditCost;
+      syncCreditsAfterEnrich(queryClient, credits);
+      const scored = "scored" in data ? data.scored : 0;
+      const skipped = "skipped" in data && data.skipped ? data.skipped : 0;
+      setScoreMsg(
+        skipped > 0
+          ? `Scored ${scored} prospect${scored === 1 ? "" : "s"} (${skipped} skipped — no company domain).`
+          : `Scored ${scored} prospect${scored === 1 ? "" : "s"}.`
+      );
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
     },
     onError: (err) => {
+      setScoreMsg(null);
       if (handleCreditsError(err, showInsufficientCredits)) return;
       setScoreError(
         err instanceof ApiError && err.status === 400
@@ -290,6 +310,7 @@ export default function ListDetailPage() {
         </Alert>
       )}
 
+      {scoreMsg && <Alert variant="success">{scoreMsg}</Alert>}
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
       {exportError && <Alert variant="warning">{exportError}</Alert>}

@@ -17,6 +17,10 @@ export interface ProspectSummary {
   industry: string;
   companyDomain: string;
   employeeCount?: number;
+  icpScore?: number;
+  intentScore?: number;
+  painPoints?: string[];
+  outreachReadiness?: string;
 }
 
 export interface ProspectSearchFilters {
@@ -273,6 +277,44 @@ export interface ProspectScoreRecord {
   priority: string | null;
   reasoning: string | null;
   scoredAt: string;
+}
+
+export interface ListScoreJob {
+  id: string;
+  jobType: string;
+  status: "pending" | "running" | "completed" | "failed";
+  entityType: string | null;
+  entityId: string | null;
+  result?: {
+    listId: string;
+    scored: number;
+    skipped?: number;
+    creditsUsed: number;
+    results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
+  } | null;
+  errorMessage: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface ScrapeJobRow {
+  id: string;
+  source: string;
+  status: string;
+  trigger?: string;
+  seeds?: string[];
+  rawCount: number | null;
+  cleanCount: number | null;
+  quarantinedCount?: number | null;
+  ingestedCount: number | null;
+  skippedDuplicateCount?: number | null;
+  rawS3Key?: string | null;
+  cleanS3Key?: string | null;
+  errorMessage: string | null;
+  queuedAt: string;
+  startedAt?: string | null;
+  completedAt: string | null;
 }
 
 export interface DashboardSummary {
