@@ -1,4 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
@@ -7,14 +9,24 @@ const isPublicRoute = createRouteMatcher([
   "/",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  // CI Playwright only — never set in production.
-  if (process.env.E2E_AUTH_BYPASS === "true") return;
+const useClerkMiddleware =
+  process.env.E2E_AUTH_BYPASS !== "true" &&
+  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-  if (!isPublicRoute(request)) {
-    auth().protect();
+const clerkHandler = useClerkMiddleware
+  ? clerkMiddleware(async (auth, request) => {
+      if (!isPublicRoute(request)) {
+        auth().protect();
+      }
+    })
+  : null;
+
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (!clerkHandler) {
+    return NextResponse.next();
   }
-});
+  return clerkHandler(request, event);
+}
 
 export const config = {
   matcher: [

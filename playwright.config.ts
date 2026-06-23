@@ -34,7 +34,6 @@ export default defineConfig({
             ...process.env,
             E2E_AUTH_BYPASS: "true",
             NEXT_PUBLIC_API_URL: apiURL,
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
           },
         },
       ],
