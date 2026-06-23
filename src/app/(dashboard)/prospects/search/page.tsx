@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, RefreshCw, Target, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, Target, UserPlus, Zap } from "lucide-react";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -84,11 +84,18 @@ export default function ProspectSearchPage() {
   const [appliedFilters, setAppliedFilters] = useState<FilterDraft>(EMPTY_FILTER_DRAFT);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string; failed?: boolean }>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), 400);
     return () => clearTimeout(id);
   }, [query]);
+
+  // Reset to page 1 when query or filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, appliedFilters]);
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
@@ -103,30 +110,19 @@ export default function ProspectSearchPage() {
   const icpReady = isIcpConfigured(icp.data?.config);
 
   const search = useQuery({
-    queryKey: ["prospects", "search", debouncedQuery, appliedFilters],
-    queryFn: async () => {
-      try {
-        const data = await api<SearchProspectsResponse>("/api/v1/search/prospects", {
-          method: "POST",
-          body: JSON.stringify({
-            query: debouncedQuery || undefined,
-            filters: buildApiFilters(appliedFilters),
-            page: 1,
-            pageSize: 25,
-          }),
-        });
-        if (data.creditsUsed && data.creditsUsed > 0) {
-          syncCreditsAfterEnrich(queryClient, data.creditsUsed);
-        }
-        return data;
-      } catch (error) {
-        if (handleCreditsError(error, showInsufficientCredits)) {
-          throw error;
-        }
-        throw error;
-      }
-    },
+    queryKey: ["prospects", "search", debouncedQuery, appliedFilters, page, pageSize],
+    queryFn: () =>
+      api<SearchProspectsResponse>("/api/v1/search/prospects", {
+        method: "POST",
+        body: JSON.stringify({
+          query: debouncedQuery || undefined,
+          filters: buildApiFilters(appliedFilters),
+          page,
+          pageSize,
+        }),
+      }),
     enabled: authReady,
+    placeholderData: (prev) => prev,
   });
 
   const lists = useQuery({
@@ -336,23 +332,39 @@ export default function ProspectSearchPage() {
             <CardTitle className="text-base sm:text-lg">Results</CardTitle>
             <CardDescription>
               {(!authReady || search.isLoading) && "Loading…"}
-              {authReady && search.error && "API unavailable — start the backend."}
-              {search.data &&
-                `${search.data.total.toLocaleString()} matches · ${search.data.cached ? "cached" : "live"}${search.data.creditsUsed ? ` · ${search.data.creditsUsed} credit used` : ""}`}
+              {authReady && search.error && "Search is temporarily unavailable."}
+              {search.data && (() => {
+                const { total, page: p, pageSize: ps, cached } = search.data;
+                const from = Math.min((p - 1) * ps + 1, total);
+                const to = Math.min(p * ps, total);
+                return total > 0
+                  ? `Showing ${from}–${to} of ${total.toLocaleString()} · ${cached ? "cached" : "live"}`
+                  : `${total.toLocaleString()} matches`;
+              })()}
             </CardDescription>
           </div>
-          {results.length > 0 && (
-            <Button variant="outline" size="sm" onClick={selectAll} className="w-full sm:w-auto">
-              {selected.size === results.length ? "Clear all" : "Select all"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {results.length > 0 && (
+              <Button variant="outline" size="sm" onClick={selectAll} className="w-full sm:w-auto">
+                {selected.size === results.length ? "Clear all" : "Select all"}
+              </Button>
+            )}
+            <select
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+              aria-label="Rows per page"
+            >
+              {[10, 25, 50].map((n) => (
+                <option key={n} value={n}>{n} / page</option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
           {authReady && search.error && (
-            <Alert variant="warning" className="mb-4">
-              {search.error instanceof ApiError && search.error.status === 402
-                ? "Not enough credits to run this search."
-                : "Could not reach search API."}
+            <Alert variant="error" className="mb-4">
+              We couldn&apos;t complete your search. Please try again.
             </Alert>
           )}
           {results.length ? (
@@ -447,10 +459,61 @@ export default function ProspectSearchPage() {
           ) : (
             !search.isLoading &&
             !search.error && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Run a search to see prospects.
-              </p>
+              <div className="flex flex-col items-center gap-2 py-12 text-center">
+                <p className="font-medium text-muted-foreground">No prospects found</p>
+                <p className="text-sm text-muted-foreground">
+                  Try a different keyword or adjust your filters.
+                </p>
+              </div>
             )
+          )}
+
+          {search.data && search.data.total > pageSize && (
+            <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
+              <p className="text-xs text-muted-foreground">
+                Page {page} of {Math.ceil(search.data.total / pageSize)}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || search.isFetching}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </Button>
+                {Array.from({ length: Math.min(5, Math.ceil(search.data.total / pageSize)) }, (_, i) => {
+                  const totalPages = Math.ceil(search.data.total / pageSize);
+                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                  const p = start + i;
+                  if (p > totalPages) return null;
+                  return (
+                    <Button
+                      key={p}
+                      variant={p === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(p)}
+                      disabled={search.isFetching}
+                      className="hidden sm:inline-flex"
+                    >
+                      {p}
+                    </Button>
+                  );
+                })}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(Math.ceil(search.data.total / pageSize), p + 1))}
+                  disabled={page >= Math.ceil(search.data.total / pageSize) || search.isFetching}
+                  aria-label="Next page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
