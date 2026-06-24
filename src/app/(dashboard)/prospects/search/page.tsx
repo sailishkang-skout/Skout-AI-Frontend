@@ -23,6 +23,7 @@ import { COMPANY_SIZE_BUCKETS, REVENUE_RANGES, EMPTY_FILTER_DRAFT, type FilterDr
 import { isIcpConfigured } from "@/lib/scoring";
 import { ContactFilterSheet } from "@/components/prospects/contact-filter-sheet";
 import { CompanyFilterSheet } from "@/components/prospects/company-filter-sheet";
+import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import type { ProspectSearchFilters, ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 function buildApiFilters(draft: FilterDraft): ProspectSearchFilters | undefined {
@@ -96,6 +97,7 @@ export default function ProspectSearchPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedQuery, appliedFilters]);
+  const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
@@ -442,9 +444,13 @@ export default function ProspectSearchPage() {
                         onChange={() => toggleSelect(p.prospectId)}
                         aria-label={`Select ${p.fullName}`}
                       />
-                      <div className="min-w-0">
+                      <button
+                        type="button"
+                        className="min-w-0 text-left"
+                        onClick={() => setDetailProspect(p)}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{p.fullName}</p>
+                          <p className="font-medium hover:underline hover:underline-offset-2">{p.fullName}</p>
                           {p.recordType === "company" ? (
                             <Badge tone="info">Company</Badge>
                           ) : p.title ? (
@@ -488,7 +494,7 @@ export default function ProspectSearchPage() {
                             Enrichment failed — try again
                           </p>
                         )}
-                      </div>
+                      </button>
                     </div>
                   </ListRow>
                 );
@@ -555,6 +561,13 @@ export default function ProspectSearchPage() {
           )}
         </CardContent>
       </Card>
+
+      <ProspectDetailSheet
+        prospectId={detailProspect?.prospectId ?? null}
+        initialData={detailProspect ?? undefined}
+        open={detailProspect !== null}
+        onClose={() => setDetailProspect(null)}
+      />
     </PageShell>
   );
 }

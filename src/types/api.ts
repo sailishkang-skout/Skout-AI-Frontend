@@ -436,6 +436,27 @@ export interface HubSpotImportResponse {
   source: string;
 }
 
+export interface ProspectDetail extends ProspectSummary {
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  department?: string;
+  jobFunction?: string;
+  yearsAtCompany?: number;
+  yearsInRole?: number;
+  previousCompany?: string;
+  subIndustry?: string;
+  state?: string;
+  city?: string;
+  companyStage?: string;
+  annualRevenue?: number;
+  lastFundingRound?: string;
+  lastFundingDate?: string;
+  totalFunding?: number;
+  currentlyHiring?: boolean;
+  updatedAt?: string;
+}
+
 export interface ManualProspectInput {
   // Contact
   fullName: string;
