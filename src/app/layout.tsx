@@ -6,7 +6,7 @@ import { themeInitScript } from "@/lib/theme";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_API_URL;
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || undefined;
 
 export const metadata: Metadata = {
   title: "Skout AI",

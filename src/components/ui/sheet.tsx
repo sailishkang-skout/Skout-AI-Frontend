@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,12 @@ export function Sheet({
   children: React.ReactNode;
   className?: string;
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -32,13 +39,13 @@ export function Sheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <>
       <button
         type="button"
-        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px]"
+        className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-[1px]"
         aria-label="Close panel"
         onClick={onClose}
       />
@@ -47,11 +54,11 @@ export function Sheet({
         aria-modal="true"
         aria-labelledby="sheet-title"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-xl",
+          "fixed inset-y-0 right-0 z-[201] flex w-full max-w-md flex-col border-l border-border bg-background shadow-xl",
           className
         )}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b px-4 py-4 sm:px-6">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b bg-background px-4 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 id="sheet-title" className="text-lg font-semibold leading-tight">
               {title}
@@ -69,8 +76,9 @@ export function Sheet({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
+        <div className="flex-1 overflow-y-auto bg-background px-4 py-4 sm:px-6">{children}</div>
       </aside>
-    </>
+    </>,
+    document.body
   );
 }

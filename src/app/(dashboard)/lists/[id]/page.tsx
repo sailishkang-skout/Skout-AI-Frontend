@@ -36,6 +36,7 @@ export default function ListDetailPage() {
 
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [scoreProgress, setScoreProgress] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -68,9 +69,20 @@ export default function ListDetailPage() {
 
   const scoreAll = useMutation({
     mutationFn: async () => {
+      setScoreProgress("Starting score job…");
       const started = await enrichmentApi.scoreList(listId);
       if ("jobId" in started && started.status === "pending") {
-        const job = await pollScoreJob((id) => enrichmentApi.getScoreJob(id), started.jobId);
+        const job = await pollScoreJob(
+          (id) => enrichmentApi.getScoreJob(id),
+          started.jobId,
+          60,
+          2000,
+          (j) => {
+            if (j.status === "running") {
+              setScoreProgress("Scoring prospects against your ICP…");
+            }
+          }
+        );
         if (job.status === "failed") {
           throw new ApiError(job.errorMessage ?? "score_failed", 500);
         }
@@ -79,6 +91,7 @@ export default function ListDetailPage() {
       return started;
     },
     onSuccess: (data) => {
+      setScoreProgress(null);
       setScoreError(null);
       const credits = "creditsUsed" in data ? (data.creditsUsed ?? scoreCreditCost) : scoreCreditCost;
       syncCreditsAfterEnrich(queryClient, credits);
@@ -92,6 +105,7 @@ export default function ListDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["lists", listId] });
     },
     onError: (err) => {
+      setScoreProgress(null);
       setScoreMsg(null);
       if (handleCreditsError(err, showInsufficientCredits)) return;
       setScoreError(
@@ -310,6 +324,12 @@ export default function ListDetailPage() {
         </Alert>
       )}
 
+      {scoreProgress && (
+        <Alert className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          {scoreProgress}
+        </Alert>
+      )}
       {scoreMsg && <Alert variant="success">{scoreMsg}</Alert>}
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}

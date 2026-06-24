@@ -34,6 +34,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  comingSoon?: boolean;
 };
 
 export type NavGroup = {
@@ -74,10 +75,10 @@ export const otherNav: NavGroup[] = [
   {
     label: "Outreach",
     items: [
-      { href: "/sequences", label: "Sequences", icon: Mail },
-      { href: "/inbox", label: "Inbox", icon: Inbox },
-      { href: "/deliverability", label: "Deliverability", icon: Target },
-      { href: "/ai/review", label: "AI review", icon: Sparkles },
+      { href: "/sequences", label: "Sequences", icon: Mail, comingSoon: true },
+      { href: "/inbox", label: "Inbox", icon: Inbox, comingSoon: true },
+      { href: "/deliverability", label: "Deliverability", icon: Target, comingSoon: true },
+      { href: "/ai/review", label: "AI review", icon: Sparkles, comingSoon: true },
     ],
   },
   {
@@ -106,9 +107,30 @@ interface MeData {
   role?: string;
 }
 
-function NavLink({ href, label, icon: Icon, onNavigate }: NavItem & { onNavigate?: () => void }) {
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  comingSoon,
+  onNavigate,
+}: NavItem & { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const active = pathname === href || pathname.startsWith(`${href}/`);
+  const active = !comingSoon && (pathname === href || pathname.startsWith(`${href}/`));
+
+  if (comingSoon) {
+    return (
+      <span
+        className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground/60"
+        title="Coming in Phase 1"
+      >
+        <Icon className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+        <span className="truncate">{label}</span>
+        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+          Soon
+        </span>
+      </span>
+    );
+  }
 
   return (
     <Link

@@ -143,10 +143,12 @@ export async function pollScoreJob(
   getJob: (jobId: string) => Promise<import("@/types/api").ListScoreJob>,
   jobId: string,
   maxAttempts = 60,
-  intervalMs = 2000
+  intervalMs = 2000,
+  onProgress?: (job: import("@/types/api").ListScoreJob, attempt: number) => void
 ): Promise<import("@/types/api").ListScoreJob> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const job = await getJob(jobId);
+    onProgress?.(job, attempt);
     if (job.status === "completed" || job.status === "failed") return job;
     await new Promise((r) => setTimeout(r, intervalMs));
   }

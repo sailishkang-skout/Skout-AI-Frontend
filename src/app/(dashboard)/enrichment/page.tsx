@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
@@ -41,6 +42,9 @@ export default function EnrichmentPage() {
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobFromUrl = searchParams.get("job");
   const [domain, setDomain] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
@@ -52,6 +56,19 @@ export default function EnrichmentPage() {
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
 
+  useEffect(() => {
+    if (jobFromUrl) setSelectedJobId(jobFromUrl);
+  }, [jobFromUrl]);
+
+  const openJob = (jobId: string) => {
+    setSelectedJobId(jobId);
+    router.replace(`/enrichment?job=${encodeURIComponent(jobId)}`, { scroll: false });
+  };
+
+  const closeJob = () => {
+    setSelectedJobId(null);
+    router.replace("/enrichment", { scroll: false });
+  };
 
   const credits = useQuery({
     queryKey: CREDITS_QUERY_KEY,
@@ -110,7 +127,7 @@ export default function EnrichmentPage() {
         context?.optimisticId
       );
       syncCreditsAfterEnrich(queryClient, data.creditsUsed);
-      if (data.jobId) setSelectedJobId(data.jobId);
+      if (data.jobId) openJob(data.jobId);
     },
     onError: (err, _vars, context) => {
       if (context?.optimisticId) {
@@ -265,7 +282,7 @@ export default function EnrichmentPage() {
                     variant="ghost"
                     size="sm"
                     className="ml-auto h-8 text-xs"
-                    onClick={() => setSelectedJobId(enrich.data!.jobId)}
+                    onClick={() => openJob(enrich.data!.jobId)}
                   >
                     View job
                   </Button>
@@ -306,7 +323,7 @@ export default function EnrichmentPage() {
                     key={job.id}
                     job={job}
                     selected={selectedJobId === job.id}
-                    onSelect={() => setSelectedJobId(job.id)}
+                    onSelect={() => openJob(job.id)}
                     onRetry={
                       job.status === "failed"
                         ? () => {
@@ -333,7 +350,7 @@ export default function EnrichmentPage() {
         jobId={selectedJobId}
         fallbackJob={selectedJob}
         open={!!selectedJobId}
-        onClose={() => setSelectedJobId(null)}
+        onClose={closeJob}
       />
     </PageShell>
   );

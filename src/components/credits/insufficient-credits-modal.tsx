@@ -72,7 +72,11 @@ export function CreditsModalProvider({ children }: { children: ReactNode }) {
               )}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Contact your workspace admin to top up, or review usage in settings.
+              Top up credits in{" "}
+              <Link href="/settings/workspace" className="font-medium text-primary underline-offset-2 hover:underline">
+                workspace settings
+              </Link>
+              , or contact your admin.
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <Button variant="outline" className="flex-1" onClick={closeCreditsModal}>
@@ -83,7 +87,7 @@ export function CreditsModalProvider({ children }: { children: ReactNode }) {
                 className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 onClick={closeCreditsModal}
               >
-                View balance
+                Buy credits
               </Link>
             </div>
           </div>

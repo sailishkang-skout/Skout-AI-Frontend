@@ -443,12 +443,39 @@ export default function ProspectSearchPage() {
                         aria-label={`Select ${p.fullName}`}
                       />
                       <div className="min-w-0">
-                        <p className="font-medium">{p.fullName}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{p.fullName}</p>
+                          {p.recordType === "company" ? (
+                            <Badge tone="info">Company</Badge>
+                          ) : p.title ? (
+                            <Badge tone="muted">Contact</Badge>
+                          ) : null}
+                          {p.employeeCount != null && p.employeeCount > 0 && (
+                            <Badge tone="muted">{p.employeeCount.toLocaleString()} emp.</Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground sm:text-sm">
-                          {p.title} · {p.companyDomain} · {p.country}
+                          {p.recordType === "company"
+                            ? `${p.companyDomain}${p.country ? ` · ${p.country}` : ""}`
+                            : `${p.title || "—"} · ${p.companyDomain} · ${p.country}`}
                         </p>
                         {p.industry && (
                           <p className="mt-0.5 text-xs text-muted-foreground">{p.industry}</p>
+                        )}
+                        {p.signals && p.signals.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {p.signals.slice(0, 3).map((s) => (
+                              <Badge key={`${s.type}-${s.observedAt}`} tone="warning">
+                                {s.type.replace(/_/g, " ")}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {p.techStack && p.techStack.length > 0 && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Tech: {p.techStack.slice(0, 4).map((t) => t.technology).join(", ")}
+                            {p.techStack.length > 4 ? "…" : ""}
+                          </p>
                         )}
                         {e?.email && (
                           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">

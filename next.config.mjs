@@ -4,7 +4,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const require = createRequire(import.meta.url);
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000");
 
 const nextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",

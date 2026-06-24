@@ -37,10 +37,30 @@ export function isRetryableAuthError(error: unknown): boolean {
     return (
       error.message.includes("Auth is still loading") ||
       error.message.includes("Missing Clerk session token") ||
+      error.message.includes("Missing bearer token") ||
+      error.message.includes("Invalid Clerk token") ||
+      error.message.includes("Invalid authorization token") ||
       error.message.includes("Sign in required")
     );
   }
   return false;
+}
+
+/** User-facing message for failed API queries. */
+export function formatQueryError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "Your session could not be verified. Sign out and sign in again, or refresh the page.";
+    }
+    if (error.status >= 500) {
+      return "The API returned a server error. Check that Postgres and Redis are running.";
+    }
+    if (error.message) return error.message;
+  }
+  if (error instanceof TypeError && error.message.includes("fetch")) {
+    return "Could not reach the API — start the backend with pnpm dev (port 3001).";
+  }
+  return fallback;
 }
 
 /** Shared React Query options — retry brief auth races after hard refresh. */

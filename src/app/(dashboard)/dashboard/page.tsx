@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowRight, Coins, List, Search, Users, Zap } from "lucide-react";
+import { ArrowRight, ChevronRight, Coins, List, Search, Users, Zap } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -10,7 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuthReady } from "@/lib/api-client";
+import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { DASHBOARD_SUMMARY_KEY, useDashboardApi } from "@/lib/dashboard";
 import { formatJobTime } from "@/lib/enrichment-display";
 
@@ -22,9 +22,11 @@ export default function DashboardPage() {
     queryKey: DASHBOARD_SUMMARY_KEY,
     queryFn: async () => (await dashboardApi.getSummary()).data,
     enabled: authReady,
+    staleTime: 30_000,
   });
 
   const data = summary.data;
+  const showDashboardError = summary.isError && !summary.isFetching && !summary.isLoading;
 
   return (
     <PageShell data-testid="page-dashboard">
@@ -48,8 +50,22 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {summary.error && (
-        <Alert variant="warning">Could not load dashboard — check that the API is running.</Alert>
+      {summary.isLoading && !data && (
+        <p className="text-sm text-muted-foreground">Loading dashboard…</p>
+      )}
+
+      {showDashboardError && (
+        <Alert variant="warning">
+          <p>{formatQueryError(summary.error, "Could not load dashboard.")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => void summary.refetch()}
+          >
+            Retry
+          </Button>
+        </Alert>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,15 +112,20 @@ export default function DashboardPage() {
             {data?.recentJobs.length ? (
               <ul className="space-y-2">
                 {data.recentJobs.map((job) => (
-                  <li
-                    key={job.id}
-                    className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{job.prospectId}</p>
-                      <p className="text-xs text-muted-foreground">{formatJobTime(job.queuedAt)}</p>
-                    </div>
-                    <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+                  <li key={job.id}>
+                    <Link
+                      href={`/enrichment?job=${encodeURIComponent(job.id)}`}
+                      className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-accent/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{job.prospectId}</p>
+                        <p className="text-xs text-muted-foreground">{formatJobTime(job.queuedAt)}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

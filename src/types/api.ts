@@ -16,11 +16,15 @@ export interface ProspectSummary {
   country: string;
   industry: string;
   companyDomain: string;
+  companyName?: string;
+  recordType?: "person" | "company";
   employeeCount?: number;
   icpScore?: number;
   intentScore?: number;
   painPoints?: string[];
   outreachReadiness?: string;
+  signals?: Array<{ type: string; observedAt: string; detail?: string }>;
+  techStack?: Array<{ category: string; technology: string }>;
 }
 
 export interface ProspectSearchFilters {
@@ -331,6 +335,33 @@ export interface DashboardSummary {
     queuedAt: string;
     completedAt: string | null;
   }>;
+}
+
+export interface AnalyticsReport {
+  workspaceName: string;
+  period: { days: number; from: string; to: string };
+  credits: {
+    balance: number;
+    spent: number;
+    added: number;
+    net: number;
+    byAction: Array<{ action: string; credits: number }>;
+    daily: Array<{ date: string; spent: number; added: number }>;
+  };
+  enrichment: {
+    totalJobs: number;
+    completed: number;
+    failed: number;
+    running: number;
+    successRate: number;
+    creditsUsed: number;
+    daily: Array<{ date: string; jobs: number; completed: number }>;
+  };
+  lists: {
+    count: number;
+    totalProspects: number;
+  };
+  recentTransactions: CreditTransaction[];
 }
 
 export interface ListMemberDetail {
