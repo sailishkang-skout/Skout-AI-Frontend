@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, Target, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -19,57 +19,12 @@ import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
-import { COMPANY_SIZE_BUCKETS, REVENUE_RANGES, EMPTY_FILTER_DRAFT, type FilterDraft } from "@/lib/search-constants";
+import { EMPTY_FILTER_DRAFT, countActiveFilters, type FilterDraft } from "@/lib/search-constants";
+import { buildApiFilters } from "@/lib/build-api-filters";
 import { isIcpConfigured } from "@/lib/scoring";
-import { ContactFilterSheet } from "@/components/prospects/contact-filter-sheet";
-import { CompanyFilterSheet } from "@/components/prospects/company-filter-sheet";
-import type { ProspectSearchFilters, ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
-
-function buildApiFilters(draft: FilterDraft): ProspectSearchFilters | undefined {
-  const f: ProspectSearchFilters = {};
-  // Contact
-  if (draft.jobTitle) f.jobTitle = draft.jobTitle;
-  if (draft.department) f.department = draft.department;
-  if (draft.seniority) f.seniority = draft.seniority;
-  if (draft.jobFunction) f.jobFunction = draft.jobFunction;
-  if (draft.emailAvailable) f.emailAvailable = true;
-  if (draft.phoneAvailable) f.phoneAvailable = true;
-  if (draft.linkedInAvailable) f.linkedInAvailable = true;
-  if (draft.minYearsAtCompany) f.minYearsAtCompany = Number(draft.minYearsAtCompany);
-  if (draft.minYearsInRole) f.minYearsInRole = Number(draft.minYearsInRole);
-  if (draft.previousCompany) f.previousCompany = draft.previousCompany;
-  if (draft.contactSignals.length) f.contactSignals = draft.contactSignals;
-  // Company — Basic
-  if (draft.companyName) f.companyName = draft.companyName;
-  if (draft.industry) f.industry = draft.industry;
-  if (draft.subIndustry) f.subIndustry = draft.subIndustry;
-  if (draft.country) f.country = draft.country;
-  if (draft.state) f.state = draft.state;
-  if (draft.city) f.city = draft.city;
-  if (draft.companySize) {
-    const bucket = COMPANY_SIZE_BUCKETS.find((b) => b.value === draft.companySize);
-    if (bucket) {
-      f.minEmployees = bucket.min;
-      if (bucket.max !== undefined) f.maxEmployees = bucket.max;
-    }
-  }
-  // Company — Stage & Funding
-  if (draft.companyStage) f.companyStage = draft.companyStage;
-  if (draft.lastFundingRound) f.lastFundingRound = draft.lastFundingRound;
-  if (draft.revenueRange) {
-    const bucket = REVENUE_RANGES.find((b) => b.value === draft.revenueRange);
-    if (bucket) {
-      f.minRevenue = bucket.min;
-      if (bucket.max !== undefined) f.maxRevenue = bucket.max;
-    }
-  }
-  // Company — Hiring
-  if (draft.currentlyHiring) f.currentlyHiring = true;
-  if (draft.hiringDepartments.length) f.hiringDepartments = draft.hiringDepartments;
-  // Company — Signals
-  if (draft.companySignals.length) f.companySignals = draft.companySignals;
-  return Object.keys(f).length ? f : undefined;
-}
+import { ProspectFilterSidebar } from "@/components/prospects/prospect-filter-sidebar";
+import { Sheet } from "@/components/ui/sheet";
+import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
 export default function ProspectSearchPage() {
   const api = useApiFetch();
@@ -86,6 +41,8 @@ export default function ProspectSearchPage() {
   const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string; failed?: boolean }>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const filterCount = countActiveFilters(appliedFilters);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), 400);
@@ -274,10 +231,16 @@ export default function ProspectSearchPage() {
 
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
 
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="hidden w-full shrink-0 lg:block lg:w-72 xl:w-80">
+          <ProspectFilterSidebar value={appliedFilters} onChange={setAppliedFilters} />
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Search</CardTitle>
-          <CardDescription>Keyword search combined with contact and company filters.</CardDescription>
+          <CardDescription>Keyword search combined with filters on the left.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -287,8 +250,15 @@ export default function ProspectSearchPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <ContactFilterSheet value={appliedFilters} onApply={setAppliedFilters} />
-            <CompanyFilterSheet value={appliedFilters} onApply={setAppliedFilters} />
+            <Button
+              type="button"
+              variant="outline"
+              className="lg:hidden"
+              onClick={() => setMobileFiltersOpen(true)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters{filterCount > 0 ? ` (${filterCount})` : ""}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -555,6 +525,20 @@ export default function ProspectSearchPage() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </div>
+
+      <Sheet open={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} title="Filters">
+        <ProspectFilterSidebar
+          value={appliedFilters}
+          onChange={setAppliedFilters}
+          onClear={() => setAppliedFilters(EMPTY_FILTER_DRAFT)}
+          className="border-0"
+        />
+        <div className="mt-4 flex justify-end">
+          <Button onClick={() => setMobileFiltersOpen(false)}>Apply filters</Button>
+        </div>
+      </Sheet>
     </PageShell>
   );
 }

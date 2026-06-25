@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { AlertCircle, ExternalLink, Loader2, Play, RefreshCw, Server, Terminal } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2, Play, RefreshCw, Server } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -168,41 +169,38 @@ export default function CorpusPipelinePage() {
 
   return (
     <PageShell>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Corpus pipeline</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Scrape company data into OpenSearch. Jobs are persisted immediately; Redis and scraper
-            workers process them asynchronously.
-          </p>
-        </div>
-        {hasActive && (
-          <Badge tone="info" className="self-start">
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-            Processing
-          </Badge>
-        )}
-      </div>
+      <PageHeader
+        title="Corpus pipeline"
+        description="Scrape company data into OpenSearch. Jobs are persisted immediately; Redis and scraper workers process them asynchronously."
+        actions={
+          hasActive ? (
+            <Badge tone="info" className="self-start">
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              Processing
+            </Badge>
+          ) : undefined
+        }
+      />
 
-      {message && (
-        <Alert variant="success" className="mt-4">
+      {message && !error && (
+        <Alert variant="success">
           {message}
         </Alert>
       )}
       {error && (
-        <Alert variant="warning" className="mt-4">
+        <Alert variant={selectedJob?.status === "failed" ? "error" : "warning"}>
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </Alert>
       )}
       {jobs.error && (
-        <Alert variant="warning" className="mt-4">
-          Could not load jobs — is the API running on port 3001?
+        <Alert variant="error">
+          Could not load scrape jobs. Check that the API is reachable.
         </Alert>
       )}
 
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">New scrape job</CardTitle>
@@ -283,7 +281,7 @@ export default function CorpusPipelinePage() {
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {hasActive
                       ? "Pipeline running — raw → clean → ingest"
-                      : "Queued — start workers with pnpm scrapers:dev"}
+                      : "Queued — scraper workers will pick this up shortly"}
                   </p>
                 )}
               </div>

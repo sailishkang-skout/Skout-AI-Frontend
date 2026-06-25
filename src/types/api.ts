@@ -29,6 +29,7 @@ export interface ProspectSummary {
 
 export interface ProspectSearchFilters {
   // Contact
+  fullName?: string;
   jobTitle?: string;
   department?: string;
   seniority?: string;
@@ -39,11 +40,14 @@ export interface ProspectSearchFilters {
   // Experience
   minYearsAtCompany?: number;
   minYearsInRole?: number;
+  minTotalYearsExperience?: number;
   previousCompany?: string;
   // Contact Activity
   contactSignals?: string[];
   // Company — Basic
   companyName?: string;
+  companyDomain?: string;
+  keyword?: string;
   industry?: string;
   subIndustry?: string;
   country?: string;
@@ -56,11 +60,23 @@ export interface ProspectSearchFilters {
   lastFundingRound?: string;
   minRevenue?: number;
   maxRevenue?: number;
+  // Company attributes
+  minFoundedYear?: number;
+  maxFoundedYear?: number;
+  minHeadcountGrowth?: number;
+  companyEmailProvider?: string;
+  // Intent & deduplication
+  minIntentScore?: number;
+  excludeDuplicates?: boolean;
+  maxPerCompany?: number;
   // Company — Hiring
   currentlyHiring?: boolean;
   hiringDepartments?: string[];
   // Company — Signals
   companySignals?: string[];
+  // Tech / intent
+  tech?: string;
+  signal?: string;
 }
 
 export interface SearchProspectsRequest {

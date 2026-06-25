@@ -150,10 +150,36 @@ export const COMPANY_SIGNALS: { label: string; value: string }[] = [
   { label: "Website Changes", value: "website_changes" },
 ];
 
+export const BUYING_INTENT_OPTIONS: { label: string; value: string; minIntentScore: number }[] = [
+  { label: "High intent (70+)", value: "high", minIntentScore: 70 },
+  { label: "Medium intent (40+)", value: "medium", minIntentScore: 40 },
+  { label: "Any intent (1+)", value: "low", minIntentScore: 1 },
+];
+
+export const HEADCOUNT_GROWTH_OPTIONS: { label: string; value: string; min: number }[] = [
+  { label: "Growing 10%+", value: "10", min: 10 },
+  { label: "Growing 5%+", value: "5", min: 5 },
+  { label: "Flat or growing", value: "0", min: 0 },
+];
+
+export const EMAIL_PROVIDER_OPTIONS: { label: string; value: string }[] = [
+  { label: "Google Workspace", value: "google_workspace" },
+  { label: "Microsoft 365", value: "microsoft_365" },
+  { label: "Other", value: "other" },
+];
+
+export const MAX_PER_COMPANY_OPTIONS: { label: string; value: string }[] = [
+  { label: "1 per company", value: "1" },
+  { label: "2 per company", value: "2" },
+  { label: "3 per company", value: "3" },
+  { label: "5 per company", value: "5" },
+];
+
 // ─── Unified UI-layer filter draft ───────────────────────────────────────────
 
 export type FilterDraft = {
-  // Contact Information
+  // Person & contact
+  fullName: string;
   jobTitle: string;
   department: string;
   seniority: string;
@@ -163,10 +189,14 @@ export type FilterDraft = {
   jobFunction: string;
   minYearsAtCompany: string;
   minYearsInRole: string;
+  minTotalYearsExperience: string;
   previousCompany: string;
   contactSignals: string[];
+  jobChangeOnly: boolean;
   // Company — Basic
   companyName: string;
+  companyDomain: string;
+  keyword: string;
   industry: string;
   subIndustry: string;
   country: string;
@@ -177,14 +207,24 @@ export type FilterDraft = {
   companyStage: string;
   lastFundingRound: string;
   revenueRange: string;
-  // Company — Hiring
+  // Company — Hiring & signals
   currentlyHiring: boolean;
   hiringDepartments: string[];
-  // Company — Signals
   companySignals: string[];
+  buyingIntent: string;
+  tech: string;
+  // Company attributes
+  minFoundedYear: string;
+  maxFoundedYear: string;
+  headcountGrowth: string;
+  companyEmailProvider: string;
+  // Result controls
+  excludeDuplicates: boolean;
+  maxPerCompany: string;
 };
 
 export const EMPTY_FILTER_DRAFT: FilterDraft = {
+  fullName: "",
   jobTitle: "",
   department: "",
   seniority: "",
@@ -194,9 +234,13 @@ export const EMPTY_FILTER_DRAFT: FilterDraft = {
   jobFunction: "",
   minYearsAtCompany: "",
   minYearsInRole: "",
+  minTotalYearsExperience: "",
   previousCompany: "",
   contactSignals: [],
+  jobChangeOnly: false,
   companyName: "",
+  companyDomain: "",
+  keyword: "",
   industry: "",
   subIndustry: "",
   country: "",
@@ -209,10 +253,22 @@ export const EMPTY_FILTER_DRAFT: FilterDraft = {
   currentlyHiring: false,
   hiringDepartments: [],
   companySignals: [],
+  buyingIntent: "",
+  tech: "",
+  minFoundedYear: "",
+  maxFoundedYear: "",
+  headcountGrowth: "",
+  companyEmailProvider: "",
+  excludeDuplicates: false,
+  maxPerCompany: "",
 };
 
-export function countContactFilters(draft: FilterDraft): number {
+export function countActiveFilters(draft: FilterDraft): number {
+  const contactSignals = draft.jobChangeOnly
+    ? Array.from(new Set([...draft.contactSignals, "changed_jobs"]))
+    : draft.contactSignals;
   return [
+    draft.fullName,
     draft.jobTitle,
     draft.department,
     draft.seniority,
@@ -220,15 +276,10 @@ export function countContactFilters(draft: FilterDraft): number {
     draft.previousCompany,
     draft.minYearsAtCompany,
     draft.minYearsInRole,
-    draft.emailAvailable || undefined,
-    draft.phoneAvailable || undefined,
-    draft.linkedInAvailable || undefined,
-  ].filter(Boolean).length + draft.contactSignals.length;
-}
-
-export function countCompanyFilters(draft: FilterDraft): number {
-  return [
+    draft.minTotalYearsExperience,
     draft.companyName,
+    draft.companyDomain,
+    draft.keyword,
     draft.industry,
     draft.subIndustry,
     draft.country,
@@ -238,6 +289,26 @@ export function countCompanyFilters(draft: FilterDraft): number {
     draft.companyStage,
     draft.lastFundingRound,
     draft.revenueRange,
+    draft.buyingIntent,
+    draft.tech,
+    draft.minFoundedYear,
+    draft.maxFoundedYear,
+    draft.headcountGrowth,
+    draft.companyEmailProvider,
+    draft.maxPerCompany,
+    draft.emailAvailable || undefined,
+    draft.phoneAvailable || undefined,
+    draft.linkedInAvailable || undefined,
     draft.currentlyHiring || undefined,
-  ].filter(Boolean).length + draft.hiringDepartments.length + draft.companySignals.length;
+    draft.excludeDuplicates || undefined,
+    draft.jobChangeOnly || undefined,
+  ].filter(Boolean).length + contactSignals.length + draft.hiringDepartments.length + draft.companySignals.length;
+}
+
+export function countContactFilters(draft: FilterDraft): number {
+  return countActiveFilters(draft);
+}
+
+export function countCompanyFilters(draft: FilterDraft): number {
+  return countActiveFilters(draft);
 }
