@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
@@ -23,6 +23,7 @@ import { EMPTY_FILTER_DRAFT, countActiveFilters, type FilterDraft } from "@/lib/
 import { buildApiFilters } from "@/lib/build-api-filters";
 import { isIcpConfigured } from "@/lib/scoring";
 import { ProspectFilterSidebar } from "@/components/prospects/prospect-filter-sidebar";
+import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { Sheet } from "@/components/ui/sheet";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
@@ -57,6 +58,7 @@ export default function ProspectSearchPage() {
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
 
   const icp = useQuery({
     queryKey: ["icp"],
@@ -345,7 +347,7 @@ export default function ProspectSearchPage() {
         <CardContent>
           {authReady && search.error && (
             <Alert variant="error" className="mb-4">
-              We couldn&apos;t complete your search. Please try again.
+              {formatQueryError(search.error, "We couldn't complete your search. Please try again.")}
             </Alert>
           )}
           {results.length ? (
@@ -363,6 +365,16 @@ export default function ProspectSearchPage() {
                     key={p.prospectId}
                     actions={
                       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDetailProspect(p)}
+                          className="w-full sm:w-auto"
+                          aria-label={`View details for ${p.fullName}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Details
+                        </Button>
                         {score != null ? (
                           <ScoreBadge
                             score={score}
@@ -414,7 +426,13 @@ export default function ProspectSearchPage() {
                       />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{p.fullName}</p>
+                          <button
+                            type="button"
+                            onClick={() => setDetailProspect(p)}
+                            className="font-medium hover:text-primary hover:underline"
+                          >
+                            {p.fullName}
+                          </button>
                           {p.recordType === "company" ? (
                             <Badge tone="info">Company</Badge>
                           ) : p.title ? (
@@ -539,6 +557,15 @@ export default function ProspectSearchPage() {
           <Button onClick={() => setMobileFiltersOpen(false)}>Apply filters</Button>
         </div>
       </Sheet>
+
+      <ProspectDetailSheet
+        prospect={detailProspect}
+        open={Boolean(detailProspect)}
+        onClose={() => setDetailProspect(null)}
+        score={detailProspect ? scores?.[detailProspect.prospectId] : undefined}
+        enrichedEmail={detailProspect ? enriched[detailProspect.prospectId]?.email : undefined}
+        enrichedEmailStatus={detailProspect ? enriched[detailProspect.prospectId]?.status : undefined}
+      />
     </PageShell>
   );
 }

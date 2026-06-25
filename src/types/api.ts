@@ -25,6 +25,33 @@ export interface ProspectSummary {
   outreachReadiness?: string;
   signals?: Array<{ type: string; observedAt: string; detail?: string }>;
   techStack?: Array<{ category: string; technology: string }>;
+  updatedAt?: string;
+}
+
+/** Full prospect record from GET /search/prospects/:id */
+export interface ProspectDetail extends ProspectSummary {
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  department?: string;
+  jobFunction?: string;
+  subIndustry?: string;
+  state?: string;
+  city?: string;
+  employeeBucket?: string;
+  companyStage?: string;
+  annualRevenue?: number;
+  lastFundingRound?: string;
+  lastFundingDate?: string;
+  totalFunding?: number;
+  currentlyHiring?: boolean;
+  foundedYear?: number;
+  headcountGrowth?: number;
+  companyEmailProvider?: string;
+  yearsAtCompany?: number;
+  yearsInRole?: number;
+  totalYearsExperience?: number;
+  previousCompany?: string;
 }
 
 export interface ProspectSearchFilters {

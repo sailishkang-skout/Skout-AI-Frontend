@@ -58,7 +58,7 @@ export function formatQueryError(error: unknown, fallback: string): string {
     if (error.message) return error.message;
   }
   if (error instanceof TypeError && error.message.includes("fetch")) {
-    return "Could not reach the API — start the backend with pnpm dev (port 3001).";
+    return `Could not reach the API at ${API_URL} — ensure the backend is running and NEXT_PUBLIC_API_URL matches.`;
   }
   return fallback;
 }

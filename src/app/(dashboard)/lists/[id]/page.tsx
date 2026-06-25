@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { ArrowLeft, Download, ExternalLink, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
-import { ProspectMemberSheet } from "@/components/prospects/prospect-member-sheet";
+import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageShell } from "@/components/layout/page-shell";
@@ -18,12 +18,13 @@ import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
 import { refreshCredits, syncCreditsAfterEnrich, useEnrichmentApi, pollScoreJob } from "@/lib/enrichment";
 import {
+  memberCompanyDomain,
   memberCompanyLabel,
   memberDisplayName,
   memberSnap,
   memberSubtitle,
 } from "@/lib/list-members";
-import type { ListMemberDetail } from "@/types/api";
+import type { ListMemberDetail, ProspectSummary } from "@/types/api";
 
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
@@ -509,8 +510,24 @@ export default function ListDetailPage() {
         </CardContent>
       </Card>
 
-      <ProspectMemberSheet
+      <ProspectDetailSheet
+        prospect={
+          detailMember
+            ? {
+                prospectId: detailMember.prospectId,
+                companyId: detailMember.prospectId,
+                fullName: memberDisplayName(detailMember),
+                title: memberSnap(detailMember, "title") ?? "",
+                seniority: (memberSnap(detailMember, "seniority") as ProspectSummary["seniority"]) ?? "unknown",
+                country: memberSnap(detailMember, "country") ?? "",
+                industry: memberSnap(detailMember, "industry") ?? "",
+                companyDomain: memberCompanyDomain(detailMember) ?? "",
+                companyName: memberCompanyLabel(detailMember),
+              }
+            : null
+        }
         member={detailMember}
+        score={detailMember?.score ?? undefined}
         open={Boolean(detailMember)}
         onClose={() => setDetailMember(null)}
       />
