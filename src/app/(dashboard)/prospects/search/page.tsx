@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
@@ -346,11 +347,28 @@ export default function ProspectSearchPage() {
         </CardHeader>
         <CardContent>
           {authReady && search.error && (
-            <Alert variant="error" className="mb-4">
-              {formatQueryError(search.error, "We couldn't complete your search. Please try again.")}
+            <Alert variant="error" title="Search unavailable" className="mb-4" dismissible onRetry={() => search.refetch()}>
+              We couldn&apos;t complete your search. Please try again.
             </Alert>
           )}
-          {results.length ? (
+          {search.isLoading ? (
+            <ul>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className="flex items-start gap-3 border-b py-4 last:border-0">
+                  <Skeleton className="mt-1 h-4 w-4 shrink-0 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-64" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Skeleton className="h-8 w-16 rounded-md" />
+                    <Skeleton className="h-8 w-16 rounded-md" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : results.length ? (
             <ul>
               {results.map((p) => {
                 const e = enriched[p.prospectId];
@@ -483,7 +501,6 @@ export default function ProspectSearchPage() {
               })}
             </ul>
           ) : (
-            !search.isLoading &&
             !search.error && (
               <div className="flex flex-col items-center gap-2 py-12 text-center">
                 <p className="font-medium text-muted-foreground">No prospects found</p>

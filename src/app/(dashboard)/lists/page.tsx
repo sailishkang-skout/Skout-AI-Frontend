@@ -18,6 +18,7 @@ import { useRedirectToIcpSetup } from "@/lib/icp";
 import { useAuthReady } from "@/lib/api-client";
 import { formatJobTime } from "@/lib/enrichment-display";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { EnrichmentBatch, ProspectList } from "@/types/api";
 
 export default function ListsPage() {
@@ -95,9 +96,25 @@ export default function ListsPage() {
       <DemoBanner />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard icon={ListIcon} label="Lists" value={stats.totalLists} />
-        <StatCard icon={Users} label="Total prospects" value={stats.totalProspects} />
-        <StatCard icon={Zap} label="Ready to enrich" value={stats.ready} />
+        {lists.isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <Skeleton className="h-9 w-9 rounded-md" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-6 w-10" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <StatCard icon={ListIcon} label="Lists" value={stats.totalLists} />
+            <StatCard icon={Users} label="Total prospects" value={stats.totalProspects} />
+            <StatCard icon={Zap} label="Ready to enrich" value={stats.ready} />
+          </>
+        )}
       </div>
 
       <Card>
@@ -146,7 +163,7 @@ export default function ListsPage() {
           <div>
             <h2 className="text-lg font-semibold">Your lists</h2>
             <p className="text-sm text-muted-foreground">
-              {lists.error ? "API unavailable" : `${listData.length} list(s) in this workspace`}
+              {lists.error ? "Unable to load lists" : `${listData.length} list(s) in this workspace`}
             </p>
           </div>
           <Link
@@ -158,9 +175,32 @@ export default function ListsPage() {
           </Link>
         </div>
 
-        {lists.error && <Alert variant="warning">Could not load lists.</Alert>}
+        {lists.error && (
+          <Alert variant="error" title="Something went wrong" dismissible onRetry={() => lists.refetch()}>
+            We couldn&apos;t load your lists. Please try again.
+          </Alert>
+        )}
 
-        {listData.length ? (
+        {lists.isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="flex flex-col">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-28" />
+                </CardHeader>
+                <CardContent className="mt-auto space-y-3 pt-0">
+                  <Skeleton className="h-3 w-36" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : listData.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {listData.map((list) => (
               <ListCard

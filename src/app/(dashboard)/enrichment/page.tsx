@@ -27,6 +27,7 @@ import {
   upsertJobFromEnrichResponse,
 } from "@/lib/enrichment";
 import { formatJobTime, resultValue, shortId } from "@/lib/enrichment-display";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { cn } from "@/lib/utils";
 import type { EnrichField, EnrichmentJob } from "@/types/api";
@@ -135,9 +136,9 @@ export default function EnrichmentPage() {
       }
       if (handleCreditsError(err, showInsufficientCredits)) return;
       if (err instanceof ApiError) {
-        setFormError(`API error (${err.status}). Check that the backend is running.`);
+        setFormError("Something went wrong. Please try again.");
       } else {
-        setFormError("Could not reach the API. Start the backend on port 3001.");
+        setFormError("We couldn't complete this request. Please try again.");
       }
     },
   });
@@ -312,10 +313,27 @@ export default function EnrichmentPage() {
           </CardHeader>
           <CardContent>
             {authReady && jobs.error && (
-              <Alert variant="warning">API unavailable — start the backend on port 3001.</Alert>
+              <Alert variant="error" title="Something went wrong" dismissible onRetry={() => jobs.refetch()}>
+                We couldn&apos;t load your recent jobs. Please try again.
+              </Alert>
             )}
             {(!authReady || jobs.isLoading) && !jobList.length ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Loading jobs…</p>
+              <ul className="divide-y">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <li key={i} className="py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : jobList.length ? (
               <ul className="divide-y">
                 {jobList.map((job) => (

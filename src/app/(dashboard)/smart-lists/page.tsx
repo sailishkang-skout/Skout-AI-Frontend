@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { useSmartListApi } from "@/lib/smart-lists";
 import { Select } from "@/components/ui/select";
@@ -347,12 +348,31 @@ export default function SmartListsPage() {
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Saved smart lists</CardTitle>
           <CardDescription>
-            {lists.error ? "API unavailable — start the backend." : "Run to preview matches, then create an activation list."}
+            {lists.error ? "Unable to load smart lists." : "Run to preview matches, then create an activation list."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {lists.error && <Alert variant="warning">Could not load smart lists.</Alert>}
-          {lists.data?.data.length ? (
+          {lists.error && (
+            <Alert variant="error" title="Something went wrong" dismissible onRetry={() => lists.refetch()}>
+              We couldn&apos;t load your smart lists. Please try again.
+            </Alert>
+          )}
+          {lists.isLoading ? (
+            <ul>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="flex items-center justify-between gap-4 border-b py-4 last:border-0">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-16 rounded-md" />
+                    <Skeleton className="h-8 w-20 rounded-md" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : lists.data?.data.length ? (
             <ul>
               {lists.data.data.map((list) => {
                 const f = list.filters as SmartListFilters;
@@ -431,5 +451,5 @@ function formatApiError(err: unknown, fallback: string): string {
         : null;
     return code ? `${fallback}: ${code}` : `${fallback} (${err.status}).`;
   }
-  return "Could not reach the API.";
+  return "Something went wrong. Please try again.";
 }

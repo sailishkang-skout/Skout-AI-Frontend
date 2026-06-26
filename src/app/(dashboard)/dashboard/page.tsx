@@ -8,11 +8,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuthReady, formatQueryError } from "@/lib/api-client";
+import { useAuthReady } from "@/lib/api-client";
 import { DASHBOARD_SUMMARY_KEY, useDashboardApi } from "@/lib/dashboard";
 import { formatJobTime } from "@/lib/enrichment-display";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
   const authReady = useAuthReady();
@@ -26,7 +26,6 @@ export default function DashboardPage() {
   });
 
   const data = summary.data;
-  const showDashboardError = summary.isError && !summary.isFetching && !summary.isLoading;
 
   return (
     <PageShell data-testid="page-dashboard">
@@ -50,44 +49,48 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {summary.isLoading && !data && (
-        <p className="text-sm text-muted-foreground">Loading dashboard…</p>
-      )}
-
-      {showDashboardError && (
-        <Alert variant="warning">
-          <p>{formatQueryError(summary.error, "Could not load dashboard.")}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => void summary.refetch()}
-          >
-            Retry
-          </Button>
+      {summary.error && (
+        <Alert variant="error" title="Something went wrong" dismissible onRetry={() => summary.refetch()}>
+          We couldn&apos;t load your dashboard. Please try again.
         </Alert>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={Coins}
-          label="Credits remaining"
-          value={data?.credits?.toLocaleString() ?? "—"}
-          href="/settings/workspace"
-        />
-        <StatCard icon={List} label="Lists" value={data?.listCount ?? "—"} href="/lists" />
-        <StatCard
-          icon={Users}
-          label="Prospects in lists"
-          value={data?.totalProspectsInLists ?? "—"}
-          href="/lists"
-        />
-        <StatCard
-          icon={Zap}
-          label="Recent jobs"
-          value={data?.recentJobs.length ?? "—"}
-          href="/enrichment"
-        />
+        {summary.isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-6 w-16" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <StatCard
+              icon={Coins}
+              label="Credits remaining"
+              value={data?.credits?.toLocaleString() ?? "—"}
+              href="/settings/workspace"
+            />
+            <StatCard icon={List} label="Lists" value={data?.listCount ?? "—"} href="/lists" />
+            <StatCard
+              icon={Users}
+              label="Prospects in lists"
+              value={data?.totalProspectsInLists ?? "—"}
+              href="/lists"
+            />
+            <StatCard
+              icon={Zap}
+              label="Recent jobs"
+              value={data?.recentJobs.length ?? "—"}
+              href="/enrichment"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -109,7 +112,19 @@ export default function DashboardPage() {
             <CardDescription>Latest jobs in this workspace.</CardDescription>
           </CardHeader>
           <CardContent>
-            {data?.recentJobs.length ? (
+            {summary.isLoading ? (
+              <ul className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </li>
+                ))}
+              </ul>
+            ) : data?.recentJobs.length ? (
               <ul className="space-y-2">
                 {data.recentJobs.map((job) => (
                   <li key={job.id}>
@@ -130,14 +145,22 @@ export default function DashboardPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">No enrichment jobs yet.</p>
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <Zap className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">No enrichment jobs yet.</p>
+                <Link href="/enrichment" className="text-sm text-primary underline underline-offset-2">
+                  Run your first enrichment
+                </Link>
+              </div>
             )}
-            <Link
-              href="/enrichment"
-              className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-accent"
-            >
-              View all jobs
-            </Link>
+            {!summary.isLoading && (
+              <Link
+                href="/enrichment"
+                className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-accent"
+              >
+                View all jobs
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>

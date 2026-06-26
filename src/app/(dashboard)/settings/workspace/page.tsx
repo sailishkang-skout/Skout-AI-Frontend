@@ -117,7 +117,9 @@ export default function WorkspaceSettingsPage() {
       <DemoBanner />
 
       {workspace.error && (
-        <Alert variant="warning">Could not load workspace — check that the API is running.</Alert>
+        <Alert variant="error" title="Something went wrong" dismissible>
+          We couldn&apos;t load your workspace details. Please try again.
+        </Alert>
       )}
 
       <Card>
@@ -229,7 +231,9 @@ export default function WorkspaceSettingsPage() {
             <p className="text-sm text-muted-foreground">Loading transactions…</p>
           )}
           {transactions.error && (
-            <Alert variant="warning">Could not load usage history.</Alert>
+            <Alert variant="error" title="Something went wrong" dismissible>
+              We couldn&apos;t load your usage history. Please try again.
+            </Alert>
           )}
           {!transactions.isLoading && txRows.length ? (
             <>

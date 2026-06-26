@@ -12,6 +12,7 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
@@ -335,7 +336,11 @@ export default function ListDetailPage() {
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
       {exportError && <Alert variant="warning">{exportError}</Alert>}
-      {detail.error && <Alert variant="warning">List not found or API unavailable.</Alert>}
+      {detail.error && (
+        <Alert variant="error" title="Something went wrong" dismissible>
+          We couldn&apos;t load this list. Please try again.
+        </Alert>
+      )}
 
       {selected.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
@@ -414,7 +419,18 @@ export default function ListDetailPage() {
         </CardHeader>
         <CardContent>
           {detail.isLoading && (
-            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            <ul>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className="flex items-start gap-3 border-b py-4 last:border-0">
+                  <Skeleton className="mt-1 h-4 w-4 shrink-0 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-56" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
           {!detail.isLoading && members.length > 0 && (
             <ul>
