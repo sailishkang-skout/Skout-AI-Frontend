@@ -55,11 +55,11 @@ export default function ProspectSearchPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedQuery, appliedFilters]);
+  const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
-  const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
 
   const icp = useQuery({
     queryKey: ["icp"],
@@ -442,15 +442,13 @@ export default function ProspectSearchPage() {
                         onChange={() => toggleSelect(p.prospectId)}
                         aria-label={`Select ${p.fullName}`}
                       />
-                      <div className="min-w-0">
+                      <button
+                        type="button"
+                        className="min-w-0 text-left"
+                        onClick={() => setDetailProspect(p)}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDetailProspect(p)}
-                            className="font-medium hover:text-primary hover:underline"
-                          >
-                            {p.fullName}
-                          </button>
+                          <p className="font-medium hover:text-primary hover:underline">{p.fullName}</p>
                           {p.recordType === "company" ? (
                             <Badge tone="info">Company</Badge>
                           ) : p.title ? (
@@ -494,7 +492,7 @@ export default function ProspectSearchPage() {
                             Enrichment failed — try again
                           </p>
                         )}
-                      </div>
+                      </button>
                     </div>
                   </ListRow>
                 );
