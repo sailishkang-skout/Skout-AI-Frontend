@@ -290,7 +290,7 @@ export default function CorpusPipelinePage() {
                 </p>
                 <JobProgress job={selectedJob} />
                 {selectedJob.errorMessage && (
-                  <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                  <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-red-600 dark:text-red-400 break-words">
                     {selectedJob.errorMessage}
                   </p>
                 )}
@@ -340,11 +340,11 @@ export default function CorpusPipelinePage() {
                     setActiveJobId(job.id);
                     setDetailJobId(job.id);
                   }}
-                  className={`flex w-full flex-col gap-1 py-3 text-left transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                  className={`flex w-full flex-col gap-1 py-3 text-left transition-colors sm:flex-row sm:items-start sm:justify-between sm:gap-3 ${
                     activeJobId === job.id ? "bg-muted/50" : "hover:bg-muted/40"
                   }`}
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{job.source}</span>
                       <Badge tone={statusTone(job.status)}>{job.status}</Badge>
@@ -353,7 +353,7 @@ export default function CorpusPipelinePage() {
                         Details
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {(job.seeds ?? []).slice(0, 3).join(", ")}
                       {(job.seeds?.length ?? 0) > 3 ? "…" : ""}
                     </p>
@@ -367,7 +367,7 @@ export default function CorpusPipelinePage() {
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:text-right">
                     {new Date(job.queuedAt).toLocaleString()}
                   </span>
                 </button>

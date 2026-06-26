@@ -100,7 +100,7 @@ export function Alert({
           <p className="mb-0.5 text-sm font-semibold leading-snug">{title}</p>
         )}
         {children && (
-          <div className="text-sm leading-relaxed opacity-90">{children}</div>
+          <div className="text-sm leading-relaxed opacity-90 break-words">{children}</div>
         )}
         {onRetry && (
           <button
