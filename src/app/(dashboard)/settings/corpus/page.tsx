@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { AlertCircle, ExternalLink, Loader2, Play, RefreshCw, Server } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Loader2, Play, RefreshCw, Server } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
+import { ScrapeJobDetailSheet } from "@/components/prospects/scrape-job-detail-sheet";
 import type { ScrapeJobRow } from "@/types/api";
+
+const JOBS_PER_PAGE = 10;
 
 const SOURCES = [
   { value: "company-web", label: "Company website", hint: "Domains like stripe.com or openai.com" },
@@ -91,6 +94,8 @@ export default function CorpusPipelinePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [detailJobId, setDetailJobId] = useState<string | null>(null);
+  const [jobsPage, setJobsPage] = useState(1);
 
   const sourceMeta = SOURCES.find((s) => s.value === source)!;
 
@@ -151,6 +156,19 @@ export default function CorpusPipelinePage() {
     () => (jobs.data?.data ?? []).some((j) => j.status === "queued" || j.status === "running"),
     [jobs.data]
   );
+
+  const allJobs = jobs.data?.data ?? [];
+  const totalJobPages = Math.max(1, Math.ceil(allJobs.length / JOBS_PER_PAGE));
+  const pagedJobs = useMemo(
+    () => allJobs.slice((jobsPage - 1) * JOBS_PER_PAGE, jobsPage * JOBS_PER_PAGE),
+    [allJobs, jobsPage]
+  );
+  const detailJob = allJobs.find((j) => j.id === detailJobId);
+
+  // Keep the current page in range as the list grows/shrinks.
+  useEffect(() => {
+    if (jobsPage > totalJobPages) setJobsPage(totalJobPages);
+  }, [jobsPage, totalJobPages]);
 
   useEffect(() => {
     if (selectedJob?.status === "completed") {
@@ -294,7 +312,11 @@ export default function CorpusPipelinePage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">Recent jobs</CardTitle>
-            <CardDescription>Last 50 scrape jobs from Postgres.</CardDescription>
+            <CardDescription>
+              {allJobs.length > 0
+                ? `${allJobs.length} job${allJobs.length === 1 ? "" : "s"} · click a row for full details`
+                : "Last 50 scrape jobs from Postgres."}
+            </CardDescription>
           </div>
           <Button
             size="sm"
@@ -306,15 +328,18 @@ export default function CorpusPipelinePage() {
         </CardHeader>
         <CardContent>
           {jobs.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {!jobs.isLoading && (jobs.data?.data.length ?? 0) === 0 && (
+          {!jobs.isLoading && allJobs.length === 0 && (
             <p className="text-sm text-muted-foreground">No scrape jobs yet.</p>
           )}
           <ul className="divide-y divide-border text-sm">
-            {(jobs.data?.data ?? []).map((job) => (
+            {pagedJobs.map((job) => (
               <li key={job.id}>
                 <button
                   type="button"
-                  onClick={() => setActiveJobId(job.id)}
+                  onClick={() => {
+                    setActiveJobId(job.id);
+                    setDetailJobId(job.id);
+                  }}
                   className={`flex w-full flex-col gap-1 py-3 text-left transition-colors sm:flex-row sm:items-center sm:justify-between ${
                     activeJobId === job.id ? "bg-muted/50" : "hover:bg-muted/40"
                   }`}
@@ -323,6 +348,10 @@ export default function CorpusPipelinePage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{job.source}</span>
                       <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+                      <span className="inline-flex items-center gap-1 text-xs text-primary">
+                        <ExternalLink className="h-3 w-3" />
+                        Details
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {(job.seeds ?? []).slice(0, 3).join(", ")}
@@ -345,8 +374,45 @@ export default function CorpusPipelinePage() {
               </li>
             ))}
           </ul>
+
+          {allJobs.length > JOBS_PER_PAGE && (
+            <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
+              <p className="text-xs text-muted-foreground">
+                Page {jobsPage} of {totalJobPages}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                  disabled={jobsPage === 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setJobsPage((p) => Math.min(totalJobPages, p + 1))}
+                  disabled={jobsPage >= totalJobPages}
+                  aria-label="Next page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <ScrapeJobDetailSheet
+        jobId={detailJobId}
+        initialData={detailJob}
+        open={Boolean(detailJobId)}
+        onClose={() => setDetailJobId(null)}
+      />
     </PageShell>
   );
 }
