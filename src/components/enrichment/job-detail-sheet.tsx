@@ -16,6 +16,7 @@ import {
   providerLabel,
   shortId,
   summarizeCredits,
+  verificationSourceLine,
 } from "@/lib/enrichment-display";
 import type { EnrichmentJob, FieldResult } from "@/types/api";
 
@@ -63,7 +64,7 @@ export function JobDetailSheet({
       )}
 
       {job && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={statusTone(job.status)} className="shrink-0">
               {job.status}
@@ -143,13 +144,7 @@ export function JobDetailSheet({
               <DetailRow label="Queued" value={formatJobTime(job.queuedAt)} />
               <DetailRow
                 label="Started"
-                value={
-                  job.startedAt && job.startedAt !== job.queuedAt
-                    ? formatJobTime(job.startedAt)
-                    : job.startedAt
-                      ? formatJobTime(job.startedAt)
-                      : "—"
-                }
+                value={job.startedAt ? formatJobTime(job.startedAt) : "—"}
               />
               <DetailRow label="Completed" value={formatJobTime(job.completedAt)} />
             </dl>
@@ -234,9 +229,10 @@ function ResultItem({ result }: { result: FieldResult }) {
       : null;
 
   const formatted = formatFieldResult(result);
+  const verificationSource = verificationSourceLine(result);
 
   return (
-    <li className="space-y-1.5 px-3 py-3 text-sm">
+    <li className="space-y-2 px-4 py-4 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">{fieldLabel(result.field)}</span>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -267,6 +263,9 @@ function ResultItem({ result }: { result: FieldResult }) {
             </li>
           ))}
         </ul>
+      )}
+      {verificationSource && (
+        <p className="text-xs font-medium text-foreground/80">{verificationSource}</p>
       )}
       {formatted.text ? (
         <p className={`text-muted-foreground break-words ${formatted.isMultiline ? "whitespace-pre-line" : ""}`}>

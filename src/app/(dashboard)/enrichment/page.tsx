@@ -26,11 +26,11 @@ import {
   removeJobFromCache,
   upsertJobFromEnrichResponse,
 } from "@/lib/enrichment";
-import { formatJobTime, resultValue, shortId } from "@/lib/enrichment-display";
+import { formatJobTime, resultValue, shortId, verificationSourceLine } from "@/lib/enrichment-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { cn } from "@/lib/utils";
-import type { EnrichField, EnrichmentJob } from "@/types/api";
+import type { EnrichField, EnrichmentJob, FieldResult } from "@/types/api";
 
 const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
   { id: "company", label: "Firmographics" },
@@ -201,16 +201,16 @@ export default function EnrichmentPage() {
 
       <DemoBanner />
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid gap-8 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <CardHeader>
+          <CardHeader className="pb-4">
             <CardTitle className="text-base sm:text-lg">Enrich a prospect</CardTitle>
             <CardDescription>
               Enter a company domain. Add a LinkedIn profile URL for better phone match rates (Datagma →
               ContactOut).
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-6">
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 placeholder="Company domain *"
@@ -284,8 +284,8 @@ export default function EnrichmentPage() {
             </div>
 
             {enrich.data && (
-              <div className="mt-2 rounded-lg border border-border bg-muted/30 p-4">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-5">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(enrich.data.status)}>{enrich.data.status}</Badge>
                   <span className="text-sm text-muted-foreground">
                     {enrich.data.creditsUsed} credit(s) used
@@ -299,12 +299,16 @@ export default function EnrichmentPage() {
                     View job
                   </Button>
                 </div>
-                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <dl className="grid gap-4 text-sm sm:grid-cols-2">
                   <ResultRow
                     icon={<Mail className="h-4 w-4" />}
                     label="Email"
                     value={resultValue(enrich.data.results, "email")}
                     status={resultValue(enrich.data.results, "email_status")}
+                    verificationSource={
+                      enrich.data.results.find((r) => r.field === "email_status" || r.field === "validation") ??
+                      undefined
+                    }
                   />
                   <ResultRow
                     icon={<Phone className="h-4 w-4" />}
@@ -318,7 +322,7 @@ export default function EnrichmentPage() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="pb-4">
             <CardTitle className="text-base sm:text-lg">Recent jobs</CardTitle>
             <CardDescription>Click a job for full details.</CardDescription>
           </CardHeader>
@@ -461,18 +465,24 @@ function ResultRow({
   label,
   value,
   status,
+  verificationSource,
 }: {
   icon: React.ReactNode;
   label: string;
   value?: string;
   status?: string;
+  verificationSource?: FieldResult;
 }) {
+  const sourceLine = verificationSource ? verificationSourceLine(verificationSource) : null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="font-medium">{label}</span>
-      <span className="break-all">{value ?? "—"}</span>
-      {status && <Badge tone={statusTone(status)}>{status}</Badge>}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="font-medium">{label}</span>
+        <span className="break-all">{value ?? "—"}</span>
+        {status && <Badge tone={statusTone(status)}>{status}</Badge>}
+      </div>
+      {sourceLine && <p className="pl-6 text-xs font-medium text-foreground/80">{sourceLine}</p>}
     </div>
   );
 }

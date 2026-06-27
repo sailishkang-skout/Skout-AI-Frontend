@@ -37,6 +37,17 @@ export function providerLabel(provider: string): string {
   return PROVIDER_LABELS[provider] ?? provider.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Explicit verification source line for email_status / validation results. */
+export function verificationSourceLine(result: FieldResult): string | null {
+  if (result.field !== "validation" && result.field !== "email_status") return null;
+  if (!result.provider) return null;
+  const via = providerLabel(result.provider);
+  const status = (result.validationStatus ?? result.value ?? "").toLowerCase();
+  if (status === "valid") return `Verified via ${via}`;
+  if (status) return `Checked via ${via} · ${result.validationStatus ?? result.value}`;
+  return `Verification source: ${via}`;
+}
+
 export function resultValue(results: FieldResult[], field: string): string | undefined {
   return results.find((r) => r.field === field)?.value;
 }

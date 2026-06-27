@@ -245,6 +245,9 @@ export interface EnrichTriggerResponse {
   creditsUsed: number;
   results: FieldResult[];
   attempts?: AttemptLog[];
+  queuedAt?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface CreditsResponse {

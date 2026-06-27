@@ -81,7 +81,7 @@ export function prependOptimisticJob(
     creditsUsed: 0,
     errorMessage: null,
     queuedAt: now,
-    startedAt: now,
+    startedAt: null,
     completedAt: null,
   };
   queryClient.setQueryData<ListEnvelope<EnrichmentJob>>(JOBS_QUERY_KEY, (old) => {
@@ -105,7 +105,6 @@ export function upsertJobFromEnrichResponse(
   fields: EnrichField[],
   replaceOptimisticId?: string
 ): void {
-  const now = new Date().toISOString();
   const job: EnrichmentJob = {
     id: response.jobId,
     workspaceId: "",
@@ -117,21 +116,32 @@ export function upsertJobFromEnrichResponse(
     attempts: response.attempts,
     creditsUsed: response.creditsUsed,
     errorMessage: null,
-    queuedAt: now,
-    startedAt: now,
-    completedAt:
-      response.status === "completed" || response.status === "failed" ? now : null,
+    queuedAt: response.queuedAt ?? new Date().toISOString(),
+    startedAt: response.startedAt ?? null,
+    completedAt: response.completedAt ?? null,
   };
   queryClient.setQueryData<ListEnvelope<EnrichmentJob>>(JOBS_QUERY_KEY, (old) => {
     let data = old?.data ?? [];
     if (replaceOptimisticId) {
       data = data.filter((j) => j.id !== replaceOptimisticId);
     }
-    const existing = data.findIndex((j) => j.id === job.id);
-    if (existing >= 0) {
-      data = data.map((j, i) => (i === existing ? { ...j, ...job } : j));
+    const existingIdx = data.findIndex((j) => j.id === job.id);
+    const optimisticIdx = replaceOptimisticId
+      ? -1
+      : data.findIndex((j) => j.id.startsWith("optimistic-") && j.prospectId === prospectId);
+    const prior = existingIdx >= 0 ? data[existingIdx] : optimisticIdx >= 0 ? data[optimisticIdx] : null;
+    const merged: EnrichmentJob = {
+      ...job,
+      queuedAt: job.queuedAt ?? prior?.queuedAt ?? job.queuedAt,
+      startedAt: job.startedAt ?? prior?.startedAt ?? null,
+      completedAt: job.completedAt ?? prior?.completedAt ?? null,
+    };
+    if (existingIdx >= 0) {
+      data = data.map((j, i) => (i === existingIdx ? { ...j, ...merged } : j));
+    } else if (optimisticIdx >= 0) {
+      data = data.map((j, i) => (i === optimisticIdx ? { ...j, ...merged } : j));
     } else {
-      data = [job, ...data];
+      data = [merged, ...data];
     }
     return { workspaceId: old?.workspaceId ?? "", data, total: data.length };
   });
