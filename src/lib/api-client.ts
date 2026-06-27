@@ -1,6 +1,31 @@
 import { useAuth } from "@clerk/nextjs";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
+
+/**
+ * Resolve the API base at call time. NEXT_PUBLIC_API_URL is baked at Docker build
+ * time and can point at the internal HTTP ALB; calling it from an HTTPS page is
+ * blocked as mixed content. Behind the API Gateway the API is reachable same-origin
+ * (`/api/*` is proxied to the ALB), so in the browser we drop to a relative base
+ * whenever the configured URL would downgrade HTTPS→HTTP. Local dev (http page →
+ * http API on another port) is left untouched.
+ */
+export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    if (!CONFIGURED_API_URL) return "";
+    try {
+      const configured = new URL(CONFIGURED_API_URL);
+      if (window.location.protocol === "https:" && configured.protocol === "http:") {
+        return "";
+      }
+    } catch {
+      return "";
+    }
+  }
+  return CONFIGURED_API_URL;
+}
+
+const API_URL = CONFIGURED_API_URL;
 export const CLERK_ENABLED = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const AUTH_LOAD_POLL_MS = 25;
@@ -60,7 +85,7 @@ export function formatQueryError(error: unknown, fallback: string): string {
     if (error.message) return error.message;
   }
   if (error instanceof TypeError && error.message.includes("fetch")) {
-    return `Could not reach the API at ${API_URL} — ensure the backend is running and NEXT_PUBLIC_API_URL matches.`;
+    return `Could not reach the API at ${getApiBase() || API_URL} — ensure the backend is running and NEXT_PUBLIC_API_URL matches.`;
   }
   return fallback;
 }
@@ -97,7 +122,7 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     ...init,
     body,
     headers,
