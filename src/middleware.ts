@@ -29,12 +29,17 @@ const useClerkMiddleware =
   process.env.E2E_AUTH_BYPASS !== "true" &&
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
+const clerkMiddlewareOptions = {
+  signInUrl: process.env.CLERK_SIGN_IN_URL ?? process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
+  signUpUrl: process.env.CLERK_SIGN_UP_URL ?? process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,
+};
+
 const clerkHandler = useClerkMiddleware
   ? clerkMiddleware(async (auth, request) => {
       if (isProtectedRoute(request)) {
         auth().protect();
       }
-    })
+    }, clerkMiddlewareOptions)
   : null;
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
