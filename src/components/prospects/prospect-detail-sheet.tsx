@@ -135,8 +135,14 @@ export function ProspectDetailSheet({
           <DetailRow label="Phone" value={detail.data?.phone} />
           <DetailRow label="LinkedIn" value={detail.data?.linkedinUrl} />
           <DetailRow label="Country" value={d.country} />
-          <DetailRow label="State" value={detail.data?.state} />
-          <DetailRow label="City" value={detail.data?.city} />
+          <DetailRow
+            label="State"
+            value={detail.data?.state ?? ("state" in (prospect ?? {}) ? (prospect as { state?: string }).state : undefined)}
+          />
+          <DetailRow
+            label="City"
+            value={detail.data?.city ?? ("city" in (prospect ?? {}) ? (prospect as { city?: string }).city : undefined)}
+          />
         </Section>
 
         <Section title="Company">

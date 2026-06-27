@@ -55,6 +55,8 @@ export function formatQueryError(error: unknown, fallback: string): string {
     if (error.status >= 500) {
       return "The API returned a server error. Check that Postgres and Redis are running.";
     }
+    const body = error.body as { message?: string; error?: string } | undefined;
+    if (body?.message && body.message !== body.error) return body.message;
     if (error.message) return error.message;
   }
   if (error instanceof TypeError && error.message.includes("fetch")) {

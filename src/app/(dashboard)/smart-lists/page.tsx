@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { ExternalLink, Loader2, Play, Plus, Sparkles, Users } from "lucide-react";
+import { Check, ExternalLink, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -55,6 +55,9 @@ export default function SmartListsPage() {
     demo?: boolean;
   } | null>(null);
   const [activatedListId, setActivatedListId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const lists = useQuery({
     queryKey: ["smart-lists"],
@@ -124,6 +127,25 @@ export default function SmartListsPage() {
       } else {
         setActivateError(formatApiError(err, "Could not create activation list"));
       }
+    },
+  });
+
+  const rename = useMutation({
+    mutationFn: ({ id, newName }: { id: string; newName: string }) =>
+      smartListApi.update(id, { name: newName }),
+    onSuccess: () => {
+      setEditingId(null);
+      setEditName("");
+      queryClient.invalidateQueries({ queryKey: ["smart-lists"] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => smartListApi.remove(id),
+    onSuccess: (_data, id) => {
+      setConfirmDeleteId(null);
+      if (lastRun?.listId === id) setLastRun(null);
+      queryClient.invalidateQueries({ queryKey: ["smart-lists"] });
     },
   });
 
@@ -381,6 +403,10 @@ export default function SmartListsPage() {
                 const filterSummary =
                   [f.industry, f.country, f.seniority, f.query].filter(Boolean).join(" · ") ||
                   "No filters";
+                const isEditing = editingId === list.id;
+                const isConfirmingDelete = confirmDeleteId === list.id;
+                const renaming = rename.isPending && rename.variables?.id === list.id;
+                const removing = remove.isPending && remove.variables === list.id;
                 return (
                   <ListRow
                     key={list.id}
@@ -416,10 +442,93 @@ export default function SmartListsPage() {
                           )}
                           Activate
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Rename smart list"
+                          onClick={() => {
+                            setEditingId(list.id);
+                            setEditName(list.name);
+                            setConfirmDeleteId(null);
+                          }}
+                          disabled={running || activating || isEditing}
+                          className="w-full sm:w-auto"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {isConfirmingDelete ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => remove.mutate(list.id)}
+                              disabled={removing}
+                              className="w-full sm:w-auto"
+                            >
+                              {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              aria-label="Cancel delete"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={removing}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label="Delete smart list"
+                            onClick={() => {
+                              setConfirmDeleteId(list.id);
+                              setEditingId(null);
+                            }}
+                            disabled={running || activating}
+                            className="w-full text-red-600 hover:text-red-700 sm:w-auto dark:text-red-400"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     }
                   >
-                    <p className="font-medium">{list.name}</p>
+                    {isEditing ? (
+                      <form
+                        className="flex items-center gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const trimmed = editName.trim();
+                          if (trimmed && trimmed !== list.name) rename.mutate({ id: list.id, newName: trimmed });
+                          else setEditingId(null);
+                        }}
+                      >
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          autoFocus
+                          className="h-8 max-w-xs"
+                          aria-label="Smart list name"
+                        />
+                        <Button type="submit" size="sm" disabled={renaming || !editName.trim()}>
+                          {renaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Cancel rename"
+                          onClick={() => setEditingId(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </form>
+                    ) : (
+                      <p className="font-medium">{list.name}</p>
+                    )}
                     <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{filterSummary}</p>
                     {list.lastRunCount != null && (
                       <Badge tone="muted" className="mt-2">

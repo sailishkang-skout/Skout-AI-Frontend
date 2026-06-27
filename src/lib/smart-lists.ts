@@ -24,6 +24,17 @@ export function useSmartListApi() {
         body: JSON.stringify({ name, filters }),
       }),
 
+    update: (id: string, patch: { name?: string; filters?: SmartListFilters }) =>
+      fetchApi<SmartList>(`/api/v1/smart-lists/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+
+    remove: (id: string) =>
+      fetchApi<void>(`/api/v1/smart-lists/${id}`, {
+        method: "DELETE",
+      }),
+
     run: (id: string) =>
       fetchApi<SmartListRunResult>(`/api/v1/smart-lists/${id}/run`, {
         method: "POST",

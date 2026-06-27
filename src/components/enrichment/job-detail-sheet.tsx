@@ -1,13 +1,22 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { useEnrichmentApi, JOBS_QUERY_KEY } from "@/lib/enrichment";
 import { useAuthReady } from "@/lib/api-client";
-import { fieldLabel, formatJobTime, shortId } from "@/lib/enrichment-display";
+import {
+  enrichmentSummaryLines,
+  fieldLabel,
+  formatFieldResult,
+  formatJobTime,
+  looksLikeDomain,
+  providerLabel,
+  shortId,
+  summarizeCredits,
+} from "@/lib/enrichment-display";
 import type { EnrichmentJob, FieldResult } from "@/types/api";
 
 export function JobDetailSheet({
@@ -33,6 +42,8 @@ export function JobDetailSheet({
   });
 
   const job = detail.data ?? fallbackJob;
+  const credits = job ? summarizeCredits(job) : null;
+  const summary = job && job.status === "completed" ? enrichmentSummaryLines(job) : [];
 
   return (
     <Sheet
@@ -54,22 +65,75 @@ export function JobDetailSheet({
       {job && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={statusTone(job.status)}>{job.status}</Badge>
-            <Badge tone="muted">{job.trigger}</Badge>
+            <Badge tone={statusTone(job.status)} className="shrink-0">
+              {job.status}
+            </Badge>
+            <Badge tone="muted" className="shrink-0">
+              {job.trigger}
+            </Badge>
             <span className="text-sm text-muted-foreground">{job.creditsUsed} credits used</span>
           </div>
 
-          {job.errorMessage && <Alert variant="error">{job.errorMessage}</Alert>}
+          {job.errorMessage && (
+            <Alert variant="error">
+              {job.errorMessage.includes("Failed query:")
+                ? "This job failed due to a server error. Please try again or contact support."
+                : job.errorMessage}
+            </Alert>
+          )}
+
+          {summary.length > 0 && (
+            <section className="space-y-2 rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-900/40 dark:bg-green-950/20">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                Enrichment summary
+              </h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {summary.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Prospect
             </h3>
             <dl className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
-              <DetailRow label="Prospect ID" value={job.prospectId} mono />
-              <DetailRow label="Fields requested" value={job.fieldsRequested.join(", ")} />
+              <DetailRow
+                label={looksLikeDomain(job.prospectId) ? "Company domain" : "Prospect ID"}
+                value={job.prospectId}
+                mono
+              />
+              {!looksLikeDomain(job.prospectId) && (
+                <DetailRow label="Job reference" value={shortId(job.id, 16)} mono />
+              )}
+              <DetailRow
+                label="Fields requested"
+                value={job.fieldsRequested.map(fieldLabel).join(", ")}
+              />
             </dl>
           </section>
+
+          {credits && credits.lines.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Credits breakdown
+              </h3>
+              <ul className="divide-y rounded-lg border text-sm">
+                {credits.lines.map((line) => (
+                  <li key={line.label} className="flex items-center justify-between px-3 py-2">
+                    <span className="text-muted-foreground">{line.label}</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between px-3 py-2 font-medium">
+                  <span>Total</span>
+                  <span className="tabular-nums">{credits.total}</span>
+                </li>
+              </ul>
+            </section>
+          )}
 
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -77,7 +141,16 @@ export function JobDetailSheet({
             </h3>
             <dl className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
               <DetailRow label="Queued" value={formatJobTime(job.queuedAt)} />
-              <DetailRow label="Started" value={formatJobTime(job.startedAt)} />
+              <DetailRow
+                label="Started"
+                value={
+                  job.startedAt && job.startedAt !== job.queuedAt
+                    ? formatJobTime(job.startedAt)
+                    : job.startedAt
+                      ? formatJobTime(job.startedAt)
+                      : "—"
+                }
+              />
               <DetailRow label="Completed" value={formatJobTime(job.completedAt)} />
             </dl>
           </section>
@@ -106,16 +179,20 @@ export function JobDetailSheet({
                 {job.attempts.map((a) => (
                   <li key={`${a.order}-${a.provider}-${a.operation}`} className="space-y-1 px-3 py-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{a.provider}</span>
-                      <Badge tone="muted" className="text-[10px]">
+                      <span className="font-medium">{providerLabel(a.provider)}</span>
+                      <Badge tone="muted" className="shrink-0 text-[10px]">
                         {a.operation}
                       </Badge>
-                      <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                      <Badge tone={statusTone(a.status)} className="shrink-0">
+                        {a.status}
+                      </Badge>
                       {a.latencyMs > 0 && (
                         <span className="text-xs text-muted-foreground">{a.latencyMs}ms</span>
                       )}
                     </div>
-                    {a.detail && <p className="text-xs text-muted-foreground">{a.detail}</p>}
+                    {a.detail && (
+                      <p className="text-xs text-muted-foreground break-words">{a.detail}</p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -155,11 +232,8 @@ function ResultItem({ result }: { result: FieldResult }) {
       ? ((result.valueJson as { providersTried: Array<{ provider: string; status: string; detail?: string }> })
           .providersTried)
       : null;
-  const displayValue =
-    result.value ??
-    (result.valueJson != null && !providersTried
-      ? JSON.stringify(result.valueJson, null, 2)
-      : undefined);
+
+  const formatted = formatFieldResult(result);
 
   return (
     <li className="space-y-1.5 px-3 py-3 text-sm">
@@ -167,11 +241,15 @@ function ResultItem({ result }: { result: FieldResult }) {
         <span className="font-medium">{fieldLabel(result.field)}</span>
         <div className="flex flex-wrap items-center gap-1.5">
           {result.provider && (
-            <Badge tone="muted" className="text-[10px]">
-              {result.provider}
+            <Badge tone="muted" className="shrink-0 text-[10px]">
+              {providerLabel(result.provider)}
             </Badge>
           )}
-          {status && <Badge tone={statusTone(status)}>{status}</Badge>}
+          {status && (
+            <Badge tone={statusTone(status)} className="shrink-0">
+              {status}
+            </Badge>
+          )}
           {result.confidence != null && (
             <span className="text-xs text-muted-foreground">{Math.round(result.confidence * 100)}%</span>
           )}
@@ -181,8 +259,8 @@ function ResultItem({ result }: { result: FieldResult }) {
         <ul className="space-y-1 rounded-md border bg-muted/20 p-2 text-xs">
           {providersTried.map((p) => (
             <li key={p.provider} className="flex flex-wrap gap-2">
-              <span className="font-medium">{p.provider}</span>
-              <Badge tone={statusTone(p.status)} className="text-[10px]">
+              <span className="font-medium">{providerLabel(p.provider)}</span>
+              <Badge tone={statusTone(p.status)} className="shrink-0 text-[10px]">
                 {p.status}
               </Badge>
               {p.detail && <span className="text-muted-foreground">{p.detail}</span>}
@@ -190,10 +268,12 @@ function ResultItem({ result }: { result: FieldResult }) {
           ))}
         </ul>
       )}
-      {displayValue ? (
-        <p className="break-all text-muted-foreground">{displayValue}</p>
-      ) : !providersTried ? (
-        <p className="text-muted-foreground">—</p>
+      {formatted.text ? (
+        <p className={`text-muted-foreground break-words ${formatted.isMultiline ? "whitespace-pre-line" : ""}`}>
+          {formatted.text}
+        </p>
+      ) : formatted.emptyMessage ? (
+        <p className="text-muted-foreground italic">{formatted.emptyMessage}</p>
       ) : null}
     </li>
   );

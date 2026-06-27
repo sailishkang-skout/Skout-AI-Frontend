@@ -9,13 +9,29 @@ const isPublicRoute = createRouteMatcher([
   "/",
 ]);
 
+/** Only protect known app routes — unknown paths fall through to Next.js 404. */
+const isProtectedRoute = createRouteMatcher([
+  "/dashboard(.*)",
+  "/prospects(.*)",
+  "/lists(.*)",
+  "/smart-lists(.*)",
+  "/enrichment(.*)",
+  "/analytics(.*)",
+  "/settings(.*)",
+  "/onboarding(.*)",
+  "/sequences(.*)",
+  "/inbox(.*)",
+  "/deliverability(.*)",
+  "/ai(.*)",
+]);
+
 const useClerkMiddleware =
   process.env.E2E_AUTH_BYPASS !== "true" &&
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const clerkHandler = useClerkMiddleware
   ? clerkMiddleware(async (auth, request) => {
-      if (!isPublicRoute(request)) {
+      if (isProtectedRoute(request)) {
         auth().protect();
       }
     })

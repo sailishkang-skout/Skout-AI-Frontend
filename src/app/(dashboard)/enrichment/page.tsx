@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
+import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -260,20 +260,31 @@ export default function EnrichmentPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button onClick={handleEnrich} disabled={!canSubmit} className="w-full sm:w-auto">
+            <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center">
+              <Button
+                onClick={handleEnrich}
+                disabled={!canSubmit}
+                variant={enrich.isSuccess && !enrich.isPending ? "outline" : "default"}
+                className="w-full sm:w-auto"
+              >
                 {enrich.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : enrich.isSuccess ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
                 ) : (
                   <Zap className="h-4 w-4" />
                 )}
-                Run enrichment
+                {enrich.isPending
+                  ? "Running…"
+                  : enrich.isSuccess
+                    ? "Run again"
+                    : "Run enrichment"}
               </Button>
               {formError && <Alert variant="error">{formError}</Alert>}
             </div>
 
             {enrich.data && (
-              <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="mt-2 rounded-lg border border-border bg-muted/30 p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(enrich.data.status)}>{enrich.data.status}</Badge>
                   <span className="text-sm text-muted-foreground">
