@@ -157,7 +157,7 @@ export default function CorpusPipelinePage() {
     [jobs.data]
   );
 
-  const allJobs = jobs.data?.data ?? [];
+  const allJobs = useMemo(() => jobs.data?.data ?? [], [jobs.data]);
   const totalJobPages = Math.max(1, Math.ceil(allJobs.length / JOBS_PER_PAGE));
   const pagedJobs = useMemo(
     () => allJobs.slice((jobsPage - 1) * JOBS_PER_PAGE, jobsPage * JOBS_PER_PAGE),
