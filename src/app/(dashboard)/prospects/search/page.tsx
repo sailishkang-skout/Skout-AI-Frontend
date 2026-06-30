@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
 import { EMPTY_FILTER_DRAFT, countActiveFilters, type FilterDraft } from "@/lib/search-constants";
@@ -35,6 +35,7 @@ export default function ProspectSearchPage() {
   const icpApi = useIcpApi();
   const { redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
+  const requireCredits = useCreditGuard();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -175,7 +176,13 @@ export default function ProspectSearchPage() {
 
   const handleEnrich = (p: ProspectSummary) => {
     if (redirectToIcpSetup("/prospects/search")) return;
+    if (!requireCredits(1)) return;
     enrich.mutate(p);
+  };
+
+  const handleScore = (p: ProspectSummary) => {
+    if (!requireCredits(2)) return;
+    scoreLead.mutate(p);
   };
 
   const scoreLead = useMutation({
@@ -402,7 +409,7 @@ export default function ProspectSearchPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => scoreLead.mutate(p)}
+                            onClick={() => handleScore(p)}
                             disabled={pendingScore || !icpReady}
                             className="w-full sm:w-auto"
                           >

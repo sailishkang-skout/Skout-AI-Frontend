@@ -23,6 +23,12 @@ export interface RazorpayOrderResponse {
   packLabel: string;
 }
 
+export interface RazorpayCheckoutResult {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
@@ -51,12 +57,22 @@ export function useBillingApi() {
         method: "POST",
         body: JSON.stringify({ packId }),
       }),
+    verifyPayment: (result: RazorpayCheckoutResult) =>
+      fetchApi<{ data: { status: string; credits: number } }>("/api/v1/billing/razorpay/verify", {
+        method: "POST",
+        body: JSON.stringify(result),
+      }),
   };
 }
 
 export async function openRazorpayCheckout(
   order: RazorpayOrderResponse,
-  options: { name?: string; email?: string; onSuccess?: () => void; onDismiss?: () => void }
+  options: {
+    name?: string;
+    email?: string;
+    onSuccess?: (result: RazorpayCheckoutResult) => void;
+    onDismiss?: () => void;
+  }
 ): Promise<void> {
   await loadRazorpayScript();
   if (!window.Razorpay) throw new Error("Razorpay unavailable");
@@ -70,7 +86,7 @@ export async function openRazorpayCheckout(
     order_id: order.orderId,
     prefill: { name: options.name, email: options.email },
     theme: { color: "#0f172a" },
-    handler: () => options.onSuccess?.(),
+    handler: (result: RazorpayCheckoutResult) => options.onSuccess?.(result),
     modal: { ondismiss: () => options.onDismiss?.() },
   });
   rzp.open();
