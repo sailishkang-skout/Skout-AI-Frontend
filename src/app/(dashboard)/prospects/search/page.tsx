@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
-import { ScoreBadge } from "@/components/scoring/score-badge";
+import { ScorePill } from "@/components/scoring/score-badge";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -394,9 +394,8 @@ export default function ProspectSearchPage() {
                           Details
                         </Button>
                         {score != null ? (
-                          <ScoreBadge
+                          <ScorePill
                             score={score}
-                            reasoning={scores?.[p.prospectId]?.reasoning}
                             className="justify-center sm:self-center"
                           />
                         ) : (

@@ -1,14 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
-import { formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
-import type { ListMemberDetail, ProspectDetail, ProspectSummary } from "@/types/api";
+import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { useEnrichmentApi } from "@/lib/enrichment";
+import { scoreBandColor, scoreBandLabel } from "@/lib/scoring";
+import type { ListMemberDetail, ProspectDetail, ProspectSnapshotInput, ProspectSummary, ScoreResult } from "@/types/api";
 
 function DetailRow({
   label,
@@ -44,6 +48,70 @@ function formatMoney(n?: number) {
   return `$${n}`;
 }
 
+function IcpScoreCard({
+  score,
+  band,
+  reasoning,
+  intentScore,
+  outreachReadiness,
+  isPending,
+  onRescore,
+}: {
+  score: number;
+  band: string | null;
+  reasoning: string | null;
+  intentScore?: number | null;
+  outreachReadiness?: string | null;
+  isPending: boolean;
+  onRescore: () => void;
+}) {
+  const colors = scoreBandColor(score);
+  return (
+    <div className={`rounded-xl border p-4 ${colors.bg} ${colors.border}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <ScoreBadge score={score} reasoning={reasoning} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">ICP Score</p>
+            {band && (
+              <p className={`text-sm font-bold ${colors.text}`}>{band} fit</p>
+            )}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 shrink-0 gap-1 px-2 text-xs"
+          onClick={onRescore}
+          disabled={isPending}
+        >
+          {isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Sparkles className={`h-3 w-3 ${colors.text}`} />
+          )}
+          Re-score
+        </Button>
+      </div>
+
+      {(intentScore != null || outreachReadiness) && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
+          {intentScore != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+              Intent <span className="font-bold">{intentScore}</span>
+            </span>
+          )}
+          {outreachReadiness && (
+            <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+              {outreachReadiness}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProspectDetailSheet({
   prospect,
   member,
@@ -63,6 +131,8 @@ export function ProspectDetailSheet({
 }) {
   const api = useApiFetch();
   const authReady = useAuthReady();
+  const enrichmentApi = useEnrichmentApi();
+  const queryClient = useQueryClient();
   const prospectId = prospect?.prospectId ?? member?.prospectId ?? null;
 
   const detail = useQuery({
@@ -70,6 +140,38 @@ export function ProspectDetailSheet({
     queryFn: () => api<ProspectDetail>(`/api/v1/search/prospects/${prospectId}`),
     enabled: authReady && open && Boolean(prospectId),
     staleTime: 60_000,
+  });
+
+  // Cached score from a previous Score button click inside this sheet
+  const cachedScore = useQuery<ScoreResult>({
+    queryKey: ["prospect-score", prospectId],
+    enabled: false,
+    staleTime: Infinity,
+  });
+
+  const scoreResult = cachedScore.data;
+
+  const scoreMutation = useMutation({
+    mutationFn: () => {
+      const p = detail.data ?? prospect;
+      if (!p) throw new Error("No prospect data");
+      const snapshot: ProspectSnapshotInput = {
+        prospectId: p.prospectId,
+        companyId: p.companyId,
+        fullName: p.fullName,
+        title: p.title,
+        seniority: p.seniority,
+        industry: p.industry,
+        country: p.country,
+        companyDomain: p.companyDomain,
+        employeeCount: p.employeeCount,
+      };
+      return enrichmentApi.scoreProspect(snapshot);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData<ScoreResult>(["prospect-score", prospectId], data);
+      void queryClient.invalidateQueries({ queryKey: ["scores"] });
+    },
   });
 
   const d = detail.data ?? prospect;
@@ -84,6 +186,14 @@ export function ProspectDetailSheet({
   const email = enrichedEmail ?? detail.data?.email ?? (member?.snapshot as { email?: string })?.email;
   const emailStatus =
     enrichedEmailStatus ?? (member?.snapshot as { emailStatus?: string })?.emailStatus;
+
+  // Resolve the best available score: prop passed from parent → cached mutation result → inline from detail
+  const resolvedScore = score?.score ?? scoreResult?.icpScore ?? d.icpScore;
+  const resolvedReasoning = score?.reasoning ?? scoreResult?.reasoning ?? null;
+  const resolvedBand = resolvedScore != null ? scoreBandLabel(resolvedScore) : null;
+
+  const isIcpError =
+    scoreMutation.error instanceof ApiError && scoreMutation.error.status === 400;
 
   return (
     <Sheet open={open} onClose={onClose} title={title} description={subtitle || "Prospect details"}>
@@ -101,14 +211,67 @@ export function ProspectDetailSheet({
           </Alert>
         )}
 
-        {(score || d.icpScore != null) && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">ICP score</span>
-            <ScoreBadge score={score?.score ?? d.icpScore ?? 0} reasoning={score?.reasoning} />
-            {d.intentScore != null && (
-              <Badge tone="info">Intent {d.intentScore}</Badge>
-            )}
-            {d.outreachReadiness && <Badge tone="muted">{d.outreachReadiness}</Badge>}
+        {/* ICP Score card */}
+        {resolvedScore != null ? (
+          <IcpScoreCard
+            score={resolvedScore}
+            band={resolvedBand}
+            reasoning={resolvedReasoning}
+            intentScore={d.intentScore}
+            outreachReadiness={d.outreachReadiness}
+            isPending={scoreMutation.isPending}
+            onRescore={() => scoreMutation.mutate()}
+          />
+        ) : (
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">ICP Score</p>
+              <p className="text-xs text-muted-foreground">Not scored yet</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => scoreMutation.mutate()}
+              disabled={scoreMutation.isPending}
+            >
+              {scoreMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              )}
+              {scoreMutation.isPending ? "Scoring…" : "Score with AI"}
+            </Button>
+          </div>
+        )}
+
+        {isIcpError && (
+          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/40">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white dark:bg-amber-500">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+                <path d="M5 1a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 5 1Zm0 7a.875.875 0 1 1 0-1.75A.875.875 0 0 1 5 8Z" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">ICP not configured</p>
+              <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+                Set up your Ideal Customer Profile to enable AI scoring.
+              </p>
+              <Link
+                href="/settings/icp"
+                className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-400 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-amber-500 dark:bg-amber-500 dark:hover:bg-amber-400"
+              >
+                Set up ICP →
+              </Link>
+            </div>
+          </div>
+        )}
+        {scoreMutation.error && !isIcpError && (
+          <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden className="shrink-0">
+              <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 3.25a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0V5A.75.75 0 0 0 7 4.25Zm0 5.5a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Z" />
+            </svg>
+            Could not score this prospect. Please try again.
           </div>
         )}
 
