@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
-import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -56,6 +56,7 @@ export default function EnrichmentPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
+  const requireCredits = useCreditGuard();
 
   useEffect(() => {
     if (jobFromUrl) setSelectedJobId(jobFromUrl);
@@ -166,6 +167,7 @@ export default function EnrichmentPage() {
 
   const handleEnrich = () => {
     if (redirectToIcpSetup("/enrichment")) return;
+    if (!requireCredits(1)) return;
     enrich.mutate();
   };
 
@@ -361,6 +363,7 @@ export default function EnrichmentPage() {
                       job.status === "failed"
                         ? () => {
                             if (redirectToIcpSetup("/enrichment")) return;
+                            if (!requireCredits(1)) return;
                             retryJob.mutate(job);
                           }
                         : undefined

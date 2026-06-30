@@ -2,8 +2,10 @@
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Coins } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
+import { CREDITS_QUERY_KEY, WORKSPACE_CURRENT_QUERY_KEY } from "@/lib/enrichment";
 import { Button } from "@/components/ui/button";
 
 interface CreditsModalState {
@@ -25,7 +27,13 @@ export function isInsufficientCreditsError(error: unknown): boolean {
 
 export function parseCreditsDetails(error: unknown): { required?: number; available?: number } {
   if (!(error instanceof ApiError) || error.status !== 402) return {};
-  const body = error.body as { details?: { required?: number; available?: number } } | undefined;
+  // API returns required/available at the top level; older callers nested them under `details`.
+  const body = error.body as
+    | { required?: number; available?: number; details?: { required?: number; available?: number } }
+    | undefined;
+  if (body?.required != null || body?.available != null) {
+    return { required: body.required, available: body.available };
+  }
   return body?.details ?? {};
 }
 
@@ -113,4 +121,40 @@ export function handleCreditsError(
   if (!isInsufficientCreditsError(error)) return false;
   show(parseCreditsDetails(error));
   return true;
+}
+
+/** Read the cached credit balance React Query already keeps for the top bar. */
+function readCachedBalance(queryClient: ReturnType<typeof useQueryClient>): number | null {
+  const credits = queryClient.getQueryData(CREDITS_QUERY_KEY) as
+    | { balance?: number | null }
+    | undefined;
+  if (credits?.balance != null) return credits.balance;
+  const ws = queryClient.getQueryData(WORKSPACE_CURRENT_QUERY_KEY) as
+    | { data?: { balance?: number | null } }
+    | undefined;
+  if (ws?.data?.balance != null) return ws.data.balance;
+  return null;
+}
+
+/**
+ * Proactive credit gate. Call `requireCredits(cost)` BEFORE running any action that
+ * spends credits. If the known balance can't cover the cost, it pops the buy-credits
+ * modal and returns `false` so the caller can bail out without hitting the API.
+ * When the balance is unknown it returns `true` (the API still enforces 402).
+ */
+export function useCreditGuard() {
+  const queryClient = useQueryClient();
+  const { showInsufficientCredits } = useCreditsModal();
+
+  return useCallback(
+    (cost = 1): boolean => {
+      const balance = readCachedBalance(queryClient);
+      if (balance != null && balance < cost) {
+        showInsufficientCredits({ required: cost, available: balance });
+        return false;
+      }
+      return true;
+    },
+    [queryClient, showInsufficientCredits]
+  );
 }

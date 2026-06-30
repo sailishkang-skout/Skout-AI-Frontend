@@ -51,5 +51,15 @@ export function useWorkspaceApi() {
         method: "POST",
         body: JSON.stringify({ packId }),
       }),
+
+    verifyRazorpayPayment: (result: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }) =>
+      fetchApi<{ data: { status: string; credits: number } }>("/api/v1/billing/razorpay/verify", {
+        method: "POST",
+        body: JSON.stringify(result),
+      }),
   };
 }

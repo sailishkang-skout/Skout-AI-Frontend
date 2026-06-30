@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Coins, Loader2, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Coins, Loader2 } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { useAuthReady } from "@/lib/api-client";
 import { openRazorpayCheckout } from "@/lib/billing";
 import {
-  CREDITS_QUERY_KEY,
   WORKSPACE_CURRENT_QUERY_KEY,
   refreshCredits,
 } from "@/lib/enrichment";
@@ -30,6 +29,7 @@ export default function WorkspaceSettingsPage() {
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
   const [topUpMsg, setTopUpMsg] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutPackId, setCheckoutPackId] = useState<string | null>(null);
   const [txPage, setTxPage] = useState(1);
 
@@ -72,39 +72,42 @@ export default function WorkspaceSettingsPage() {
     },
   });
 
-  const topUp = useMutation({
-    mutationFn: () => workspaceApi.topUpCredits(100),
-    onSuccess: (res) => {
-      setTopUpMsg(`Added ${res.data.amount} credits. New balance: ${res.data.balance.toLocaleString()}.`);
-      refreshCredits(queryClient);
-      queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
-      setTxPage(1);
-      setTimeout(() => setTopUpMsg(null), 4000);
-    },
-  });
-
   const buyPack = useMutation({
     mutationFn: async (packId: string) => {
+      setCheckoutError(null);
+      setTopUpMsg(null);
       setCheckoutPackId(packId);
       const res = await workspaceApi.createRazorpayOrder(packId);
       await openRazorpayCheckout(res.data, {
-        onSuccess: () => {
-          setTopUpMsg(
-            `Payment received — ${res.data.credits.toLocaleString()} credits will appear shortly.`
-          );
-          setTimeout(() => {
-            refreshCredits(queryClient);
-            queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
-      setTxPage(1);
-          }, 2500);
+        onSuccess: (result) => {
+          void (async () => {
+            try {
+              await workspaceApi.verifyRazorpayPayment(result);
+              setTopUpMsg(`Payment confirmed — ${res.data.credits.toLocaleString()} credits added.`);
+            } catch {
+              // Verification failed client-side; the webhook is the backstop, so
+              // credits may still arrive shortly.
+              setTopUpMsg(
+                `Payment received — ${res.data.credits.toLocaleString()} credits will appear shortly.`
+              );
+            } finally {
+              refreshCredits(queryClient);
+              queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
+              setTxPage(1);
+            }
+          })();
         },
       });
+    },
+    onError: () => {
+      setCheckoutError(
+        "Couldn't start checkout. Razorpay may not be fully configured yet — please try again or contact support."
+      );
     },
     onSettled: () => setCheckoutPackId(null),
   });
 
   const balance = ws?.balance;
-  const razorpayEnabled = billingConfig.data?.razorpayEnabled ?? false;
   const packs = billingConfig.data?.packs ?? [];
 
   return (
@@ -169,55 +172,53 @@ export default function WorkspaceSettingsPage() {
             {balance != null ? balance.toLocaleString() : workspace.isLoading ? "…" : "—"}
           </p>
           {topUpMsg && <Alert variant="success">{topUpMsg}</Alert>}
-
-          {razorpayEnabled && packs.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-3">
-              {packs.map((pack) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  disabled={buyPack.isPending}
-                  onClick={() => buyPack.mutate(pack.id)}
-                  className="flex flex-col rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/30 disabled:opacity-60"
-                >
-                  <span className="font-semibold">{pack.label}</span>
-                  <span className="mt-1 text-2xl font-bold tabular-nums">
-                    {pack.credits.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-muted-foreground">credits</span>
-                  <span className="mt-3 text-sm font-medium">
-                    ₹{pack.amountInr.toLocaleString("en-IN")}
-                  </span>
-                  {checkoutPackId === pack.id && buyPack.isPending && (
-                    <span className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Opening checkout…
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => topUp.mutate()}
-                disabled={topUp.isPending}
-                className="w-full sm:w-auto"
-              >
-                {topUp.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                Add 100 credits (beta)
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Razorpay checkout activates when{" "}
-                <code className="rounded bg-muted px-1">RAZORPAY_KEY_ID</code> is set on the API.
-              </p>
-            </>
+          {checkoutError && (
+            <Alert variant="error" dismissible>
+              {checkoutError}
+            </Alert>
           )}
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Buy credits</p>
+            {billingConfig.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading credit packs…</p>
+            ) : packs.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                {packs.map((pack) => (
+                  <button
+                    key={pack.id}
+                    type="button"
+                    disabled={buyPack.isPending}
+                    onClick={() => buyPack.mutate(pack.id)}
+                    className="flex flex-col rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/30 disabled:opacity-60"
+                  >
+                    <span className="font-semibold">{pack.label}</span>
+                    <span className="mt-1 text-2xl font-bold tabular-nums">
+                      {pack.credits.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-muted-foreground">credits</span>
+                    <span className="mt-3 text-sm font-medium">
+                      ₹{pack.amountInr.toLocaleString("en-IN")}
+                    </span>
+                    {checkoutPackId === pack.id && buyPack.isPending && (
+                      <span className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Opening checkout…
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Credit packs are unavailable right now. Please try again shortly.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Secure payments powered by Razorpay. Credits are added automatically once payment is
+              confirmed.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

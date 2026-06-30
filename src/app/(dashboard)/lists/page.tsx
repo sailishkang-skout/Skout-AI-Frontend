@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEnrichmentApi, refreshCredits, refreshJobs } from "@/lib/enrichment";
-import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { useAuthReady } from "@/lib/api-client";
 import { formatJobTime } from "@/lib/enrichment-display";
@@ -29,6 +29,7 @@ export default function ListsPage() {
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
   const { redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
+  const requireCredits = useCreditGuard();
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -210,6 +211,7 @@ export default function ListsPage() {
                 enriching={enrichList.isPending && enrichList.variables === list.id}
                 onEnrich={() => {
                   if (redirectToIcpSetup("/lists")) return;
+                  if (!requireCredits(1)) return;
                   enrichList.mutate(list.id);
                 }}
                 onRename={(n) => renameList.mutate({ listId: list.id, name: n })}

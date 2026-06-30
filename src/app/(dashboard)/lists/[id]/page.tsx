@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft, Download, ExternalLink, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
-import { handleCreditsError, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -35,6 +35,7 @@ export default function ListDetailPage() {
   const crmApi = useCrmApi();
   const authReady = useAuthReady();
   const { showInsufficientCredits } = useCreditsModal();
+  const requireCredits = useCreditGuard();
 
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
@@ -288,7 +289,10 @@ export default function ListDetailPage() {
             size="sm"
             variant="outline"
             disabled={!members.length || scoreAll.isPending}
-            onClick={() => scoreAll.mutate()}
+            onClick={() => {
+              if (!requireCredits(scoreCreditCost || 1)) return;
+              scoreAll.mutate();
+            }}
           >
             {scoreAll.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -300,7 +304,10 @@ export default function ListDetailPage() {
           <Button
             size="sm"
             disabled={!members.length || !hubspotConnected || exportHubSpot.isPending}
-            onClick={() => exportHubSpot.mutate()}
+            onClick={() => {
+              if (!requireCredits(hubspotCreditCost || 1)) return;
+              exportHubSpot.mutate();
+            }}
           >
             {exportHubSpot.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
