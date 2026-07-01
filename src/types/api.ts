@@ -130,12 +130,77 @@ export interface ProspectList {
   createdAt: string;
 }
 
+export type SequenceStatus = "draft" | "active" | "paused" | "archived";
+export type SequenceStepType = "email" | "linkedin" | "wait" | "task";
+export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied";
+
 export interface Sequence {
   id: string;
   workspaceId: string;
   name: string;
-  status: "draft" | "active" | "paused";
-  stepCount: number;
+  status: SequenceStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SequenceStep {
+  id: string;
+  sequenceId: string;
+  stepOrder: number;
+  stepType: SequenceStepType;
+  delayDays: number;
+  subject: string | null;
+  bodyTemplate: string | null;
+  createdAt: string;
+}
+
+export interface SequenceDetail extends Sequence {
+  steps: SequenceStep[];
+}
+
+export interface SequenceStepMetrics {
+  stepId: string;
+  stepOrder: number;
+  stepType: SequenceStepType;
+  subject: string | null;
+  delayDays: number;
+  scheduled: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  opens: number;
+  clicks: number;
+  openRate: number;
+  clickRate: number;
+}
+
+export interface SequenceAnalytics {
+  id: string;
+  name: string;
+  status: SequenceStatus;
+  enrollments: {
+    total: number;
+    active: number;
+    completed: number;
+    bounced: number;
+    replied: number;
+  };
+  steps: SequenceStepMetrics[];
+}
+
+export interface SequenceEnrollment {
+  id: string;
+  prospectId: string;
+  listId: string | null;
+  status: SequenceEnrollmentStatus;
+  enrolledAt: string;
+  completedAt: string | null;
+}
+
+export interface EnrollSequenceResult {
+  enrolled: number;
+  skipped: number;
+  total: number;
 }
 
 export interface InboxThread {
