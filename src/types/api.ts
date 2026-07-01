@@ -328,12 +328,22 @@ export interface IcpConfig {
   keywords?: string[];
   minEmployees?: number;
   maxEmployees?: number;
+  /** When false, saving ICP does not enqueue workspace-wide re-score. Default true. */
+  autoRescoreOnChange?: boolean;
+}
+
+export interface IcpRescoreJobRef {
+  jobId?: string;
+  status: "pending" | "completed";
+  scored?: number;
+  creditsUsed?: number;
 }
 
 export interface IcpResponse {
   workspaceId: string;
   config: IcpConfig;
   version?: number;
+  rescoreJob?: IcpRescoreJobRef | null;
 }
 
 export interface SmartListFilters {
@@ -401,9 +411,12 @@ export interface ListScoreJob {
   entityType: string | null;
   entityId: string | null;
   result?: {
-    listId: string;
+    listId?: string;
+    workspaceId?: string;
+    icpVersion?: number;
     scored: number;
     skipped?: number;
+    total?: number;
     creditsUsed: number;
     results: Array<{ prospectId: string; icpScore: number; icpBand: string }>;
   } | null;
