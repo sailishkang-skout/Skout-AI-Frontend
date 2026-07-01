@@ -136,6 +136,28 @@ export function IcpForm({ value, onChange, step }: IcpFormProps) {
           </div>
         </div>
       )}
+
+      {!step && (
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={value.autoRescoreOnChange !== false}
+              onChange={(e) =>
+                onChange({ ...value, autoRescoreOnChange: e.target.checked ? undefined : false })
+              }
+            />
+            <span>
+              <span className="text-sm font-medium">Re-score stored prospects when ICP changes</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Runs a credit-aware batch job after save. Updates ICP scores in your workspace and
+                OpenSearch corpus.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
     </div>
   );
 }
