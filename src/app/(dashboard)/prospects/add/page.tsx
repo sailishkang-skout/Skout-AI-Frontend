@@ -257,7 +257,10 @@ export default function AddProspectPage() {
     },
   });
 
-  const canSave = contact.fullName.trim().length > 0 && !save.isPending;
+  const canSave =
+    contact.fullName.trim().length > 0 &&
+    company.companyDomain.trim().length > 0 &&
+    !save.isPending;
 
   if (saved) {
     return (
@@ -273,6 +276,12 @@ export default function AddProspectPage() {
             </div>
             <div>
               <p className="text-lg font-semibold">{contact.fullName}</p>
+              {saved.jobId && (
+                <p className="text-sm text-muted-foreground">
+                  Enrichment {saved.jobStatus ?? "started"} · job {saved.jobId.slice(0, 8)}…
+                  {saved.creditsUsed != null ? ` · ${saved.creditsUsed} credits` : ""}
+                </p>
+              )}
               {contact.email && (
                 <p className="text-sm text-muted-foreground">{contact.email}</p>
               )}
@@ -444,7 +453,7 @@ export default function AddProspectPage() {
             />
           </Field>
 
-          <Field label="Website / domain">
+          <Field label="Website / domain" required>
             <Input
               placeholder="e.g. acme.com"
               value={company.companyDomain}

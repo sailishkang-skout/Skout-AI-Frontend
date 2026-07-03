@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, Download, ExternalLink, Loader2, Pencil, Target, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Pencil, Target, Trash2, X } from "lucide-react";
+import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
@@ -17,7 +18,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
-import { refreshCredits, syncCreditsAfterEnrich, useEnrichmentApi, pollScoreJob } from "@/lib/enrichment";
+import {
+  CSV_EXPORT_CREDIT_COST,
+  refreshCredits,
+  syncCreditsAfterEnrich,
+  useEnrichmentApi,
+  useListExportApi,
+  pollScoreJob,
+} from "@/lib/enrichment";
 import {
   memberCompanyDomain,
   memberCompanyLabel,
@@ -32,6 +40,7 @@ export default function ListDetailPage() {
   const listId = params.id;
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
+  const listExportApi = useListExportApi();
   const crmApi = useCrmApi();
   const authReady = useAuthReady();
   const { showInsufficientCredits } = useCreditsModal();
@@ -211,23 +220,20 @@ export default function ListDetailPage() {
 
   const allSelected = members.length > 0 && selected.size === members.length;
 
-  async function handleExportCsv() {
-    if (!listId) return;
-    setExportError(null);
-    setExportMsg(null);
-    try {
-      const blob = await enrichmentApi.exportListCsv(listId);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${(list?.name ?? "list").replace(/[^a-z0-9]/gi, "-").toLowerCase()}.csv`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setExportMsg("CSV downloaded.");
-    } catch {
-      setExportError("Could not export this list.");
-    }
-  }
+  const exportCsv = useMutation({
+    mutationFn: () => listExportApi.exportListCsv(listId),
+    onSuccess: (result) => {
+      setExportError(null);
+      syncCreditsAfterEnrich(queryClient, result.creditsUsed);
+      setExportMsg(`CSV downloaded (${result.memberCount} contacts, ${result.creditsUsed} credits).`);
+    },
+    onError: (err) => {
+      setExportMsg(null);
+      if (!handleCreditsError(err, showInsufficientCredits)) {
+        setExportError("Could not export this list.");
+      }
+    },
+  });
 
   return (
     <PageShell>
@@ -276,15 +282,30 @@ export default function ListDetailPage() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!members.length}
-            onClick={() => void handleExportCsv()}
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
+          <ListExportMenu
+            memberCount={members.length}
+            hubspotConnected={Boolean(hubspotConnected)}
+            hubspotCreditCost={hubspotCreditCost}
+            csvPending={exportCsv.isPending}
+            hubspotPending={exportHubSpot.isPending}
+            onExportCsv={() => {
+              if (!requireCredits(CSV_EXPORT_CREDIT_COST)) return;
+              if (
+                !window.confirm(
+                  `Export this list as CSV? This uses ${CSV_EXPORT_CREDIT_COST} credits.`
+                )
+              ) {
+                return;
+              }
+              setExportError(null);
+              setExportMsg(null);
+              exportCsv.mutate();
+            }}
+            onExportHubSpot={() => {
+              if (!requireCredits(hubspotCreditCost || 1)) return;
+              exportHubSpot.mutate();
+            }}
+          />
           <Button
             size="sm"
             variant="outline"
@@ -300,21 +321,6 @@ export default function ListDetailPage() {
               <Target className="h-4 w-4" />
             )}
             Score all
-          </Button>
-          <Button
-            size="sm"
-            disabled={!members.length || !hubspotConnected || exportHubSpot.isPending}
-            onClick={() => {
-              if (!requireCredits(hubspotCreditCost || 1)) return;
-              exportHubSpot.mutate();
-            }}
-          >
-            {exportHubSpot.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            Export to HubSpot
           </Button>
         </div>
       </div>

@@ -145,14 +145,14 @@ export default function EnrichmentPage() {
   });
 
   const retryJob = useMutation({
-    mutationFn: (job: EnrichmentJob) =>
-      enrichmentApi.enrichProspect(
-        job.prospectId,
-        { companyDomain: job.prospectId, prospectId: job.prospectId },
-        job.fieldsRequested as EnrichField[]
-      ),
+    mutationFn: (job: EnrichmentJob) => enrichmentApi.retryJob(job.id),
     onSuccess: (data, job) => {
-      upsertJobFromEnrichResponse(queryClient, data, job.prospectId, job.fieldsRequested as EnrichField[]);
+      upsertJobFromEnrichResponse(
+        queryClient,
+        data,
+        job.prospectId,
+        job.fieldsRequested as EnrichField[]
+      );
       syncCreditsAfterEnrich(queryClient, data.creditsUsed);
     },
     onError: (err) => {

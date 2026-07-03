@@ -1,8 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
-import { useApiFetch, CLERK_ENABLED, ApiError, getApiBase } from "./api-client";
+import { useApiFetch, useApiFetchBlob, CLERK_ENABLED, ApiError, getApiBase } from "./api-client";
 import type {
   ActivationRecord,
   CreditsResponse,
+  CsvExportResponse,
   EnrichField,
   EnrichmentBatch,
   EnrichmentJob,
@@ -197,6 +198,12 @@ export function useEnrichmentApi() {
     getJob: (jobId: string) =>
       fetchApi<EnrichmentJob>(`/api/v1/enrichment/jobs/${jobId}`, { workspaceId: WORKSPACE_ID }),
 
+    retryJob: (jobId: string) =>
+      fetchApi<EnrichTriggerResponse>(`/api/v1/enrichment/jobs/${jobId}/retry`, {
+        method: "POST",
+        workspaceId: WORKSPACE_ID,
+      }),
+
     getBatch: (batchId: string) =>
       fetchApi<EnrichmentBatch>(`/api/v1/enrichment/batches/${batchId}`, {
         workspaceId: WORKSPACE_ID,
@@ -324,21 +331,6 @@ export function useEnrichmentApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
-    exportListCsv: async (listId: string) => {
-      const headers = new Headers();
-      if (!CLERK_ENABLED) {
-        headers.set("x-stub-user-email", "stub@example.com");
-      }
-      const res = await fetch(`${getApiBase()}/api/v1/lists/${listId}/export/csv`, {
-        headers,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new ApiError("CSV export failed", res.status);
-      }
-      return res.blob();
-    },
-
     lookupScores: (prospectIds: string[]) =>
       fetchApi<{ scores: Record<string, ProspectScoreRecord> }>(
         "/api/v1/enrichment/scores/lookup",
@@ -356,5 +348,48 @@ export function useEnrichmentApi() {
         workspaceId: WORKSPACE_ID,
       }),
   };
+}
+
+export const CSV_EXPORT_CREDIT_COST = 2;
+
+export function useListExportApi() {
+  const fetchApi = useApiFetch();
+  const fetchBlob = useApiFetchBlob();
+
+  return {
+    exportListCsv: async (listId: string): Promise<CsvExportResponse> => {
+      const meta = await fetchApi<CsvExportResponse & { content?: string }>(
+        `/api/v1/lists/${listId}/export/csv`,
+        { method: "GET", workspaceId: WORKSPACE_ID }
+      );
+
+      if (meta.content) {
+        const blob = new Blob([meta.content], { type: "text/csv;charset=utf-8" });
+        triggerBlobDownload(blob, meta.filename);
+        return meta;
+      }
+
+      const key = meta.exportKey;
+      if (!key) {
+        throw new ApiError("export_key_missing", 500);
+      }
+
+      const blob = await fetchBlob(
+        `/api/v1/lists/${listId}/export/csv/download?key=${encodeURIComponent(key)}`,
+        { workspaceId: WORKSPACE_ID }
+      );
+      triggerBlobDownload(blob, meta.filename);
+      return meta;
+    },
+  };
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
