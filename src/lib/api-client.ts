@@ -145,6 +145,38 @@ export async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/** Authenticated fetch that returns a Blob (e.g. CSV file download). */
+export async function apiFetchBlob(
+  path: string,
+  options?: RequestInit & { workspaceId?: string; authToken?: string }
+): Promise<Blob> {
+  const { workspaceId, authToken, ...init } = options ?? {};
+  const headers = new Headers(init.headers);
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
+  if (workspaceId) {
+    headers.set("X-Workspace-Id", workspaceId);
+  }
+
+  const res = await fetch(`${getApiBase()}${path}`, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => undefined);
+    const message =
+      typeof body === "object" && body !== null && "error" in body
+        ? String((body as { error: string }).error)
+        : res.statusText;
+    throw new ApiError(message, res.status, body);
+  }
+
+  return res.blob();
+}
+
 async function waitForClerkLoaded(
   isLoaded: boolean,
   getIsLoaded: () => boolean,
@@ -194,6 +226,28 @@ function useApiFetchClerk() {
   };
 }
 
+function useApiFetchBlobClerk() {
+  const auth = useAuth();
+
+  return async function fetchBlobWithAuth(
+    path: string,
+    options?: RequestInit & { workspaceId?: string }
+  ): Promise<Blob> {
+    await waitForClerkLoaded(auth.isLoaded, () => auth.isLoaded);
+
+    if (!auth.isSignedIn) {
+      throw new ApiError("Sign in required", 401);
+    }
+
+    const authToken = await getClerkApiToken(() => auth.getToken());
+
+    return apiFetchBlob(path, {
+      ...options,
+      authToken,
+    });
+  };
+}
+
 function useApiFetchStub() {
   return async function fetchWithAuth<T>(
     path: string,
@@ -203,6 +257,20 @@ function useApiFetchStub() {
   };
 }
 
+function useApiFetchBlobStub() {
+  return async function fetchBlobWithAuth(
+    path: string,
+    options?: RequestInit & { workspaceId?: string }
+  ): Promise<Blob> {
+    const headers = new Headers(options?.headers);
+    if (!CLERK_ENABLED) {
+      headers.set("x-stub-user-email", "stub@example.com");
+    }
+    return apiFetchBlob(path, { ...options, headers });
+  };
+}
+
 export const useApiFetch = CLERK_ENABLED ? useApiFetchClerk : useApiFetchStub;
+export const useApiFetchBlob = CLERK_ENABLED ? useApiFetchBlobClerk : useApiFetchBlobStub;
 
 export { API_URL };

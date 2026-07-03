@@ -605,6 +605,21 @@ export interface ManualProspectResponse {
   prospectId: string;
   companyId?: string;
   message: string;
+  activated?: boolean;
+  listId?: string | null;
+  jobId?: string;
+  jobStatus?: string;
+  creditsUsed?: number;
+}
+
+export interface CsvExportResponse {
+  downloadUrl: string;
+  filename: string;
+  creditsUsed: number;
+  memberCount: number;
+  exportKey?: string;
+  expiresInSeconds?: number;
+  content?: string;
 }
 
 export interface CrmExportJob {
