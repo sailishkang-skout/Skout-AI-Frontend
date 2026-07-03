@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Smart lists", () => {
   test("smart lists page loads", async ({ page }) => {
     await page.goto("/smart-lists");
-    await expect(page.getByRole("heading", { name: /smart lists/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Smart lists", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /create smart list/i })).toBeVisible();
   });
 });

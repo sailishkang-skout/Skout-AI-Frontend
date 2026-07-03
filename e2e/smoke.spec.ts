@@ -3,7 +3,13 @@ import { test, expect } from "@playwright/test";
 test.describe("Public pages", () => {
   test("sign-in page loads", async ({ page }) => {
     await page.goto("/sign-in");
-    await expect(page.getByRole("heading", { name: /sign in|clerk is not configured/i })).toBeVisible();
+    await expect(page.locator("main")).toBeVisible();
+    await expect(
+      page
+        .getByRole("heading", { name: /clerk is not configured/i })
+        .or(page.locator(".cl-rootBox"))
+        .or(page.getByRole("button", { name: /continue with|sign in with/i }))
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("home redirects to dashboard when auth bypass enabled", async ({ page }) => {

@@ -253,7 +253,11 @@ function useApiFetchStub() {
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<T> {
-    return apiFetch<T>(path, options);
+    const headers = new Headers(options?.headers);
+    if (!CLERK_ENABLED) {
+      headers.set("x-stub-user-email", "stub@example.com");
+    }
+    return apiFetch<T>(path, { ...options, headers });
   };
 }
 
