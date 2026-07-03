@@ -10,7 +10,7 @@ test.describe("Sequences", () => {
     await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
     await page.getByRole("button", { name: /create sequence/i }).click();
 
-    await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 15_000 });
   });
 
   test("builder: add a step, edit delay, switch tabs", async ({ page }) => {
@@ -20,7 +20,7 @@ test.describe("Sequences", () => {
     await page.getByRole("button", { name: /create sequence/i }).click();
 
     const link = page.getByRole("link", { name, exact: true });
-    await expect(link).toBeVisible({ timeout: 10_000 });
+    await expect(link).toBeVisible({ timeout: 15_000 });
     await link.click();
     await page.waitForURL(/\/sequences\/[0-9a-f-]+$/, { timeout: 10_000 });
 

@@ -87,6 +87,8 @@ jobs:
         env:
           E2E_AUTH_BYPASS: "true"
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
+          CLERK_SECRET_KEY: ""
         run: pnpm exec playwright test
 
       - name: Upload Playwright report
