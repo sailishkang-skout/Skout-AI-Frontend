@@ -126,7 +126,7 @@ export default function SequencesPage() {
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col" data-testid="sequence-card" data-sequence-name={sequence.name}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <Link href={`/sequences/${sequence.id}`} className="min-w-0 hover:underline">
