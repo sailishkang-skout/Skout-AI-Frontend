@@ -89,7 +89,8 @@ jobs:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
           CLERK_SECRET_KEY: ""
-        run: pnpm exec playwright test
+          PLAYWRIGHT_API_URL: http://127.0.0.1:3001
+        run: pnpm exec playwright test --workers=1
 
       - name: Upload Playwright report
         if: failure()

@@ -167,7 +167,7 @@ export default function SmartListsPage() {
   const previewMore = lastRun ? Math.max(0, lastRun.total - previewHits.length) : 0;
 
   return (
-    <PageShell>
+    <PageShell data-testid="page-smart-lists">
       <PageHeader
         title="Smart lists"
         description="Save filter sets, preview matches, and create activation lists for bulk enrichment."

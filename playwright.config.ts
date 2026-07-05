@@ -39,4 +39,5 @@ export default defineConfig({
           },
         },
       ],
+  globalSetup: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : "./e2e/global-setup.ts",
 });
