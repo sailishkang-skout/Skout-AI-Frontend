@@ -203,13 +203,87 @@ export interface EnrollSequenceResult {
   total: number;
 }
 
+export type ThreadStatus = "new" | "replied" | "bounced" | "meeting_booked" | "closed";
+
 export interface InboxThread {
   id: string;
+  workspaceId: string;
+  inboxId: string;
+  enrollmentId: string | null;
+  prospectId: string | null;
   subject: string;
-  from: string;
-  preview: string;
-  receivedAt: string;
-  unread: boolean;
+  status: ThreadStatus;
+  statusChangedAt: string | null;
+  unreadCount: number;
+  replyTag: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  prospect: {
+    fullName?: string;
+    companyDomain?: string;
+    companyName?: string;
+    title?: string;
+    icpScore?: number;
+    icpBand?: string;
+  } | null;
+}
+
+export interface InboxMessage {
+  id: string;
+  threadId: string;
+  direction: "inbound" | "outbound";
+  fromAddress: string;
+  toAddress: string;
+  subject: string | null;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  classification: string | null;
+  sentAt: string;
+  messageId: string | null;
+}
+
+export interface ThreadContext {
+  threadId: string;
+  prospect: {
+    prospectId: string;
+    fullName?: string;
+    title?: string;
+    companyDomain?: string;
+    companyName?: string;
+    email?: string;
+    industry?: string;
+    country?: string;
+    employeeCount?: number;
+    linkedinUrl?: string;
+    icpScore: number | null;
+    icpBand: string | null;
+    icpReasoning: string | null;
+    scoredAt: string | null;
+  } | null;
+  sequence: {
+    enrollmentId: string;
+    enrollmentStatus: string;
+    enrolledAt: string;
+    completedAt: string | null;
+    sequenceId: string;
+    sequenceName: string;
+    sequenceStatus: string;
+  } | null;
+}
+
+export interface InboxThreadsResponse {
+  workspaceId: string;
+  data: InboxThread[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface InboxMessagesResponse {
+  threadId: string;
+  data: InboxMessage[];
+  total: number;
 }
 
 export interface AiDraft {
