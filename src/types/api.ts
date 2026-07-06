@@ -622,6 +622,77 @@ export interface CsvExportResponse {
   content?: string;
 }
 
+// ── Deliverability ────────────────────────────────────────────────────────────
+
+export type InboxProvider = "gmail" | "outlook" | "smtp" | "other";
+export type InboxStatus = "active" | "warming" | "paused" | "error";
+export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
+
+export interface Inbox {
+  id: string;
+  workspaceId: string;
+  email: string;
+  provider: InboxProvider;
+  status: InboxStatus;
+  dailyLimit: number;
+  sentToday: number;
+  sentCount: number;
+  bounceCount: number;
+  spamCount: number;
+  warmupDay: number;
+  reputation: number | null;
+  lastCheckedAt: string | null;
+  connectedAt: string;
+}
+
+export interface ConnectInboxInput {
+  email: string;
+  provider: InboxProvider;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  imapHost?: string;
+  imapPort?: number;
+}
+
+export interface Domain {
+  id: string;
+  workspaceId: string;
+  domain: string;
+  spfStatus: DnsStatus;
+  dkimStatus: DnsStatus;
+  dmarcStatus: DnsStatus;
+  mxStatus: DnsStatus;
+  verifiedAt: string | null;
+  createdAt: string;
+}
+
+export interface DnsRecord {
+  type: "TXT" | "CNAME" | "MX";
+  name: string;
+  value: string;
+  purpose: "SPF" | "DKIM" | "DMARC" | "MX";
+  status: DnsStatus;
+}
+
+export interface DomainDnsResponse {
+  domain: string;
+  records: DnsRecord[];
+}
+
+export interface DeliverabilityMetrics {
+  warmup: Array<{ date: string; sent: number; target: number }>;
+  bounce: Array<{ date: string; bounceRate: number; spamRate: number }>;
+  summary: {
+    totalSent: number;
+    avgBounceRate: number;
+    avgSpamRate: number;
+    inboxCount: number;
+    warmingCount: number;
+  };
+}
+
 export interface CrmExportJob {
   id: string;
   jobType: string;

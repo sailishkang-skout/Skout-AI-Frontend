@@ -77,7 +77,7 @@ export const otherNav: NavGroup[] = [
     items: [
       { href: "/sequences", label: "Sequences", icon: Mail },
       { href: "/inbox", label: "Inbox", icon: Inbox, comingSoon: true },
-      { href: "/deliverability", label: "Deliverability", icon: Target, comingSoon: true },
+      { href: "/deliverability", label: "Deliverability", icon: Target },
       { href: "/ai/review", label: "AI review", icon: Sparkles, comingSoon: true },
     ],
   },
