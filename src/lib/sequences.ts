@@ -107,5 +107,15 @@ export function useSequencesApi() {
 
     listEnrollments: (sequenceId: string) =>
       fetchApi<ListEnvelope<SequenceEnrollment>>(`/api/v1/sequences/${sequenceId}/enrollments`),
+
+    unenroll: (sequenceId: string, prospectId: string) =>
+      fetchApi<void>(`/api/v1/sequences/${sequenceId}/enrollments/${prospectId}`, {
+        method: "DELETE",
+      }),
+
+    getProspectEnrollments: (prospectId: string) =>
+      fetchApi<ListEnvelope<SequenceEnrollment>>(
+        `/api/v1/sequences/prospects/${prospectId}/enrollments`,
+      ),
   };
 }
