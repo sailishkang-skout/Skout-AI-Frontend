@@ -365,7 +365,8 @@ function InboxCard({
   isPausing: boolean;
   isResuming: boolean;
 }) {
-  const sentPct = inbox.dailySendLimit > 0 ? Math.min(100, Math.round((inbox.sentToday / inbox.dailySendLimit) * 100)) : 0;
+  const sentToday = Number(inbox.sentToday ?? 0);
+  const sentPct = inbox.dailySendLimit > 0 ? Math.min(100, Math.round((sentToday / inbox.dailySendLimit) * 100)) : 0;
   const br = bounceRate(inbox);
   const sr = spamRate(inbox);
   const isPaused = inbox.status === "paused";
@@ -419,7 +420,7 @@ function InboxCard({
 
         <div className="mt-4 grid grid-cols-3 gap-3 text-center">
           <div className="rounded-lg bg-muted/50 px-2 py-2.5">
-            <p className="text-lg font-bold tabular-nums">{inbox.sentToday}</p>
+            <p className="text-lg font-bold tabular-nums">{sentToday}</p>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Sent today</p>
           </div>
           <div className="rounded-lg bg-muted/50 px-2 py-2.5">
@@ -471,7 +472,7 @@ function InboxCard({
         {/* Daily send progress */}
         <div className="mt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Daily send — {inbox.sentToday}/{inbox.dailySendLimit}</span>
+            <span>Daily send — {sentToday}/{inbox.dailySendLimit}</span>
             <span>{sentPct}%</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -766,7 +767,7 @@ export default function DeliverabilityPage() {
         <div className="space-y-4">
           <ConnectInboxForm onSuccess={() => queryClient.invalidateQueries({ queryKey: ["inboxes"] })} />
 
-          {inboxes.isLoading && (
+          {inboxes.isPending && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-52 rounded-xl" />)}
             </div>
@@ -778,7 +779,7 @@ export default function DeliverabilityPage() {
             </Alert>
           )}
 
-          {!inboxes.isLoading && inboxList.length === 0 && (
+          {!inboxes.isPending && inboxList.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
               <Mail className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm font-medium">No inboxes connected yet</p>
@@ -836,7 +837,7 @@ export default function DeliverabilityPage() {
             </CardContent>
           </Card>
 
-          {domains.isLoading && (
+          {domains.isPending && (
             <div className="space-y-3">
               {[1, 2].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
             </div>
@@ -848,7 +849,7 @@ export default function DeliverabilityPage() {
             </Alert>
           )}
 
-          {!domains.isLoading && domainList.length === 0 && (
+          {!domains.isPending && domainList.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
               <Globe className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm font-medium">No domains added yet</p>
@@ -894,7 +895,7 @@ export default function DeliverabilityPage() {
             </div>
           )}
 
-          {metrics.isLoading && (
+          {metrics.isPending && (
             <div className="space-y-4">
               <Skeleton className="h-52 rounded-xl" />
               <Skeleton className="h-52 rounded-xl" />
