@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuthReady } from "@/lib/api-client";
+import { useAuthReady, ApiError } from "@/lib/api-client";
 import { useInboxApi } from "@/lib/inbox";
 import { cn } from "@/lib/utils";
 import type {
@@ -226,7 +226,13 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
   const connect = useMutation({
     mutationFn: () => api.connectInbox(form),
     onSuccess: () => { setOpen(false); setError(null); onSuccess(); },
-    onError: () => setError("Could not connect inbox. Check your credentials and try again."),
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setError("This inbox is already connected to your workspace.");
+      } else {
+        setError("Could not connect inbox. Check your credentials and try again.");
+      }
+    },
   });
 
   const canSubmit = form.emailAddress.includes("@") &&
