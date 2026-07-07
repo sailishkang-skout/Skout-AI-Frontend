@@ -203,13 +203,87 @@ export interface EnrollSequenceResult {
   total: number;
 }
 
+export type ThreadStatus = "new" | "replied" | "bounced" | "meeting_booked" | "closed";
+
 export interface InboxThread {
   id: string;
+  workspaceId: string;
+  inboxId: string;
+  enrollmentId: string | null;
+  prospectId: string | null;
   subject: string;
-  from: string;
-  preview: string;
-  receivedAt: string;
-  unread: boolean;
+  status: ThreadStatus;
+  statusChangedAt: string | null;
+  unreadCount: number;
+  replyTag: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  prospect: {
+    fullName?: string;
+    companyDomain?: string;
+    companyName?: string;
+    title?: string;
+    icpScore?: number;
+    icpBand?: string;
+  } | null;
+}
+
+export interface InboxMessage {
+  id: string;
+  threadId: string;
+  direction: "inbound" | "outbound";
+  fromAddress: string;
+  toAddress: string;
+  subject: string | null;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  classification: string | null;
+  sentAt: string;
+  messageId: string | null;
+}
+
+export interface ThreadContext {
+  threadId: string;
+  prospect: {
+    prospectId: string;
+    fullName?: string;
+    title?: string;
+    companyDomain?: string;
+    companyName?: string;
+    email?: string;
+    industry?: string;
+    country?: string;
+    employeeCount?: number;
+    linkedinUrl?: string;
+    icpScore: number | null;
+    icpBand: string | null;
+    icpReasoning: string | null;
+    scoredAt: string | null;
+  } | null;
+  sequence: {
+    enrollmentId: string;
+    enrollmentStatus: string;
+    enrolledAt: string;
+    completedAt: string | null;
+    sequenceId: string;
+    sequenceName: string;
+    sequenceStatus: string;
+  } | null;
+}
+
+export interface InboxThreadsResponse {
+  workspaceId: string;
+  data: InboxThread[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface InboxMessagesResponse {
+  threadId: string;
+  data: InboxMessage[];
+  total: number;
 }
 
 export interface AiDraft {
@@ -620,6 +694,81 @@ export interface CsvExportResponse {
   exportKey?: string;
   expiresInSeconds?: number;
   content?: string;
+}
+
+// ── Deliverability ────────────────────────────────────────────────────────────
+
+export type InboxProvider = "smtp" | "google" | "microsoft";
+export type InboxStatus = "active" | "warming" | "paused" | "error";
+export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
+
+export interface Inbox {
+  id: string;
+  workspaceId: string;
+  emailAddress: string;
+  displayName: string | null;
+  provider: InboxProvider;
+  status: InboxStatus;
+  warmupStatus: string;
+  dailySendLimit: number;
+  sentToday: number;
+  sentCount: number;
+  bounceCount: number;
+  spamCount: number;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConnectInboxInput {
+  emailAddress: string;
+  displayName?: string;
+  provider: InboxProvider;
+  dailySendLimit?: number;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpSecure?: boolean;
+  imapHost?: string;
+  imapPort?: number;
+}
+
+export interface Domain {
+  id: string;
+  workspaceId: string;
+  domain: string;
+  spfStatus: DnsStatus;
+  dkimStatus: DnsStatus;
+  dmarcStatus: DnsStatus;
+  mxStatus: DnsStatus;
+  verifiedAt: string | null;
+  createdAt: string;
+}
+
+export interface DnsRecord {
+  type: "TXT" | "CNAME" | "MX";
+  name: string;
+  value: string;
+  purpose: "SPF" | "DKIM" | "DMARC" | "MX";
+  status: DnsStatus;
+}
+
+export interface DomainDnsResponse {
+  domain: string;
+  records: DnsRecord[];
+}
+
+export interface DeliverabilityMetrics {
+  warmup: Array<{ date: string; sent: number; target: number }>;
+  bounce: Array<{ date: string; bounceRate: number; spamRate: number }>;
+  summary: {
+    totalSent: number;
+    avgBounceRate: number;
+    avgSpamRate: number;
+    inboxCount: number;
+    warmingCount: number;
+  };
 }
 
 export interface CrmExportJob {
