@@ -5,13 +5,14 @@ test.describe("Lists", () => {
   test("lists index loads and create form is visible", async ({ page }) => {
     await gotoAppPage(page, "/lists", "page-lists");
     await expect(page.getByTestId("create-list-button")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Lists" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Lists", exact: true })).toBeVisible();
   });
 
   test("can create a list from the UI", async ({ page }) => {
     const listName = `E2E List ${Date.now()}`;
     await gotoAppPage(page, "/lists", "page-lists");
     await page.getByPlaceholder(/Seed SaaS/i).fill(listName);
+    await expect(page.getByTestId("create-list-button")).toBeEnabled();
     await waitForApiMutation(page, "/api/v1/lists", "POST", async () => {
       await page.getByTestId("create-list-button").click();
     });

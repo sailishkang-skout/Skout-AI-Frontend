@@ -8,6 +8,7 @@ test.describe("Sequences", () => {
 
     const name = `E2E Sequence ${Date.now()}`;
     await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
+    await expect(page.getByRole("button", { name: /create sequence/i })).toBeEnabled();
     await waitForApiMutation(page, "/api/v1/sequences", "POST", async () => {
       await page.getByRole("button", { name: /create sequence/i }).click();
     });
@@ -19,6 +20,7 @@ test.describe("Sequences", () => {
     await gotoAppPage(page, "/sequences", "page-sequences");
     const name = `E2E Builder ${Date.now()}`;
     await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
+    await expect(page.getByRole("button", { name: /create sequence/i })).toBeEnabled();
     await waitForApiMutation(page, "/api/v1/sequences", "POST", async () => {
       await page.getByRole("button", { name: /create sequence/i }).click();
     });

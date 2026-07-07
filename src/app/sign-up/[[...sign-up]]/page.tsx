@@ -4,13 +4,15 @@ import { redirect } from "next/navigation";
 import { getAppOrigin } from "@/lib/app-url";
 
 export default async function SignUpPage() {
-  const { userId } = await auth();
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-  if (userId) {
-    redirect("/prospects/search");
+  if (publishableKey) {
+    const { userId } = await auth();
+    if (userId) {
+      redirect("/prospects/search");
+    }
   }
 
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const appOrigin = getAppOrigin();
   const callbackUrl = appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback";
 

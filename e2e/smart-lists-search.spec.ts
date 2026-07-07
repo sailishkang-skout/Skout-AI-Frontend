@@ -5,7 +5,7 @@ test.describe("Smart lists", () => {
   test("smart lists page loads", async ({ page }) => {
     await gotoAppPage(page, "/smart-lists", "page-smart-lists");
     await expect(page.getByRole("heading", { name: "Smart lists", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /create smart list/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /save smart list/i })).toBeVisible();
   });
 });
 
