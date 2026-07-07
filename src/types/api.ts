@@ -698,34 +698,38 @@ export interface CsvExportResponse {
 
 // ── Deliverability ────────────────────────────────────────────────────────────
 
-export type InboxProvider = "gmail" | "outlook" | "smtp" | "other";
+export type InboxProvider = "smtp" | "google" | "microsoft";
 export type InboxStatus = "active" | "warming" | "paused" | "error";
 export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
 
 export interface Inbox {
   id: string;
   workspaceId: string;
-  email: string;
+  emailAddress: string;
+  displayName: string | null;
   provider: InboxProvider;
   status: InboxStatus;
-  dailyLimit: number;
+  warmupStatus: string;
+  dailySendLimit: number;
   sentToday: number;
   sentCount: number;
   bounceCount: number;
   spamCount: number;
-  warmupDay: number;
-  reputation: number | null;
-  lastCheckedAt: string | null;
-  connectedAt: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ConnectInboxInput {
-  email: string;
+  emailAddress: string;
+  displayName?: string;
   provider: InboxProvider;
+  dailySendLimit?: number;
   smtpHost?: string;
   smtpPort?: number;
-  smtpUser?: string;
-  smtpPass?: string;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpSecure?: boolean;
   imapHost?: string;
   imapPort?: number;
 }

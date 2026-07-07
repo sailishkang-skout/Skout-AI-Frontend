@@ -209,12 +209,12 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
   const api = useInboxApi();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ConnectInboxInput>({
-    email: "",
+    emailAddress: "",
     provider: "smtp",
     smtpHost: "",
     smtpPort: 587,
-    smtpUser: "",
-    smtpPass: "",
+    smtpUsername: "",
+    smtpPassword: "",
     imapHost: "",
     imapPort: 993,
   });
@@ -229,8 +229,8 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
     onError: () => setError("Could not connect inbox. Check your credentials and try again."),
   });
 
-  const canSubmit = form.email.includes("@") &&
-    (form.provider !== "smtp" || (!!form.smtpHost && !!form.smtpUser && !!form.smtpPass));
+  const canSubmit = form.emailAddress.includes("@") &&
+    (form.provider !== "smtp" || (!!form.smtpHost && !!form.smtpUsername && !!form.smtpPassword));
 
   if (!open) {
     return (
@@ -256,8 +256,8 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
             <Input
               type="email"
               placeholder="outreach@yourdomain.com"
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
+              value={form.emailAddress}
+              onChange={(e) => set("emailAddress", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -267,8 +267,8 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
               value={form.provider}
               onChange={(e) => set("provider", e.target.value as InboxProvider)}
             >
-              <option value="gmail">Gmail / Google Workspace</option>
-              <option value="outlook">Outlook / Microsoft 365</option>
+              <option value="google">Gmail / Google Workspace</option>
+              <option value="microsoft">Outlook / Microsoft 365</option>
               <option value="smtp">Custom SMTP</option>
             </select>
           </div>
@@ -278,7 +278,7 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">SMTP host</label>
             <Input
-              placeholder={form.provider === "gmail" ? "smtp.gmail.com" : form.provider === "outlook" ? "smtp.office365.com" : "mail.yourdomain.com"}
+              placeholder={form.provider === "google" ? "smtp.gmail.com" : form.provider === "microsoft" ? "smtp.office365.com" : "mail.yourdomain.com"}
               value={form.smtpHost}
               onChange={(e) => set("smtpHost", e.target.value)}
             />
@@ -295,8 +295,8 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
             <label className="text-xs font-medium text-muted-foreground">SMTP username</label>
             <Input
               placeholder="Usually your email address"
-              value={form.smtpUser}
-              onChange={(e) => set("smtpUser", e.target.value)}
+              value={form.smtpUsername}
+              onChange={(e) => set("smtpUsername", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -304,14 +304,14 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
             <Input
               type="password"
               placeholder="App password recommended"
-              value={form.smtpPass}
-              onChange={(e) => set("smtpPass", e.target.value)}
+              value={form.smtpPassword}
+              onChange={(e) => set("smtpPassword", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">IMAP host</label>
             <Input
-              placeholder={form.provider === "gmail" ? "imap.gmail.com" : "imap.yourdomain.com"}
+              placeholder={form.provider === "google" ? "imap.gmail.com" : "imap.yourdomain.com"}
               value={form.imapHost}
               onChange={(e) => set("imapHost", e.target.value)}
             />
@@ -365,8 +365,7 @@ function InboxCard({
   isPausing: boolean;
   isResuming: boolean;
 }) {
-  const warmupPct = Math.min(100, Math.round((inbox.warmupDay / 30) * 100));
-  const sentPct = inbox.dailyLimit > 0 ? Math.min(100, Math.round((inbox.sentToday / inbox.dailyLimit) * 100)) : 0;
+  const sentPct = inbox.dailySendLimit > 0 ? Math.min(100, Math.round((inbox.sentToday / inbox.dailySendLimit) * 100)) : 0;
   const br = bounceRate(inbox);
   const sr = spamRate(inbox);
   const isPaused = inbox.status === "paused";
@@ -380,7 +379,7 @@ function InboxCard({
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{inbox.email}</p>
+              <p className="truncate text-sm font-semibold">{inbox.emailAddress}</p>
               <p className="text-xs capitalize text-muted-foreground">{inbox.provider}</p>
             </div>
           </div>
@@ -424,18 +423,12 @@ function InboxCard({
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Sent today</p>
           </div>
           <div className="rounded-lg bg-muted/50 px-2 py-2.5">
-            <p className="text-lg font-bold tabular-nums">{inbox.dailyLimit}</p>
+            <p className="text-lg font-bold tabular-nums">{inbox.dailySendLimit}</p>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Daily limit</p>
           </div>
           <div className="rounded-lg bg-muted/50 px-2 py-2.5">
-            <p className={cn("text-lg font-bold tabular-nums",
-              inbox.reputation != null && inbox.reputation >= 80 ? "text-emerald-600"
-              : inbox.reputation != null && inbox.reputation >= 50 ? "text-amber-600"
-              : "text-rose-600"
-            )}>
-              {inbox.reputation != null ? inbox.reputation : "—"}
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Reputation</p>
+            <p className="text-lg font-bold tabular-nums capitalize">{inbox.warmupStatus}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Warmup</p>
           </div>
         </div>
 
@@ -475,21 +468,10 @@ function InboxCard({
           </div>
         )}
 
-        {/* Warmup progress */}
+        {/* Daily send progress */}
         <div className="mt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />Warmup — day {inbox.warmupDay}/30</span>
-            <span>{warmupPct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${warmupPct}%` }} />
-          </div>
-        </div>
-
-        {/* Daily send progress */}
-        <div className="mt-2.5 space-y-1.5">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Daily send — {inbox.sentToday}/{inbox.dailyLimit}</span>
+            <span>Daily send — {inbox.sentToday}/{inbox.dailySendLimit}</span>
             <span>{sentPct}%</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -500,9 +482,9 @@ function InboxCard({
           </div>
         </div>
 
-        {inbox.lastCheckedAt && (
+        {inbox.lastUsedAt && (
           <p className="mt-3 text-[10px] text-muted-foreground">
-            Last checked {new Date(inbox.lastCheckedAt).toLocaleString()}
+            Last used {new Date(inbox.lastUsedAt).toLocaleString()}
           </p>
         )}
       </CardContent>
