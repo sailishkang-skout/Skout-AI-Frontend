@@ -875,7 +875,7 @@ export default function DeliverabilityPage() {
       {tab === "analytics" && (
         <div className="space-y-6">
           {/* Summary stats */}
-          {m && (
+          {m?.summary && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               {[
                 { label: "Total sent", value: m.summary.totalSent.toLocaleString(), icon: Mail },
@@ -908,7 +908,7 @@ export default function DeliverabilityPage() {
             </Alert>
           )}
 
-          {m && m.warmup.length > 0 && (
+          {m && (m.warmup?.length ?? 0) > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -923,7 +923,7 @@ export default function DeliverabilityPage() {
             </Card>
           )}
 
-          {m && m.bounce.length > 0 && (
+          {m && (m.bounce?.length ?? 0) > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -952,7 +952,7 @@ export default function DeliverabilityPage() {
             </Card>
           )}
 
-          {m && m.warmup.length === 0 && m.bounce.length === 0 && (
+          {m && (m.warmup?.length ?? 0) === 0 && (m.bounce?.length ?? 0) === 0 && (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
               <TrendingUp className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm font-medium">No metrics yet</p>

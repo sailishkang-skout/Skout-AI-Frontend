@@ -190,6 +190,8 @@ export interface SequenceAnalytics {
 
 export interface SequenceEnrollment {
   id: string;
+  sequenceId: string;
+  sequenceName?: string;
   prospectId: string;
   listId: string | null;
   status: SequenceEnrollmentStatus;
