@@ -361,15 +361,21 @@ function InboxCard({
   onPause,
   onResume,
   onDisconnect,
+  onTestSend,
   isPausing,
   isResuming,
+  isVerifying,
+  verifySuccess,
 }: {
   inbox: InboxType;
   onPause: () => void;
   onResume: () => void;
   onDisconnect: () => void;
+  onTestSend: () => void;
   isPausing: boolean;
   isResuming: boolean;
+  isVerifying: boolean;
+  verifySuccess: boolean;
 }) {
   const sentToday = Number(inbox.sentToday ?? 0);
   const sentPct = inbox.dailySendLimit > 0 ? Math.min(100, Math.round((sentToday / inbox.dailySendLimit) * 100)) : 0;
@@ -391,7 +397,18 @@ function InboxCard({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            <Badge tone={statusTone(inbox.status)} className="capitalize">{inbox.status}</Badge>
+            <Badge tone={statusTone(inbox.status)} className="capitalize">
+              {inbox.status === "pending_verification" ? "unverified" : inbox.status}
+            </Badge>
+            {inbox.health === "healthy" && inbox.status === "active" && (
+              <span title="Healthy"><CheckCircle2 className="h-4 w-4 text-emerald-500" /></span>
+            )}
+            {inbox.health === "degraded" && (
+              <span title="Degraded"><AlertCircle className="h-4 w-4 text-amber-500" /></span>
+            )}
+            {inbox.health === "error" && inbox.status !== "paused" && (
+              <span title="Error"><XCircle className="h-4 w-4 text-rose-500" /></span>
+            )}
             {isPaused ? (
               <button
                 type="button"
@@ -493,6 +510,31 @@ function InboxCard({
           <p className="mt-3 text-[10px] text-muted-foreground">
             Last used {new Date(inbox.lastUsedAt).toLocaleString()}
           </p>
+        )}
+
+        {(inbox.status === "pending_verification" || inbox.health === "error") && (
+          <div className="mt-3 border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={onTestSend}
+              disabled={isVerifying}
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                verifySuccess
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+                isVerifying && "cursor-not-allowed opacity-60"
+              )}
+            >
+              {isVerifying ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying…</>
+              ) : verifySuccess ? (
+                <><CheckCircle2 className="h-3.5 w-3.5" /> Verified</>
+              ) : (
+                <><ShieldCheck className="h-3.5 w-3.5" /> Verify connection</>
+              )}
+            </button>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -707,6 +749,11 @@ export default function DeliverabilityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
   });
 
+  const testSend = useMutation({
+    mutationFn: (id: string) => api.testSend(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
+  });
+
   const addDomain = useMutation({
     mutationFn: () => api.addDomain(newDomain.trim()),
     onSuccess: () => {
@@ -802,8 +849,11 @@ export default function DeliverabilityPage() {
                   onPause={() => pauseInbox.mutate(inbox.id)}
                   onResume={() => resumeInbox.mutate(inbox.id)}
                   onDisconnect={() => disconnectInbox.mutate(inbox.id)}
+                  onTestSend={() => testSend.mutate(inbox.id)}
                   isPausing={pauseInbox.isPending && pauseInbox.variables === inbox.id}
                   isResuming={resumeInbox.isPending && resumeInbox.variables === inbox.id}
+                  isVerifying={testSend.isPending && testSend.variables === inbox.id}
+                  verifySuccess={testSend.isSuccess && testSend.variables === inbox.id}
                 />
               ))}
             </div>
