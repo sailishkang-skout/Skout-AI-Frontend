@@ -21,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { EmailBodyEditor } from "@/components/sequences/email-body-editor";
 import type { SequenceStep, SequenceStepType } from "@/types/api";
 
 const STEP_TYPE_OPTIONS: { value: SequenceStepType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -128,16 +129,13 @@ function StepCard({
               disabled={updating}
               className="h-9"
             />
-            <textarea
-              placeholder="Body — supports merge tokens like {{firstName}}, {{unsubscribeUrl}}"
+            <EmailBodyEditor
               value={bodyDraft}
-              onChange={(e) => setBodyDraft(e.target.value)}
-              onBlur={() => {
-                if (bodyDraft !== (step.bodyTemplate ?? "")) onUpdate({ bodyTemplate: bodyDraft || null });
+              onChange={(html) => {
+                setBodyDraft(html);
+                onUpdate({ bodyTemplate: html || null });
               }}
               disabled={updating}
-              rows={3}
-              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         )}
