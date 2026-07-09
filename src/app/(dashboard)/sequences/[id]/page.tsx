@@ -4,7 +4,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, Loader2, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  CalendarDays,
+  Layers,
+  Loader2,
+  Pause,
+  Pencil,
+  Play,
+  Settings2,
+  Users,
+  X,
+} from "lucide-react";
 import { AnalyticsPanel } from "@/components/sequences/analytics-panel";
 import { EnrollPanel } from "@/components/sequences/enroll-panel";
 import { StepBuilder } from "@/components/sequences/step-builder";
@@ -26,10 +38,16 @@ const STATUS_TRANSITIONS: Record<SequenceStatus, SequenceStatus[]> = {
   archived: [],
 };
 
+const STATUS_ACTION_CONFIG: Partial<Record<SequenceStatus, { icon: React.ComponentType<{ className?: string }>; label: string; variant: "default" | "outline" | "ghost" }>> = {
+  active:   { icon: Play,    label: "Activate", variant: "default"  },
+  paused:   { icon: Pause,   label: "Pause",    variant: "outline"  },
+  archived: { icon: X,       label: "Archive",  variant: "outline"  },
+};
+
 const TABS = [
-  { id: "builder", label: "Builder" },
-  { id: "enroll", label: "Enroll" },
-  { id: "analytics", label: "Analytics" },
+  { id: "builder",   label: "Builder",   icon: Settings2  },
+  { id: "enroll",    label: "Enroll",    icon: Users      },
+  { id: "analytics", label: "Analytics", icon: BarChart3  },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -106,20 +124,23 @@ export default function SequenceDetailPage() {
 
   return (
     <PageShell>
-      <div className="mb-4">
+      {/* ── Back nav ──────────────────────────────────────── */}
+      <div className="mb-5">
         <Link
           href="/sequences"
-          className="inline-flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to sequences
+          Sequences
         </Link>
       </div>
 
+      {/* ── Loading skeleton ──────────────────────────────── */}
       {detail.isLoading && (
-        <div className="space-y-3">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-32 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       )}
 
@@ -131,79 +152,119 @@ export default function SequenceDetailPage() {
 
       {sequence && (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-2">
-              {editingName ? (
-                <input
-                  ref={nameInputRef}
-                  className="rounded border border-border bg-background px-2 py-0.5 text-xl font-bold focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") commitRename();
-                    if (e.key === "Escape") setEditingName(false);
-                  }}
-                />
-              ) : (
-                <>
-                  <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{sequence.name}</h1>
-                  <button
-                    type="button"
-                    onClick={startEditName}
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    aria-label="Rename sequence"
-                  >
-                    {updateSequence.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Pencil className="h-4 w-4" />
-                    )}
-                  </button>
-                </>
+          {/* ── Header card ───────────────────────────────── */}
+          <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                {/* Name + status */}
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  {editingName ? (
+                    <input
+                      ref={nameInputRef}
+                      className="min-w-0 rounded-md border border-primary bg-background px-2 py-1 text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setEditingName(false);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startEditName}
+                      className="group flex items-center gap-1.5 text-left"
+                    >
+                      <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                        {sequence.name}
+                      </h1>
+                      <span className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                        {updateSequence.isPending
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Pencil className="h-4 w-4" />}
+                      </span>
+                    </button>
+                  )}
+                  <Badge tone={sequenceStatusTone(sequence.status)} className="capitalize">
+                    {sequence.status}
+                  </Badge>
+                </div>
+
+                {/* Metadata row */}
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Layers className="h-3.5 w-3.5" />
+                    {steps.length} step{steps.length !== 1 ? "s" : ""}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    Created {new Date(sequence.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status action buttons */}
+              {availableTransitions.length > 0 && (
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {availableTransitions.map((next) => {
+                    const cfg = STATUS_ACTION_CONFIG[next];
+                    if (!cfg) return null;
+                    const Icon = cfg.icon;
+                    return (
+                      <Button
+                        key={next}
+                        size="sm"
+                        variant={cfg.variant}
+                        disabled={updateSequence.isPending}
+                        onClick={() => updateSequence.mutate({ status: next })}
+                        className="gap-1.5"
+                      >
+                        {updateSequence.isPending
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Icon className="h-3.5 w-3.5" />}
+                        {cfg.label}
+                      </Button>
+                    );
+                  })}
+                </div>
               )}
-              <Badge tone={sequenceStatusTone(sequence.status)}>{sequence.status}</Badge>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {availableTransitions.map((next) => (
-                <Button
-                  key={next}
-                  size="sm"
-                  variant={next === "archived" ? "outline" : "default"}
-                  disabled={updateSequence.isPending}
-                  onClick={() => updateSequence.mutate({ status: next })}
-                >
-                  {next === "active" ? "Activate" : next === "paused" ? "Pause" : "Archive"}
-                </Button>
-              ))}
-            </div>
+            {/* Draft activation hint */}
+            {sequence.status === "draft" && steps.length === 0 && (
+              <div className="border-t border-border bg-amber-50/60 px-5 py-3 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                Add at least one step before activating this sequence.
+              </div>
+            )}
           </div>
 
           <DemoBanner />
 
-          {sequence.status === "draft" && steps.length === 0 && (
-            <Alert variant="warning">Add at least one step before activating this sequence.</Alert>
-          )}
-
-          <div className="flex gap-1 border-b">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-                  tab === t.id
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+          {/* ── Tabs ─────────────────────────────────────── */}
+          <div className="mb-6 flex gap-0.5 border-b border-border">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                    tab === t.id
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
 
+          {/* ── Tab panels ───────────────────────────────── */}
           {tab === "builder" && (
             <StepBuilder
               steps={steps}
@@ -219,7 +280,6 @@ export default function SequenceDetailPage() {
           )}
 
           {tab === "enroll" && <EnrollPanel sequenceId={sequenceId} sequenceStatus={sequence.status} />}
-
           {tab === "analytics" && <AnalyticsPanel sequenceId={sequenceId} />}
         </>
       )}
