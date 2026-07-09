@@ -699,7 +699,8 @@ export interface CsvExportResponse {
 // ── Deliverability ────────────────────────────────────────────────────────────
 
 export type InboxProvider = "smtp" | "google" | "microsoft";
-export type InboxStatus = "active" | "warming" | "paused" | "error";
+export type InboxStatus = "active" | "warming" | "paused" | "error" | "pending_verification";
+export type InboxHealth = "healthy" | "degraded" | "error";
 export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
 
 export interface Inbox {
@@ -712,9 +713,13 @@ export interface Inbox {
   warmupStatus: string;
   dailySendLimit: number;
   sentToday: number;
+  capPct: number;
   sentCount: number;
   bounceCount: number;
   spamCount: number;
+  health: InboxHealth;
+  smtpConfigured: boolean;
+  oauthConfigured: boolean;
   lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;

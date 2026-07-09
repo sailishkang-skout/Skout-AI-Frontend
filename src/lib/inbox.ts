@@ -66,6 +66,11 @@ export function useInboxApi() {
 
     getMetrics: () =>
       fetch<DeliverabilityMetrics>("/api/v1/deliverability/metrics"),
+
+    testSend: (id: string) =>
+      fetch<{ ok: boolean; provider: string }>(`/api/v1/inboxes/${id}/test-send`, {
+        method: "POST",
+      }),
   };
 }
 
