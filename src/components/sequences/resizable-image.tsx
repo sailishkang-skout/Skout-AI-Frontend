@@ -8,19 +8,19 @@ import { AlignLeft, AlignCenter, AlignRight, Maximize2 } from "lucide-react";
 
 // ── 8 resize handles ─────────────────────────────────────────
 const HANDLES = [
-  { key: "tl", pos: { top: -5, left: -5 },                                     cursor: "nw-resize", side: "left"  as const, axis: "both"  },
-  { key: "tr", pos: { top: -5, right: -5 },                                    cursor: "ne-resize", side: "right" as const, axis: "both"  },
-  { key: "bl", pos: { bottom: -5, left: -5 },                                  cursor: "sw-resize", side: "left"  as const, axis: "both"  },
-  { key: "br", pos: { bottom: -5, right: -5 },                                 cursor: "se-resize", side: "right" as const, axis: "both"  },
-  { key: "r",  pos: { top: "50%", right: -5,   transform: "translateY(-50%)" }, cursor: "e-resize",  side: "right" as const, axis: "x"     },
-  { key: "l",  pos: { top: "50%", left: -5,    transform: "translateY(-50%)" }, cursor: "w-resize",  side: "left"  as const, axis: "x"     },
-  { key: "t",  pos: { top: -5,   left: "50%",  transform: "translateX(-50%)" }, cursor: "n-resize",  side: "right" as const, axis: "y-inv" },
-  { key: "b",  pos: { bottom: -5,left: "50%",  transform: "translateX(-50%)" }, cursor: "s-resize",  side: "right" as const, axis: "y"     },
+  { key: "tl", pos: { top: -6, left: -6 },                                     cursor: "nw-resize", side: "left"  as const, axis: "both"  },
+  { key: "tr", pos: { top: -6, right: -6 },                                    cursor: "ne-resize", side: "right" as const, axis: "both"  },
+  { key: "bl", pos: { bottom: -6, left: -6 },                                  cursor: "sw-resize", side: "left"  as const, axis: "both"  },
+  { key: "br", pos: { bottom: -6, right: -6 },                                 cursor: "se-resize", side: "right" as const, axis: "both"  },
+  { key: "r",  pos: { top: "50%", right: -6,   transform: "translateY(-50%)" }, cursor: "e-resize",  side: "right" as const, axis: "x"     },
+  { key: "l",  pos: { top: "50%", left: -6,    transform: "translateY(-50%)" }, cursor: "w-resize",  side: "left"  as const, axis: "x"     },
+  { key: "t",  pos: { top: -6,   left: "50%",  transform: "translateX(-50%)" }, cursor: "n-resize",  side: "right" as const, axis: "y-inv" },
+  { key: "b",  pos: { bottom: -6,left: "50%",  transform: "translateX(-50%)" }, cursor: "s-resize",  side: "right" as const, axis: "y"     },
 ];
 
 // ── Node view ────────────────────────────────────────────────
 
-function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
+function ImageNodeView({ node, updateAttributes, selected, getPos, editor }: NodeViewProps) {
   const src   = node.attrs.src   as string;
   const alt   = (node.attrs.alt  as string) ?? "";
   const width = node.attrs.width as number | null;
@@ -33,17 +33,17 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const alignAtStart = useRef(align);
   const [hovered, setHovered] = useState(false);
 
-  // ── Resize ──────────────────────────────────────────────────
+  // ── Resize (pointer events — works for mouse AND touch) ─────
   const startResize = useCallback(
-    (e: React.MouseEvent, h: typeof HANDLES[number]) => {
+    (e: React.PointerEvent, h: typeof HANDLES[number]) => {
       e.preventDefault();
-      e.stopPropagation(); // prevent node-drag while resizing
+      e.stopPropagation();
       startX.current       = e.clientX;
       startY.current       = e.clientY;
       startW.current       = imgRef.current?.offsetWidth ?? (width ?? 400);
       alignAtStart.current = align;
 
-      const onMove = (ev: MouseEvent) => {
+      const onMove = (ev: PointerEvent) => {
         const dx = ev.clientX - startX.current;
         const dy = ev.clientY - startY.current;
         let delta = 0;
@@ -65,13 +65,52 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
       };
 
       const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
       };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
     },
     [width, align, updateAttributes],
+  );
+
+  // ── Touch/pen drag to reposition image in the document ──────
+  const startPointerDrag = useCallback(
+    (e: React.PointerEvent) => {
+      // Native HTML5 DnD handles mouse drag — only intercept touch/pen
+      if (e.pointerType === "mouse") return;
+      if (!selected) return;
+      e.preventDefault();
+
+      let dropPos: number | null = null;
+
+      const onMove = (ev: PointerEvent) => {
+        const coords = editor.view.posAtCoords({ left: ev.clientX, top: ev.clientY });
+        if (coords) dropPos = coords.pos;
+      };
+
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        if (dropPos === null) return;
+        const pos = typeof getPos === "function" ? getPos() : undefined;
+        if (pos === undefined) return;
+        const nodeSize = node.nodeSize;
+        if (dropPos >= pos && dropPos <= pos + nodeSize) return;
+        const insertAt = dropPos > pos + nodeSize ? dropPos - nodeSize : dropPos;
+        try {
+          const { tr } = editor.view.state;
+          const nodeCopy = node.copy(node.content);
+          tr.delete(pos, pos + nodeSize);
+          tr.insert(Math.max(0, Math.min(insertAt, tr.doc.content.size)), nodeCopy);
+          editor.view.dispatch(tr);
+        } catch { /* ignore invalid positions */ }
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [getPos, editor, node, selected],
   );
 
   // ── Alignment ───────────────────────────────────────────────
@@ -102,14 +141,13 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
     <NodeViewWrapper style={{ display: "block", lineHeight: 0, userSelect: "none" }}>
       <div style={wrapperStyle}>
         {/*
-          data-drag-handle on this div → TipTap lets the user drag the WHOLE image
-          to a new position in the document.
-          Resize handles and the toolbar each call e.stopPropagation() on mousedown
-          so they don't accidentally trigger a node-drag.
+          data-drag-handle → TipTap allows mouse-drag to reposition in the document.
+          onPointerDown → our custom handler for touch/pen drag repositioning.
         */}
         <div
           data-drag-handle
           contentEditable={false}
+          onPointerDown={startPointerDrag}
           style={{
             ...boxStyle,
             position: "relative",
@@ -160,6 +198,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
           {showControls && (
             <div
               onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
                 top: 8,
@@ -171,7 +210,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
                 background: "rgba(255,255,255,0.95)",
                 border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "3px 6px",
+                padding: "4px 8px",
                 boxShadow: "0 2px 12px rgba(0,0,0,.18)",
                 zIndex: 30,
                 whiteSpace: "nowrap",
@@ -180,19 +219,19 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
             >
               {(
                 [
-                  { a: "left",   icon: <AlignLeft   size={13} />, label: "Float left"  },
-                  { a: "center", icon: <AlignCenter  size={13} />, label: "Center"      },
-                  { a: "right",  icon: <AlignRight   size={13} />, label: "Float right" },
-                  { a: "full",   icon: <Maximize2    size={13} />, label: "Full width"  },
+                  { a: "left",   icon: <AlignLeft   size={14} />, label: "Float left"  },
+                  { a: "center", icon: <AlignCenter  size={14} />, label: "Center"      },
+                  { a: "right",  icon: <AlignRight   size={14} />, label: "Float right" },
+                  { a: "full",   icon: <Maximize2    size={14} />, label: "Full width"  },
                 ] as const
               ).map(({ a, icon, label }) => (
                 <button
                   key={a}
                   type="button"
                   title={label}
-                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setAlign(a); }}
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); setAlign(a); }}
                   style={{
-                    padding: "3px 5px",
+                    padding: "5px 7px",
                     border: "none",
                     borderRadius: 5,
                     cursor: "pointer",
@@ -201,6 +240,8 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
                     display: "flex",
                     alignItems: "center",
                     lineHeight: 0,
+                    minWidth: 28,
+                    minHeight: 28,
                   }}
                 >
                   {icon}
@@ -219,18 +260,19 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
           {selected && HANDLES.map((h) => (
             <div
               key={h.key}
-              onMouseDown={(e) => startResize(e, h)}
+              onPointerDown={(e) => startResize(e, h)}
               style={{
                 position: "absolute",
                 ...(h.pos as React.CSSProperties),
-                width: 11,
-                height: 11,
+                width: 14,
+                height: 14,
                 background: "#3b82f6",
                 border: "2.5px solid #fff",
                 borderRadius: "50%",
                 cursor: h.cursor,
                 zIndex: 20,
                 boxShadow: "0 1px 4px rgba(0,0,0,.3)",
+                touchAction: "none",
               }}
             />
           ))}

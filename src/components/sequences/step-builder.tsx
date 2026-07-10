@@ -136,80 +136,118 @@ function StepCard({
         )}
       >
         {/* ── Card header ─────────────────────────────── */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          {/* Drag handle */}
-          <button
-            type="button"
-            aria-label="Drag to reorder"
-            className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+        <div className="px-4 py-3">
+          {/* Top row: drag + number + type + [selector+delay on sm+] + delete */}
+          <div className="flex items-center gap-2">
+            {/* Drag handle */}
+            <button
+              type="button"
+              aria-label="Drag to reorder"
+              className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
 
-          {/* Step number */}
-          <span
-            className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2",
-              cfg.badge,
-              cfg.ring,
-            )}
-          >
-            {step.stepOrder}
-          </span>
+            {/* Step number */}
+            <span
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2",
+                cfg.badge,
+                cfg.ring,
+              )}
+            >
+              {step.stepOrder}
+            </span>
 
-          {/* Type icon + badge */}
-          <span className={cn("flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium", cfg.badge)}>
-            <Icon className="h-3.5 w-3.5" />
-            {cfg.label}
-          </span>
+            {/* Type icon + badge */}
+            <span className={cn("flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium", cfg.badge)}>
+              <Icon className="h-3.5 w-3.5" />
+              {cfg.label}
+            </span>
 
-          {/* Type selector */}
-          <Select
-            value={step.stepType}
-            onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
-            disabled={updating}
-            className="h-8 w-36 shrink-0 text-xs"
-          >
-            {STEP_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </Select>
+            {/* Type selector + delay — visible on sm+, hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Select
+                value={step.stepType}
+                onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
+                disabled={updating}
+                className="h-8 w-36 shrink-0 text-xs"
+              >
+                {STEP_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </Select>
 
-          {/* Delay control */}
-          <div className="flex shrink-0 items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground">Wait</span>
-            <Input
-              type="number"
-              min={0}
-              value={step.delayDays}
-              onChange={(e) => onUpdate({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
-              disabled={updating}
-              className="h-8 w-14 text-center text-xs"
-              aria-label="Delay in days"
-            />
-            <span className="text-muted-foreground">days</span>
+              <div className="flex shrink-0 items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Wait</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={step.delayDays}
+                  onChange={(e) => onUpdate({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
+                  disabled={updating}
+                  className="h-8 w-14 text-center text-xs"
+                  aria-label="Delay in days"
+                />
+                <span className="text-muted-foreground">days</span>
+              </div>
+
+              {updating && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving…
+                </span>
+              )}
+            </div>
+
+            {/* Delete */}
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={deleting}
+              aria-label="Delete step"
+              className="ml-auto shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
           </div>
 
-          {/* Saving indicator */}
-          {updating && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Saving…
-            </span>
-          )}
+          {/* Mobile-only row: type selector + delay control */}
+          <div className="mt-2 flex sm:hidden items-center gap-2">
+            <Select
+              value={step.stepType}
+              onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
+              disabled={updating}
+              className="h-8 flex-1 text-xs"
+            >
+              {STEP_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
 
-          {/* Delete */}
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={deleting}
-            aria-label="Delete step"
-            className="ml-auto shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-          >
-            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          </button>
+            <div className="flex shrink-0 items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground">Wait</span>
+              <Input
+                type="number"
+                min={0}
+                value={step.delayDays}
+                onChange={(e) => onUpdate({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
+                disabled={updating}
+                className="h-8 w-14 text-center text-xs"
+                aria-label="Delay in days"
+              />
+              <span className="text-muted-foreground">days</span>
+            </div>
+
+            {updating && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Saving…
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── Email fields ────────────────────────────── */}
