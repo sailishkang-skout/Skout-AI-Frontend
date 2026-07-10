@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Links inside TipTap editor show a hand cursor */
+.tiptap a {
+  cursor: pointer;
+}
+
+/* TipTap placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
