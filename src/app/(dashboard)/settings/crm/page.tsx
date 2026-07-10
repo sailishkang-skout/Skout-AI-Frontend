@@ -276,10 +276,9 @@ function CrmSettingsContent() {
                     <p className="font-medium">List permission not granted yet</p>
                     <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm">
                       <li>
-                        Run:{" "}
-                        <code className="rounded bg-muted px-1 text-xs">
-                          cd ~/hubspot-skout-app/skout-crm && hs project upload
-                        </code>
+                        Re-upload the HubSpot CRM project with the HubSpot CLI (
+                        <code className="rounded bg-muted px-1 text-xs">hs project upload</code>
+                        ), then reconnect.
                       </li>
                       <li>Reconnect your HubSpot account</li>
                       <li>
