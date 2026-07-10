@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, Pencil, Target, Trash2, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Pencil, Play, Target, Trash2, X } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -17,6 +17,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, useAuthReady } from "@/lib/api-client";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { useSequencesApi } from "@/lib/sequences";
 import { useCrmApi } from "@/lib/crm";
 import {
   CSV_EXPORT_CREDIT_COST,
@@ -45,7 +48,13 @@ export default function ListDetailPage() {
   const authReady = useAuthReady();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
+  const sequencesApi = useSequencesApi();
 
+  const [showRunSequenceModal, setShowRunSequenceModal] = useState(false);
+  const [selectedSeqId, setSelectedSeqId] = useState("");
+  const [showMemberSeqPicker, setShowMemberSeqPicker] = useState(false);
+  const [memberSeqId, setMemberSeqId] = useState("");
+  const [memberEnrollSuccess, setMemberEnrollSuccess] = useState<string | null>(null);
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [scoreProgress, setScoreProgress] = useState<string | null>(null);
@@ -73,6 +82,44 @@ export default function ListDetailPage() {
   const hubspotConnected = connections.data?.data.some(
     (c) => c.provider === "hubspot" && c.status === "connected"
   );
+
+  const listSequences = useQuery({
+    queryKey: ["lists", listId, "sequences"],
+    queryFn: () => sequencesApi.listSequencesForList(listId),
+    enabled: authReady && Boolean(listId),
+  });
+
+  const allSequences = useQuery({
+    queryKey: ["sequences"],
+    queryFn: () => sequencesApi.list(),
+    enabled: authReady && (showRunSequenceModal || showMemberSeqPicker),
+  });
+
+  const runSequence = useMutation({
+    mutationFn: (seqId: string) => sequencesApi.enroll(seqId, { listId }),
+    onSuccess: () => {
+      setShowRunSequenceModal(false);
+      setSelectedSeqId("");
+      queryClient.invalidateQueries({ queryKey: ["lists", listId, "sequences"] });
+      queryClient.invalidateQueries({ queryKey: ["sequences", selectedSeqId, "lists"] });
+    },
+  });
+
+  const runSequenceOnMembers = useMutation({
+    mutationFn: (seqId: string) =>
+      sequencesApi.enroll(seqId, { prospectIds: Array.from(selected) }),
+    onSuccess: (_data, seqId) => {
+      const seqName = allSequences.data?.data.find((s) => s.id === seqId)?.name ?? "sequence";
+      const count = selected.size;
+      setMemberEnrollSuccess(`${count} member${count === 1 ? "" : "s"} enrolled in "${seqName}"`);
+      setShowMemberSeqPicker(false);
+      setMemberSeqId("");
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["lists", listId, "sequences"] });
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      setTimeout(() => setMemberEnrollSuccess(null), 4000);
+    },
+  });
 
   const list = detail.data;
   const members = detail.data?.members ?? [];
@@ -322,6 +369,14 @@ export default function ListDetailPage() {
             )}
             Score all
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setShowRunSequenceModal((v) => !v); setSelectedSeqId(""); }}
+          >
+            <Play className="h-4 w-4" />
+            Run sequence
+          </Button>
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -355,30 +410,92 @@ export default function ListDetailPage() {
         </Alert>
       )}
 
+      {memberEnrollSuccess && (
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
+          <span>{memberEnrollSuccess}</span>
+          <button type="button" onClick={() => setMemberEnrollSuccess(null)} className="ml-4 text-green-600 hover:text-green-800 dark:text-green-400">✕</button>
+        </div>
+      )}
+
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
-          <span className="font-medium">{selected.size} selected</span>
-          <Button
-            size="sm"
-            onClick={() => setConfirmRemove("bulk")}
-            disabled={removeMembers.isPending}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {removeMembers.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
+        <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-medium">{selected.size} member{selected.size === 1 ? "" : "s"} selected</span>
+            {!showMemberSeqPicker && (
+              <Button
+                size="sm"
+                onClick={() => { setShowMemberSeqPicker(true); setMemberSeqId(""); }}
+              >
+                <Play className="h-4 w-4" />
+                Run sequence
+              </Button>
             )}
-            Remove selected
-          </Button>
-          <button
-            type="button"
-            onClick={() => setSelected(new Set())}
-            className="ml-auto text-muted-foreground hover:text-foreground"
-            aria-label="Clear selection"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmRemove("bulk")}
+              disabled={removeMembers.isPending}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              {removeMembers.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Remove
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setSelected(new Set()); setShowMemberSeqPicker(false); setMemberSeqId(""); }}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+              aria-label="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {showMemberSeqPicker && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Select
+                value={memberSeqId}
+                onChange={(e) => setMemberSeqId(e.target.value)}
+                className="max-w-xs"
+              >
+                <option value="">— choose a sequence —</option>
+                {(allSequences.data?.data ?? [])
+                  .filter((s) => s.status === "active")
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </Select>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!memberSeqId || runSequenceOnMembers.isPending}
+                  onClick={() => runSequenceOnMembers.mutate(memberSeqId)}
+                >
+                  {runSequenceOnMembers.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  Enroll
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setShowMemberSeqPicker(false); setMemberSeqId(""); }}>
+                  Cancel
+                </Button>
+              </div>
+              {allSequences.isLoading && <p className="text-xs text-muted-foreground">Loading…</p>}
+              {!allSequences.isLoading && (allSequences.data?.data ?? []).filter((s) => s.status === "active").length === 0 && (
+                <p className="text-xs text-muted-foreground">No active sequences. Activate one first.</p>
+              )}
+              {runSequenceOnMembers.isError && (
+                <p className="text-xs text-destructive">
+                  {runSequenceOnMembers.error instanceof Error ? runSequenceOnMembers.error.message : "Enrollment failed."}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -401,6 +518,143 @@ export default function ListDetailPage() {
           </div>
         </Alert>
       )}
+
+      {showRunSequenceModal && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Enroll this list in a sequence</CardTitle>
+            <CardDescription>Select an active sequence to run on all prospects in this list.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Select
+                value={selectedSeqId}
+                onChange={(e) => setSelectedSeqId(e.target.value)}
+                className="max-w-sm"
+              >
+                <option value="">— choose a sequence —</option>
+                {(allSequences.data?.data ?? [])
+                  .filter((s) => s.status === "active")
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </Select>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!selectedSeqId || runSequence.isPending}
+                  onClick={() => runSequence.mutate(selectedSeqId)}
+                >
+                  {runSequence.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  Enroll
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setShowRunSequenceModal(false); setSelectedSeqId(""); }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+            {allSequences.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading sequences…</p>
+            )}
+            {!allSequences.isLoading && (allSequences.data?.data ?? []).filter((s) => s.status === "active").length === 0 && (
+              <p className="text-sm text-muted-foreground">No active sequences found. Activate a sequence first.</p>
+            )}
+            {runSequence.isError && (
+              <p className="text-sm text-destructive">
+                {runSequence.error instanceof Error ? runSequence.error.message : "Could not enroll this list. Please try again."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Play className="h-4 w-4 text-muted-foreground" />
+            Running sequences
+          </CardTitle>
+          <CardDescription>Sequences whose enrollments include prospects from this list.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {listSequences.isLoading && (
+            <div className="space-y-2 p-4">
+              {[0, 1].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          )}
+          {!listSequences.isLoading && (listSequences.data?.data ?? []).length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+              <Play className="h-6 w-6" />
+              No sequences running on this list yet.
+            </div>
+          )}
+          {(listSequences.data?.data ?? []).length > 0 && (
+            <table className="w-full text-sm">
+              <thead className="border-b border-border">
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="px-4 py-2.5 font-medium">Sequence</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium text-right">Total</th>
+                  <th className="px-4 py-2.5 font-medium text-right">Active</th>
+                  <th className="px-4 py-2.5 font-medium text-right">Done</th>
+                  <th className="px-4 py-2.5 font-medium">Since</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(listSequences.data?.data ?? []).map((row) => (
+                  <tr key={row.sequenceId} className="hover:bg-muted/40">
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/sequences/${row.sequenceId}`}
+                        className="flex items-center gap-1.5 font-medium text-foreground hover:underline"
+                      >
+                        {row.sequenceName}
+                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        tone={row.sequenceStatus === "active" ? "success" : row.sequenceStatus === "paused" ? "warning" : "muted"}
+                        className="capitalize"
+                      >
+                        {row.sequenceStatus}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{row.total}</td>
+                    <td className="px-4 py-3 text-right">
+                      {row.active > 0 ? (
+                        <Badge tone="info">{row.active}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.completed > 0 ? (
+                        <Badge tone="success">{row.completed}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(row.enrolledAt).toLocaleDateString("en-US", {
+                        month: "short", day: "numeric", year: "numeric",
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
