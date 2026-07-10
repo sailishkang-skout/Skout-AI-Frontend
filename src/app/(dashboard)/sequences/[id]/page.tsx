@@ -9,6 +9,7 @@ import {
   BarChart3,
   CalendarDays,
   Layers,
+  ListChecks,
   Loader2,
   Pause,
   Pencil,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { AnalyticsPanel } from "@/components/sequences/analytics-panel";
 import { EnrollPanel } from "@/components/sequences/enroll-panel";
+import { EnrolledListsPanel } from "@/components/sequences/enrolled-lists-panel";
 import { StepBuilder } from "@/components/sequences/step-builder";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageShell } from "@/components/layout/page-shell";
@@ -47,6 +49,7 @@ const STATUS_ACTION_CONFIG: Partial<Record<SequenceStatus, { icon: React.Compone
 const TABS = [
   { id: "builder",   label: "Builder",   icon: Settings2  },
   { id: "enroll",    label: "Enroll",    icon: Users      },
+  { id: "lists",     label: "Lists",     icon: ListChecks },
   { id: "analytics", label: "Analytics", icon: BarChart3  },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -280,6 +283,7 @@ export default function SequenceDetailPage() {
           )}
 
           {tab === "enroll" && <EnrollPanel sequenceId={sequenceId} sequenceStatus={sequence.status} />}
+          {tab === "lists" && <EnrolledListsPanel sequenceId={sequenceId} />}
           {tab === "analytics" && <AnalyticsPanel sequenceId={sequenceId} />}
         </>
       )}

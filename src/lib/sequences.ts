@@ -117,5 +117,30 @@ export function useSequencesApi() {
       fetchApi<ListEnvelope<SequenceEnrollment>>(
         `/api/v1/sequences/prospects/${prospectId}/enrollments`,
       ),
+
+    listEnrolledLists: (sequenceId: string) =>
+      fetchApi<ListEnvelope<SequenceEnrolledList>>(`/api/v1/sequences/${sequenceId}/lists`),
+
+    listSequencesForList: (listId: string) =>
+      fetchApi<ListEnvelope<ListRunningSequence>>(`/api/v1/lists/${listId}/sequences`),
   };
+}
+
+export interface SequenceEnrolledList {
+  listId: string;
+  listName: string;
+  total: number;
+  active: number;
+  completed: number;
+  enrolledAt: string;
+}
+
+export interface ListRunningSequence {
+  sequenceId: string;
+  sequenceName: string;
+  sequenceStatus: string;
+  total: number;
+  active: number;
+  completed: number;
+  enrolledAt: string;
 }

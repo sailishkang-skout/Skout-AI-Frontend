@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { ListIcon, Loader2, Pencil, Plus, Search, Trash2, Users, X, Zap } from "lucide-react";
+import { ListIcon, Loader2, Pencil, Play, Plus, Search, Trash2, Users, X, Zap } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEnrichmentApi, refreshCredits, refreshJobs } from "@/lib/enrichment";
+import { useSequencesApi } from "@/lib/sequences";
+import { Select } from "@/components/ui/select";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { useAuthReady } from "@/lib/api-client";
@@ -27,14 +29,52 @@ export default function ListsPage() {
   const authReady = useAuthReady();
   const [name, setName] = useState("");
   const [batches, setBatches] = useState<Record<string, EnrichmentBatch>>({});
+  const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set());
+  const [seqPickerOpen, setSeqPickerOpen] = useState(false);
+  const [selectedSeqId, setSelectedSeqId] = useState("");
+  const [runSuccess, setRunSuccess] = useState<string | null>(null);
   const { redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
+  const sequencesApi = useSequencesApi();
 
   const lists = useQuery({
     queryKey: ["lists"],
     queryFn: enrichmentApi.listLists,
     enabled: authReady,
+  });
+
+  const allSeqs = useQuery({
+    queryKey: ["sequences"],
+    queryFn: () => sequencesApi.list(),
+    enabled: authReady && seqPickerOpen,
+  });
+
+  const activeSeqs = allSeqs.data?.data.filter((s) => s.status === "active") ?? [];
+
+  const runSequenceOnLists = useMutation({
+    mutationFn: async (seqId: string) => {
+      const nonEmptyIds = Array.from(selectedLists).filter((id) => {
+        const l = listData.find((item) => item.id === id);
+        return l && l.prospectCount > 0;
+      });
+      if (nonEmptyIds.length === 0) {
+        throw new Error("All selected lists are empty — add prospects first.");
+      }
+      await Promise.all(nonEmptyIds.map((listId) => sequencesApi.enroll(seqId, { listId })));
+      return nonEmptyIds.length;
+    },
+    onSuccess: (enrolledCount, seqId) => {
+      const seqName = allSeqs.data?.data.find((s) => s.id === seqId)?.name ?? "sequence";
+      const skipped = selectedLists.size - (enrolledCount ?? 0);
+      const msg = `Enrolled ${enrolledCount} list${enrolledCount === 1 ? "" : "s"} in "${seqName}"${skipped > 0 ? ` (${skipped} empty list${skipped === 1 ? "" : "s"} skipped)` : ""}`;
+      setRunSuccess(msg);
+      setSeqPickerOpen(false);
+      setSelectedSeqId("");
+      setSelectedLists(new Set());
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      setTimeout(() => setRunSuccess(null), 4000);
+    },
   });
 
   const listData = useMemo(() => lists.data?.data ?? [], [lists.data]);
@@ -176,6 +216,86 @@ export default function ListsPage() {
           </Link>
         </div>
 
+        {selectedLists.size > 0 && (
+          <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-1 flex-col gap-1">
+                <p className="text-sm font-medium">
+                  {selectedLists.size} list{selectedLists.size === 1 ? "" : "s"} selected
+                  {" — "}
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    onClick={() => { setSelectedLists(new Set()); setSeqPickerOpen(false); setSelectedSeqId(""); }}
+                  >
+                    clear
+                  </button>
+                </p>
+                {!seqPickerOpen ? (
+                  <Button
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => { setSeqPickerOpen(true); setSelectedSeqId(""); }}
+                  >
+                    <Play className="h-4 w-4" />
+                    Run sequence on selected
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Select
+                      value={selectedSeqId}
+                      onChange={(e) => setSelectedSeqId(e.target.value)}
+                      className="max-w-xs"
+                    >
+                      <option value="">— choose a sequence —</option>
+                      {activeSeqs.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </Select>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={!selectedSeqId || runSequenceOnLists.isPending}
+                        onClick={() => runSequenceOnLists.mutate(selectedSeqId)}
+                      >
+                        {runSequenceOnLists.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        Enroll
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setSeqPickerOpen(false); setSelectedSeqId(""); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {allSeqs.isLoading && seqPickerOpen && (
+                  <p className="text-xs text-muted-foreground">Loading sequences…</p>
+                )}
+                {seqPickerOpen && !allSeqs.isLoading && activeSeqs.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No active sequences found. Activate a sequence first.</p>
+                )}
+                {runSequenceOnLists.isError && (
+                  <p className="text-xs text-destructive">
+                    {runSequenceOnLists.error instanceof Error
+                      ? runSequenceOnLists.error.message
+                      : "Enrollment failed. Please try again."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {runSuccess && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
+            <span>{runSuccess}</span>
+            <button type="button" onClick={() => setRunSuccess(null)} className="ml-4 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200">✕</button>
+          </div>
+        )}
+
         {lists.error && (
           <Alert variant="error" title="Something went wrong" dismissible onRetry={() => lists.refetch()}>
             We couldn&apos;t load your lists. Please try again.
@@ -218,6 +338,13 @@ export default function ListsPage() {
                 onDelete={() => deleteList.mutate(list.id)}
                 renaming={renameList.isPending && renameList.variables?.listId === list.id}
                 deleting={deleteList.isPending && deleteList.variables === list.id}
+                selected={selectedLists.has(list.id)}
+                onToggle={() => setSelectedLists((cur) => {
+                  const next = new Set(cur);
+                  if (next.has(list.id)) next.delete(list.id);
+                  else next.add(list.id);
+                  return next;
+                })}
               />
             ))}
           </div>
@@ -283,6 +410,8 @@ function ListCard({
   onDelete,
   renaming,
   deleting,
+  selected,
+  onToggle,
 }: {
   list: ProspectList;
   batch?: EnrichmentBatch;
@@ -292,6 +421,8 @@ function ListCard({
   onDelete: () => void;
   renaming: boolean;
   deleting: boolean;
+  selected: boolean;
+  onToggle: () => void;
 }) {
   const empty = list.prospectCount === 0;
   const progress = batch && batch.total > 0 ? Math.round((batch.done / batch.total) * 100) : 0;
@@ -313,9 +444,16 @@ function ListCard({
   }
 
   return (
-    <Card className={cn("flex flex-col", (empty || deleting) && "opacity-80")}>
+    <Card className={cn("flex flex-col transition-colors", (empty || deleting) && "opacity-80", selected && "ring-2 ring-primary")}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+            aria-label={`Select ${list.name}`}
+          />
           {editing ? (
             <input
               ref={inputRef}
