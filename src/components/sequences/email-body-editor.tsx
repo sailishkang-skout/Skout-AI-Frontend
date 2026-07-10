@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BookmarkPlus,
   ChevronDown,
@@ -9,11 +9,13 @@ import {
   Loader2,
   Maximize2,
   Save,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useApiFetch } from "@/lib/api-client";
 
 // TipTap uses browser APIs — load client-side only
 const EmailEditor = dynamic(
@@ -34,6 +36,7 @@ interface EmailTemplate {
   id: string;
   name: string;
   html: string;
+  subject?: string;
   createdAt: string;
 }
 
@@ -51,11 +54,13 @@ function saveTemplates(t: EmailTemplate[]) {
 
 interface EmailBodyEditorProps {
   value: string;
-  onChange: (html: string) => void;
+  onChange: (html: string, subject?: string) => void;
   disabled?: boolean;
 }
 
 export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorProps) {
+  const fetchApi = useApiFetch();
+
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [editorKey, setEditorKey] = useState(0);
@@ -64,22 +69,59 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
   const [showTemplateList, setShowTemplateList] = useState(false);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
 
+  // AI generate state
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiResult, setAiResult] = useState<{ html: string; subject: string } | null>(null);
+  const [aiSaveAs, setAiSaveAs] = useState("");
+  const [aiSaveName, setAiSaveName] = useState("");
+
+  const historyPushed   = useRef(false);
+  const suppressNextPop = useRef(false);
+
   function openEditor() {
     setDraft(value);
     setTemplates(loadTemplates());
     setOpen(true);
+    history.pushState({ skoutEditorOpen: true }, "");
+    historyPushed.current = true;
+  }
+
+  function doClose() {
+    setOpen(false);
+    if (historyPushed.current) {
+      historyPushed.current   = false;
+      suppressNextPop.current = true;
+      history.go(-1);
+    }
   }
 
   function applyAndClose() {
     onChange(draft);
-    setOpen(false);
+    doClose();
   }
 
   function discardAndClose() {
     setDraft(value);
-    setOpen(false);
+    doClose();
   }
 
+  // Mobile back button → close modal, don't navigate away
+  useEffect(() => {
+    if (!open) return;
+    function onPopState() {
+      if (suppressNextPop.current) { suppressNextPop.current = false; return; }
+      historyPushed.current = false;
+      setDraft(value);
+      setOpen(false);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [open, value]);
+
+  // ── Template helpers ───────────────────────────────────────
   function handleSaveTemplate() {
     if (!templateName.trim()) return;
     const t: EmailTemplate = {
@@ -97,7 +139,7 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
 
   function handleLoadTemplate(t: EmailTemplate) {
     setDraft(t.html);
-    setEditorKey((k) => k + 1); // force TipTap to remount with new content
+    setEditorKey((k) => k + 1);
     setShowTemplateList(false);
   }
 
@@ -106,6 +148,60 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
     const updated = templates.filter((t) => t.id !== id);
     saveTemplates(updated);
     setTemplates(updated);
+  }
+
+  // ── AI generate ────────────────────────────────────────────
+  async function handleAiGenerate() {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiResult(null);
+    try {
+      const result = await fetchApi<{ html: string; subject: string }>(
+        "/api/v1/ai/generate-email",
+        { method: "POST", body: JSON.stringify({ prompt: aiPrompt.trim() }) }
+      );
+      setAiResult(result);
+    } catch (err: unknown) {
+      setAiError(err instanceof Error ? err.message : "Generation failed. Check your OpenAI API key.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function handleAiInsert() {
+    if (!aiResult) return;
+    setDraft(aiResult.html);
+    setEditorKey((k) => k + 1);
+    setShowAiModal(false);
+    setAiResult(null);
+    setAiPrompt("");
+    setAiSaveAs("");
+  }
+
+  function handleAiSaveTemplate() {
+    if (!aiResult || !aiSaveName.trim()) return;
+    const tplList = loadTemplates();
+    const t: EmailTemplate = {
+      id: crypto.randomUUID(),
+      name: aiSaveName.trim(),
+      html: aiResult.html,
+      subject: aiResult.subject,
+      createdAt: new Date().toISOString(),
+    };
+    saveTemplates([...tplList, t]);
+    setTemplates([...tplList, t]);
+    setAiSaveName("");
+    setAiSaveAs("");
+  }
+
+  function handleAiInsertAndApply() {
+    if (!aiResult) return;
+    onChange(aiResult.html);
+    setShowAiModal(false);
+    setAiResult(null);
+    setAiPrompt("");
+    doClose();
   }
 
   const hasContent = value.trim().length > 0;
@@ -148,13 +244,25 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
       {open && (
         <div className="fixed inset-0 z-50 flex flex-col bg-background">
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              Email body
+              <span className="hidden sm:inline">Email body</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {/* ── AI Generate ── */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setShowAiModal(true); setAiError(""); setAiResult(null); }}
+                className="gap-1.5 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/30"
+                title="Generate with AI"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">AI Generate</span>
+              </Button>
+
               {/* Save as template */}
               {showSaveInput ? (
                 <div className="flex items-center gap-1.5">
@@ -167,11 +275,11 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
                       if (e.key === "Enter") handleSaveTemplate();
                       if (e.key === "Escape") setShowSaveInput(false);
                     }}
-                    className="h-8 rounded-md border border-border bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="h-8 w-28 sm:w-44 rounded-md border border-border bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <Button size="sm" onClick={handleSaveTemplate}>
                     <Save className="h-3.5 w-3.5" />
-                    Save
+                    <span className="hidden sm:inline">Save</span>
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setShowSaveInput(false)}>
                     <X className="h-3.5 w-3.5" />
@@ -183,9 +291,10 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
                   variant="outline"
                   onClick={() => setShowSaveInput(true)}
                   className="gap-1.5"
+                  title="Save as template"
                 >
                   <BookmarkPlus className="h-3.5 w-3.5" />
-                  Save as template
+                  <span className="hidden sm:inline">Save as template</span>
                 </Button>
               )}
 
@@ -196,10 +305,11 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
                   variant="outline"
                   onClick={() => setShowTemplateList((v) => !v)}
                   className="gap-1.5"
+                  title="Templates"
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  Templates
-                  <ChevronDown className="h-3 w-3" />
+                  <span className="hidden sm:inline">Templates</span>
+                  <ChevronDown className="hidden h-3 w-3 sm:block" />
                 </Button>
                 {showTemplateList && (
                   <div className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-border bg-card shadow-lg">
@@ -239,7 +349,7 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
                 type="button"
                 onClick={discardAndClose}
                 title="Discard changes"
-                className="ml-1 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -254,6 +364,137 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
               onChange={setDraft}
             />
           </div>
+
+          {/* ── AI Generate Modal (shown over the editor) ── */}
+          {showAiModal && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <div className="flex w-full max-w-lg flex-col gap-4 rounded-xl border border-border bg-card shadow-2xl">
+                {/* Modal header */}
+                <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    <h3 className="text-sm font-semibold">Generate email with AI</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAiModal(false); setAiResult(null); setAiError(""); }}
+                    className="rounded p-1 text-muted-foreground hover:bg-accent"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 px-5 pb-5">
+                  {/* Prompt input */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Describe the email you want
+                    </label>
+                    <textarea
+                      autoFocus
+                      rows={3}
+                      placeholder="e.g. Cold outreach to a VP of Sales at a SaaS company, offering our sales automation tool, friendly and concise tone"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAiGenerate();
+                      }}
+                      className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Press Ctrl+Enter to generate
+                    </p>
+                  </div>
+
+                  {/* Error */}
+                  {aiError && (
+                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      {aiError}
+                    </p>
+                  )}
+
+                  {/* Generated preview */}
+                  {aiResult && (
+                    <div className="space-y-2">
+                      {aiResult.subject && (
+                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+                          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Subject</p>
+                          <p className="text-sm font-medium">{aiResult.subject}</p>
+                        </div>
+                      )}
+                      <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-background p-3">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+                        <div
+                          className="prose prose-sm text-sm [&_*]:!text-foreground"
+                          dangerouslySetInnerHTML={{ __html: aiResult.html }}
+                        />
+                      </div>
+
+                      {/* Save as template option */}
+                      {aiSaveAs === "saving" ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            placeholder="Template name…"
+                            value={aiSaveName}
+                            onChange={(e) => setAiSaveName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { handleAiSaveTemplate(); }
+                              if (e.key === "Escape") setAiSaveAs("");
+                            }}
+                            className="h-8 flex-1 rounded-md border border-border bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <Button size="sm" onClick={handleAiSaveTemplate} disabled={!aiSaveName.trim()}>
+                            <Save className="h-3.5 w-3.5" />
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setAiSaveAs("")}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAiSaveAs("saving")}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <BookmarkPlus className="h-3.5 w-3.5" />
+                          Save as template
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      onClick={handleAiGenerate}
+                      disabled={aiLoading || !aiPrompt.trim()}
+                      className="gap-2"
+                    >
+                      {aiLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {aiLoading ? "Generating…" : aiResult ? "Regenerate" : "Generate"}
+                    </Button>
+
+                    {aiResult && (
+                      <>
+                        <Button variant="outline" onClick={handleAiInsert} className="gap-1.5">
+                          Insert into editor
+                        </Button>
+                        <Button variant="outline" onClick={handleAiInsertAndApply} className="gap-1.5">
+                          Insert &amp; Apply
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

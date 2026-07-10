@@ -242,7 +242,7 @@ export default function SequenceDetailPage() {
           <DemoBanner />
 
           {/* ── Tabs ─────────────────────────────────────── */}
-          <div className="mb-6 flex gap-0.5 border-b border-border">
+          <div className="mb-6 flex gap-0.5 overflow-x-auto border-b border-border">
             {TABS.map((t) => {
               const Icon = t.icon;
               return (
@@ -251,7 +251,7 @@ export default function SequenceDetailPage() {
                   type="button"
                   onClick={() => setTab(t.id)}
                   className={cn(
-                    "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                    "flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
                     tab === t.id
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"

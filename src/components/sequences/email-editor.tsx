@@ -50,8 +50,16 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
   const [showLinkPopover, setShowLinkPopover] = useState(false);
   const [linkUrl, setLinkUrl]     = useState("");
   const [linkNewTab, setLinkNewTab] = useState(true);
-  const [device, setDevice]       = useState<Device>("desktop");
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Auto-select device preview based on actual screen width at mount time
+  const [device, setDevice] = useState<Device>(() => {
+    if (typeof window === "undefined") return "desktop";
+    const w = window.innerWidth;
+    if (w < 768) return "mobile";
+    if (w < 1024) return "tablet";
+    return "desktop";
+  });
 
   const editor = useEditor({
     extensions: [
@@ -68,7 +76,7 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
     editorProps: {
       attributes: {
         // [&_img]:my-0 overrides Tailwind Typography's 2em top/bottom margin on images
-        class: "min-h-[340px] w-full px-8 py-6 text-sm leading-relaxed outline-none prose prose-neutral dark:prose-invert max-w-none [&_img]:my-0 [&_figure]:my-0",
+        class: "min-h-[340px] w-full px-8 py-6 text-sm leading-relaxed outline-none prose prose-neutral dark:prose-invert max-w-none break-words [&_img]:my-0 [&_figure]:my-0",
       },
       // ── Handle image files dropped anywhere on the editor ──
       handleDrop(view, event, _slice, moved) {
@@ -141,8 +149,8 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
 
-      {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 p-1.5">
+      {/* ── Toolbar — scrolls horizontally on mobile, wraps on sm+ ── */}
+      <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/40 p-1.5 sm:flex-wrap sm:overflow-x-visible">
 
         {/* Headings */}
         <ToolGroup>
@@ -233,11 +241,11 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
         <Sep />
 
         {/* Merge tokens */}
-        <span className="ml-1 text-xs text-muted-foreground">Insert:</span>
+        <span className="ml-1 shrink-0 text-xs text-muted-foreground">Insert:</span>
         {MERGE_TOKENS.map((t) => (
           <button key={t.token} type="button" title={t.label}
             onMouseDown={(e) => { e.preventDefault(); insertToken(t.token); }}
-            className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[11px] text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">
+            className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[11px] text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">
             {t.token}
           </button>
         ))}
@@ -252,8 +260,12 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
       )}
 
       {/* ── Editor area ─────────────────────────────────────── */}
+      {/*
+        overflow-auto (both x + y) so that tablet/desktop preview can
+        scroll horizontally when the device is narrower than the preview width.
+      */}
       <div
-        className="relative min-h-0 flex-1 overflow-y-auto bg-muted/20"
+        className="relative min-h-0 flex-1 overflow-auto bg-muted/20"
         onClick={() => setShowLinkPopover(false)}
       >
         {/* Drag-over overlay — shown when user drags a file over the editor */}
@@ -264,10 +276,18 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
           </div>
         )}
 
-        {/* Device-width wrapper — constrains content for tablet/mobile preview */}
+        {/*
+          Desktop → fill 100% of container (responsive).
+          Tablet / Mobile preview → pin to exact preview width so users on
+          a narrower screen can scroll horizontally to see the true layout.
+        */}
         <div
-          className="mx-auto bg-background shadow-sm transition-all duration-300"
-          style={{ maxWidth: currentDeviceWidth, minHeight: "100%" }}
+          className="bg-background shadow-sm transition-all duration-300"
+          style={
+            device === "desktop"
+              ? { width: "100%", minHeight: "100%" }
+              : { width: currentDeviceWidth, minWidth: currentDeviceWidth, margin: "0 auto", minHeight: "100%" }
+          }
         >
           <EditorContent editor={editor} />
         </div>
@@ -317,7 +337,7 @@ function ImageModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-[420px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+      <div className="w-full max-w-[420px] mx-4 overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold">Insert image</h3>
           <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
@@ -387,10 +407,10 @@ function ImageModal({
 // Toolbar primitives
 // ─────────────────────────────────────────────────────────────
 function ToolGroup({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-0.5">{children}</div>;
+  return <div className="flex shrink-0 items-center gap-0.5">{children}</div>;
 }
 function Sep() {
-  return <div className="mx-1 h-5 w-px bg-border" />;
+  return <div className="mx-1 h-5 w-px shrink-0 bg-border" />;
 }
 function ToolBtn({ children, onClick, title, active }: {
   children: React.ReactNode; onClick: () => void; title?: string; active: boolean;
