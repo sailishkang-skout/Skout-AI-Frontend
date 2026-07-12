@@ -3,6 +3,7 @@ import type {
   EnrollSequenceResult,
   Sequence,
   SequenceAnalytics,
+  SequenceDelayUnit,
   SequenceDetail,
   SequenceEnrollment,
   SequenceStatus,
@@ -32,6 +33,7 @@ export function sequenceStatusTone(status: SequenceStatus) {
 export interface AddStepInput {
   stepType: SequenceStepType;
   delayDays: number;
+  delayUnit?: SequenceDelayUnit;
   subject?: string;
   bodyTemplate?: string;
 }
@@ -39,6 +41,7 @@ export interface AddStepInput {
 export interface UpdateStepInput {
   stepType?: SequenceStepType;
   delayDays?: number;
+  delayUnit?: SequenceDelayUnit;
   subject?: string | null;
   bodyTemplate?: string | null;
 }

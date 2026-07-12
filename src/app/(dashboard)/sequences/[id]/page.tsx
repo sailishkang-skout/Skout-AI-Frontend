@@ -87,7 +87,8 @@ export default function SequenceDetailPage() {
   });
 
   const addStep = useMutation({
-    mutationFn: (input: { stepType: SequenceStepType; delayDays: number }) => sequencesApi.addStep(sequenceId, input),
+    mutationFn: (input: { stepType: SequenceStepType; delayDays: number; delayUnit?: import("@/types/api").SequenceDelayUnit }) =>
+      sequencesApi.addStep(sequenceId, input),
     onSuccess: invalidateDetail,
   });
 

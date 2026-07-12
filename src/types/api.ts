@@ -143,12 +143,15 @@ export interface Sequence {
   updatedAt: string;
 }
 
+export type SequenceDelayUnit = "minutes" | "hours" | "days" | "weeks";
+
 export interface SequenceStep {
   id: string;
   sequenceId: string;
   stepOrder: number;
   stepType: SequenceStepType;
   delayDays: number;
+  delayUnit: SequenceDelayUnit;
   subject: string | null;
   bodyTemplate: string | null;
   createdAt: string;
@@ -164,6 +167,7 @@ export interface SequenceStepMetrics {
   stepType: SequenceStepType;
   subject: string | null;
   delayDays: number;
+  delayUnit?: SequenceDelayUnit;
   scheduled: number;
   sent: number;
   failed: number;
@@ -226,6 +230,7 @@ export interface InboxThread {
     companyDomain?: string;
     companyName?: string;
     title?: string;
+    email?: string;
     icpScore?: number;
     icpBand?: string;
   } | null;
@@ -722,6 +727,10 @@ export interface Inbox {
   health: InboxHealth;
   smtpConfigured: boolean;
   oauthConfigured: boolean;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  imapHost?: string | null;
+  imapPort?: number | null;
   lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -768,13 +777,25 @@ export interface DomainDnsResponse {
 
 export interface DeliverabilityMetrics {
   warmup: Array<{ date: string; sent: number; target: number }>;
-  bounce: Array<{ date: string; bounceRate: number; spamRate: number }>;
+  bounce: Array<{
+    date: string;
+    bounceRate: number;
+    spamRate: number;
+    sent?: number;
+    bounces?: number;
+    spam?: number;
+  }>;
   summary: {
     totalSent: number;
+    sentLast30Days?: number;
+    lifetimeSent?: number;
     avgBounceRate: number;
     avgSpamRate: number;
+    bounceCount30d?: number;
+    spamCount30d?: number;
     inboxCount: number;
     warmingCount: number;
+    dailyCapacity?: number;
   };
 }
 

@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { InboxThread } from "@/types/api";
+import type { Inbox, InboxThread } from "@/types/api";
 import type { BadgeProps } from "@/components/ui/badge";
 
 const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
@@ -13,6 +13,12 @@ const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
   { label: "Bounced", value: "bounced" },
   { label: "Meeting", value: "meeting_booked" },
   { label: "Closed", value: "closed" },
+];
+
+const FOLDER_FILTERS: { label: string; value: "all" | "inbound" | "sent" }[] = [
+  { label: "All mail", value: "all" },
+  { label: "Inbound", value: "inbound" },
+  { label: "Sent", value: "sent" },
 ];
 
 function threadStatusTone(status: string): BadgeProps["tone"] {
@@ -46,25 +52,82 @@ function formatRelativeTime(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(d);
 }
 
+function displayName(thread: InboxThread): string {
+  return (
+    thread.prospect?.fullName?.trim() ||
+    thread.prospect?.email?.trim() ||
+    thread.subject?.trim() ||
+    "Unknown"
+  );
+}
+
 export function ThreadList({
   threads,
   loading,
   total,
   selectedId,
   statusFilter,
+  folderFilter,
+  inboxFilter,
+  inboxes,
   onSelectThread,
   onChangeStatus,
+  onChangeFolder,
+  onChangeInbox,
 }: {
   threads: InboxThread[];
   loading: boolean;
   total: number;
   selectedId: string | null;
   statusFilter: string | undefined;
+  folderFilter: "all" | "inbound" | "sent";
+  inboxFilter: string | undefined;
+  inboxes: Inbox[];
   onSelectThread: (thread: InboxThread) => void;
   onChangeStatus: (status: string | undefined) => void;
+  onChangeFolder: (folder: "all" | "inbound" | "sent") => void;
+  onChangeInbox: (inboxId: string | undefined) => void;
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Inbox picker */}
+      {inboxes.length > 0 && (
+        <div className="shrink-0 border-b p-2">
+          <select
+            className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+            value={inboxFilter ?? ""}
+            onChange={(e) => onChangeInbox(e.target.value || undefined)}
+            aria-label="Filter by inbox"
+          >
+            <option value="">All inboxes</option>
+            {inboxes.map((inbox) => (
+              <option key={inbox.id} value={inbox.id}>
+                {inbox.emailAddress}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Folder: All / Inbound / Sent */}
+      <div className="flex gap-1 p-2 border-b shrink-0">
+        {FOLDER_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChangeFolder(f.value)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              folderFilter === f.value
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {/* Status filter tabs */}
       <div className="flex gap-1 p-2 border-b flex-wrap shrink-0">
         {STATUS_FILTERS.map((f) => (
@@ -75,7 +138,7 @@ export function ThreadList({
             className={cn(
               "rounded-md px-2 py-1 text-xs font-medium transition-colors",
               statusFilter === f.value
-                ? "bg-primary text-primary-foreground"
+                ? "bg-secondary text-secondary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
@@ -84,14 +147,12 @@ export function ThreadList({
         ))}
       </div>
 
-      {/* Count */}
       {!loading && (
         <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-b shrink-0">
           {total} thread{total !== 1 ? "s" : ""}
         </div>
       )}
 
-      {/* Thread rows */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
@@ -110,9 +171,11 @@ export function ThreadList({
           </div>
         ) : (
           threads.map((thread) => {
-            const name = thread.prospect?.fullName ?? thread.subject;
+            const name = displayName(thread);
             const initials = name
-              .split(" ")
+              .replace(/@.*/, "")
+              .split(/[\s._-]+/)
+              .filter(Boolean)
               .slice(0, 2)
               .map((w) => w[0]?.toUpperCase() ?? "")
               .join("")
@@ -128,12 +191,10 @@ export function ThreadList({
                   isSelected && "bg-accent"
                 )}
               >
-                {/* Avatar */}
                 <div className="h-9 w-9 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
                   {initials || "?"}
                 </div>
 
-                {/* Body */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
                     <span
@@ -142,7 +203,7 @@ export function ThreadList({
                         thread.unreadCount > 0 ? "font-bold" : "font-medium"
                       )}
                     >
-                      {thread.prospect?.fullName ?? "Unknown"}
+                      {name}
                     </span>
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {formatRelativeTime(thread.lastMessageAt ?? thread.updatedAt)}

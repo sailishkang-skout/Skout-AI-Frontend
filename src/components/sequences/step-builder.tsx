@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { EmailBodyEditor } from "@/components/sequences/email-body-editor";
-import type { SequenceStep, SequenceStepType } from "@/types/api";
+import type { SequenceDelayUnit, SequenceStep, SequenceStepType } from "@/types/api";
 
 // ── Step type visual config ──────────────────────────────────
 const STEP_CONFIG = {
@@ -79,17 +79,75 @@ const STEP_TYPE_OPTIONS = (Object.entries(STEP_CONFIG) as [SequenceStepType, typ
   ([value, cfg]) => ({ value, label: cfg.label }),
 );
 
+const DELAY_UNITS: { value: SequenceDelayUnit; label: string; short: string }[] = [
+  { value: "minutes", label: "minutes", short: "min" },
+  { value: "hours", label: "hours", short: "hr" },
+  { value: "days", label: "days", short: "day" },
+  { value: "weeks", label: "weeks", short: "wk" },
+];
+
+function delayUnitOf(step: SequenceStep): SequenceDelayUnit {
+  return step.delayUnit ?? "days";
+}
+
+function formatDelayLabel(amount: number, unit: SequenceDelayUnit): string {
+  if (amount === 0) return "immediately";
+  const meta = DELAY_UNITS.find((u) => u.value === unit) ?? DELAY_UNITS[2]!;
+  const singular = meta.label.replace(/s$/, "");
+  return `+${amount} ${amount === 1 ? singular : meta.label}`;
+}
+
 // ── Connector between steps ──────────────────────────────────
-function StepConnector({ delayDays }: { delayDays: number }) {
+function StepConnector({ delayDays, delayUnit }: { delayDays: number; delayUnit: SequenceDelayUnit }) {
   return (
     <div className="flex items-center gap-3 py-0.5 pl-[22px]">
       <div className="flex flex-col items-center">
         <div className="h-6 w-0.5 bg-border" />
       </div>
       <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {delayDays === 0 ? "immediately" : `+${delayDays} day${delayDays === 1 ? "" : "s"}`}
+        {formatDelayLabel(delayDays, delayUnit)}
       </span>
       <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function DelayControls({
+  amount,
+  unit,
+  disabled,
+  onChange,
+}: {
+  amount: number;
+  unit: SequenceDelayUnit;
+  disabled?: boolean;
+  onChange: (patch: { delayDays?: number; delayUnit?: SequenceDelayUnit }) => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 text-xs">
+      <span className="text-muted-foreground">Wait</span>
+      <Input
+        type="number"
+        min={0}
+        value={amount}
+        onChange={(e) => onChange({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
+        disabled={disabled}
+        className="h-8 w-14 text-center text-xs"
+        aria-label="Delay amount"
+      />
+      <Select
+        value={unit}
+        onChange={(e) => onChange({ delayUnit: e.target.value as SequenceDelayUnit })}
+        disabled={disabled}
+        className="h-8 w-[6.5rem] text-xs"
+        aria-label="Delay unit"
+      >
+        {DELAY_UNITS.map((u) => (
+          <option key={u.value} value={u.value}>
+            {u.label}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -106,6 +164,7 @@ function StepCard({
   onUpdate: (patch: {
     stepType?: SequenceStepType;
     delayDays?: number;
+    delayUnit?: SequenceDelayUnit;
     subject?: string | null;
     bodyTemplate?: string | null;
   }) => void;
@@ -180,19 +239,12 @@ function StepCard({
                 ))}
               </Select>
 
-              <div className="flex shrink-0 items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground">Wait</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={step.delayDays}
-                  onChange={(e) => onUpdate({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
-                  disabled={updating}
-                  className="h-8 w-14 text-center text-xs"
-                  aria-label="Delay in days"
-                />
-                <span className="text-muted-foreground">days</span>
-              </div>
+              <DelayControls
+                amount={step.delayDays}
+                unit={delayUnitOf(step)}
+                disabled={updating}
+                onChange={onUpdate}
+              />
 
               {updating && (
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -215,31 +267,24 @@ function StepCard({
           </div>
 
           {/* Mobile-only row: type selector + delay control */}
-          <div className="mt-2 flex sm:hidden items-center gap-2">
+          <div className="mt-2 flex sm:hidden items-center gap-2 flex-wrap">
             <Select
               value={step.stepType}
               onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
               disabled={updating}
-              className="h-8 flex-1 text-xs"
+              className="h-8 flex-1 min-w-[8rem] text-xs"
             >
               {STEP_TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </Select>
 
-            <div className="flex shrink-0 items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground">Wait</span>
-              <Input
-                type="number"
-                min={0}
-                value={step.delayDays}
-                onChange={(e) => onUpdate({ delayDays: Math.max(0, Number(e.target.value) || 0) })}
-                disabled={updating}
-                className="h-8 w-14 text-center text-xs"
-                aria-label="Delay in days"
-              />
-              <span className="text-muted-foreground">days</span>
-            </div>
+            <DelayControls
+              amount={step.delayDays}
+              unit={delayUnitOf(step)}
+              disabled={updating}
+              onChange={onUpdate}
+            />
 
             {updating && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -295,10 +340,16 @@ export function StepBuilder({
   onReorder: (orderedStepIds: string[]) => void;
   onUpdateStep: (
     stepId: string,
-    patch: { stepType?: SequenceStepType; delayDays?: number; subject?: string | null; bodyTemplate?: string | null },
+    patch: {
+      stepType?: SequenceStepType;
+      delayDays?: number;
+      delayUnit?: SequenceDelayUnit;
+      subject?: string | null;
+      bodyTemplate?: string | null;
+    },
   ) => void;
   onDeleteStep: (stepId: string) => void;
-  onAddStep: (input: { stepType: SequenceStepType; delayDays: number }) => void;
+  onAddStep: (input: { stepType: SequenceStepType; delayDays: number; delayUnit?: SequenceDelayUnit }) => void;
   reordering: boolean;
   updatingStepId: string | null;
   deletingStepId: string | null;
@@ -341,7 +392,9 @@ export function StepBuilder({
             <div className="space-y-0">
               {steps.map((step, idx) => (
                 <div key={step.id}>
-                  {idx > 0 && <StepConnector delayDays={step.delayDays} />}
+                  {idx > 0 && (
+                    <StepConnector delayDays={step.delayDays} delayUnit={delayUnitOf(step)} />
+                  )}
                   <StepCard
                     step={step}
                     onUpdate={(patch) => onUpdateStep(step.id, patch)}
@@ -374,7 +427,7 @@ export function StepBuilder({
             ))}
           </Select>
           <Button
-            onClick={() => onAddStep({ stepType: newStepType, delayDays: 1 })}
+            onClick={() => onAddStep({ stepType: newStepType, delayDays: 1, delayUnit: "days" })}
             disabled={adding}
             className="gap-2"
           >

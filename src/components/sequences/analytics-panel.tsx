@@ -98,7 +98,15 @@ function StepFunnelCard({ step }: { step: SequenceStepMetrics }) {
             )}
           </div>
           <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            {step.delayDays}d delay
+            {step.delayDays}
+            {step.delayUnit === "minutes"
+              ? "m"
+              : step.delayUnit === "hours"
+                ? "h"
+                : step.delayUnit === "weeks"
+                  ? "w"
+                  : "d"}{" "}
+            delay
           </span>
         </div>
       </CardHeader>

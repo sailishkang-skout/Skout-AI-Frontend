@@ -81,12 +81,16 @@ export function useInboxThreadsApi() {
     listThreads: (params?: {
       status?: string;
       unread?: boolean;
+      inboxId?: string;
+      folder?: "all" | "inbound" | "sent";
       limit?: number;
       offset?: number;
     }) => {
       const qs = new URLSearchParams();
       if (params?.status) qs.set("status", params.status);
       if (params?.unread) qs.set("unread", "true");
+      if (params?.inboxId) qs.set("inboxId", params.inboxId);
+      if (params?.folder && params.folder !== "all") qs.set("folder", params.folder);
       if (params?.limit != null) qs.set("limit", String(params.limit));
       if (params?.offset != null) qs.set("offset", String(params.offset));
       const query = qs.toString() ? `?${qs}` : "";

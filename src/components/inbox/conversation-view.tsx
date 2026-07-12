@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MessageBody } from "@/components/inbox/message-body";
 import { cn } from "@/lib/utils";
 import type { InboxMessage, InboxThread } from "@/types/api";
 import type { BadgeProps } from "@/components/ui/badge";
@@ -38,11 +39,6 @@ function formatTime(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-/** Drop open-tracking pixels so viewing Inbox does not inflate open counts. */
-function htmlForDisplay(html: string): string {
-  return html.replace(/<img\b[^>]*\/api\/v1\/track\/open\/[^>]*>/gi, "");
 }
 
 export function ConversationView({
@@ -82,7 +78,6 @@ export function ConversationView({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Thread header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b bg-background shrink-0">
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold truncate">{thread.subject}</h2>
@@ -116,8 +111,7 @@ export function ConversationView({
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/20">
         {messagesLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className={cn("flex gap-3 max-w-[80%]", i % 2 === 1 && "ml-auto flex-row-reverse")}>
@@ -139,48 +133,42 @@ export function ConversationView({
             return (
               <div
                 key={msg.id}
-                className={cn(
-                  "flex gap-2 max-w-[85%]",
-                  isOut ? "ml-auto flex-row-reverse" : ""
-                )}
+                className={cn("flex gap-2 max-w-[92%]", isOut ? "ml-auto flex-row-reverse" : "")}
               >
                 <div
                   className={cn(
-                    "h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold",
+                    "h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold mt-1",
                     isOut
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
+                      : "bg-background border text-muted-foreground"
                   )}
                 >
-                  {isOut ? "Me" : "Px"}
+                  {isOut ? "Me" : "In"}
                 </div>
                 <div
                   className={cn(
-                    "flex-1 rounded-lg px-3 py-2 text-sm",
-                    isOut ? "bg-primary text-primary-foreground" : "bg-muted"
+                    "flex-1 min-w-0 overflow-hidden rounded-xl border shadow-sm",
+                    isOut
+                      ? "border-primary/30 bg-primary text-primary-foreground"
+                      : "border-border bg-card text-card-foreground"
                   )}
                 >
                   <div
                     className={cn(
-                      "text-[10px] mb-1",
-                      isOut ? "opacity-70" : "text-muted-foreground"
+                      "flex items-center justify-between gap-2 px-3 py-1.5 text-[11px] border-b",
+                      isOut ? "border-primary-foreground/15 opacity-80" : "border-border text-muted-foreground"
                     )}
                   >
-                    {msg.fromAddress} · {formatTime(msg.sentAt)}
+                    <span className="truncate font-medium">{msg.fromAddress}</span>
+                    <span className="shrink-0 tabular-nums">{formatTime(msg.sentAt)}</span>
                   </div>
-                  {msg.bodyHtml ? (
-                    <div
-                      className={cn(
-                        "break-words leading-relaxed prose prose-sm max-w-none [&_a]:underline",
-                        isOut && "prose-invert"
-                      )}
-                      dangerouslySetInnerHTML={{ __html: htmlForDisplay(msg.bodyHtml) }}
+                  <div className="px-1 py-1">
+                    <MessageBody
+                      bodyHtml={msg.bodyHtml}
+                      bodyText={msg.bodyText}
+                      isOutbound={isOut}
                     />
-                  ) : (
-                    <p className="whitespace-pre-wrap break-words leading-relaxed">
-                      {msg.bodyText ?? "(no content)"}
-                    </p>
-                  )}
+                  </div>
                 </div>
               </div>
             );
@@ -189,7 +177,6 @@ export function ConversationView({
         <div ref={bottomRef} />
       </div>
 
-      {/* Send error */}
       {sendError && (
         <div className="mx-4 mb-1 shrink-0">
           <Alert variant="error" title="Failed to send reply">
@@ -198,7 +185,6 @@ export function ConversationView({
         </div>
       )}
 
-      {/* Reply composer */}
       <div className="border-t p-3 shrink-0 bg-background">
         <div className="flex gap-2 items-end">
           <textarea

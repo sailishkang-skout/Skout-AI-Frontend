@@ -100,7 +100,9 @@ function useCopy() {
 // ── SVG Charts ────────────────────────────────────────────────────────────────
 
 function WarmupChart({ data }: { data: DeliverabilityMetrics["warmup"] }) {
-  const W = 600; const H = 160; const PAD = { t: 16, r: 16, b: 32, l: 48 };
+  const W = 720;
+  const H = 220;
+  const PAD = { t: 28, r: 20, b: 36, l: 44 };
   const iW = W - PAD.l - PAD.r;
   const iH = H - PAD.t - PAD.b;
   const maxY = Math.max(...data.flatMap((d) => [d.sent, d.target]), 1);
@@ -110,96 +112,168 @@ function WarmupChart({ data }: { data: DeliverabilityMetrics["warmup"] }) {
   const linePath = (key: "sent" | "target") =>
     data.map((d, i) => `${i === 0 ? "M" : "L"}${xScale(i)},${yScale(d[key])}`).join(" ");
 
-  const labels = data.filter((_, i) => i % Math.ceil(data.length / 6) === 0);
+  const areaPath = `${linePath("sent")} L${xScale(data.length - 1)},${PAD.t + iH} L${xScale(0)},${PAD.t + iH}Z`;
+  const labels = data.filter((_, i) => i % Math.ceil(data.length / 7) === 0);
+  const totalSent = data.reduce((a, d) => a + d.sent, 0);
+  const avgTarget = data.length ? Math.round(data.reduce((a, d) => a + d.target, 0) / data.length) : 0;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Warmup chart">
-      {/* Y-axis guides */}
-      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-        const y = PAD.t + iH * (1 - f);
-        return (
-          <g key={f}>
-            <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="currentColor" strokeOpacity={0.08} />
-            <text x={PAD.l - 6} y={y + 4} textAnchor="end" fontSize={10} fill="currentColor" opacity={0.4}>
-              {Math.round(maxY * f)}
-            </text>
-          </g>
-        );
-      })}
-      {/* Target line */}
-      <path d={linePath("target")} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" />
-      {/* Sent area */}
-      <path
-        d={`${linePath("sent")} L${xScale(data.length - 1)},${PAD.t + iH} L${xScale(0)},${PAD.t + iH}Z`}
-        fill="#10b981" fillOpacity={0.12}
-      />
-      <path d={linePath("sent")} fill="none" stroke="#10b981" strokeWidth={2} strokeLinejoin="round" />
-      {/* X labels */}
-      {labels.map((d, i) => (
-        <text key={i} x={xScale(data.indexOf(d))} y={H - 6} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.4}>
-          {new Date(d.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span>
+          <span className="font-semibold text-foreground tabular-nums">{totalSent.toLocaleString()}</span> sent (30d)
+        </span>
+        <span>
+          Daily capacity{" "}
+          <span className="font-semibold text-foreground tabular-nums">{avgTarget.toLocaleString()}</span>
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" aria-label="Send volume chart">
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const y = PAD.t + iH * (1 - f);
+          return (
+            <g key={f}>
+              <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="currentColor" strokeOpacity={0.07} />
+              <text x={PAD.l - 8} y={y + 3} textAnchor="end" fontSize={10} fill="currentColor" opacity={0.45}>
+                {Math.round(maxY * f)}
+              </text>
+            </g>
+          );
+        })}
+        <path d={linePath("target")} fill="none" stroke="#64748b" strokeWidth={1.75} strokeDasharray="5 4" />
+        <path d={areaPath} fill="url(#sentFill)" />
+        <defs>
+          <linearGradient id="sentFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={linePath("sent")} fill="none" stroke="#10b981" strokeWidth={2.5} strokeLinejoin="round" />
+        {data.map((d, i) =>
+          d.sent > 0 ? (
+            <circle key={d.date} cx={xScale(i)} cy={yScale(d.sent)} r={2.5} fill="#10b981" />
+          ) : null
+        )}
+        {labels.map((d) => (
+          <text
+            key={d.date}
+            x={xScale(data.indexOf(d))}
+            y={H - 10}
+            textAnchor="middle"
+            fontSize={10}
+            fill="currentColor"
+            opacity={0.45}
+          >
+            {new Date(d.date + "T12:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          </text>
+        ))}
+        <circle cx={PAD.l} cy={14} r={4} fill="#10b981" />
+        <text x={PAD.l + 10} y={17} fontSize={11} fill="currentColor" opacity={0.65}>
+          Sent
         </text>
-      ))}
-      {/* Legend */}
-      <circle cx={PAD.l} cy={12} r={4} fill="#10b981" />
-      <text x={PAD.l + 8} y={16} fontSize={10} fill="currentColor" opacity={0.6}>Sent</text>
-      <line x1={PAD.l + 40} y1={12} x2={PAD.l + 55} y2={12} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" />
-      <text x={PAD.l + 58} y={16} fontSize={10} fill="currentColor" opacity={0.6}>Target</text>
-    </svg>
+        <line x1={PAD.l + 52} y1={14} x2={PAD.l + 72} y2={14} stroke="#64748b" strokeWidth={1.75} strokeDasharray="5 4" />
+        <text x={PAD.l + 78} y={17} fontSize={11} fill="currentColor" opacity={0.65}>
+          Daily capacity
+        </text>
+      </svg>
+    </div>
   );
 }
 
 function BounceSpamChart({ data }: { data: DeliverabilityMetrics["bounce"] }) {
-  const W = 600; const H = 160; const PAD = { t: 16, r: 16, b: 32, l: 48 };
+  const W = 720;
+  const H = 220;
+  const PAD = { t: 28, r: 20, b: 36, l: 44 };
   const iW = W - PAD.l - PAD.r;
   const iH = H - PAD.t - PAD.b;
   const n = data.length || 1;
-  const barW = (iW / n) * 0.35;
-  const maxY = Math.max(...data.flatMap((d) => [d.bounceRate, d.spamRate]), 5);
-  const xc = (i: number) => PAD.l + (i + 0.5) * (iW / n);
-  const yScale = (v: number) => (v / maxY) * iH;
+  const barGap = iW / n;
+  const barW = Math.max(2, barGap * 0.55);
+  const maxRate = Math.max(...data.flatMap((d) => [d.bounceRate, d.spamRate]), 2);
+  const maxSent = Math.max(...data.map((d) => d.sent ?? 0), 1);
+  const xc = (i: number) => PAD.l + (i + 0.5) * barGap;
+  const yRate = (v: number) => (v / maxRate) * iH;
+
+  const totalBounces = data.reduce((a, d) => a + (d.bounces ?? 0), 0);
+  const totalSent = data.reduce((a, d) => a + (d.sent ?? 0), 0);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Bounce and spam chart">
-      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-        const y = PAD.t + iH * (1 - f);
-        return (
-          <g key={f}>
-            <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="currentColor" strokeOpacity={0.08} />
-            <text x={PAD.l - 6} y={y + 4} textAnchor="end" fontSize={10} fill="currentColor" opacity={0.4}>
-              {(maxY * f).toFixed(1)}%
-            </text>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span>
+          <span className="font-semibold text-foreground tabular-nums">{totalBounces}</span> bounces /{" "}
+          <span className="font-semibold text-foreground tabular-nums">{totalSent}</span> sent (30d)
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" aria-label="Bounce and spam chart">
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const y = PAD.t + iH * (1 - f);
+          return (
+            <g key={f}>
+              <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="currentColor" strokeOpacity={0.07} />
+              <text x={PAD.l - 8} y={y + 3} textAnchor="end" fontSize={10} fill="currentColor" opacity={0.45}>
+                {(maxRate * f).toFixed(1)}%
+              </text>
+            </g>
+          );
+        })}
+        {/* Soft volume bars behind rates */}
+        {data.map((d, i) => {
+          const sentH = ((d.sent ?? 0) / maxSent) * iH * 0.35;
+          return (
+            <rect
+              key={`vol-${d.date}`}
+              x={xc(i) - barW / 2}
+              y={PAD.t + iH - sentH}
+              width={barW}
+              height={sentH}
+              fill="currentColor"
+              fillOpacity={0.06}
+              rx={2}
+            />
+          );
+        })}
+        {data.map((d, i) => (
+          <g key={d.date}>
+            <rect
+              x={xc(i) - barW / 2}
+              y={PAD.t + iH - yRate(d.bounceRate)}
+              width={barW * 0.55}
+              height={Math.max(yRate(d.bounceRate), d.bounceRate > 0 ? 2 : 0)}
+              fill="#f59e0b"
+              fillOpacity={0.9}
+              rx={2}
+            />
+            <rect
+              x={xc(i) + barW * 0.05}
+              y={PAD.t + iH - yRate(d.spamRate)}
+              width={barW * 0.45}
+              height={Math.max(yRate(d.spamRate), d.spamRate > 0 ? 2 : 0)}
+              fill="#ef4444"
+              fillOpacity={0.85}
+              rx={2}
+            />
+            {i % Math.ceil(n / 7) === 0 && (
+              <text x={xc(i)} y={H - 10} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.45}>
+                {new Date(d.date + "T12:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </text>
+            )}
           </g>
-        );
-      })}
-      {data.map((d, i) => (
-        <g key={i}>
-          <rect
-            x={xc(i) - barW - 1}
-            y={PAD.t + iH - yScale(d.bounceRate)}
-            width={barW}
-            height={yScale(d.bounceRate)}
-            fill="#f59e0b" fillOpacity={0.8} rx={2}
-          />
-          <rect
-            x={xc(i) + 1}
-            y={PAD.t + iH - yScale(d.spamRate)}
-            width={barW}
-            height={yScale(d.spamRate)}
-            fill="#ef4444" fillOpacity={0.8} rx={2}
-          />
-          {i % Math.ceil(n / 6) === 0 && (
-            <text x={xc(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.4}>
-              {new Date(d.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            </text>
-          )}
-        </g>
-      ))}
-      <rect x={PAD.l} y={8} width={10} height={10} fill="#f59e0b" fillOpacity={0.8} rx={2} />
-      <text x={PAD.l + 14} y={17} fontSize={10} fill="currentColor" opacity={0.6}>Bounce rate</text>
-      <rect x={PAD.l + 80} y={8} width={10} height={10} fill="#ef4444" fillOpacity={0.8} rx={2} />
-      <text x={PAD.l + 94} y={17} fontSize={10} fill="currentColor" opacity={0.6}>Spam rate</text>
-    </svg>
+        ))}
+        <rect x={PAD.l} y={8} width={10} height={10} fill="#f59e0b" rx={2} />
+        <text x={PAD.l + 14} y={17} fontSize={11} fill="currentColor" opacity={0.65}>
+          Bounce %
+        </text>
+        <rect x={PAD.l + 78} y={8} width={10} height={10} fill="#ef4444" rx={2} />
+        <text x={PAD.l + 92} y={17} fontSize={11} fill="currentColor" opacity={0.65}>
+          Spam %
+        </text>
+        <rect x={PAD.l + 150} y={8} width={10} height={10} fill="currentColor" fillOpacity={0.15} rx={2} />
+        <text x={PAD.l + 164} y={17} fontSize={11} fill="currentColor" opacity={0.65}>
+          Volume
+        </text>
+      </svg>
+    </div>
   );
 }
 
@@ -377,6 +451,7 @@ function InboxCard({
   isVerifying: boolean;
   verifySuccess: boolean;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const sentToday = Number(inbox.sentToday ?? 0);
   const sentPct = inbox.dailySendLimit > 0 ? Math.min(100, Math.round((sentToday / inbox.dailySendLimit) * 100)) : 0;
   const br = bounceRate(inbox);
@@ -387,15 +462,24 @@ function InboxCard({
     <Card className={cn(isPaused && "opacity-75")}>
       <CardContent className="pt-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((o) => !o)}
+            className="flex items-center gap-3 min-w-0 text-left rounded-md hover:opacity-90"
+          >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{inbox.emailAddress}</p>
-              <p className="text-xs capitalize text-muted-foreground">{inbox.provider}</p>
+              <p className="text-xs capitalize text-muted-foreground flex items-center gap-1">
+                {inbox.provider}
+                <span className="text-muted-foreground/70">·</span>
+                {detailsOpen ? "Hide details" : "View details"}
+                {detailsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </p>
             </div>
-          </div>
+          </button>
           <div className="flex shrink-0 items-center gap-1.5">
             <Badge tone={statusTone(inbox.status)} className="capitalize">
               {inbox.status === "pending_verification" ? "unverified" : inbox.status}
@@ -456,7 +540,6 @@ function InboxCard({
           </div>
         </div>
 
-        {/* Bounce / spam rates */}
         {inbox.sentCount >= 1 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className={cn(
@@ -492,7 +575,6 @@ function InboxCard({
           </div>
         )}
 
-        {/* Daily send progress */}
         <div className="mt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Daily send — {sentToday}/{inbox.dailySendLimit}</span>
@@ -506,7 +588,55 @@ function InboxCard({
           </div>
         </div>
 
-        {inbox.lastUsedAt && (
+        {detailsOpen && (
+          <div className="mt-4 space-y-3 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-muted-foreground">Health</p>
+                <p className="font-medium capitalize">{inbox.health ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Lifetime sent</p>
+                <p className="font-medium tabular-nums">{inbox.sentCount}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Bounces</p>
+                <p className="font-medium tabular-nums">{inbox.bounceCount}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Spam reports</p>
+                <p className="font-medium tabular-nums">{inbox.spamCount}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">SMTP</p>
+                <p className="font-medium truncate">
+                  {inbox.smtpHost ? `${inbox.smtpHost}:${inbox.smtpPort ?? "—"}` : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">IMAP</p>
+                <p className="font-medium truncate">
+                  {inbox.imapHost ? `${inbox.imapHost}:${inbox.imapPort ?? "—"}` : "—"}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-muted-foreground">Last used</p>
+                <p className="font-medium">
+                  {inbox.lastUsedAt ? new Date(inbox.lastUsedAt).toLocaleString() : "Never"}
+                </p>
+              </div>
+            </div>
+            <a
+              href={`/inbox?inboxId=${encodeURIComponent(inbox.id)}`}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Inbox className="h-3.5 w-3.5" />
+              Open in Inbox
+            </a>
+          </div>
+        )}
+
+        {inbox.lastUsedAt && !detailsOpen && (
           <p className="mt-3 text-[10px] text-muted-foreground">
             Last used {new Date(inbox.lastUsedAt).toLocaleString()}
           </p>
@@ -934,9 +1064,9 @@ export default function DeliverabilityPage() {
           {m?.summary && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               {[
-                { label: "Total sent", value: m.summary.totalSent.toLocaleString(), icon: Mail },
-                { label: "Avg bounce rate", value: `${m.summary.avgBounceRate.toFixed(2)}%`, icon: AlertCircle },
-                { label: "Avg spam rate", value: `${m.summary.avgSpamRate.toFixed(2)}%`, icon: ShieldCheck },
+                { label: "Sent (30d)", value: m.summary.totalSent.toLocaleString(), icon: Mail },
+                { label: "Bounce rate (30d)", value: `${m.summary.avgBounceRate.toFixed(2)}%`, icon: AlertCircle },
+                { label: "Spam rate", value: `${m.summary.avgSpamRate.toFixed(2)}%`, icon: ShieldCheck },
                 { label: "Active inboxes", value: m.summary.inboxCount, icon: Wifi },
                 { label: "Warming", value: m.summary.warmingCount, icon: TrendingUp },
               ].map(({ label, value, icon: Icon }) => (
@@ -969,9 +1099,11 @@ export default function DeliverabilityPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  Warmup progress
+                  Send volume
                 </CardTitle>
-                <CardDescription>Daily emails sent vs ramp target across all warming inboxes.</CardDescription>
+                <CardDescription>
+                  Daily outbound emails vs combined inbox capacity over the last 30 days.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <WarmupChart data={m.warmup} />
