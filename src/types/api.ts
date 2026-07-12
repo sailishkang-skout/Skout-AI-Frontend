@@ -468,6 +468,12 @@ export interface SmartListActivateResult {
   demo?: boolean;
 }
 
+export interface DimensionScore {
+  score: number;
+  matched: boolean;
+  explanation: string;
+}
+
 export interface ScoreResult {
   prospectId: string;
   icpScore: number;
@@ -478,6 +484,7 @@ export interface ScoreResult {
   reasoning: string;
   source?: "llm" | "heuristic";
   creditsUsed?: number;
+  dimensions?: Record<string, DimensionScore>;
 }
 
 export interface ProspectScoreRecord {
