@@ -11,6 +11,7 @@ import {
   Copy,
   Globe,
   Inbox,
+  Linkedin,
   Loader2,
   Mail,
   Plus,
@@ -23,6 +24,7 @@ import {
   Wifi,
   XCircle,
 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -33,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady, ApiError } from "@/lib/api-client";
 import { useInboxApi } from "@/lib/inbox";
+import { useLinkedinAccountsApi, type LinkedinAccount } from "@/lib/linkedin-accounts";
 import { cn } from "@/lib/utils";
 import type {
   ConnectInboxInput,
@@ -314,18 +317,26 @@ function ConnectInboxForm({ onSuccess }: { onSuccess: () => void }) {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} className="gap-1.5">
-        <Plus className="h-4 w-4" />
-        Connect inbox
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={() => setOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Connect inbox
+        </Button>
+        <GuideLink slug="connect-inbox" label="Inbox setup guide" />
+      </div>
     );
   }
 
   return (
     <Card className="border-primary/40">
       <CardHeader className="pb-4">
-        <CardTitle className="text-base">Connect a new inbox</CardTitle>
-        <CardDescription>Add an email account to send from. SMTP credentials are stored encrypted.</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-1.5">
+            <CardTitle className="text-base">Connect a new inbox</CardTitle>
+            <CardDescription>Add an email account to send from. SMTP credentials are stored encrypted.</CardDescription>
+          </div>
+          <GuideLink slug="connect-inbox" label="Inbox setup guide" compact />
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <Alert variant="error">{error}</Alert>}
@@ -764,6 +775,7 @@ function DnsChecklist({ domainId, domain }: { domainId: string; domain: string }
               </div>
             </div>
           ))}
+          <GuideLink slug="sending-domain" label="Full domain DNS guide" compact />
         </div>
       )}
     </div>
@@ -826,10 +838,11 @@ function DomainCard({ domain, onRemove }: { domain: Domain; onRemove: () => void
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-type Tab = "inboxes" | "domains" | "analytics";
+type Tab = "inboxes" | "linkedin" | "domains" | "analytics";
 
 const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "inboxes", label: "Inboxes", icon: Inbox },
+  { id: "linkedin", label: "LinkedIn", icon: Linkedin },
   { id: "domains", label: "Domains", icon: Globe },
   { id: "analytics", label: "Analytics", icon: TrendingUp },
 ];
@@ -839,14 +852,24 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 export default function DeliverabilityPage() {
   const authReady = useAuthReady();
   const api = useInboxApi();
+  const linkedinApi = useLinkedinAccountsApi();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("inboxes");
   const [newDomain, setNewDomain] = useState("");
   const [domainError, setDomainError] = useState<string | null>(null);
+  const [liAccountId, setLiAccountId] = useState("");
+  const [liDisplayName, setLiDisplayName] = useState("");
+  const [liError, setLiError] = useState<string | null>(null);
 
   const inboxes = useQuery({
     queryKey: ["inboxes"],
     queryFn: api.listInboxes,
+    enabled: authReady,
+  });
+
+  const linkedinAccounts = useQuery({
+    queryKey: ["linkedin-accounts"],
+    queryFn: linkedinApi.list,
     enabled: authReady,
   });
 
@@ -884,6 +907,44 @@ export default function DeliverabilityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
   });
 
+  const connectLinkedin = useMutation({
+    mutationFn: () =>
+      linkedinApi.connect({
+        unipileAccountId: liAccountId.trim(),
+        displayName: liDisplayName.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setLiAccountId("");
+      setLiDisplayName("");
+      setLiError(null);
+      queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
+    },
+    onError: () => setLiError("Could not connect LinkedIn account. Check the Unipile account ID."),
+  });
+
+  const pauseLinkedin = useMutation({
+    mutationFn: (id: string) => linkedinApi.setStatus(id, "paused"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] }),
+  });
+
+  const resumeLinkedin = useMutation({
+    mutationFn: (id: string) => linkedinApi.setStatus(id, "active"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] }),
+  });
+
+  const disconnectLinkedin = useMutation({
+    mutationFn: (id: string) => linkedinApi.disconnect(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] }),
+  });
+
+  const hostedAuth = useMutation({
+    mutationFn: () => linkedinApi.hostedAuth(window.location.origin),
+    onSuccess: (res) => {
+      if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
+    },
+    onError: () => setLiError("Hosted LinkedIn auth is unavailable. Paste a Unipile account ID instead."),
+  });
+
   const addDomain = useMutation({
     mutationFn: () => api.addDomain(newDomain.trim()),
     onSuccess: () => {
@@ -909,19 +970,22 @@ export default function DeliverabilityPage() {
         title="Deliverability"
         description="Monitor inbox health, verify domain DNS records, and track warmup and bounce metrics."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ["inboxes"] });
-              queryClient.invalidateQueries({ queryKey: ["domains"] });
-              queryClient.invalidateQueries({ queryKey: ["deliverability"] });
-            }}
-            className="gap-1.5"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+          <>
+            <GuideLink slug="deliverability" label="Deliverability guide" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["inboxes"] });
+                queryClient.invalidateQueries({ queryKey: ["domains"] });
+                queryClient.invalidateQueries({ queryKey: ["deliverability"] });
+              }}
+              className="gap-1.5"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </>
         }
       />
 
@@ -991,15 +1055,127 @@ export default function DeliverabilityPage() {
         </div>
       )}
 
+      {/* ── LinkedIn tab ── */}
+      {tab === "linkedin" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Connect a LinkedIn account</CardTitle>
+              <CardDescription>
+                Sequence connection requests and messages send server-side through Unipile — no Chrome extension required.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {linkedinAccounts.data && !linkedinAccounts.data.unipileConfigured && (
+                <Alert variant="warning">
+                  Unipile is not configured on the API yet. Set UNIPILE_DSN and UNIPILE_API_KEY, then reconnect.
+                </Alert>
+              )}
+              {liError && <Alert variant="error">{liError}</Alert>}
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  placeholder="Unipile account ID"
+                  value={liAccountId}
+                  onChange={(e) => setLiAccountId(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Input
+                  placeholder="Display name (optional)"
+                  value={liDisplayName}
+                  onChange={(e) => setLiDisplayName(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button
+                  onClick={() => connectLinkedin.mutate()}
+                  disabled={!liAccountId.trim() || connectLinkedin.isPending}
+                  className="gap-1.5"
+                >
+                  {connectLinkedin.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Connect
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => hostedAuth.mutate()}
+                  disabled={hostedAuth.isPending}
+                >
+                  Connect via Unipile
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {linkedinAccounts.isPending && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+            </div>
+          )}
+
+          {!linkedinAccounts.isPending && (linkedinAccounts.data?.data.length ?? 0) === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+              <Linkedin className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium">No LinkedIn accounts connected</p>
+              <p className="mt-1 text-xs text-muted-foreground">Connect one to send sequence connection requests and messages.</p>
+            </div>
+          )}
+
+          {(linkedinAccounts.data?.data.length ?? 0) > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {linkedinAccounts.data!.data.map((account: LinkedinAccount) => (
+                <Card key={account.id}>
+                  <CardContent className="flex items-start justify-between gap-3 pt-5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {account.displayName || account.unipileAccountId}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {account.sentCount}/{account.dailySendLimit} sent today window
+                      </p>
+                      {account.lastError && (
+                        <p className="mt-1 text-xs text-destructive">{account.lastError}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <Badge tone={account.status === "active" ? "success" : "muted"}>
+                        {account.status}
+                      </Badge>
+                      <div className="flex gap-1">
+                        {account.status === "active" ? (
+                          <Button size="sm" variant="outline" onClick={() => pauseLinkedin.mutate(account.id)}>
+                            Pause
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => resumeLinkedin.mutate(account.id)}>
+                            Resume
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => disconnectLinkedin.mutate(account.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Domains tab ── */}
       {tab === "domains" && (
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Add a sending domain</CardTitle>
-              <CardDescription>
-                Enter the domain you send email from. We&apos;ll show you the DNS records to add.
-              </CardDescription>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-1.5">
+                  <CardTitle className="text-base">Add a sending domain</CardTitle>
+                  <CardDescription>
+                    Enter the domain you send email from. We&apos;ll show you the DNS records to add.
+                  </CardDescription>
+                </div>
+                <GuideLink slug="sending-domain" label="Domain DNS guide" compact />
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {domainError && <Alert variant="error">{domainError}</Alert>}

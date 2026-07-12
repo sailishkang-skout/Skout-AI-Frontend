@@ -34,6 +34,7 @@ export interface AddStepInput {
   stepType: SequenceStepType;
   delayDays: number;
   delayUnit?: SequenceDelayUnit;
+  linkedinAction?: "connect" | "message";
   subject?: string;
   bodyTemplate?: string;
 }
@@ -42,6 +43,7 @@ export interface UpdateStepInput {
   stepType?: SequenceStepType;
   delayDays?: number;
   delayUnit?: SequenceDelayUnit;
+  linkedinAction?: "connect" | "message" | null;
   subject?: string | null;
   bodyTemplate?: string | null;
 }

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Coins, Loader2 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -115,6 +116,7 @@ export default function WorkspaceSettingsPage() {
       <PageHeader
         title="Workspace settings"
         description="Manage your workspace name, credits, and usage history."
+        actions={<GuideLink slug="workspace" label="Workspace guide" />}
       />
 
       <DemoBanner />

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BookOpen,
   Crosshair,
   Inbox,
   List,
@@ -89,6 +90,7 @@ export const otherNav: NavGroup[] = [
       { href: "/settings/integrations", label: "Integrations", icon: Zap },
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw },
       { href: "/settings/workspace", label: "Workspace", icon: Users },
+      { href: "/guides", label: "Setup guides", icon: BookOpen },
     ],
   },
 ];

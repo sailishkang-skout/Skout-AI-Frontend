@@ -152,6 +152,7 @@ export interface SequenceStep {
   stepType: SequenceStepType;
   delayDays: number;
   delayUnit: SequenceDelayUnit;
+  linkedinAction?: "connect" | "message" | null;
   subject: string | null;
   bodyTemplate: string | null;
   createdAt: string;

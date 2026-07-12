@@ -165,6 +165,7 @@ function StepCard({
     stepType?: SequenceStepType;
     delayDays?: number;
     delayUnit?: SequenceDelayUnit;
+    linkedinAction?: "connect" | "message" | null;
     subject?: string | null;
     bodyTemplate?: string | null;
   }) => void;
@@ -230,7 +231,14 @@ function StepCard({
             <div className="hidden sm:flex items-center gap-2">
               <Select
                 value={step.stepType}
-                onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
+                onChange={(e) => {
+                const stepType = e.target.value as SequenceStepType;
+                onUpdate(
+                  stepType === "linkedin"
+                    ? { stepType, linkedinAction: step.linkedinAction ?? "connect" }
+                    : { stepType, linkedinAction: null }
+                );
+              }}
                 disabled={updating}
                 className="h-8 w-36 shrink-0 text-xs"
               >
@@ -270,7 +278,14 @@ function StepCard({
           <div className="mt-2 flex sm:hidden items-center gap-2 flex-wrap">
             <Select
               value={step.stepType}
-              onChange={(e) => onUpdate({ stepType: e.target.value as SequenceStepType })}
+              onChange={(e) => {
+                const stepType = e.target.value as SequenceStepType;
+                onUpdate(
+                  stepType === "linkedin"
+                    ? { stepType, linkedinAction: step.linkedinAction ?? "connect" }
+                    : { stepType, linkedinAction: null }
+                );
+              }}
               disabled={updating}
               className="h-8 flex-1 min-w-[8rem] text-xs"
             >
@@ -319,6 +334,43 @@ function StepCard({
             />
           </div>
         )}
+
+        {/* ── LinkedIn fields ─────────────────────────── */}
+        {step.stepType === "linkedin" && (
+          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
+            <Select
+              value={step.linkedinAction === "message" ? "message" : "connect"}
+              onChange={(e) =>
+                onUpdate({ linkedinAction: e.target.value as "connect" | "message" })
+              }
+              disabled={updating}
+              className="h-8 max-w-xs text-xs"
+            >
+              <option value="connect">Connection request</option>
+              <option value="message">Direct message</option>
+            </Select>
+            <textarea
+              placeholder={
+                step.linkedinAction === "message"
+                  ? "Message body — supports {{firstName}}, {{companyName}}, etc."
+                  : "Optional connection note — supports {{firstName}}, {{companyName}}, etc."
+              }
+              value={bodyDraft}
+              onChange={(e) => setBodyDraft(e.target.value)}
+              onBlur={() => {
+                if (bodyDraft !== (step.bodyTemplate ?? ""))
+                  onUpdate({ bodyTemplate: bodyDraft || null });
+              }}
+              disabled={updating}
+              rows={3}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Sent server-side via a connected LinkedIn account (Unipile). Prospects need a LinkedIn profile URL.
+              Connect an account under Deliverability → LinkedIn.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -344,6 +396,7 @@ export function StepBuilder({
       stepType?: SequenceStepType;
       delayDays?: number;
       delayUnit?: SequenceDelayUnit;
+      linkedinAction?: "connect" | "message" | null;
       subject?: string | null;
       bodyTemplate?: string | null;
     },

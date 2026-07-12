@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
+import { GuideLink } from "@/components/guides/guide-link";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
 
 function ProviderCard({ item }: { item: IntegrationItem }) {
@@ -203,6 +204,7 @@ export default function IntegrationsSettingsPage() {
       <PageHeader
         title="Enrichment integrations"
         description="Connect your own provider API keys. Your keys are tried first; Skout platform keys are used as fallback. You pay the provider directly and get 25% off Skout credits when your key is used."
+        actions={<GuideLink slug="integrations" label="Integrations guide" />}
       />
 
       <DemoBanner />
