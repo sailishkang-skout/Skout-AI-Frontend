@@ -40,6 +40,11 @@ function formatTime(iso: string): string {
   }
 }
 
+/** Drop open-tracking pixels so viewing Inbox does not inflate open counts. */
+function htmlForDisplay(html: string): string {
+  return html.replace(/<img\b[^>]*\/api\/v1\/track\/open\/[^>]*>/gi, "");
+}
+
 export function ConversationView({
   thread,
   messages,
@@ -163,9 +168,19 @@ export function ConversationView({
                   >
                     {msg.fromAddress} · {formatTime(msg.sentAt)}
                   </div>
-                  <p className="whitespace-pre-wrap break-words leading-relaxed">
-                    {msg.bodyText ?? "(no content)"}
-                  </p>
+                  {msg.bodyHtml ? (
+                    <div
+                      className={cn(
+                        "break-words leading-relaxed prose prose-sm max-w-none [&_a]:underline",
+                        isOut && "prose-invert"
+                      )}
+                      dangerouslySetInnerHTML={{ __html: htmlForDisplay(msg.bodyHtml) }}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                      {msg.bodyText ?? "(no content)"}
+                    </p>
+                  )}
                 </div>
               </div>
             );
