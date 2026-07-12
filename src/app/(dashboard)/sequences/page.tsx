@@ -150,12 +150,12 @@ function StepMetricsRow({ step }: { step: SequenceStepMetrics }) {
       )}
       {hasSent && step.stepType === "email" && step.openRate > 0 && (
         <span className="flex items-center gap-0.5 text-sky-600 dark:text-sky-400 tabular-nums">
-          <Mail className="h-2.5 w-2.5" />{(step.openRate * 100).toFixed(0)}%
+          <Mail className="h-2.5 w-2.5" />{Math.round(step.openRate)}%
         </span>
       )}
       {hasSent && step.stepType === "email" && step.clickRate > 0 && (
         <span className="flex items-center gap-0.5 text-violet-600 dark:text-violet-400 tabular-nums">
-          <MousePointerClick className="h-2.5 w-2.5" />{(step.clickRate * 100).toFixed(0)}%
+          <MousePointerClick className="h-2.5 w-2.5" />{Math.round(step.clickRate)}%
         </span>
       )}
       {hasPending && !hasSent && (

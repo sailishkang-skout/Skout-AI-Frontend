@@ -52,10 +52,11 @@ function FunnelRow({
 }: {
   label: string;
   value: number;
+  /** Already a 0–100 percentage from the API */
   rate: number;
   colorClass: string;
 }) {
-  const pct = Math.round(rate * 100);
+  const pct = Math.min(100, Math.max(0, Math.round(rate)));
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-xs">

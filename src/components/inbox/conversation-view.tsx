@@ -133,7 +133,7 @@ export function ConversationView({
             return (
               <div
                 key={msg.id}
-                className={cn("flex gap-2 max-w-[92%]", isOut ? "ml-auto flex-row-reverse" : "")}
+                className={cn("flex gap-2.5 max-w-[min(100%,42rem)]", isOut ? "ml-auto flex-row-reverse" : "")}
               >
                 <div
                   className={cn(
@@ -147,28 +147,31 @@ export function ConversationView({
                 </div>
                 <div
                   className={cn(
-                    "flex-1 min-w-0 overflow-hidden rounded-xl border shadow-sm",
-                    isOut
-                      ? "border-primary/30 bg-primary text-primary-foreground"
-                      : "border-border bg-card text-card-foreground"
+                    "flex-1 min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm",
+                    isOut ? "border-primary/25" : "border-border"
                   )}
                 >
-                  <div
-                    className={cn(
-                      "flex items-center justify-between gap-2 px-3 py-1.5 text-[11px] border-b",
-                      isOut ? "border-primary-foreground/15 opacity-80" : "border-border text-muted-foreground"
-                    )}
-                  >
-                    <span className="truncate font-medium">{msg.fromAddress}</span>
-                    <span className="shrink-0 tabular-nums">{formatTime(msg.sentAt)}</span>
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] border-b border-border bg-muted/40">
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          isOut
+                            ? "bg-primary/15 text-primary"
+                            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        )}
+                      >
+                        {isOut ? "Sent" : "Inbound"}
+                      </span>
+                      <span className="truncate font-medium text-foreground">{msg.fromAddress}</span>
+                    </div>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{formatTime(msg.sentAt)}</span>
                   </div>
-                  <div className="px-1 py-1">
-                    <MessageBody
-                      bodyHtml={msg.bodyHtml}
-                      bodyText={msg.bodyText}
-                      isOutbound={isOut}
-                    />
-                  </div>
+                  <MessageBody
+                    bodyHtml={msg.bodyHtml}
+                    bodyText={msg.bodyText}
+                    isOutbound={isOut}
+                  />
                 </div>
               </div>
             );

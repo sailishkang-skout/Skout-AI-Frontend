@@ -174,7 +174,9 @@ export interface SequenceStepMetrics {
   skipped: number;
   opens: number;
   clicks: number;
+  /** 0–100 percentage already (do not multiply by 100 in UI) */
   openRate: number;
+  /** 0–100 percentage already (do not multiply by 100 in UI) */
   clickRate: number;
 }
 
