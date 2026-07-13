@@ -809,6 +809,42 @@ export interface DeliverabilityMetrics {
   };
 }
 
+// ── Team management ───────────────────────────────────────────────────────────
+
+export type WorkspaceRole = "owner" | "admin" | "member";
+
+export interface WorkspaceMember {
+  userId: string;
+  email: string;
+  fullName: string | null;
+  role: WorkspaceRole;
+  joinedAt: string;
+}
+
+export interface WorkspaceInvite {
+  id: string;
+  email: string;
+  role: WorkspaceRole;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InviteDetails {
+  id: string;
+  workspaceId: string;
+  workspaceName: string;
+  email: string;
+  role: WorkspaceRole;
+  expiresAt: string;
+  accepted: boolean;
+  expired: boolean;
+}
+
+export interface AcceptInviteResult {
+  workspaceId: string;
+  role: WorkspaceRole;
+}
+
 export interface CrmExportJob {
   id: string;
   jobType: string;
