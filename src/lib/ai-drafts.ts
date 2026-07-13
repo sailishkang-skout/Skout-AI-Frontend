@@ -1,0 +1,89 @@
+import { useApiFetch } from "./api-client";
+import type { AiDraft, AiDraftStatus } from "@/types/api";
+
+interface ListEnvelope {
+  workspaceId: string;
+  data: AiDraft[];
+  total: number;
+}
+
+export function aiDraftStatusTone(status: AiDraftStatus) {
+  switch (status) {
+    case "approved":
+      return "success" as const;
+    case "rejected":
+      return "danger" as const;
+    case "edited":
+      return "warning" as const;
+    case "pending_review":
+    default:
+      return "info" as const;
+  }
+}
+
+export function aiDraftStatusLabel(status: AiDraftStatus) {
+  switch (status) {
+    case "pending_review":
+      return "Pending";
+    case "edited":
+      return "Edited";
+    case "approved":
+      return "Approved";
+    case "rejected":
+      return "Rejected";
+    default:
+      return status;
+  }
+}
+
+export interface CreateAiDraftInput {
+  prospectId: string;
+  subject?: string;
+  body?: string;
+  prompt?: string;
+  fullName?: string;
+  title?: string;
+  companyName?: string;
+  companyDomain?: string;
+}
+
+export function useAiDraftsApi() {
+  const fetchApi = useApiFetch();
+
+  return {
+    list: (opts?: { status?: AiDraftStatus; limit?: number; offset?: number }) => {
+      const params = new URLSearchParams();
+      if (opts?.status) params.set("status", opts.status);
+      if (opts?.limit != null) params.set("limit", String(opts.limit));
+      if (opts?.offset != null) params.set("offset", String(opts.offset));
+      const qs = params.toString();
+      return fetchApi<ListEnvelope>(`/api/v1/ai/drafts${qs ? `?${qs}` : ""}`);
+    },
+
+    get: (id: string) => fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}`),
+
+    create: (input: CreateAiDraftInput) =>
+      fetchApi<AiDraft>("/api/v1/ai/drafts", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    update: (id: string, patch: { subject?: string; body?: string }) =>
+      fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+
+    approve: (id: string) =>
+      fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}/approve`, { method: "POST" }),
+
+    reject: (id: string) =>
+      fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}/reject`, { method: "POST" }),
+
+    bulkApprove: (ids: string[]) =>
+      fetchApi<{ approved: number; skipped: number }>("/api/v1/ai/drafts/bulk-approve", {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      }),
+  };
+}

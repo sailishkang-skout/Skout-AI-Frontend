@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { ScoreBadge } from "@/components/scoring/score-badge";
+import { GenerateDraftFromProspect } from "@/components/prospects/generate-draft-from-prospect";
 import { EnrollFromProspect } from "@/components/sequences/enroll-from-prospect";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -378,7 +379,18 @@ export function ProspectDetailSheet({
           </a>
         )}
 
-        {prospectId && <EnrollFromProspect prospectId={prospectId} />}
+        {prospectId && (
+          <div className="space-y-3">
+            <GenerateDraftFromProspect
+              prospectId={prospectId}
+              fullName={d.fullName}
+              title={d.title}
+              companyName={d.companyName}
+              companyDomain={d.companyDomain}
+            />
+            <EnrollFromProspect prospectId={prospectId} />
+          </div>
+        )}
 
         <Section title="Contact">
           <DetailRow label="Full name" value={d.fullName} />

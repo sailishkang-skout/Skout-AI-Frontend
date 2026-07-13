@@ -296,12 +296,26 @@ export interface InboxMessagesResponse {
   total: number;
 }
 
+export type AiDraftStatus = "pending_review" | "edited" | "approved" | "rejected";
+
 export interface AiDraft {
   id: string;
-  threadId: string;
-  content: string;
-  confidence: number;
-  status: "pending" | "approved" | "rejected";
+  workspaceId: string;
+  prospectId: string;
+  threadId: string | null;
+  enrollmentStepId: string | null;
+  subject: string;
+  body: string;
+  status: AiDraftStatus;
+  model: string | null;
+  confidenceScore: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  prospectName?: string | null;
+  prospectTitle?: string | null;
+  companyName?: string | null;
+  icpScore?: number | null;
 }
 
 export interface PaginatedResponse<T> {
