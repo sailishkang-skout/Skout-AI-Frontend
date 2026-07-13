@@ -13,7 +13,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { scoreBandColor, scoreBandLabel } from "@/lib/scoring";
-import type { ListMemberDetail, ProspectDetail, ProspectSnapshotInput, ProspectSummary, ScoreResult } from "@/types/api";
+import type { DimensionScore, ListMemberDetail, ProspectDetail, ProspectSnapshotInput, ProspectSummary, ScoreResult } from "@/types/api";
 
 function DetailRow({
   label,
@@ -49,12 +49,65 @@ function formatMoney(n?: number) {
   return `$${n}`;
 }
 
+const DIMENSION_LABELS: Record<string, string> = {
+  industry: "Industry",
+  seniority: "Seniority",
+  geography: "Geography",
+  company_size: "Company size",
+  title: "Title",
+  signals: "Intent signals",
+};
+
+const DIMENSION_ORDER = ["industry", "seniority", "geography", "company_size", "title", "signals"];
+
+function DimensionRow({ name, dim }: { name: string; dim: DimensionScore }) {
+  const label = DIMENSION_LABELS[name] ?? name.replace(/_/g, " ");
+  const pct = Math.max(0, Math.min(100, dim.score));
+  const barColor = dim.matched
+    ? "bg-emerald-500 dark:bg-emerald-400"
+    : "bg-rose-400 dark:bg-rose-500";
+
+  return (
+    <div className="grid gap-1 py-2 border-b border-border/50 last:border-0">
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+            dim.matched
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+              : "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400"
+          }`}
+          aria-hidden
+        >
+          {dim.matched ? "✓" : "✗"}
+        </span>
+        <span className="min-w-[90px] text-xs font-medium text-foreground">{label}</span>
+        <div className="flex flex-1 items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="w-7 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">
+            {pct}
+          </span>
+        </div>
+      </div>
+      {dim.explanation && (
+        <p className="pl-6 text-[11px] leading-snug text-muted-foreground">{dim.explanation}</p>
+      )}
+    </div>
+  );
+}
+
 function IcpScoreCard({
   score,
   band,
   reasoning,
   intentScore,
   outreachReadiness,
+  source,
+  dimensions,
   isPending,
   onRescore,
 }: {
@@ -63,10 +116,19 @@ function IcpScoreCard({
   reasoning: string | null;
   intentScore?: number | null;
   outreachReadiness?: string | null;
+  source?: "llm" | "heuristic";
+  dimensions?: Record<string, DimensionScore>;
   isPending: boolean;
   onRescore: () => void;
 }) {
   const colors = scoreBandColor(score);
+  const orderedDims = dimensions
+    ? [
+        ...DIMENSION_ORDER.filter((k) => k in dimensions).map((k) => [k, dimensions[k]] as [string, DimensionScore]),
+        ...Object.entries(dimensions).filter(([k]) => !DIMENSION_ORDER.includes(k)),
+      ]
+    : [];
+
   return (
     <div className={`rounded-xl border p-4 ${colors.bg} ${colors.border}`}>
       <div className="flex items-start justify-between gap-3">
@@ -79,20 +141,31 @@ function IcpScoreCard({
             )}
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 shrink-0 gap-1 px-2 text-xs"
-          onClick={onRescore}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Sparkles className={`h-3 w-3 ${colors.text}`} />
+        <div className="flex shrink-0 items-center gap-2">
+          {source && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              source === "llm"
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+            }`}>
+              {source === "llm" ? "AI" : "Heuristic"}
+            </span>
           )}
-          Re-score
-        </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 px-2 text-xs"
+            onClick={onRescore}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className={`h-3 w-3 ${colors.text}`} />
+            )}
+            Re-score
+          </Button>
+        </div>
       </div>
 
       {(intentScore != null || outreachReadiness) && (
@@ -107,6 +180,19 @@ function IcpScoreCard({
               {outreachReadiness}
             </span>
           )}
+        </div>
+      )}
+
+      {orderedDims.length > 0 && (
+        <div className="mt-3 border-t border-current/10 pt-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Score breakdown
+          </p>
+          <dl>
+            {orderedDims.map(([key, dim]) => (
+              <DimensionRow key={key} name={key} dim={dim} />
+            ))}
+          </dl>
         </div>
       )}
     </div>
@@ -192,6 +278,8 @@ export function ProspectDetailSheet({
   const resolvedScore = score?.score ?? scoreResult?.icpScore ?? d.icpScore;
   const resolvedReasoning = score?.reasoning ?? scoreResult?.reasoning ?? null;
   const resolvedBand = resolvedScore != null ? scoreBandLabel(resolvedScore) : null;
+  const resolvedSource = scoreResult?.source;
+  const resolvedDimensions = scoreResult?.dimensions;
 
   const isIcpError =
     scoreMutation.error instanceof ApiError && scoreMutation.error.status === 400;
@@ -220,6 +308,8 @@ export function ProspectDetailSheet({
             reasoning={resolvedReasoning}
             intentScore={d.intentScore}
             outreachReadiness={d.outreachReadiness}
+            source={resolvedSource}
+            dimensions={resolvedDimensions}
             isPending={scoreMutation.isPending}
             onRescore={() => scoreMutation.mutate()}
           />

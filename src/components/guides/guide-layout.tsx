@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { GuideMeta } from "@/lib/guides";
 
@@ -30,12 +30,10 @@ export function GuideLayout({
         title={guide.title}
         description={guide.summary}
         actions={
-          <Button asChild variant="outline" size="sm" className="gap-1.5">
-            <Link href={guide.relatedHref}>
-              Open {guide.relatedLabel}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+          <Link href={guide.relatedHref} className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}>
+            Open {guide.relatedLabel}
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         }
       />
 
