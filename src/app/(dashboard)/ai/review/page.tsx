@@ -15,6 +15,7 @@ import { useAuthReady } from "@/lib/api-client";
 import {
   aiDraftStatusLabel,
   aiDraftStatusTone,
+  draftSendFailureLabel,
   useAiDraftsApi,
 } from "@/lib/ai-drafts";
 import { cn } from "@/lib/utils";
@@ -106,8 +107,16 @@ export default function AiReviewPage() {
 
   const approve = useMutation({
     mutationFn: (id: string) => api.approve(id),
-    onSuccess: () => {
-      setMessage("Draft approved");
+    onSuccess: (draft) => {
+      const send = draft.send;
+      if (send?.sent) {
+        setMessage(`Draft approved — email sent${send.to ? ` to ${send.to}` : ""}`);
+      } else if (send && !send.sent) {
+        setError(`Draft approved, but the email ${draftSendFailureLabel(send.reason)}.`);
+      } else {
+        // Enrollment-linked drafts send when their sequence step runs.
+        setMessage("Draft approved — it will send with its sequence step");
+      }
       setSelected(new Set());
       invalidate();
     },
@@ -138,7 +147,16 @@ export default function AiReviewPage() {
   const bulkApprove = useMutation({
     mutationFn: (ids: string[]) => api.bulkApprove(ids),
     onSuccess: (res) => {
-      setMessage(`Approved ${res.approved} draft${res.approved === 1 ? "" : "s"}`);
+      const parts = [`Approved ${res.approved} draft${res.approved === 1 ? "" : "s"}`];
+      if (res.sent > 0) parts.push(`sent ${res.sent}`);
+      setMessage(`${parts.join(" — ")}.`);
+      if (res.sendFailures.length > 0) {
+        setError(
+          `${res.sendFailures.length} approved draft${
+            res.sendFailures.length === 1 ? "" : "s"
+          } could not be emailed (e.g. ${draftSendFailureLabel(res.sendFailures[0]?.reason)}).`
+        );
+      }
       setSelected(new Set());
       invalidate();
     },

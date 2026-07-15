@@ -307,6 +307,12 @@ export function useEnrichmentApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
+    verifyListEmails: (listId: string) =>
+      fetchApi<import("@/types/api").ListVerifySummary>(`/api/v1/lists/${listId}/verify`, {
+        method: "POST",
+        workspaceId: WORKSPACE_ID,
+      }),
+
     listScrapeJobs: () =>
       fetchApi<{ data: import("@/types/api").ScrapeJobRow[]; total: number }>("/api/v1/scrape/jobs", {
         workspaceId: WORKSPACE_ID,

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, Pencil, Play, Target, Trash2, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -36,7 +36,19 @@ import {
   memberSnap,
   memberSubtitle,
 } from "@/lib/list-members";
-import type { ListMemberDetail, ProspectSummary } from "@/types/api";
+import type { EmailVerifyStatus, ListMemberDetail, ProspectSummary } from "@/types/api";
+
+const VERIFY_BADGE: Record<
+  EmailVerifyStatus,
+  { tone: "success" | "warning" | "danger" | "muted"; label: string }
+> = {
+  valid: { tone: "success", label: "Valid" },
+  catch_all: { tone: "warning", label: "Catch-all" },
+  risky: { tone: "warning", label: "Risky" },
+  invalid: { tone: "danger", label: "Invalid" },
+  unknown: { tone: "muted", label: "Unknown" },
+  no_email: { tone: "muted", label: "No email" },
+};
 
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
@@ -60,6 +72,8 @@ export default function ListDetailPage() {
   const [scoreProgress, setScoreProgress] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -172,6 +186,24 @@ export default function ListDetailPage() {
           ? "Set up your ICP before scoring leads."
           : "Could not score this list."
       );
+    },
+  });
+
+  const verifyEmails = useMutation({
+    mutationFn: () => enrichmentApi.verifyListEmails(listId),
+    onSuccess: (summary) => {
+      setVerifyError(null);
+      const c = summary.counts;
+      setVerifyMsg(
+        `Verified ${summary.verified} of ${summary.total} — ` +
+          `${summary.sendableCount} sendable (${c.valid} valid, ${c.catch_all} catch-all), ` +
+          `${c.risky} risky, ${c.invalid} invalid, ${c.no_email} no email. Provider: ${summary.provider}.`
+      );
+      queryClient.invalidateQueries({ queryKey: ["lists", listId] });
+    },
+    onError: () => {
+      setVerifyMsg(null);
+      setVerifyError("Could not verify emails for this list. Please try again.");
     },
   });
 
@@ -372,6 +404,23 @@ export default function ListDetailPage() {
           <Button
             size="sm"
             variant="outline"
+            disabled={!members.length || verifyEmails.isPending}
+            onClick={() => {
+              setVerifyMsg(null);
+              setVerifyError(null);
+              verifyEmails.mutate();
+            }}
+          >
+            {verifyEmails.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <MailCheck className="h-4 w-4" />
+            )}
+            Verify emails
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => { setShowRunSequenceModal((v) => !v); setSelectedSeqId(""); }}
           >
             <Play className="h-4 w-4" />
@@ -404,6 +453,14 @@ export default function ListDetailPage() {
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
       {exportError && <Alert variant="warning">{exportError}</Alert>}
+      {verifyEmails.isPending && (
+        <Alert className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          Verifying email deliverability for this list…
+        </Alert>
+      )}
+      {verifyMsg && <Alert variant="success">{verifyMsg}</Alert>}
+      {verifyError && <Alert variant="warning">{verifyError}</Alert>}
       {detail.error && (
         <Alert variant="error" title="Something went wrong" dismissible>
           We couldn&apos;t load this list. Please try again.
@@ -730,6 +787,16 @@ export default function ListDetailPage() {
                           </button>
                           {memberScore && (
                             <ScoreBadge score={memberScore.score} reasoning={memberScore.reasoning} />
+                          )}
+                          {m.verification && (
+                            <Badge
+                              tone={VERIFY_BADGE[m.verification.status].tone}
+                              title={`Deliverability ${m.verification.deliverabilityScore}/100${
+                                m.verification.provider ? ` · ${m.verification.provider}` : ""
+                              }`}
+                            >
+                              {VERIFY_BADGE[m.verification.status].label}
+                            </Badge>
                           )}
                         </div>
                         {subtitle && (

@@ -47,6 +47,32 @@ export interface CreateAiDraftInput {
   companyDomain?: string;
 }
 
+export interface DraftSendResult {
+  sent: boolean;
+  reason?: string;
+  threadId?: string;
+  to?: string;
+}
+
+export interface BulkApproveResult {
+  approved: number;
+  skipped: number;
+  sent: number;
+  sendFailures: { id: string; reason?: string }[];
+}
+
+const SEND_FAILURE_LABELS: Record<string, string> = {
+  prospect_email_not_found: "no email on file for this prospect",
+  suppressed: "the recipient is on the suppression list",
+  no_active_inbox: "no active sending inbox is connected",
+  smtp_build_failed: "the inbox is missing SMTP credentials",
+  send_failed: "the mail server rejected the send",
+};
+
+export function draftSendFailureLabel(reason?: string): string {
+  return (reason && SEND_FAILURE_LABELS[reason]) || "could not be sent";
+}
+
 export function useAiDraftsApi() {
   const fetchApi = useApiFetch();
 
@@ -75,13 +101,15 @@ export function useAiDraftsApi() {
       }),
 
     approve: (id: string) =>
-      fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}/approve`, { method: "POST" }),
+      fetchApi<AiDraft & { send?: DraftSendResult }>(`/api/v1/ai/drafts/${id}/approve`, {
+        method: "POST",
+      }),
 
     reject: (id: string) =>
       fetchApi<AiDraft>(`/api/v1/ai/drafts/${id}/reject`, { method: "POST" }),
 
     bulkApprove: (ids: string[]) =>
-      fetchApi<{ approved: number; skipped: number }>("/api/v1/ai/drafts/bulk-approve", {
+      fetchApi<BulkApproveResult>("/api/v1/ai/drafts/bulk-approve", {
         method: "POST",
         body: JSON.stringify({ ids }),
       }),
