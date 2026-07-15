@@ -1,4 +1,4 @@
-import { useApiFetch } from "@/lib/api-client";
+import { getApiBase, useApiFetch } from "@/lib/api-client";
 import type { AcceptInviteResult, InviteDetails, WorkspaceInvite, WorkspaceMember, WorkspaceRole } from "@/types/api";
 
 export function useTeamApi() {
@@ -37,8 +37,9 @@ export function useTeamApi() {
   };
 }
 
-export function getInviteDetails(token: string) {
-  return fetch(`/api/v1/team/invites/${token}`)
-    .then((r) => r.json() as Promise<{ data: InviteDetails }>)
-    .then((r) => r.data);
+export async function getInviteDetails(token: string): Promise<InviteDetails> {
+  const res = await fetch(`${getApiBase()}/api/v1/team/invites/${token}`);
+  const body = await res.json() as { data?: InviteDetails; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Invite not found");
+  return body.data!;
 }
