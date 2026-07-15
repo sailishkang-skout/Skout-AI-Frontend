@@ -2,8 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CalendarDays, Clock, Linkedin, Loader2, Mail, MousePointerClick, Phone, Plus, Users } from "lucide-react";
+import { CalendarDays, Clock, Linkedin, Loader2, Mail, MousePointerClick, Phone, Plus, Sparkles, Users } from "lucide-react";
+import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -12,21 +14,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
 import { sequenceStatusTone, useSequencesApi } from "@/lib/sequences";
+import { useEnrichmentApi } from "@/lib/enrichment";
 import { formatJobTime } from "@/lib/enrichment-display";
 import type { Sequence, SequenceStepMetrics, SequenceStepType } from "@/types/api";
 
 export default function SequencesPage() {
   const queryClient = useQueryClient();
   const sequencesApi = useSequencesApi();
+  const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
+  const router = useRouter();
   const [name, setName] = useState("");
+  const [goal, setGoal] = useState("");
+  const [genListId, setGenListId] = useState("");
+  const [includeLinkedin, setIncludeLinkedin] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   const sequences = useQuery({
     queryKey: ["sequences"],
     queryFn: sequencesApi.list,
+    enabled: authReady,
+  });
+
+  const lists = useQuery({
+    queryKey: ["lists"],
+    queryFn: enrichmentApi.listLists,
     enabled: authReady,
   });
 
@@ -38,6 +54,22 @@ export default function SequencesPage() {
       setName("");
       queryClient.invalidateQueries({ queryKey: ["sequences"] });
     },
+  });
+
+  const generateSequence = useMutation({
+    mutationFn: () =>
+      sequencesApi.generate({
+        goal: goal.trim(),
+        listId: genListId || undefined,
+        channels: includeLinkedin ? ["email", "linkedin"] : ["email"],
+      }),
+    onSuccess: (seq) => {
+      setGoal("");
+      setGenError(null);
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      router.push(`/sequences/${seq.id}`);
+    },
+    onError: () => setGenError("Could not generate a sequence. Please try again."),
   });
 
   return (
@@ -74,6 +106,70 @@ export default function SequencesPage() {
               )}
               Create sequence
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Generate a sequence with AI
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+            <textarea
+              rows={3}
+              placeholder="Describe your goal, e.g. 'Book demos with RevOps leaders at mid-market SaaS; lead with our list-building time savings.'"
+              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Select
+                aria-label="Target list (optional)"
+                value={genListId}
+                onChange={(e) => setGenListId(e.target.value)}
+                className="w-full sm:max-w-xs"
+              >
+                <option value="">Target list (optional — improves targeting)</option>
+                {(lists.data?.data ?? []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </Select>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={includeLinkedin}
+                  onChange={(e) => setIncludeLinkedin(e.target.checked)}
+                />
+                Include LinkedIn touches
+              </label>
+              <Button
+                onClick={() => {
+                  setGenError(null);
+                  generateSequence.mutate();
+                }}
+                disabled={!goal.trim() || generateSequence.isPending}
+                className="w-full shrink-0 sm:ml-auto sm:w-auto"
+              >
+                {generateSequence.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Generate sequence
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Creates a draft cadence you can review and edit. It learns from your past sequences
+              and reply/bounce results. Activate it when you&apos;re happy.
+            </p>
+            {genError && <p className="text-sm text-destructive">{genError}</p>}
           </div>
         </CardContent>
       </Card>
@@ -121,6 +217,12 @@ export default function SequencesPage() {
           </Card>
         )
       )}
+
+      <AiChatBox
+        title="Sequence assistant"
+        context={{ kind: "sequence" }}
+        onSequenceCreated={() => queryClient.invalidateQueries({ queryKey: ["sequences"] })}
+      />
     </PageShell>
   );
 }

@@ -67,6 +67,12 @@ export function useSequencesApi() {
         body: JSON.stringify({ name }),
       }),
 
+    generate: (input: { goal: string; listId?: string; channels?: ("email" | "linkedin")[] }) =>
+      fetchApi<SequenceDetail>("/api/v1/sequences/generate", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
     update: (id: string, patch: { name?: string; status?: Sequence["status"] }) =>
       fetchApi<Sequence>(`/api/v1/sequences/${id}`, {
         method: "PATCH",

@@ -593,6 +593,35 @@ export interface AnalyticsReport {
   recentTransactions: CreditTransaction[];
 }
 
+export type EmailVerifyStatus =
+  | "valid"
+  | "invalid"
+  | "catch_all"
+  | "risky"
+  | "unknown"
+  | "no_email";
+
+export interface EmailVerification {
+  prospectId: string;
+  email: string | null;
+  status: EmailVerifyStatus;
+  deliverabilityScore: number;
+  catchAll: boolean;
+  risky: boolean;
+  provider?: string;
+  verifiedAt?: string;
+}
+
+export interface ListVerifySummary {
+  listId: string;
+  total: number;
+  verified: number;
+  provider: string;
+  counts: Record<EmailVerifyStatus, number>;
+  sendableCount: number;
+  results: EmailVerification[];
+}
+
 export interface ListMemberDetail {
   prospectId: string;
   companyId: string;
@@ -605,6 +634,7 @@ export interface ListMemberDetail {
     [key: string]: unknown;
   };
   score?: ProspectScoreRecord | null;
+  verification?: EmailVerification | null;
 }
 
 export interface ListDetail extends ProspectList {
