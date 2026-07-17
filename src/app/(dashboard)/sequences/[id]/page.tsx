@@ -294,6 +294,7 @@ export default function SequenceDetailPage() {
             title="Sequence AI (Auto / Ask)"
             context={{
               kind: "sequence",
+              page: `/sequences/${sequenceId}`,
               subject: steps.find((s) => s.id === focusEmailStepId)?.subject
                 ?? steps.find((s) => s.stepType === "email")?.subject
                 ?? undefined,

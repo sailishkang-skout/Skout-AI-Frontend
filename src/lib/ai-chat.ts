@@ -32,6 +32,8 @@ export interface ChatContext {
   subject?: string;
   body?: string;
   kind?: "email" | "sequence" | "general";
+  /** Current dashboard path — helps the model pick product guides. */
+  page?: string;
   prospectId?: string;
   threadId?: string;
 }

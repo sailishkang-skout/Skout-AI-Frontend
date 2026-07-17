@@ -220,7 +220,7 @@ export default function SequencesPage() {
 
       <AiChatBox
         title="Sequence assistant"
-        context={{ kind: "sequence" }}
+        context={{ kind: "sequence", page: "/sequences" }}
         onSequenceCreated={() => queryClient.invalidateQueries({ queryKey: ["sequences"] })}
       />
     </PageShell>

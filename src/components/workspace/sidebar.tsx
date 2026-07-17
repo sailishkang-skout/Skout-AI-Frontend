@@ -32,12 +32,35 @@ import {
   WORKSPACE_CURRENT_QUERY_KEY,
 } from "@/lib/enrichment";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
+
+function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
+  const tour = useProductTourOptional();
+  if (!tour) return null;
+  return (
+    <div className="mt-3 border-t border-border px-1 pt-3">
+      <button
+        type="button"
+        onClick={() => {
+          tour.restartTour();
+          onNavigate?.();
+        }}
+        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="truncate">Take product tour</span>
+      </button>
+    </div>
+  );
+}
 
 export type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   comingSoon?: boolean;
+  /** Product tour spotlight target id (data-tour) */
+  tourId?: string;
 };
 
 export type NavGroup = {
@@ -48,21 +71,21 @@ export type NavGroup = {
 export const enrichmentNav: NavGroup[] = [
   {
     label: "Home",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3 }],
+    items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3, tourId: "nav-dashboard" }],
   },
   {
     label: "Discover",
     items: [
       { href: "/prospects/search", label: "Prospect search", icon: Search },
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus },
-      { href: "/import", label: "Import", icon: Upload },
+      { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
       { href: "/smart-lists", label: "Smart lists", icon: Sparkles },
     ],
   },
   {
     label: "Activate",
     items: [
-      { href: "/lists", label: "Lists", icon: List },
+      { href: "/lists", label: "Lists", icon: List, tourId: "nav-lists" },
       { href: "/enrichment", label: "Enrichment", icon: Zap },
     ],
   },
@@ -79,7 +102,7 @@ export const otherNav: NavGroup[] = [
   {
     label: "Outreach",
     items: [
-      { href: "/sequences", label: "Sequences", icon: Mail },
+      { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/deliverability", label: "Deliverability", icon: Target },
       { href: "/ai/review", label: "AI review", icon: Sparkles },
@@ -118,6 +141,7 @@ function NavLink({
   label,
   icon: Icon,
   comingSoon,
+  tourId,
   onNavigate,
 }: NavItem & { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -142,6 +166,7 @@ function NavLink({
     <Link
       href={href}
       onClick={onNavigate}
+      data-tour={tourId}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
         active
@@ -205,6 +230,7 @@ export function SidebarPanel({
       <nav className="flex-1 overflow-y-auto p-2">
         <NavSection groups={enrichmentNav} onNavigate={onNavigate} />
         <NavSection groups={otherNav} onNavigate={onNavigate} />
+        <RestartTourButton onNavigate={onNavigate} />
       </nav>
     </aside>
   );

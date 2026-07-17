@@ -225,6 +225,7 @@ export default function InboxPage() {
           stageForReview={Boolean(selectedThread.prospectId)}
           context={{
             kind: "email",
+            page: "/inbox",
             prospectId: selectedThread.prospectId ?? undefined,
             threadId: selectedThread.id,
             subject: selectedThread.subject ?? undefined,

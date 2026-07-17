@@ -199,11 +199,22 @@ export function AiChatBox({
         {turns.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
             <MessageSquare className="h-6 w-6" />
-            <p>Ask me to write an email, tweak your copy, or design a sequence.</p>
-            <p className="text-xs">
-              Switch <span className="font-medium">Ask</span> / <span className="font-medium">Auto</span>{" "}
-              above to control how AI changes land.
-            </p>
+            {context?.kind === "general" ? (
+              <>
+                <p>Ask about this workspace or how to use Skout.</p>
+                <p className="text-xs">
+                  Try: “How many credits do I have?”, “How do I import a CSV?”, or “Write a cold email”.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>Ask me to write an email, tweak your copy, or design a sequence.</p>
+                <p className="text-xs">
+                  Switch <span className="font-medium">Ask</span> /{" "}
+                  <span className="font-medium">Auto</span> above to control how AI changes land.
+                </p>
+              </>
+            )}
           </div>
         )}
         {turns.map((t, i) => (
