@@ -8,6 +8,23 @@ export interface CreditPack {
   amountInr: number;
 }
 
+export interface BillingInvoice {
+  id: string;
+  invoiceNumber: string;
+  monthKey: string;
+  packId: string;
+  packLabel: string;
+  credits: number;
+  amountPaise: number;
+  amountInr: number;
+  currency: string;
+  status: string;
+  providerOrderId: string;
+  razorpayPaymentId: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 export function useWorkspaceApi() {
   const fetchApi = useApiFetch();
   return {
@@ -35,6 +52,16 @@ export function useWorkspaceApi() {
       fetchApi<{ data: { razorpayEnabled: boolean; keyId: string | null; packs: CreditPack[] } }>(
         "/api/v1/billing/config"
       ),
+
+    listInvoices: () =>
+      fetchApi<{
+        data: {
+          invoices: BillingInvoice[];
+          byMonth: { monthKey: string; invoices: BillingInvoice[]; totalInr: number }[];
+        };
+      }>("/api/v1/billing/invoices"),
+
+    downloadInvoiceUrl: (id: string) => `/api/v1/billing/invoices/${id}?format=download`,
 
     createRazorpayOrder: (packId: string) =>
       fetchApi<{

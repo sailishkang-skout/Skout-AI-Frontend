@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Coins, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Coins, Download, Loader2 } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAuthReady } from "@/lib/api-client";
+import { useAuthReady, useApiFetchBlob } from "@/lib/api-client";
 import { openRazorpayCheckout } from "@/lib/billing";
 import {
   WORKSPACE_CURRENT_QUERY_KEY,
@@ -21,18 +21,21 @@ import { useWorkspaceApi } from "@/lib/workspace";
 
 const TRANSACTIONS_QUERY_KEY = ["credits", "transactions"] as const;
 const BILLING_CONFIG_KEY = ["billing", "config"] as const;
+const INVOICES_KEY = ["billing", "invoices"] as const;
 const TRANSACTIONS_PAGE_SIZE = 15;
 
 export default function WorkspaceSettingsPage() {
   const queryClient = useQueryClient();
   const workspaceApi = useWorkspaceApi();
   const authReady = useAuthReady();
+  const fetchBlob = useApiFetchBlob();
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
   const [topUpMsg, setTopUpMsg] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutPackId, setCheckoutPackId] = useState<string | null>(null);
   const [txPage, setTxPage] = useState(1);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const workspace = useQuery({
     queryKey: WORKSPACE_CURRENT_QUERY_KEY,
@@ -57,7 +60,28 @@ export default function WorkspaceSettingsPage() {
     enabled: authReady,
   });
 
+  const invoices = useQuery({
+    queryKey: INVOICES_KEY,
+    queryFn: async () => (await workspaceApi.listInvoices()).data,
+    enabled: authReady,
+  });
+
   const ws = workspace.data?.data;
+
+  async function downloadInvoice(id: string, invoiceNumber: string) {
+    setDownloadingId(id);
+    try {
+      const blob = await fetchBlob(`/api/v1/billing/invoices/${id}?format=download`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${invoiceNumber}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   useEffect(() => {
     if (ws?.name) setName(ws.name);
@@ -94,6 +118,7 @@ export default function WorkspaceSettingsPage() {
             } finally {
               refreshCredits(queryClient);
               queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
+              queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
               setTxPage(1);
             }
           })();
@@ -221,6 +246,77 @@ export default function WorkspaceSettingsPage() {
               confirmed.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Download className="h-4 w-4" />
+            Invoices
+          </CardTitle>
+          <CardDescription>
+            Paid Razorpay credit purchases, grouped by month. Download HTML invoices (Print → Save as
+            PDF).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-end">
+            <GuideLink slug="billing-invoices" label="Billing guide" />
+          </div>
+          {invoices.isLoading && (
+            <p className="text-sm text-muted-foreground">Loading invoices…</p>
+          )}
+          {invoices.error && (
+            <Alert variant="error" dismissible>
+              Could not load invoices.
+            </Alert>
+          )}
+          {!invoices.isLoading && !(invoices.data?.byMonth.length) && (
+            <p className="text-sm text-muted-foreground">
+              No paid invoices yet. Buy a credit pack above to generate your first invoice.
+            </p>
+          )}
+          {(invoices.data?.byMonth ?? []).map((month) => (
+            <div key={month.monthKey} className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <p className="font-medium">{month.monthKey}</p>
+                <p className="text-muted-foreground">
+                  ₹{month.totalInr.toLocaleString("en-IN")} total
+                </p>
+              </div>
+              <ul className="divide-y rounded-md border">
+                {month.invoices.map((inv) => (
+                  <li
+                    key={inv.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">{inv.invoiceNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {inv.packLabel} · {inv.credits.toLocaleString()} credits · ₹
+                        {inv.amountInr.toLocaleString("en-IN")}
+                        {inv.paidAt ? ` · ${new Date(inv.paidAt).toLocaleDateString()}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={downloadingId === inv.id}
+                      onClick={() => downloadInvoice(inv.id, inv.invoiceNumber)}
+                    >
+                      {downloadingId === inv.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Download
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

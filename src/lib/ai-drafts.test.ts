@@ -7,11 +7,13 @@ describe("ai-drafts helpers", () => {
     expect(aiDraftStatusLabel("approved")).toBe("Approved");
     expect(aiDraftStatusLabel("rejected")).toBe("Rejected");
     expect(aiDraftStatusLabel("edited")).toBe("Edited");
+    expect(aiDraftStatusLabel("sent")).toBe("Sent");
   });
 
   it("maps status tones", () => {
     expect(aiDraftStatusTone("pending_review")).toBe("info");
     expect(aiDraftStatusTone("approved")).toBe("success");
+    expect(aiDraftStatusTone("sent")).toBe("success");
     expect(aiDraftStatusTone("rejected")).toBe("danger");
     expect(aiDraftStatusTone("edited")).toBe("warning");
   });

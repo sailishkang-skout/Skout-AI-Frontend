@@ -20,6 +20,10 @@ export interface ChatResponse {
   action: ChatAction;
   applied: boolean;
   sequenceId?: string;
+  draftId?: string;
+  mode?: ChatMode;
+  /** True when Ask mode queued the email into AI Review. */
+  segregated?: boolean;
 }
 
 export type ChatMode = "auto" | "ask";
@@ -28,6 +32,8 @@ export interface ChatContext {
   subject?: string;
   body?: string;
   kind?: "email" | "sequence" | "general";
+  prospectId?: string;
+  threadId?: string;
 }
 
 export function useAiChatApi() {
@@ -37,6 +43,7 @@ export function useAiChatApi() {
     chat: (input: {
       messages: { role: "user" | "assistant"; content: string }[];
       mode: ChatMode;
+      stageForReview?: boolean;
       context?: ChatContext;
     }) =>
       fetchApi<ChatResponse>("/api/v1/ai/chat", {

@@ -19,6 +19,8 @@ interface ChatTurn {
   action?: ChatAction;
   applied?: boolean;
   sequenceId?: string;
+  draftId?: string;
+  segregated?: boolean;
 }
 
 interface AiChatBoxProps {
@@ -29,6 +31,13 @@ interface AiChatBoxProps {
   /** Called after a sequence is created (auto mode or Apply). */
   onSequenceCreated?: (sequenceId: string) => void;
   title?: string;
+  /** Default chat mode. Ask = propose; Auto = apply. */
+  defaultMode?: ChatMode;
+  /**
+   * In Ask mode, also queue email proposals into AI Review (requires context.prospectId).
+   * Keeps AI-generated outreach segregated from live sends until approved.
+   */
+  stageForReview?: boolean;
 }
 
 function sanitizeHtml(html: string): string {
@@ -37,11 +46,18 @@ function sanitizeHtml(html: string): string {
     .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "");
 }
 
-export function AiChatBox({ context, onApplyEmail, onSequenceCreated, title = "Skout AI assistant" }: AiChatBoxProps) {
+export function AiChatBox({
+  context,
+  onApplyEmail,
+  onSequenceCreated,
+  title = "Skout AI assistant",
+  defaultMode = "ask",
+  stageForReview = false,
+}: AiChatBoxProps) {
   const api = useAiChatApi();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("ask");
+  const [mode, setMode] = useState<ChatMode>(defaultMode);
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -66,14 +82,23 @@ export function AiChatBox({ context, onApplyEmail, onSequenceCreated, title = "S
       api.chat({
         messages: history.map((t) => ({ role: t.role, content: t.content })),
         mode,
+        stageForReview: mode === "ask" && stageForReview,
         context,
       }),
     onSuccess: (res) => {
       setTurns((prev) => [
         ...prev,
-        { role: "assistant", content: res.reply, action: res.action, applied: res.applied, sequenceId: res.sequenceId },
+        {
+          role: "assistant",
+          content: res.reply,
+          action: res.action,
+          applied: res.applied,
+          sequenceId: res.sequenceId,
+          draftId: res.draftId,
+          segregated: res.segregated,
+        },
       ]);
-      // Auto mode: apply immediately.
+      // Auto mode: apply immediately (AI content is marked as applied, not staged).
       if (mode === "auto") {
         if (res.action.type === "email") onApplyEmail?.({ subject: res.action.subject, html: res.action.html });
         if (res.action.type === "sequence" && res.applied && res.sequenceId) {
@@ -133,7 +158,11 @@ export function AiChatBox({ context, onApplyEmail, onSequenceCreated, title = "S
                   "rounded px-2 py-0.5 capitalize",
                   mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
-                title={m === "auto" ? "Apply changes automatically" : "Propose changes; you confirm"}
+                title={
+                  m === "auto"
+                    ? "Auto: apply AI output immediately"
+                    : "Ask: propose only — you confirm (optionally queue to AI Review)"
+                }
               >
                 {m}
               </button>
@@ -150,14 +179,30 @@ export function AiChatBox({ context, onApplyEmail, onSequenceCreated, title = "S
         </div>
       </div>
 
+      <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+        {mode === "ask" ? (
+          <>
+            <span className="font-medium text-foreground">Ask</span> — AI proposes; you apply.
+            {stageForReview && context?.prospectId
+              ? " Emails also go to AI Review."
+              : " AI stays segregated until you confirm."}
+          </>
+        ) : (
+          <>
+            <span className="font-medium text-foreground">Auto</span> — AI applies to the editor /
+            creates the sequence immediately.
+          </>
+        )}
+      </div>
+
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
         {turns.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
             <MessageSquare className="h-6 w-6" />
             <p>Ask me to write an email, tweak your copy, or design a sequence.</p>
             <p className="text-xs">
-              <span className="font-medium">Ask</span> proposes changes to confirm;{" "}
-              <span className="font-medium">Auto</span> applies them directly.
+              Switch <span className="font-medium">Ask</span> / <span className="font-medium">Auto</span>{" "}
+              above to control how AI changes land.
             </p>
           </div>
         )}
@@ -175,10 +220,13 @@ export function AiChatBox({ context, onApplyEmail, onSequenceCreated, title = "S
                   action={t.action}
                   applied={t.applied}
                   sequenceId={t.sequenceId}
+                  draftId={t.draftId}
+                  segregated={t.segregated}
                   mode={mode}
                   committing={commitSequence.isPending}
                   onApplyEmail={onApplyEmail}
                   onApplySequence={(a) => commitSequence.mutate(a)}
+                  onOpenReview={() => router.push("/ai/review")}
                 />
               )}
             </div>
@@ -219,22 +267,38 @@ function ActionCard({
   action,
   applied,
   sequenceId,
+  draftId,
+  segregated,
   mode,
   committing,
   onApplyEmail,
   onApplySequence,
+  onOpenReview,
 }: {
   action: ChatAction;
   applied?: boolean;
   sequenceId?: string;
+  draftId?: string;
+  segregated?: boolean;
   mode: ChatMode;
   committing: boolean;
   onApplyEmail?: (email: { subject: string; html: string }) => void;
   onApplySequence: (action: Extract<ChatAction, { type: "sequence" }>) => void;
+  onOpenReview: () => void;
 }) {
   if (action.type === "email") {
     return (
       <div className="mt-2 space-y-1 rounded-md border border-border bg-background p-2 text-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-800 dark:bg-violet-950 dark:text-violet-200">
+            AI draft
+          </span>
+          {segregated && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              In review
+            </span>
+          )}
+        </div>
         <p className="text-xs font-semibold">{action.subject || "(no subject)"}</p>
         <div
           className="prose prose-sm max-w-none text-xs [&_*]:!text-foreground"
@@ -246,6 +310,11 @@ function ActionCard({
           </Button>
         )}
         {onApplyEmail && mode === "auto" && <p className="text-[11px] text-muted-foreground">Applied to editor.</p>}
+        {draftId && (
+          <Button size="sm" variant="outline" className="mt-1 h-7" onClick={onOpenReview}>
+            Open AI Review
+          </Button>
+        )}
       </div>
     );
   }
@@ -253,6 +322,9 @@ function ActionCard({
   if (action.type === "sequence") {
     return (
       <div className="mt-2 space-y-1 rounded-md border border-border bg-background p-2 text-foreground">
+        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-800 dark:bg-violet-950 dark:text-violet-200">
+          AI sequence
+        </span>
         <p className="text-xs font-semibold">{action.name}</p>
         <ol className="ml-4 list-decimal text-xs text-muted-foreground">
           {action.steps.slice(0, 8).map((s, i) => (

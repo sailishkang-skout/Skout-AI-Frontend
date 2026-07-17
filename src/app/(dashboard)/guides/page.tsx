@@ -10,7 +10,7 @@ export default function GuidesIndexPage() {
     <PageShell>
       <PageHeader
         title="Setup guides"
-        description="Step-by-step help for workspace, inbox, domain DNS, and integrations."
+        description="Step-by-step help for workspace, inbox, sequences, import, billing, and more."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">

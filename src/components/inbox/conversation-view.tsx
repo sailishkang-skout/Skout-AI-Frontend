@@ -51,6 +51,7 @@ export function ConversationView({
   onReply,
   onMarkRead,
   onOpenContext,
+  draftReply,
 }: {
   thread: InboxThread;
   messages: InboxMessage[];
@@ -61,6 +62,8 @@ export function ConversationView({
   onReply: (text: string) => void;
   onMarkRead: () => void;
   onOpenContext: () => void;
+  /** When set (e.g. from AI Ask/Auto), fills the reply composer. */
+  draftReply?: string | null;
 }) {
   const [replyText, setReplyText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -68,6 +71,12 @@ export function ConversationView({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (draftReply != null && draftReply !== "") {
+      setReplyText(draftReply);
+    }
+  }, [draftReply]);
 
   function handleSend() {
     const text = replyText.trim();

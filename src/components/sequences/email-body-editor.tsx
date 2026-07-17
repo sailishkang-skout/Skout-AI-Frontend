@@ -77,6 +77,8 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
   const [aiResult, setAiResult] = useState<{ html: string; subject: string } | null>(null);
   const [aiSaveAs, setAiSaveAs] = useState("");
   const [aiSaveName, setAiSaveName] = useState("");
+  /** Ask = preview first; Auto = insert into editor as soon as generation finishes. */
+  const [aiMode, setAiMode] = useState<"ask" | "auto">("ask");
 
   const historyPushed   = useRef(false);
   const suppressNextPop = useRef(false);
@@ -161,7 +163,16 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
         "/api/v1/ai/generate-email",
         { method: "POST", body: JSON.stringify({ prompt: aiPrompt.trim() }) }
       );
-      setAiResult(result);
+      if (aiMode === "auto") {
+        setDraft(result.html);
+        setEditorKey((k) => k + 1);
+        onChange(result.html, result.subject);
+        setShowAiModal(false);
+        setAiPrompt("");
+        setAiResult(null);
+      } else {
+        setAiResult(result);
+      }
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : "Generation failed. Check your OpenAI API key.");
     } finally {
@@ -375,16 +386,45 @@ export function EmailBodyEditor({ value, onChange, disabled }: EmailBodyEditorPr
                     <Sparkles className="h-4 w-4 text-violet-500" />
                     <h3 className="text-sm font-semibold">Generate email with AI</h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAiModal(false); setAiResult(null); setAiError(""); }}
-                    className="rounded p-1 text-muted-foreground hover:bg-accent"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded-md border border-border p-0.5 text-xs">
+                      {(["ask", "auto"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setAiMode(m)}
+                          className={cn(
+                            "rounded px-2 py-0.5 capitalize",
+                            aiMode === m
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title={
+                            m === "auto"
+                              ? "Auto: insert into editor immediately"
+                              : "Ask: preview first, then insert"
+                          }
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAiModal(false); setAiResult(null); setAiError(""); }}
+                      className="rounded p-1 text-muted-foreground hover:bg-accent"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-4 px-5 pb-5">
+                  <p className="text-[11px] text-muted-foreground">
+                    {aiMode === "ask"
+                      ? "Ask mode — AI draft stays segregated until you Insert."
+                      : "Auto mode — AI output is applied to the editor as soon as it is ready."}
+                  </p>
                   {/* Prompt input */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-muted-foreground">

@@ -296,7 +296,7 @@ export interface InboxMessagesResponse {
   total: number;
 }
 
-export type AiDraftStatus = "pending_review" | "edited" | "approved" | "rejected";
+export type AiDraftStatus = "pending_review" | "edited" | "approved" | "rejected" | "sent";
 
 export interface AiDraft {
   id: string;

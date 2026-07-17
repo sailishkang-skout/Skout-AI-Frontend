@@ -9,6 +9,7 @@ interface ListEnvelope {
 
 export function aiDraftStatusTone(status: AiDraftStatus) {
   switch (status) {
+    case "sent":
     case "approved":
       return "success" as const;
     case "rejected":
@@ -31,6 +32,8 @@ export function aiDraftStatusLabel(status: AiDraftStatus) {
       return "Approved";
     case "rejected":
       return "Rejected";
+    case "sent":
+      return "Sent";
     default:
       return status;
   }

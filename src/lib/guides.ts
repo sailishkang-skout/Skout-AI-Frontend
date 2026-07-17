@@ -3,7 +3,12 @@ export type GuideSlug =
   | "connect-inbox"
   | "sending-domain"
   | "deliverability"
-  | "integrations";
+  | "integrations"
+  | "sequences-ai"
+  | "ai-review"
+  | "import-prospects"
+  | "billing-invoices"
+  | "lists-enrich";
 
 export interface GuideMeta {
   slug: GuideSlug;
@@ -48,6 +53,41 @@ export const GUIDES: GuideMeta[] = [
     summary: "Add provider API keys so enrichment can use your own accounts first.",
     relatedHref: "/settings/integrations",
     relatedLabel: "Integrations",
+  },
+  {
+    slug: "sequences-ai",
+    title: "Sequences & AI Auto / Ask",
+    summary: "Build cadences, use Auto vs Ask modes, and keep AI drafts segregated until you apply.",
+    relatedHref: "/sequences",
+    relatedLabel: "Sequences",
+  },
+  {
+    slug: "ai-review",
+    title: "AI Review queue",
+    summary: "Approve, edit, or reject AI-written emails before they send.",
+    relatedHref: "/ai/review",
+    relatedLabel: "AI review",
+  },
+  {
+    slug: "import-prospects",
+    title: "Import lists & prospects",
+    summary: "Upload CSV, Excel, PDF, or images (OCR) and land them on a list.",
+    relatedHref: "/import",
+    relatedLabel: "Import",
+  },
+  {
+    slug: "billing-invoices",
+    title: "Credits & Razorpay invoices",
+    summary: "Buy credit packs and download monthly paid invoices.",
+    relatedHref: "/settings/workspace",
+    relatedLabel: "Workspace billing",
+  },
+  {
+    slug: "lists-enrich",
+    title: "Lists, enrich & enroll",
+    summary: "Create lists, enrich members, verify emails, and enroll into sequences.",
+    relatedHref: "/lists",
+    relatedLabel: "Lists",
   },
 ];
 

@@ -18,6 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { AnalyticsPanel } from "@/components/sequences/analytics-panel";
 import { EnrollPanel } from "@/components/sequences/enroll-panel";
 import { EnrolledListsPanel } from "@/components/sequences/enrolled-lists-panel";
@@ -66,6 +67,7 @@ export default function SequenceDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [updatingStepId, setUpdatingStepId] = useState<string | null>(null);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
+  const [focusEmailStepId, setFocusEmailStepId] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
@@ -286,6 +288,33 @@ export default function SequenceDetailPage() {
           {tab === "enroll" && <EnrollPanel sequenceId={sequenceId} sequenceStatus={sequence.status} />}
           {tab === "lists" && <EnrolledListsPanel sequenceId={sequenceId} />}
           {tab === "analytics" && <AnalyticsPanel sequenceId={sequenceId} />}
+
+          {/* Auto / Ask AI assistant — Apply updates the focused (or first) email step */}
+          <AiChatBox
+            title="Sequence AI (Auto / Ask)"
+            context={{
+              kind: "sequence",
+              subject: steps.find((s) => s.id === focusEmailStepId)?.subject
+                ?? steps.find((s) => s.stepType === "email")?.subject
+                ?? undefined,
+              body: steps.find((s) => s.id === focusEmailStepId)?.bodyTemplate
+                ?? steps.find((s) => s.stepType === "email")?.bodyTemplate
+                ?? undefined,
+            }}
+            onApplyEmail={({ subject, html }) => {
+              setTab("builder");
+              const target =
+                steps.find((s) => s.id === focusEmailStepId && s.stepType === "email")
+                ?? steps.find((s) => s.stepType === "email");
+              if (target) {
+                setFocusEmailStepId(target.id);
+                updateStep.mutate({
+                  stepId: target.id,
+                  patch: { subject, bodyTemplate: html },
+                });
+              }
+            }}
+          />
         </>
       )}
     </PageShell>

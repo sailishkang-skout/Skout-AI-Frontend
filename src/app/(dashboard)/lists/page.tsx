@@ -132,6 +132,13 @@ export default function ListsPage() {
       <PageHeader
         title="Lists"
         description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
+        actions={
+          <Link href="/import">
+            <Button variant="outline" size="sm">
+              Import CSV / Excel / PDF
+            </Button>
+          </Link>
+        }
       />
 
       <DemoBanner />

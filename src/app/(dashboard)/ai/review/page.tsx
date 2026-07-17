@@ -2,12 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Check, CheckCheck, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import { Check, CheckCheck, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +26,7 @@ const STATUS_FILTERS: { label: string; value: AiDraftStatus | "all" }[] = [
   { label: "Needs review", value: "pending_review" },
   { label: "Edited", value: "edited" },
   { label: "Approved", value: "approved" },
+  { label: "Sent", value: "sent" },
   { label: "Rejected", value: "rejected" },
   { label: "All", value: "all" },
 ];
@@ -110,12 +112,17 @@ export default function AiReviewPage() {
     onSuccess: (draft) => {
       const send = draft.send;
       if (send?.sent) {
-        setMessage(`Draft approved — email sent${send.to ? ` to ${send.to}` : ""}`);
+        setMessage(
+          `Draft approved — email sent${send.to ? ` to ${send.to}` : ""}. View it in Inbox → Sent.`
+        );
+        setStatus("sent");
       } else if (send && !send.sent) {
         setError(`Draft approved, but the email ${draftSendFailureLabel(send.reason)}.`);
+        setStatus("approved");
       } else {
         // Enrollment-linked drafts send when their sequence step runs.
         setMessage("Draft approved — it will send with its sequence step");
+        setStatus("approved");
       }
       setSelected(new Set());
       invalidate();
@@ -148,7 +155,7 @@ export default function AiReviewPage() {
     mutationFn: (ids: string[]) => api.bulkApprove(ids),
     onSuccess: (res) => {
       const parts = [`Approved ${res.approved} draft${res.approved === 1 ? "" : "s"}`];
-      if (res.sent > 0) parts.push(`sent ${res.sent}`);
+      if (res.sent > 0) parts.push(`sent ${res.sent} (Inbox → Sent)`);
       setMessage(`${parts.join(" — ")}.`);
       if (res.sendFailures.length > 0) {
         setError(
@@ -157,6 +164,7 @@ export default function AiReviewPage() {
           } could not be emailed (e.g. ${draftSendFailureLabel(res.sendFailures[0]?.reason)}).`
         );
       }
+      if (res.sent > 0) setStatus("sent");
       setSelected(new Set());
       invalidate();
     },
@@ -183,7 +191,7 @@ export default function AiReviewPage() {
     <PageShell data-testid="page-ai-review">
       <PageHeader
         title="AI Review Queue"
-        description="Approve, edit, or reject AI-generated outreach drafts before they go out."
+        description="Approve & send AI outreach drafts. Sent mail appears in Inbox → Sent (Outbox)."
       />
 
       <div className="space-y-2">
@@ -221,6 +229,13 @@ export default function AiReviewPage() {
         </span>
 
         <div className="ml-auto flex flex-wrap gap-2">
+          <Link
+            href="/inbox?folder=sent"
+            className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open Sent / Outbox
+          </Link>
           {reviewable.length > 0 && (
             <Button
               type="button"
@@ -390,7 +405,7 @@ export default function AiReviewPage() {
                       onClick={() => approve.mutate(draft.id)}
                     >
                       <Check className="mr-1.5 h-3.5 w-3.5" />
-                      Approve
+                      Approve & send
                     </Button>
                     <Button
                       type="button"
@@ -403,6 +418,28 @@ export default function AiReviewPage() {
                       Reject
                     </Button>
                   </div>
+                )}
+                {!isEditing && draft.status === "approved" && !draft.enrollmentStepId && (
+                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={approve.isPending}
+                      onClick={() => approve.mutate(draft.id)}
+                    >
+                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                      Retry send
+                    </Button>
+                  </div>
+                )}
+                {!isEditing && draft.status === "sent" && (
+                  <Link
+                    href="/inbox?folder=sent"
+                    className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    View in Sent
+                  </Link>
                 )}
               </div>
             </article>

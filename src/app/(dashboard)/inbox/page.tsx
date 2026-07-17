@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Mail } from "lucide-react";
+import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -20,6 +21,18 @@ import {
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import type { InboxThread } from "@/types/api";
 
+function htmlToPlain(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+}
+
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const inboxApi = useInboxApi();
@@ -32,6 +45,7 @@ export default function InboxPage() {
   const [selectedThread, setSelectedThread] = useState<InboxThread | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [defaultInboxReady, setDefaultInboxReady] = useState(false);
+  const [aiDraftReply, setAiDraftReply] = useState<string | null>(null);
 
   const inboxesQuery = useQuery({
     queryKey: ["inboxes"],
@@ -51,13 +65,18 @@ export default function InboxPage() {
     setDefaultInboxReady(true);
   }, [inboxesQuery.data, inboxesQuery.isFetched, defaultInboxReady]);
 
-  // Deep-link: /inbox?inboxId=…
+  // Deep-link: /inbox?inboxId=…&folder=sent|inbound|all
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const id = new URLSearchParams(window.location.search).get("inboxId");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("inboxId");
     if (id) {
       setInboxFilter(id);
       setDefaultInboxReady(true);
+    }
+    const folder = params.get("folder");
+    if (folder === "sent" || folder === "inbound" || folder === "all") {
+      setFolderFilter(folder);
     }
   }, []);
 
@@ -177,6 +196,7 @@ export default function InboxPage() {
               messagesError={messagesQuery.error as Error | null}
               sending={replyMutation.isPending}
               sendError={replyMutation.error as Error | null}
+              draftReply={aiDraftReply}
               onReply={(text) =>
                 replyMutation.mutate({ threadId: selectedThread.id, text })
               }
@@ -198,6 +218,22 @@ export default function InboxPage() {
         context={contextQuery.data}
         loading={contextQuery.isLoading}
       />
+
+      {selectedThread && (
+        <AiChatBox
+          title="Inbox AI (Auto / Ask)"
+          stageForReview={Boolean(selectedThread.prospectId)}
+          context={{
+            kind: "email",
+            prospectId: selectedThread.prospectId ?? undefined,
+            threadId: selectedThread.id,
+            subject: selectedThread.subject ?? undefined,
+          }}
+          onApplyEmail={({ html }) => {
+            setAiDraftReply(htmlToPlain(html));
+          }}
+        />
+      )}
     </PageShell>
   );
 }

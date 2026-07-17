@@ -16,6 +16,7 @@ import {
   Settings,
   Sparkles,
   Target,
+  Upload,
   UserPlus,
   Users,
   Users2,
@@ -54,6 +55,7 @@ export const enrichmentNav: NavGroup[] = [
     items: [
       { href: "/prospects/search", label: "Prospect search", icon: Search },
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus },
+      { href: "/import", label: "Import", icon: Upload },
       { href: "/smart-lists", label: "Smart lists", icon: Sparkles },
     ],
   },
