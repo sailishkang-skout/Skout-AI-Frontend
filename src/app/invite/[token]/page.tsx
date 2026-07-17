@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CheckCircle, Loader2, Mail, XCircle } from "lucide-react";
-import { CLERK_ENABLED, getApiBase, useApiFetch, useAuthReady } from "@/lib/api-client";
-import { getInviteDetails, useTeamApi } from "@/lib/team";
+import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, XCircle } from "lucide-react";
+import { getApiBase } from "@/lib/api-client";
+import { getInviteDetails } from "@/lib/team";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { InviteDetails } from "@/types/api";
@@ -35,24 +35,33 @@ async function verifyOtp(
   return body.data!;
 }
 
+async function submitSetPassword(sessionToken: string, password: string): Promise<void> {
+  const res = await fetch(`${getApiBase()}/api/v1/invite-auth/set-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify({ password }),
+  });
+  const body = await res.json() as { error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Failed to set password");
+}
+
+type OtpStep = "idle" | "sent" | "verified" | "done";
+
 export default function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
-  const authReady = useAuthReady();
-  const teamApi = useTeamApi();
 
-  const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
+  const [otpStep, setOtpStep] = useState<OtpStep>("idle");
   const [otpValue, setOtpValue] = useState("");
   const [otpEmail, setOtpEmail] = useState("");
+  const [sessionToken, setSessionToken] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const invite = useQuery<InviteDetails>({
     queryKey: ["invite", token],
     queryFn: () => getInviteDetails(token),
     retry: false,
-  });
-
-  const accept = useMutation({
-    mutationFn: () => teamApi.acceptInvite(token),
   });
 
   const sendOtpMut = useMutation({
@@ -66,14 +75,25 @@ export default function AcceptInvitePage() {
   const verifyOtpMut = useMutation({
     mutationFn: () => verifyOtp(token, otpValue.trim()),
     onSuccess: (data) => {
-      // Store invite session token for authenticated calls
       localStorage.setItem("invite_session_token", data.sessionToken);
+      setSessionToken(data.sessionToken);
       setOtpStep("verified");
     },
   });
 
+  const setPasswordMut = useMutation({
+    mutationFn: () => submitSetPassword(sessionToken, password),
+    onSuccess: () => {
+      localStorage.removeItem("invite_session_token");
+      setOtpStep("done");
+    },
+  });
+
   const inviteData = invite.data;
-  const notLoggedIn = CLERK_ENABLED && !authReady;
+
+  const ssoSignInUrl = `/sign-in?redirect_url=${encodeURIComponent(
+    typeof window !== "undefined" ? window.location.href : `/invite/${token}`
+  )}`;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -131,111 +151,126 @@ export default function AcceptInvitePage() {
               <p className="mt-0.5 text-xs text-muted-foreground">Sent to {inviteData.email}</p>
             </div>
 
-            {/* OTP verified — auto-accepted, show success */}
-            {otpStep === "verified" && (
-              <div className="flex flex-col items-center gap-3 text-center">
+            {/* Step: Account created — sign in to continue */}
+            {otpStep === "done" && (
+              <div className="flex flex-col items-center gap-4 text-center">
                 <CheckCircle className="h-10 w-10 text-green-500" />
-                <h1 className="text-lg font-semibold">Welcome to {inviteData.workspaceName}!</h1>
-                <p className="text-sm text-muted-foreground">
-                  You&apos;ve joined as a <strong>Team Member</strong>.
-                </p>
-                <Button onClick={() => router.push("/dashboard")}>Go to dashboard</Button>
-              </div>
-            )}
-
-            {/* Already accepted via Clerk flow */}
-            {!notLoggedIn && accept.isSuccess && otpStep !== "verified" && (
-              <div className="flex flex-col items-center gap-3 text-center">
-                <CheckCircle className="h-10 w-10 text-green-500" />
-                <h1 className="text-lg font-semibold">Welcome to {inviteData.workspaceName}!</h1>
-                <p className="text-sm text-muted-foreground">You&apos;ve joined as a <strong>Team Member</strong>.</p>
-                <Button onClick={() => router.push("/dashboard")}>Go to dashboard</Button>
-              </div>
-            )}
-
-            {/* Not logged in — OTP flow */}
-            {notLoggedIn && otpStep !== "verified" && (
-              <div className="flex flex-col gap-4">
-                {otpStep === "idle" && (
-                  <>
-                    {sendOtpMut.isError && (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        {(sendOtpMut.error as Error).message}
-                      </p>
-                    )}
-                    <Button
-                      onClick={() => sendOtpMut.mutate()}
-                      disabled={sendOtpMut.isPending}
-                      className="w-full"
-                    >
-                      {sendOtpMut.isPending
-                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending code…</>
-                        : <><Mail className="mr-2 h-4 w-4" />Send verification code</>}
-                    </Button>
-                    <div className="relative flex items-center">
-                      <div className="flex-grow border-t border-border" />
-                      <span className="mx-3 text-xs text-muted-foreground">or</span>
-                      <div className="flex-grow border-t border-border" />
-                    </div>
-                    <a
-                      href={`/sign-in?redirect_url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/invite/${token}`)}`}
-                      className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
-                    >
-                      Sign in with SSO
-                    </a>
-                  </>
-                )}
-
-                {otpStep === "sent" && (
-                  <div className="flex flex-col gap-3">
-                    <p className="text-center text-sm text-muted-foreground">
-                      We sent a 6-digit code to <strong>{otpEmail}</strong>
-                    </p>
-                    <Input
-                      placeholder="Enter 6-digit code"
-                      value={otpValue}
-                      onChange={(e) => setOtpValue(e.target.value)}
-                      maxLength={6}
-                      className="text-center text-xl tracking-widest"
-                      autoFocus
-                    />
-                    {verifyOtpMut.isError && (
-                      <p className="text-sm text-destructive">{(verifyOtpMut.error as Error).message}</p>
-                    )}
-                    <Button
-                      onClick={() => verifyOtpMut.mutate()}
-                      disabled={verifyOtpMut.isPending || otpValue.length < 6}
-                      className="w-full"
-                    >
-                      {verifyOtpMut.isPending
-                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying…</>
-                        : "Verify & join workspace"}
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => { setOtpStep("idle"); setOtpValue(""); }}
-                      className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                    >
-                      Resend code
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Logged in via Clerk — direct accept */}
-            {!notLoggedIn && !accept.isSuccess && otpStep !== "verified" && (
-              <div className="flex flex-col gap-3">
-                {accept.isError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {(accept.error as Error).message}
-                  </div>
-                )}
-                <Button onClick={() => accept.mutate()} disabled={accept.isPending} className="w-full">
-                  {accept.isPending
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Accepting…</>
-                    : "Accept invitation"}
+                <div>
+                  <h2 className="text-lg font-semibold">Account created!</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Sign in with your email and password to access <strong>{inviteData.workspaceName}</strong>.
+                  </p>
+                </div>
+                <Button className="w-full" onClick={() => router.push(ssoSignInUrl)}>
+                  Sign in to continue
                 </Button>
+              </div>
+            )}
+
+            {/* Step: Set password (after OTP verified) */}
+            {otpStep === "verified" && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Lock className="h-4 w-4 text-primary" />
+                  Set your password
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Create a password to sign in to Skout with <strong>{otpEmail}</strong>.
+                </p>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Choose a password (min. 8 chars)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {setPasswordMut.isError && (
+                  <p className="text-sm text-destructive">{(setPasswordMut.error as Error).message}</p>
+                )}
+                <Button
+                  onClick={() => setPasswordMut.mutate()}
+                  disabled={setPasswordMut.isPending || password.length < 8}
+                  className="w-full"
+                >
+                  {setPasswordMut.isPending
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Setting password…</>
+                    : "Set password & join workspace"}
+                </Button>
+              </div>
+            )}
+
+            {/* OTP flow — always shown (independent of Clerk auth state) */}
+            {otpStep === "idle" && (
+              <div className="flex flex-col gap-4">
+                {sendOtpMut.isError && (
+                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {(sendOtpMut.error as Error).message}
+                  </p>
+                )}
+                <Button
+                  onClick={() => sendOtpMut.mutate()}
+                  disabled={sendOtpMut.isPending}
+                  className="w-full"
+                >
+                  {sendOtpMut.isPending
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending code…</>
+                    : <><Mail className="mr-2 h-4 w-4" />Send verification code</>}
+                </Button>
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-border" />
+                  <span className="mx-3 text-xs text-muted-foreground">or</span>
+                  <div className="flex-grow border-t border-border" />
+                </div>
+                <a
+                  href={ssoSignInUrl}
+                  className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
+                >
+                  Sign in with SSO
+                </a>
+              </div>
+            )}
+
+            {otpStep === "sent" && (
+              <div className="flex flex-col gap-3">
+                <p className="text-center text-sm text-muted-foreground">
+                  We sent a 6-digit code to <strong>{otpEmail}</strong>
+                </p>
+                <Input
+                  placeholder="Enter 6-digit code"
+                  value={otpValue}
+                  onChange={(e) => setOtpValue(e.target.value)}
+                  maxLength={6}
+                  className="text-center text-xl tracking-widest"
+                  autoFocus
+                />
+                {verifyOtpMut.isError && (
+                  <p className="text-sm text-destructive">{(verifyOtpMut.error as Error).message}</p>
+                )}
+                <Button
+                  onClick={() => verifyOtpMut.mutate()}
+                  disabled={verifyOtpMut.isPending || otpValue.length < 6}
+                  className="w-full"
+                >
+                  {verifyOtpMut.isPending
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying…</>
+                    : "Verify code"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setOtpStep("idle"); setOtpValue(""); }}
+                  className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                >
+                  Resend code
+                </button>
               </div>
             )}
 
