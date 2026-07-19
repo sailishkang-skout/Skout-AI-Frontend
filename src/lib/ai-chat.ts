@@ -1,4 +1,4 @@
-import { useApiFetch } from "./api-client";
+import { useApiFetch, useApiFetchBlob } from "./api-client";
 import type { SequenceDetail } from "@/types/api";
 
 export interface GeneratedStep {
@@ -10,10 +10,36 @@ export interface GeneratedStep {
   bodyTemplate?: string;
 }
 
+export type ChartKind = "pie" | "bar" | "line" | "area" | "table" | "metric";
+
+export interface ChartSpec {
+  kind: ChartKind;
+  title: string;
+  description?: string;
+  data: Array<Record<string, string | number | null>>;
+  xKey?: string;
+  yKeys?: string[];
+  columns?: Array<{ key: string; label: string }>;
+  value?: string | number;
+  unit?: string;
+}
+
 export type ChatAction =
   | { type: "none" }
   | { type: "email"; subject: string; html: string }
-  | { type: "sequence"; name: string; steps: GeneratedStep[] };
+  | { type: "sequence"; name: string; steps: GeneratedStep[] }
+  | { type: "analysis"; title?: string; summary?: string; charts: ChartSpec[] };
+
+export interface ChatExportArtifact {
+  dataset: string;
+  filename: string;
+  rowCount: number;
+  downloadUrl: string;
+  /** Root-relative API path for authenticated blob download. */
+  path?: string;
+  exportKey: string;
+  inline: boolean;
+}
 
 export interface ChatResponse {
   reply: string;
@@ -21,6 +47,7 @@ export interface ChatResponse {
   applied: boolean;
   sequenceId?: string;
   draftId?: string;
+  exports?: ChatExportArtifact[];
   mode?: ChatMode;
   /** True when Ask mode queued the email into AI Review. */
   segregated?: boolean;
@@ -38,8 +65,18 @@ export interface ChatContext {
   threadId?: string;
 }
 
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function useAiChatApi() {
   const fetchApi = useApiFetch();
+  const fetchBlob = useApiFetchBlob();
 
   return {
     chat: (input: {
@@ -58,5 +95,14 @@ export function useAiChatApi() {
         method: "POST",
         body: JSON.stringify(input),
       }),
+
+    /** Authenticated download of a CSV the assistant generated via export_dataset. */
+    downloadExport: async (artifact: ChatExportArtifact) => {
+      const path =
+        artifact.path ??
+        `/api/v1/ai/exports/download?key=${encodeURIComponent(artifact.exportKey)}`;
+      const blob = await fetchBlob(path);
+      triggerBlobDownload(blob, artifact.filename);
+    },
   };
 }
