@@ -112,10 +112,19 @@ export function AiChatBox({
       }
       scrollToBottom();
     },
-    onError: () => {
+    onError: (err) => {
+      const detail =
+        err instanceof Error && err.message && err.message !== "Failed to fetch"
+          ? err.message
+          : null;
       setTurns((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry — I couldn't process that. Please try again." },
+        {
+          role: "assistant",
+          content: detail
+            ? `Sorry — I couldn't process that (${detail}). Please try again.`
+            : "Sorry — I couldn't process that. Please try again.",
+        },
       ]);
       scrollToBottom();
     },
