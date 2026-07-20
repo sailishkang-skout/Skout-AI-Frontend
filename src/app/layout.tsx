@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { themeInitScript } from "@/lib/theme";
 
-const inter = Inter({ subsets: ["latin"] });
+/** System stack — avoids next/font Google fetch failures in offline/restricted Docker builds. */
+const bodyFontClass =
+  "font-sans antialiased [font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',Arial,sans-serif]";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || undefined;
 
@@ -30,7 +31,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={inter.className}>
+      <body className={bodyFontClass}>
         <Providers>{children}</Providers>
       </body>
     </html>
