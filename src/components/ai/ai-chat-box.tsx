@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { BarChart3, Download, Loader2, MessageSquare, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,65 @@ function sanitizeHtml(html: string): string {
     .replace(/<script\b[\s\S]*?<\/script>/gi, "")
     .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "");
 }
+
+/** Strip markdown/download URLs when Export ready card already shows the file. */
+export function stripExportLinks(text: string, artifacts: ChatExportArtifact[] = []): string {
+  let out = text;
+  out = out.replace(/\[[^\]]*\]\(([^)]*\/api\/v1\/ai\/exports\/download[^)]*)\)/gi, "");
+  out = out.replace(/https?:\/\/[^\s)]+\/api\/v1\/ai\/exports\/download[^\s)]*/gi, "");
+  for (const a of artifacts) {
+    if (a.downloadUrl) out = out.split(a.downloadUrl).join("");
+    if (a.path) out = out.split(a.path).join("");
+  }
+  out = out.replace(/you can download it using the link below:?\s*/gi, "");
+  out = out.replace(/\n{3,}/g, "\n\n").trim();
+  return out;
+}
+
+/** Light markdown: bold + links only (no full markdown parser). */
+function ChatText({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  const re = /(\*\*[^*]+\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      parts.push(text.slice(last, m.index));
+    }
+    if (m[0].startsWith("**")) {
+      parts.push(<strong key={key++}>{m[0].slice(2, -2)}</strong>);
+    } else {
+      parts.push(
+        <a
+          key={key++}
+          href={m[3]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline underline-offset-2"
+        >
+          {m[2]}
+        </a>
+      );
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <p className="whitespace-pre-wrap break-words">{parts}</p>;
+}
+
+const SUGGESTIONS_GENERAL = [
+  "Weekly credit usage pie chart",
+  "Export my credit transactions",
+  "How do I set up my ICP?",
+];
+
+const SUGGESTIONS_CONTEXT = [
+  "Write a cold email",
+  "Design a 4-step sequence",
+  "Shorten this copy",
+];
+
 
 export function AiChatBox({
   context,
@@ -146,33 +205,40 @@ export function AiChatBox({
         type="button"
         data-tour="nav-ai-chat"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:scale-105"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 hover:ring-primary/30"
         aria-label="Open AI assistant"
       >
-        <Sparkles className="h-5 w-5" />
+        <Sparkles className="h-6 w-6" />
       </button>
     );
   }
 
+  const suggestions = context?.kind === "general" ? SUGGESTIONS_GENERAL : SUGGESTIONS_CONTEXT;
+
   return (
     <div
       data-tour="nav-ai-chat"
-      className="fixed bottom-6 right-6 z-40 flex h-[32rem] w-[22rem] max-w-[calc(100vw-3rem)] flex-col rounded-xl border border-border bg-background shadow-2xl"
+      className="fixed bottom-5 right-5 z-40 flex h-[min(38rem,calc(100vh-4rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
     >
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">{title}</span>
+      <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/10 via-background to-background px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold leading-tight">{title}</p>
+            <p className="text-[11px] text-muted-foreground">Workspace-aware · Ask or Auto</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="flex rounded-md border border-border p-0.5 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="flex rounded-lg border border-border bg-background p-0.5 text-xs shadow-sm">
             {(["ask", "auto"] as ChatMode[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
                 className={cn(
-                  "rounded px-2 py-0.5 capitalize",
+                  "rounded-md px-2.5 py-1 capitalize transition-colors",
                   mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 title={
@@ -188,7 +254,7 @@ export function AiChatBox({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="Close assistant"
           >
             <X className="h-4 w-4" />
@@ -196,7 +262,7 @@ export function AiChatBox({
         </div>
       </div>
 
-      <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+      <div className="border-b border-border bg-muted/30 px-4 py-1.5 text-[11px] text-muted-foreground">
         {mode === "ask" ? (
           <>
             <span className="font-medium text-foreground">Ask</span> — AI proposes; you apply.
@@ -212,84 +278,118 @@ export function AiChatBox({
         )}
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {turns.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
-            <MessageSquare className="h-6 w-6" />
+          <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <MessageSquare className="h-6 w-6" />
+            </div>
             {context?.kind === "general" ? (
-              <>
-                <p>Ask about this workspace or how to use Skout.</p>
-                <p className="text-xs">
-                  Try: “Weekly credit usage pie chart”, “Export my credit transactions”, or “Write a
-                  cold email”.
-                </p>
-              </>
+              <p className="text-sm text-muted-foreground">
+                Ask about this workspace, credits, exports, or how to use Skout.
+              </p>
             ) : (
-              <>
-                <p>Ask me to write an email, tweak your copy, or design a sequence.</p>
-                <p className="text-xs">
-                  Switch <span className="font-medium">Ask</span> /{" "}
-                  <span className="font-medium">Auto</span> above to control how AI changes land.
-                </p>
-              </>
+              <p className="text-sm text-muted-foreground">
+                Ask me to write an email, tweak copy, or design a sequence.
+              </p>
             )}
-          </div>
-        )}
-        {turns.map((t, i) => (
-          <div key={i} className={cn("flex", t.role === "user" ? "justify-end" : "justify-start")}>
-            <div
-              className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-                t.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-              )}
-            >
-              {t.content && <p className="whitespace-pre-wrap">{t.content}</p>}
-              {t.action && t.action.type !== "none" && (
-                <ActionCard
-                  action={t.action}
-                  applied={t.applied}
-                  sequenceId={t.sequenceId}
-                  draftId={t.draftId}
-                  segregated={t.segregated}
-                  mode={mode}
-                  committing={commitSequence.isPending}
-                  onApplyEmail={onApplyEmail}
-                  onApplySequence={(a) => commitSequence.mutate(a)}
-                  onOpenReview={() => router.push("/ai/review")}
-                />
-              )}
-              {t.exports && t.exports.length > 0 && (
-                <ExportLinks exports={t.exports} onDownload={(a) => api.downloadExport(a)} />
-              )}
+            <div className="flex w-full flex-col gap-1.5">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={send.isPending}
+                  onClick={() => {
+                    const next = [...turns, { role: "user" as const, content: s }];
+                    setTurns(next);
+                    send.mutate(next);
+                    scrollToBottom();
+                  }}
+                  className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-left text-xs text-foreground transition hover:border-primary/40 hover:bg-accent"
+                >
+                  {s}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        )}
+        {turns.map((t, i) => {
+          const display =
+            t.role === "assistant" && t.exports?.length
+              ? stripExportLinks(t.content, t.exports)
+              : t.content;
+          return (
+            <div key={i} className={cn("flex", t.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                className={cn(
+                  "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
+                  t.role === "user"
+                    ? "rounded-br-md bg-primary text-primary-foreground"
+                    : "rounded-bl-md border border-border/60 bg-muted/80"
+                )}
+              >
+                {display ? (
+                  t.role === "assistant" ? (
+                    <ChatText text={display} />
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{display}</p>
+                  )
+                ) : null}
+                {t.action && t.action.type !== "none" && (
+                  <ActionCard
+                    action={t.action}
+                    applied={t.applied}
+                    sequenceId={t.sequenceId}
+                    draftId={t.draftId}
+                    segregated={t.segregated}
+                    mode={mode}
+                    committing={commitSequence.isPending}
+                    onApplyEmail={onApplyEmail}
+                    onApplySequence={(a) => commitSequence.mutate(a)}
+                    onOpenReview={() => router.push("/ai/review")}
+                  />
+                )}
+                {t.exports && t.exports.length > 0 && (
+                  <ExportLinks exports={t.exports} onDownload={(a) => api.downloadExport(a)} />
+                )}
+              </div>
+            </div>
+          );
+        })}
         {send.isPending && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/80 px-3.5 py-2.5 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex items-end gap-2 border-t border-border p-2">
-        <textarea
-          rows={1}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Message the assistant…"
-          className="max-h-24 min-h-[2.25rem] flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-        />
-        <Button size="sm" onClick={handleSend} disabled={!input.trim() || send.isPending} className="shrink-0">
-          {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+      <div className="border-t border-border bg-background p-3">
+        <div className="flex items-end gap-2 rounded-xl border border-border bg-muted/20 p-1.5 focus-within:ring-2 focus-within:ring-primary/20">
+          <textarea
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Message the assistant…"
+            className="max-h-28 min-h-[2.5rem] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm focus-visible:outline-none"
+          />
+          <Button
+            size="sm"
+            onClick={handleSend}
+            disabled={!input.trim() || send.isPending}
+            className="h-9 w-9 shrink-0 rounded-lg p-0"
+            aria-label="Send message"
+          >
+            {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -413,12 +513,17 @@ function ExportLinks({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="mt-2 space-y-1.5 rounded-md border border-border bg-background p-2 text-foreground">
-      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-        Export ready
-      </span>
+    <div className="mt-2.5 space-y-2 rounded-xl border border-emerald-200/80 bg-emerald-50/80 p-2.5 text-foreground dark:border-emerald-900/50 dark:bg-emerald-950/30">
+      <div className="flex items-center gap-1.5">
+        <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+          Export ready
+        </span>
+      </div>
       {artifacts.map((a) => (
-        <div key={a.exportKey} className="flex items-center justify-between gap-2 text-xs">
+        <div
+          key={a.exportKey}
+          className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs shadow-sm"
+        >
           <div className="min-w-0">
             <p className="truncate font-medium">{a.filename}</p>
             <p className="text-[11px] text-muted-foreground">
@@ -427,8 +532,7 @@ function ExportLinks({
           </div>
           <Button
             size="sm"
-            variant="outline"
-            className="h-7 shrink-0"
+            className="h-8 shrink-0"
             disabled={busy === a.exportKey}
             onClick={async () => {
               setError(null);
@@ -447,7 +551,7 @@ function ExportLinks({
             ) : (
               <Download className="mr-1 h-3.5 w-3.5" />
             )}
-            CSV
+            Download
           </Button>
         </div>
       ))}

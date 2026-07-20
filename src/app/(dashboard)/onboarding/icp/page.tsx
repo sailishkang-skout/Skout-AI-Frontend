@@ -18,14 +18,26 @@ const STEPS = [
   { n: 1 as const, title: "Industries", desc: "Which industries are the best fit?" },
   { n: 2 as const, title: "Geo & seniority", desc: "Where do your buyers sit?" },
   { n: 3 as const, title: "Company size", desc: "Employee count range for your ICP." },
+  {
+    n: 4 as const,
+    title: "Your customers",
+    desc: "Ideal buyer titles and keywords — used for ICP scoring.",
+  },
+  {
+    n: 5 as const,
+    title: "Your company",
+    desc: "What you sell and which pains you solve — grounds scoring & outreach.",
+  },
 ];
+
+type StepN = (typeof STEPS)[number]["n"];
 
 export default function IcpOnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
   const authReady = useAuthReady();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<StepN>(1);
   const [config, setConfig] = useState<IcpConfig>(EMPTY_ICP);
 
   useQuery({
@@ -42,18 +54,18 @@ export default function IcpOnboardingPage() {
     },
   });
 
-  const isLast = step === 3;
+  const isLast = step === 5;
 
   return (
     <PageShell width="narrow">
       <PageHeader
         title="Define your ICP"
-        description={`Step ${step} of 3 — used for scoring, enrichment priority, and smart lists.`}
+        description={`Step ${step} of 5 — used for scoring, enrichment priority, and smart lists.`}
       />
 
       <DemoBanner />
 
-      <div className="flex gap-1.5" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={3}>
+      <div className="flex gap-1.5" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={5}>
         {STEPS.map((s) => (
           <div
             key={s.n}
@@ -76,7 +88,7 @@ export default function IcpOnboardingPage() {
         <Button
           variant="outline"
           disabled={step === 1 || save.isPending}
-          onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
+          onClick={() => setStep((s) => (s > 1 ? ((s - 1) as StepN) : s))}
           className="w-full sm:w-auto"
         >
           Back
@@ -88,7 +100,7 @@ export default function IcpOnboardingPage() {
           </Button>
         ) : (
           <Button
-            onClick={() => setStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s))}
+            onClick={() => setStep((s) => (s < 5 ? ((s + 1) as StepN) : s))}
             className="w-full sm:w-auto"
           >
             Next

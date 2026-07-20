@@ -42,6 +42,51 @@ export const ICP_SENIORITIES = [
   { id: "individual_contributor", label: "Individual contributor" },
 ];
 
+/** Common buyer job titles for onboarding chips. */
+export const ICP_TITLES = [
+  "CEO",
+  "CTO",
+  "CMO",
+  "VP Sales",
+  "VP Marketing",
+  "VP Engineering",
+  "Head of Growth",
+  "Director of Sales",
+  "Director of Marketing",
+  "Sales Manager",
+  "RevOps",
+  "Founder",
+];
+
+/** Value / intent keywords used in ICP scoring. */
+export const ICP_KEYWORDS = [
+  "B2B",
+  "SaaS",
+  "outbound",
+  "inbound",
+  "enterprise",
+  "mid-market",
+  "PLG",
+  "pipeline",
+  "hiring",
+  "Series A",
+  "Series B",
+];
+
+/** Buyer pains your product typically solves. */
+export const ICP_PAIN_POINTS = [
+  "scaling outbound",
+  "low reply rates",
+  "manual prospecting",
+  "data quality",
+  "pipeline generation",
+  "hiring SDRs",
+  "tool sprawl",
+  "CRM hygiene",
+  "lead prioritization",
+  "enrichment cost",
+];
+
 export function useIcpStatus() {
   const authReady = useAuthReady();
   const icpApi = useIcpApi();

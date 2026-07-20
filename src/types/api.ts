@@ -426,6 +426,12 @@ export interface IcpConfig {
   keywords?: string[];
   minEmployees?: number;
   maxEmployees?: number;
+  /** Seller company name — used to ground scoring & outreach context. */
+  companyName?: string;
+  /** What you sell / value prop — used in ICP scoring prompts. */
+  productDescription?: string;
+  /** Pains your product solves for buyers — used in scoring & AI outreach. */
+  customerPainPoints?: string[];
   /** When false, saving ICP does not enqueue workspace-wide re-score. Default true. */
   autoRescoreOnChange?: boolean;
 }

@@ -8,6 +8,9 @@ export function isIcpConfigured(config: IcpConfig | null | undefined): boolean {
       config.seniorities?.length ||
       config.titles?.length ||
       config.keywords?.length ||
+      config.customerPainPoints?.length ||
+      config.companyName ||
+      config.productDescription ||
       config.minEmployees != null ||
       config.maxEmployees != null
   );
