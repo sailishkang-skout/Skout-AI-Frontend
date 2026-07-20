@@ -127,7 +127,7 @@ export function TourTooltip({
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-step-title"
-        className="absolute z-[92] w-[min(100%-2rem,20rem)] rounded-xl border border-border bg-background p-4 shadow-2xl"
+        className="absolute z-[92] w-[min(100%-2rem,22rem)] rounded-xl border border-border bg-background p-4 shadow-2xl"
         style={tooltipStyle}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -144,24 +144,31 @@ export function TourTooltip({
         </div>
 
         <div
-          className="mb-3 flex gap-1"
+          className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted"
           role="progressbar"
           aria-valuenow={stepIndex + 1}
           aria-valuemin={1}
           aria-valuemax={total}
         >
-          {Array.from({ length: total }, (_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? "bg-primary" : "bg-muted"}`}
-            />
-          ))}
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${((stepIndex + 1) / total) * 100}%` }}
+          />
         </div>
 
         <h3 id="tour-step-title" className="text-base font-semibold">
           {step.title}
         </h3>
-        <p className="mt-1.5 text-sm text-muted-foreground">{step.body}</p>
+        <div className="mt-1.5 max-h-[40vh] space-y-2 overflow-y-auto pr-0.5">
+          <p className="text-sm text-muted-foreground">{step.body}</p>
+          {step.details && step.details.length > 0 && (
+            <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+              {step.details.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <Button

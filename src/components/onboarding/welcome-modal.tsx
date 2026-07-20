@@ -2,7 +2,7 @@
 
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TOUR_STEPS } from "@/lib/product-tour";
+import { TOUR_STEPS, TOUR_WELCOME_CHAPTERS } from "@/lib/product-tour";
 
 interface WelcomeModalProps {
   onStart: () => void;
@@ -35,23 +35,21 @@ export function WelcomeModal({ onStart, onSkip }: WelcomeModalProps) {
           Welcome to Skout AI
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          A quick {TOUR_STEPS.length}-step tour shows how to import prospects, build lists, and
-          launch outreach. Takes about a minute — you can skip anytime.
+          A guided tour of every major area — discover, activate, outreach, and workspace settings.
+          About {TOUR_STEPS.length} stops; skip anytime or replay from the sidebar.
         </p>
 
-        <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-          <li className="flex gap-2">
-            <span className="font-medium text-foreground">1.</span> Dashboard snapshot
-          </li>
-          <li className="flex gap-2">
-            <span className="font-medium text-foreground">2.</span> Import lists
-          </li>
-          <li className="flex gap-2">
-            <span className="font-medium text-foreground">3.</span> Enrich & organize
-          </li>
-          <li className="flex gap-2">
-            <span className="font-medium text-foreground">4.</span> Sequences & inbox
-          </li>
+        <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
+          {TOUR_WELCOME_CHAPTERS.map((chapter, i) => (
+            <li key={chapter.title} className="flex gap-2">
+              <span className="shrink-0 font-medium text-foreground">{i + 1}.</span>
+              <span>
+                <span className="font-medium text-foreground">{chapter.title}</span>
+                {" — "}
+                {chapter.summary}
+              </span>
+            </li>
+          ))}
         </ul>
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -59,7 +57,7 @@ export function WelcomeModal({ onStart, onSkip }: WelcomeModalProps) {
             Skip for now
           </Button>
           <Button type="button" onClick={onStart}>
-            Start tour
+            Start full tour
           </Button>
         </div>
       </div>

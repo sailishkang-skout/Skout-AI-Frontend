@@ -144,6 +144,7 @@ export function AiChatBox({
     return (
       <button
         type="button"
+        data-tour="nav-ai-chat"
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:scale-105"
         aria-label="Open AI assistant"
@@ -154,7 +155,10 @@ export function AiChatBox({
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex h-[32rem] w-[22rem] max-w-[calc(100vw-3rem)] flex-col rounded-xl border border-border bg-background shadow-2xl">
+    <div
+      data-tour="nav-ai-chat"
+      className="fixed bottom-6 right-6 z-40 flex h-[32rem] w-[22rem] max-w-[calc(100vw-3rem)] flex-col rounded-xl border border-border bg-background shadow-2xl"
+    >
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />

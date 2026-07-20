@@ -76,24 +76,24 @@ export const enrichmentNav: NavGroup[] = [
   {
     label: "Discover",
     items: [
-      { href: "/prospects/search", label: "Prospect search", icon: Search },
-      { href: "/prospects/add", label: "Add prospect", icon: UserPlus },
+      { href: "/prospects/search", label: "Prospect search", icon: Search, tourId: "nav-prospect-search" },
+      { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
-      { href: "/smart-lists", label: "Smart lists", icon: Sparkles },
+      { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
     ],
   },
   {
     label: "Activate",
     items: [
       { href: "/lists", label: "Lists", icon: List, tourId: "nav-lists" },
-      { href: "/enrichment", label: "Enrichment", icon: Zap },
+      { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
     ],
   },
   {
     label: "ICP",
     items: [
-      { href: "/onboarding/icp", label: "Setup wizard", icon: Crosshair },
-      { href: "/settings/icp", label: "ICP settings", icon: Target },
+      { href: "/onboarding/icp", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
+      { href: "/settings/icp", label: "ICP settings", icon: Target, tourId: "nav-icp-settings" },
     ],
   },
 ];
@@ -103,21 +103,21 @@ export const otherNav: NavGroup[] = [
     label: "Outreach",
     items: [
       { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
-      { href: "/inbox", label: "Inbox", icon: Inbox },
-      { href: "/deliverability", label: "Deliverability", icon: Target },
-      { href: "/ai/review", label: "AI review", icon: Sparkles },
+      { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
+      { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
+      { href: "/ai/review", label: "AI review", icon: Sparkles, tourId: "nav-ai-review" },
     ],
   },
   {
     label: "Settings",
     items: [
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/settings/crm", label: "CRM sync", icon: Settings },
-      { href: "/settings/integrations", label: "Integrations", icon: Zap },
-      { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw },
-      { href: "/settings/team", label: "Team", icon: Users2 },
-      { href: "/settings/workspace", label: "Workspace", icon: Users },
-      { href: "/guides", label: "Setup guides", icon: BookOpen },
+      { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
+      { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
+      { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
+      { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
+      { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
+      { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },
+      { href: "/guides", label: "Setup guides", icon: BookOpen, tourId: "nav-guides" },
     ],
   },
 ];
