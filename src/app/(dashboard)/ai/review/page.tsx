@@ -99,7 +99,7 @@ export default function AiReviewPage() {
     enabled: authReady,
   });
 
-  const items = drafts.data?.data ?? [];
+  const items = useMemo(() => drafts.data?.data ?? [], [drafts.data?.data]);
   const reviewable = useMemo(
     () => items.filter((d) => d.status === "pending_review" || d.status === "edited"),
     [items]
