@@ -232,7 +232,7 @@ export default function ProspectSearchPage() {
             ICP settings
           </Link>{" "}
           or{" "}
-          <Link href="/onboarding/icp" className="font-medium underline underline-offset-2">
+          <Link href="/onboarding" className="font-medium underline underline-offset-2">
             setup wizard
           </Link>
           .

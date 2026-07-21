@@ -1,5 +1,10 @@
 import type { IcpConfig } from "@/types/api";
 
+/** True only after the user has finished and saved the full onboarding wizard. */
+export function isOnboardingComplete(config: IcpConfig | null | undefined): boolean {
+  return Boolean(config?.onboarding?.completedAt);
+}
+
 export function isIcpConfigured(config: IcpConfig | null | undefined): boolean {
   if (!config) return false;
   return Boolean(

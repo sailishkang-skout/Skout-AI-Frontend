@@ -160,7 +160,7 @@ function suggestionsForPage(page?: string): string[] {
       "Enroll this list into a sequence",
     ];
   }
-  if (page.startsWith("/settings/icp") || page.startsWith("/onboarding/icp")) {
+  if (page.startsWith("/settings/icp") || page.startsWith("/onboarding")) {
     return [
       "Review my ICP config",
       "Suggest buyer titles for my product",

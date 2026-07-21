@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { SidebarPanel, TopBar } from "@/components/workspace/sidebar";
 import { IcpEnforcement } from "@/components/layout/icp-enforcement";
 import { WorkspaceAiChat } from "@/components/ai/workspace-ai-chat";
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils";
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const tour = useProductTourOptional();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -35,9 +37,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     setMobileOpen(true);
   }, [tour?.phase, tour?.stepIndex]);
 
+  if (pathname === "/onboarding" || pathname === "/onboarding/") {
+    return <main className="min-h-svh overflow-y-auto bg-background">{children}</main>;
+  }
+
   return (
     <div className="flex h-svh min-h-0 w-full overflow-hidden">
-      <IcpEnforcement />
       <div className="hidden w-64 shrink-0 border-r lg:block">
         <SidebarPanel className="h-full w-64" />
       </div>
@@ -81,7 +86,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <ProductTourProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      <IcpEnforcement>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </IcpEnforcement>
     </ProductTourProvider>
   );
 }

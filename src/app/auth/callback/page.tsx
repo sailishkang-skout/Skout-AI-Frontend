@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { isIcpConfigured } from "@/lib/scoring";
+import { isOnboardingComplete } from "@/lib/scoring";
 import type { IcpConfig } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
@@ -12,6 +12,7 @@ export default async function AuthCallbackPage() {
     redirect("/sign-in");
   }
 
+  let destination = "/onboarding";
   try {
     const token = await getToken();
     const res = await fetch(`${API_URL}/api/v1/workspace/icp`, {
@@ -23,14 +24,13 @@ export default async function AuthCallbackPage() {
 
     if (res.ok) {
       const payload = (await res.json()) as { config?: IcpConfig };
-      if (!isIcpConfigured(payload.config ?? {})) {
-        redirect("/onboarding/icp");
+      if (isOnboardingComplete(payload.config ?? {})) {
+        destination = "/dashboard";
       }
-      redirect("/dashboard");
     }
   } catch {
-    // Backend unreachable — continue to app; user can open Setup wizard from sidebar.
+    // Fail closed: the dashboard gate will retry verification once the API recovers.
   }
 
-  redirect("/dashboard");
+  redirect(destination);
 }

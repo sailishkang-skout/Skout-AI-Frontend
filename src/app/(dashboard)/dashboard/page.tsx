@@ -43,7 +43,7 @@ export default function DashboardPage() {
       {!data?.icpConfigured && (
         <Alert variant="warning">
           Set up your ICP to unlock lead scoring.{" "}
-          <Link href="/onboarding/icp" className="font-medium underline underline-offset-2">
+          <Link href="/onboarding" className="font-medium underline underline-offset-2">
             Complete ICP setup
           </Link>
         </Alert>

@@ -111,7 +111,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: "icp-wizard",
     target: "nav-icp-wizard",
-    href: "/onboarding/icp",
+    href: "/onboarding",
     title: "ICP setup wizard",
     body: "Walk through ideal customer profile setup so search and scoring know who you sell to.",
     details: [

@@ -92,7 +92,7 @@ export const enrichmentNav: NavGroup[] = [
   {
     label: "ICP",
     items: [
-      { href: "/onboarding/icp", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
+      { href: "/onboarding", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
       { href: "/settings/icp", label: "ICP settings", icon: Target, tourId: "nav-icp-settings" },
     ],
   },

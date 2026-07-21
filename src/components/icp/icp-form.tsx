@@ -154,7 +154,7 @@ export function IcpForm({ value, onChange, step }: IcpFormProps) {
               Who do you sell to? Used for ICP title matching and search defaults.
             </p>
             <div className="flex flex-wrap gap-2">
-              {ICP_TITLES.map((t) => (
+              {Array.from(new Set([...ICP_TITLES, ...(value.titles ?? [])])).map((t) => (
                 <Chip
                   key={t}
                   label={t}
@@ -182,7 +182,7 @@ export function IcpForm({ value, onChange, step }: IcpFormProps) {
               Words that signal a good-fit lead (appears in title, role, or company context).
             </p>
             <div className="flex flex-wrap gap-2">
-              {ICP_KEYWORDS.map((kw) => (
+              {Array.from(new Set([...ICP_KEYWORDS, ...(value.keywords ?? [])])).map((kw) => (
                 <Chip
                   key={kw}
                   label={kw}
@@ -248,7 +248,7 @@ export function IcpForm({ value, onChange, step }: IcpFormProps) {
               Select pains your ideal buyer feels — used for scoring and messaging.
             </p>
             <div className="flex flex-wrap gap-2">
-              {ICP_PAIN_POINTS.map((p) => (
+              {Array.from(new Set([...ICP_PAIN_POINTS, ...(value.customerPainPoints ?? [])])).map((p) => (
                 <Chip
                   key={p}
                   label={p}
