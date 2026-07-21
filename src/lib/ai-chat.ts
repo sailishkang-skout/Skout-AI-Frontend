@@ -28,7 +28,8 @@ export type ChatAction =
   | { type: "none" }
   | { type: "email"; subject: string; html: string }
   | { type: "sequence"; name: string; steps: GeneratedStep[] }
-  | { type: "analysis"; title?: string; summary?: string; charts: ChartSpec[] };
+  | { type: "analysis"; title?: string; summary?: string; charts: ChartSpec[] }
+  | { type: "navigate"; path: string; label: string };
 
 export interface ChatExportArtifact {
   dataset: string;
@@ -63,6 +64,8 @@ export interface ChatContext {
   page?: string;
   prospectId?: string;
   threadId?: string;
+  listId?: string;
+  sequenceId?: string;
 }
 
 function triggerBlobDownload(blob: Blob, filename: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripExportLinks } from "@/components/ai/ai-chat-box";
+import { stripExportLinks, sanitizeHtml } from "@/components/ai/ai-chat-box";
 import type { ChatExportArtifact } from "@/lib/ai-chat";
 
 const artifact: ChatExportArtifact = {
@@ -26,5 +26,22 @@ describe("stripExportLinks", () => {
 
   it("leaves unrelated text alone", () => {
     expect(stripExportLinks("Hello world", [])).toBe("Hello world");
+  });
+});
+
+describe("sanitizeHtml", () => {
+  it("strips scripts and unsafe attributes", () => {
+    const cleaned = sanitizeHtml(
+      '<p onclick="alert(1)">Hi</p><script>alert(1)</script><a href="javascript:alert(1)">bad</a>'
+    );
+    expect(cleaned).toContain("<p>Hi</p>");
+    expect(cleaned).not.toContain("script");
+    expect(cleaned).not.toContain("onclick");
+    expect(cleaned).not.toContain("javascript:");
+  });
+
+  it("keeps safe links and merge tokens", () => {
+    const cleaned = sanitizeHtml('<p><a href="{{unsubscribeUrl}}">Unsubscribe</a></p>');
+    expect(cleaned).toContain('href="{{unsubscribeUrl}}"');
   });
 });

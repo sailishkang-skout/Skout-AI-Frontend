@@ -3,7 +3,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
-import { BarChart3, Download, Loader2, MessageSquare, Send, Sparkles, X } from "lucide-react";
+import { BarChart3, Download, Loader2, MessageSquare, Send, Sparkles, X, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -24,6 +25,7 @@ interface ChatTurn {
   draftId?: string;
   segregated?: boolean;
   exports?: ChatExportArtifact[];
+  failed?: boolean;
 }
 
 interface AiChatBoxProps {
@@ -43,10 +45,48 @@ interface AiChatBoxProps {
   stageForReview?: boolean;
 }
 
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
-    .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "");
+const ALLOWED_EMAIL_TAGS = new Set(["P", "STRONG", "EM", "A", "BR", "UL", "LI"]);
+
+function isSafeHref(href: string): boolean {
+  return (
+    href.startsWith("https://") ||
+    href.startsWith("http://") ||
+    href.startsWith("mailto:") ||
+    href === "{{unsubscribeUrl}}"
+  );
+}
+
+/** Allow only the small HTML subset supported by AI-generated email actions. */
+export function sanitizeHtml(html: string): string {
+  if (typeof DOMParser === "undefined") {
+    return html
+      .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+      .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "")
+      .replace(/\s(?:href|src)\s*=\s*(['"])\s*(?:javascript|data):[\s\S]*?\1/gi, "");
+  }
+
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return "";
+
+  for (const element of Array.from(root.querySelectorAll("*"))) {
+    if (!ALLOWED_EMAIL_TAGS.has(element.tagName)) {
+      element.replaceWith(...Array.from(element.childNodes));
+      continue;
+    }
+
+    const href = element.tagName === "A" ? element.getAttribute("href") ?? "" : "";
+    for (const attribute of Array.from(element.attributes)) {
+      element.removeAttribute(attribute.name);
+    }
+
+    if (element.tagName === "A" && isSafeHref(href)) {
+      element.setAttribute("href", href);
+      element.setAttribute("rel", "noopener noreferrer");
+    }
+  }
+
+  return root.innerHTML;
 }
 
 /** Strip markdown/download URLs when Export ready card already shows the file. */
@@ -63,10 +103,11 @@ export function stripExportLinks(text: string, artifacts: ChatExportArtifact[] =
   return out;
 }
 
-/** Light markdown: bold + links only (no full markdown parser). */
+/** Light markdown: bold, external links, and in-app paths. */
 function ChatText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
+  const re =
+    /(\*\*[^*]+\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(?<![\w@])(\/[a-z0-9][a-z0-9/_-]*))/gi;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
@@ -76,7 +117,7 @@ function ChatText({ text }: { text: string }) {
     }
     if (m[0].startsWith("**")) {
       parts.push(<strong key={key++}>{m[0].slice(2, -2)}</strong>);
-    } else {
+    } else if (m[2] && m[3]) {
       parts.push(
         <a
           key={key++}
@@ -88,6 +129,12 @@ function ChatText({ text }: { text: string }) {
           {m[2]}
         </a>
       );
+    } else if (m[4]) {
+      parts.push(
+        <Link key={key++} href={m[4]} className="font-medium underline underline-offset-2">
+          {m[4]}
+        </Link>
+      );
     }
     last = m.index + m[0].length;
   }
@@ -95,16 +142,71 @@ function ChatText({ text }: { text: string }) {
   return <p className="whitespace-pre-wrap break-words">{parts}</p>;
 }
 
+function suggestionsForPage(page?: string): string[] {
+  if (!page) return SUGGESTIONS_GENERAL;
+  if (page.startsWith("/prospects/search")) {
+    return [
+      "Find VP Sales in SaaS companies",
+      "Who matches my ICP?",
+      "Take me to smart lists",
+      "Export search results tips",
+    ];
+  }
+  if (page.startsWith("/lists")) {
+    return [
+      "Who is in this list?",
+      "How do I enrich these prospects?",
+      "Export list members as CSV",
+      "Enroll this list into a sequence",
+    ];
+  }
+  if (page.startsWith("/settings/icp") || page.startsWith("/onboarding/icp")) {
+    return [
+      "Review my ICP config",
+      "Suggest buyer titles for my product",
+      "How does ICP scoring work?",
+      "Take me to prospect search",
+    ];
+  }
+  if (page.startsWith("/deliverability")) {
+    return [
+      "How healthy is my deliverability?",
+      "How do I connect an inbox?",
+      "Explain SPF, DKIM, and DMARC",
+      "Show inbox warmup status",
+    ];
+  }
+  if (page.startsWith("/analytics")) {
+    return [
+      "Weekly credit usage pie chart",
+      "Export credit transactions",
+      "Summarize enrichment activity",
+      "What changed this week?",
+    ];
+  }
+  if (page.startsWith("/inbox")) {
+    return [
+      "Summarize this thread",
+      "Draft a reply to this prospect",
+      "Show unread inbox counts",
+      "Take me to AI Review",
+    ];
+  }
+  return SUGGESTIONS_GENERAL;
+}
+
 const SUGGESTIONS_GENERAL = [
   "Weekly credit usage pie chart",
+  "Find VP Sales in SaaS companies",
+  "How do I import prospects?",
   "Export my credit transactions",
-  "How do I set up my ICP?",
+  "Take me to my sequences",
 ];
 
 const SUGGESTIONS_CONTEXT = [
-  "Write a cold email",
-  "Design a 4-step sequence",
-  "Shorten this copy",
+  "Write a cold email for this prospect",
+  "Design a 4-step outbound sequence",
+  "Shorten this copy and add urgency",
 ];
 
 
@@ -123,6 +225,7 @@ export function AiChatBox({
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastAttemptRef = useRef<ChatTurn[]>([]);
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -136,6 +239,17 @@ export function AiChatBox({
     onSuccess: (seq) => {
       onSequenceCreated?.(seq.id);
       router.push(`/sequences/${seq.id}`);
+    },
+    onError: (err) => {
+      const detail = err instanceof Error ? err.message : "Unknown error";
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Sorry — I couldn't create that sequence (${detail}). Please try again.`,
+        },
+      ]);
+      scrollToBottom();
     },
   });
 
@@ -181,13 +295,20 @@ export function AiChatBox({
         {
           role: "assistant",
           content: detail
-            ? `Sorry — I couldn't process that (${detail}). Please try again.`
-            : "Sorry — I couldn't process that. Please try again.",
+            ? `Sorry — I couldn't process that (${detail}).`
+            : "Sorry — I couldn't process that.",
+          failed: true,
         },
       ]);
       scrollToBottom();
     },
   });
+
+  function retryLast() {
+    if (!lastAttemptRef.current.length || send.isPending) return;
+    send.mutate(lastAttemptRef.current);
+    scrollToBottom();
+  }
 
   function handleSend() {
     const text = input.trim();
@@ -195,6 +316,7 @@ export function AiChatBox({
     const next = [...turns, { role: "user" as const, content: text }];
     setTurns(next);
     setInput("");
+    lastAttemptRef.current = next;
     send.mutate(next);
     scrollToBottom();
   }
@@ -205,7 +327,7 @@ export function AiChatBox({
         type="button"
         data-tour="nav-ai-chat"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 hover:ring-primary/30"
+        className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-[max(1.5rem,env(safe-area-inset-right))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 hover:ring-primary/30"
         aria-label="Open AI assistant"
       >
         <Sparkles className="h-6 w-6" />
@@ -213,12 +335,13 @@ export function AiChatBox({
     );
   }
 
-  const suggestions = context?.kind === "general" ? SUGGESTIONS_GENERAL : SUGGESTIONS_CONTEXT;
+  const suggestions =
+    context?.kind === "general" ? suggestionsForPage(context.page) : SUGGESTIONS_CONTEXT;
 
   return (
     <div
       data-tour="nav-ai-chat"
-      className="fixed bottom-5 right-5 z-40 flex h-[min(38rem,calc(100vh-4rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40 flex h-[min(38rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
     >
       <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/10 via-background to-background px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -302,6 +425,7 @@ export function AiChatBox({
                   onClick={() => {
                     const next = [...turns, { role: "user" as const, content: s }];
                     setTurns(next);
+                    lastAttemptRef.current = next;
                     send.mutate(next);
                     scrollToBottom();
                   }}
@@ -351,6 +475,18 @@ export function AiChatBox({
                 )}
                 {t.exports && t.exports.length > 0 && (
                   <ExportLinks exports={t.exports} onDownload={(a) => api.downloadExport(a)} />
+                )}
+                {t.failed && i === turns.length - 1 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 h-7"
+                    disabled={send.isPending}
+                    onClick={retryLast}
+                  >
+                    Retry
+                  </Button>
                 )}
               </div>
             </div>
@@ -495,6 +631,20 @@ function ActionCard({
             <ChartView key={`${chart.title}-${i}`} chart={chart} />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (action.type === "navigate") {
+    return (
+      <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 text-foreground">
+        <Link
+          href={action.path}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+          {action.label}
+        </Link>
       </div>
     );
   }
