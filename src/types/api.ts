@@ -22,6 +22,7 @@ export interface ProspectSummary {
   icpScore?: number;
   intentScore?: number;
   painPoints?: string[];
+  painPointsRationale?: string;
   outreachReadiness?: string;
   signals?: Array<{ type: string; observedAt: string; detail?: string }>;
   techStack?: Array<{ category: string; technology: string }>;
@@ -528,6 +529,7 @@ export interface ScoreResult {
   icpBand: string;
   intentScore: number;
   painPoints: string[];
+  painPointsRationale?: string;
   outreachReadiness: string;
   reasoning: string;
   source?: "llm" | "heuristic";

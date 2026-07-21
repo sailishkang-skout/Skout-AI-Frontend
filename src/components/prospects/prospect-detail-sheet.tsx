@@ -259,6 +259,7 @@ export function ProspectDetailSheet({
     onSuccess: (data) => {
       queryClient.setQueryData<ScoreResult>(["prospect-score", prospectId], data);
       void queryClient.invalidateQueries({ queryKey: ["scores"] });
+      void queryClient.invalidateQueries({ queryKey: ["prospects", "detail", prospectId] });
     },
   });
 
@@ -281,6 +282,9 @@ export function ProspectDetailSheet({
   const resolvedBand = resolvedScore != null ? scoreBandLabel(resolvedScore) : null;
   const resolvedSource = scoreResult?.source;
   const resolvedDimensions = scoreResult?.dimensions;
+  // Pain points: prefer real-time mutation result, then fall back to stored detail
+  const resolvedPainPoints = scoreResult?.painPoints ?? d.painPoints;
+  const resolvedPainRationale = scoreResult?.painPointsRationale ?? d.painPointsRationale;
 
   const isIcpError =
     scoreMutation.error instanceof ApiError && scoreMutation.error.status === 400;
@@ -449,15 +453,20 @@ export function ProspectDetailSheet({
           <DetailRow label="Previous company" value={detail.data?.previousCompany} />
         </Section>
 
-        {d.painPoints && d.painPoints.length > 0 && (
+        {resolvedPainPoints && resolvedPainPoints.length > 0 && (
           <Section title="Pain points">
             <div className="flex flex-wrap gap-1.5 py-2">
-              {d.painPoints.map((p) => (
+              {resolvedPainPoints.map((p) => (
                 <Badge key={p} tone="warning">
-                  {p}
+                  {p.replace(/_/g, " ")}
                 </Badge>
               ))}
             </div>
+            {resolvedPainRationale && (
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                {resolvedPainRationale}
+              </p>
+            )}
           </Section>
         )}
 
