@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface ClientLogFields {
@@ -60,4 +62,19 @@ export function createClientLogger(module: string): ClientLogger {
       });
     },
   };
+}
+
+/** Log + send to Sentry (use for unexpected failures, not routine 4xx). */
+export function logAndCapture(
+  log: ClientLogger,
+  err: unknown,
+  message: string,
+  fields?: ClientLogFields
+): void {
+  log.error(message, err, fields);
+  const exception = err instanceof Error ? err : new Error(message);
+  Sentry.captureException(exception, {
+    tags: { module: log.module },
+    extra: { message, ...fields },
+  });
 }

@@ -2,6 +2,9 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { createClientLogger } from "@/lib/logger";
+
+const log = createClientLogger("app.global-error");
 
 export default function GlobalError({
   error,
@@ -11,6 +14,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    log.error("global error boundary", error, { digest: error.digest });
     Sentry.captureException(error);
   }, [error]);
 

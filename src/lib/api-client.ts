@@ -1,5 +1,7 @@
 import { useAuth } from "@clerk/nextjs";
+import { createClientLogger, logAndCapture } from "@/lib/logger";
 
+const log = createClientLogger("api-client");
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
 /**
@@ -97,6 +99,27 @@ export const authQueryOptions = {
   retryDelay: (attempt: number) => Math.min(1000, 100 * 2 ** attempt),
 } as const;
 
+function logApiFailure(
+  method: string,
+  path: string,
+  error: unknown,
+  fields?: Record<string, unknown>
+): void {
+  if (isRetryableAuthError(error)) {
+    log.debug("api auth race", { method, path, ...fields });
+    return;
+  }
+  if (error instanceof ApiError && error.status >= 500) {
+    logAndCapture(log, error, "api request server error", { method, path, status: error.status, ...fields });
+    return;
+  }
+  if (error instanceof ApiError) {
+    log.warn("api request failed", { method, path, status: error.status, message: error.message, ...fields });
+    return;
+  }
+  logAndCapture(log, error, "api request network failure", { method, path, ...fields });
+}
+
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit & { workspaceId?: string; authToken?: string }
@@ -122,20 +145,32 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${getApiBase()}${path}`, {
-    ...init,
-    body,
-    headers,
-    credentials: "include",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBase()}${path}`, {
+      ...init,
+      body,
+      headers,
+      credentials: "include",
+    });
+  } catch (err) {
+    logApiFailure(method, path, err, { workspaceId });
+    throw err;
+  }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => undefined);
+    const errBody = await res.json().catch(() => undefined);
     const message =
-      typeof body === "object" && body !== null && "error" in body
-        ? String((body as { error: string }).error)
+      typeof errBody === "object" && errBody !== null && "error" in errBody
+        ? String((errBody as { error: string }).error)
         : res.statusText;
-    throw new ApiError(message, res.status, body);
+    const error = new ApiError(message, res.status, errBody);
+    logApiFailure(method, path, error, { workspaceId });
+    throw error;
+  }
+
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    log.info("api mutation succeeded", { method, path, status: res.status, workspaceId });
   }
 
   if (res.status === 204) {
@@ -159,21 +194,31 @@ export async function apiFetchBlob(
     headers.set("X-Workspace-Id", workspaceId);
   }
 
-  const res = await fetch(`${getApiBase()}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => undefined);
-    const message =
-      typeof body === "object" && body !== null && "error" in body
-        ? String((body as { error: string }).error)
-        : res.statusText;
-    throw new ApiError(message, res.status, body);
+  const method = (init.method ?? "GET").toUpperCase();
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBase()}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  } catch (err) {
+    logApiFailure(method, path, err, { workspaceId });
+    throw err;
   }
 
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => undefined);
+    const message =
+      typeof errBody === "object" && errBody !== null && "error" in errBody
+        ? String((errBody as { error: string }).error)
+        : res.statusText;
+    const error = new ApiError(message, res.status, errBody);
+    logApiFailure(method, path, error, { workspaceId });
+    throw error;
+  }
+
+  log.info("api blob download succeeded", { method, path, status: res.status, workspaceId });
   return res.blob();
 }
 

@@ -15,6 +15,9 @@ import {
   type ChatExportArtifact,
   type ChatMode,
 } from "@/lib/ai-chat";
+import { createClientLogger } from "@/lib/logger";
+
+const log = createClientLogger("ai-chat");
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -237,10 +240,12 @@ export function AiChatBox({
     mutationFn: (action: Extract<ChatAction, { type: "sequence" }>) =>
       api.createFromSteps({ name: action.name, steps: action.steps }),
     onSuccess: (seq) => {
+      log.info("ai chat sequence created", { sequenceId: seq.id });
       onSequenceCreated?.(seq.id);
       router.push(`/sequences/${seq.id}`);
     },
     onError: (err) => {
+      log.error("ai chat sequence create failed", err);
       const detail = err instanceof Error ? err.message : "Unknown error";
       setTurns((prev) => [
         ...prev,
@@ -262,6 +267,14 @@ export function AiChatBox({
         context,
       }),
     onSuccess: (res) => {
+      log.info("ai chat reply received", {
+        mode,
+        actionType: res.action.type,
+        applied: res.applied,
+        sequenceId: res.sequenceId,
+        draftId: res.draftId,
+        exportCount: res.exports?.length ?? 0,
+      });
       setTurns((prev) => [
         ...prev,
         {
@@ -286,6 +299,7 @@ export function AiChatBox({
       scrollToBottom();
     },
     onError: (err) => {
+      log.error("ai chat send failed", err, { mode });
       const detail =
         err instanceof Error && err.message && err.message !== "Failed to fetch"
           ? err.message
