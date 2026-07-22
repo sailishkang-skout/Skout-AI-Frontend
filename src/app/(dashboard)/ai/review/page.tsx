@@ -21,6 +21,7 @@ import {
 } from "@/lib/ai-drafts";
 import { cn } from "@/lib/utils";
 import type { AiDraft, AiDraftStatus } from "@/types/api";
+import { sanitizeHtml } from "@/components/ai/ai-chat-box";
 
 const STATUS_FILTERS: { label: string; value: AiDraftStatus | "all" }[] = [
   { label: "Needs review", value: "pending_review" },
@@ -33,14 +34,6 @@ const STATUS_FILTERS: { label: string; value: AiDraftStatus | "all" }[] = [
 
 function looksLikeHtml(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value.trim());
-}
-
-/** Strip anything unsafe before rendering AI/model HTML in the review preview. */
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
-    .replace(/\son\w+\s*=\s*(['"])[\s\S]*?\1/gi, "")
-    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
 }
 
 /**

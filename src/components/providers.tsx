@@ -18,6 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
+            gcTime: 5 * 60_000,
             refetchOnWindowFocus: false,
             retry: (failureCount, error) =>
               isRetryableAuthError(error) ? failureCount < 3 : failureCount < 1,
