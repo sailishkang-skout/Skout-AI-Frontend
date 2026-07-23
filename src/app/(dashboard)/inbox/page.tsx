@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { Mail } from "lucide-react";
 import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -146,6 +147,7 @@ export default function InboxPage() {
   const threads = threadsQuery.data?.data ?? [];
   const total = threadsQuery.data?.total ?? 0;
   const inboxes = inboxesQuery.data?.data ?? [];
+  const noInboxes = inboxesQuery.isFetched && inboxes.length === 0;
 
   return (
     <PageShell width="full">
@@ -155,6 +157,15 @@ export default function InboxPage() {
       />
 
       <DemoBanner />
+
+      {noInboxes && (
+        <Alert variant="warning" title="No inbox connected">
+          Connect a sending inbox to receive replies and view outreach threads.{" "}
+          <Link href="/deliverability" className="font-medium underline underline-offset-2">
+            Connect inbox in Deliverability
+          </Link>
+        </Alert>
+      )}
 
       {threadsQuery.error && (
         <Alert

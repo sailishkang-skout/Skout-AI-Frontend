@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { ApiError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse } from "@/lib/enrichment";
@@ -60,6 +60,7 @@ export default function ProspectSearchPage() {
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
 
   const icp = useQuery({
@@ -209,10 +210,15 @@ export default function ProspectSearchPage() {
       return enrichmentApi.addToList(addListId, prospectIds);
     },
     onSuccess: (list) => {
+      setAddError(null);
       setAddedMsg(`Added ${selected.size} to "${list.name}"`);
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ["lists"] });
       setTimeout(() => setAddedMsg(null), 4000);
+    },
+    onError: (err) => {
+      setAddedMsg(null);
+      setAddError(formatQueryError(err, "Couldn't add prospects to that list."));
     },
   });
 
@@ -307,6 +313,9 @@ export default function ProspectSearchPage() {
                 <Check className="h-4 w-4 shrink-0" />
                 {addedMsg}
               </span>
+            )}
+            {addError && (
+              <span className="text-sm text-destructive">{addError}</span>
             )}
             {!lists.data?.data.length && (
               <Link href="/lists" className="text-sm text-primary underline underline-offset-2">

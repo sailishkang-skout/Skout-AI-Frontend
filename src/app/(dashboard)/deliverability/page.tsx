@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuthReady, ApiError } from "@/lib/api-client";
+import { useAuthReady, ApiError, formatQueryError } from "@/lib/api-client";
 import { useInboxApi } from "@/lib/inbox";
 import { useLinkedinAccountsApi, type LinkedinAccount } from "@/lib/linkedin-accounts";
 import { cn } from "@/lib/utils";
@@ -860,6 +860,7 @@ export default function DeliverabilityPage() {
   const [liAccountId, setLiAccountId] = useState("");
   const [liDisplayName, setLiDisplayName] = useState("");
   const [liError, setLiError] = useState<string | null>(null);
+  const [inboxActionError, setInboxActionError] = useState<string | null>(null);
 
   const inboxes = useQuery({
     queryKey: ["inboxes"],
@@ -889,22 +890,38 @@ export default function DeliverabilityPage() {
 
   const disconnectInbox = useMutation({
     mutationFn: (id: string) => api.disconnectInbox(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
+    onSuccess: () => {
+      setInboxActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["inboxes"] });
+    },
+    onError: (err) => setInboxActionError(formatQueryError(err, "Couldn't disconnect that inbox.")),
   });
 
   const pauseInbox = useMutation({
     mutationFn: (id: string) => api.pauseInbox(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
+    onSuccess: () => {
+      setInboxActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["inboxes"] });
+    },
+    onError: (err) => setInboxActionError(formatQueryError(err, "Couldn't pause that inbox.")),
   });
 
   const resumeInbox = useMutation({
     mutationFn: (id: string) => api.resumeInbox(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
+    onSuccess: () => {
+      setInboxActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["inboxes"] });
+    },
+    onError: (err) => setInboxActionError(formatQueryError(err, "Couldn't resume that inbox.")),
   });
 
   const testSend = useMutation({
     mutationFn: (id: string) => api.testSend(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inboxes"] }),
+    onSuccess: () => {
+      setInboxActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["inboxes"] });
+    },
+    onError: (err) => setInboxActionError(formatQueryError(err, "Inbox verification failed.")),
   });
 
   const connectLinkedin = useMutation({
@@ -1012,6 +1029,11 @@ export default function DeliverabilityPage() {
       {/* ── Inboxes tab ── */}
       {tab === "inboxes" && (
         <div className="space-y-4">
+          {inboxActionError && (
+            <Alert variant="error" title="Inbox action failed" dismissible>
+              {inboxActionError}
+            </Alert>
+          )}
           <ConnectInboxForm onSuccess={() => queryClient.invalidateQueries({ queryKey: ["inboxes"] })} />
 
           {inboxes.isPending && (

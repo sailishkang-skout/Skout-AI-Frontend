@@ -12,7 +12,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuthReady } from "@/lib/api-client";
+import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import {
   aiDraftStatusLabel,
   aiDraftStatusTone,
@@ -120,7 +120,7 @@ export default function AiReviewPage() {
       setSelected(new Set());
       invalidate();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => setError(formatQueryError(e, "Couldn't approve that draft.")),
   });
 
   const reject = useMutation({
@@ -129,7 +129,7 @@ export default function AiReviewPage() {
       setMessage("Draft rejected");
       invalidate();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => setError(formatQueryError(e, "Couldn't reject that draft.")),
   });
 
   const saveEdit = useMutation({
@@ -141,7 +141,7 @@ export default function AiReviewPage() {
       setMessage("Draft saved — moved to Edited");
       invalidate();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => setError(formatQueryError(e, "Couldn't save that draft.")),
   });
 
   const bulkApprove = useMutation({
@@ -161,7 +161,7 @@ export default function AiReviewPage() {
       setSelected(new Set());
       invalidate();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => setError(formatQueryError(e, "Couldn't bulk-approve drafts.")),
   });
 
   const startEdit = (d: AiDraft) => {

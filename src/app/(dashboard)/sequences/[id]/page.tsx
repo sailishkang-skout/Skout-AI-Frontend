@@ -68,6 +68,7 @@ export default function SequenceDetailPage() {
   const [updatingStepId, setUpdatingStepId] = useState<string | null>(null);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const [focusEmailStepId, setFocusEmailStepId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
@@ -85,13 +86,21 @@ export default function SequenceDetailPage() {
 
   const updateSequence = useMutation({
     mutationFn: (patch: { name?: string; status?: SequenceStatus }) => sequencesApi.update(sequenceId, patch),
-    onSuccess: invalidateDetail,
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't update this sequence.")),
   });
 
   const addStep = useMutation({
     mutationFn: (input: { stepType: SequenceStepType; delayDays: number; delayUnit?: import("@/types/api").SequenceDelayUnit }) =>
       sequencesApi.addStep(sequenceId, input),
-    onSuccess: invalidateDetail,
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't add that step.")),
   });
 
   const updateStep = useMutation({
@@ -99,19 +108,31 @@ export default function SequenceDetailPage() {
       sequencesApi.updateStep(sequenceId, stepId, patch),
     onMutate: ({ stepId }) => setUpdatingStepId(stepId),
     onSettled: () => setUpdatingStepId(null),
-    onSuccess: invalidateDetail,
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't update that step.")),
   });
 
   const deleteStep = useMutation({
     mutationFn: (stepId: string) => sequencesApi.deleteStep(sequenceId, stepId),
     onMutate: (stepId) => setDeletingStepId(stepId),
     onSettled: () => setDeletingStepId(null),
-    onSuccess: invalidateDetail,
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't delete that step.")),
   });
 
   const reorderSteps = useMutation({
     mutationFn: (orderedStepIds: string[]) => sequencesApi.reorderSteps(sequenceId, orderedStepIds),
-    onSuccess: invalidateDetail,
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't reorder steps.")),
   });
 
   function startEditName() {
@@ -153,6 +174,12 @@ export default function SequenceDetailPage() {
       {detail.error && (
         <Alert variant="error" title="Something went wrong" dismissible onRetry={() => detail.refetch()}>
           {formatQueryError(detail.error, "We couldn't load this sequence.")}
+        </Alert>
+      )}
+
+      {actionError && (
+        <Alert variant="error" title="Action failed" dismissible>
+          {actionError}
         </Alert>
       )}
 
@@ -222,7 +249,15 @@ export default function SequenceDetailPage() {
                         key={next}
                         size="sm"
                         variant={cfg.variant}
-                        disabled={updateSequence.isPending}
+                        disabled={
+                          updateSequence.isPending ||
+                          (next === "active" && steps.length === 0)
+                        }
+                        title={
+                          next === "active" && steps.length === 0
+                            ? "Add at least one step before activating"
+                            : undefined
+                        }
                         onClick={() => updateSequence.mutate({ status: next })}
                         className="gap-1.5"
                       >

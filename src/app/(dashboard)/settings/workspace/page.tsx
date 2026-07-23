@@ -395,7 +395,7 @@ export default function WorkspaceSettingsPage() {
             !transactions.isLoading &&
             !transactions.error && (
               <p className="text-sm text-muted-foreground">
-                No transactions yet. Use &quot;Add 100 credits&quot; or run an enrichment to see
+                No transactions yet. Buy a credit pack above, or run an enrichment to see
                 activity here.
               </p>
             )
