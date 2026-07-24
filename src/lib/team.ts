@@ -12,10 +12,15 @@ export function useTeamApi() {
       fetchApi<{ data: WorkspaceInvite[] }>("/api/v1/team/invites"),
 
     inviteMember: (email: string, role: WorkspaceRole) =>
-      fetchApi<{ data: { email: string; role: WorkspaceRole; expiresAt: string; acceptUrl: string } }>(
-        "/api/v1/team/invites",
-        { method: "POST", body: JSON.stringify({ email, role }) }
-      ),
+      fetchApi<{
+        data: {
+          email: string;
+          role: WorkspaceRole;
+          expiresAt: string;
+          acceptUrl: string;
+          emailSent: boolean;
+        };
+      }>("/api/v1/team/invites", { method: "POST", body: JSON.stringify({ email, role }) }),
 
     updateRole: (userId: string, role: WorkspaceRole) =>
       fetchApi<{ data: { userId: string; role: WorkspaceRole } }>(

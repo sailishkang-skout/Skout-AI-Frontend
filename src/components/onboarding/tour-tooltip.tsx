@@ -20,13 +20,19 @@ interface Rect {
   height: number;
 }
 
-function readTargetRect(target: string): Rect | null {
+function measureTargetRect(target: string): Rect | null {
   const el = document.querySelector(`[data-tour="${target}"]`) as HTMLElement | null;
   if (!el) return null;
   const r = el.getBoundingClientRect();
   if (r.width < 2 && r.height < 2) return null;
-  el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   return { top: r.top, left: r.left, width: r.width, height: r.height };
+}
+
+/** Scroll target into view once per step — never from scroll/resize handlers. */
+function ensureTargetVisible(target: string) {
+  const el = document.querySelector(`[data-tour="${target}"]`) as HTMLElement | null;
+  if (!el) return;
+  el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
 }
 
 export function TourTooltip({
@@ -44,33 +50,36 @@ export function TourTooltip({
     let cancelled = false;
     let tries = 0;
 
-    const tick = () => {
+    const measure = () => {
       if (cancelled) return;
-      const next = readTargetRect(step.target);
+      const next = measureTargetRect(step.target);
       if (next) {
         setRect(next);
         return;
       }
       tries += 1;
       if (tries < 40) {
-        window.setTimeout(tick, 80);
+        window.setTimeout(measure, 80);
       } else {
         // Fallback: center tooltip if target missing (e.g. mobile drawer closed)
         setRect(null);
       }
     };
 
-    tick();
-    const onResize = () => {
-      const next = readTargetRect(step.target);
+    // Scroll once when the step changes, then measure with settled layout.
+    ensureTargetVisible(step.target);
+    measure();
+
+    const onScrollOrResize = () => {
+      const next = measureTargetRect(step.target);
       if (next) setRect(next);
     };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScrollOrResize, true);
     return () => {
       cancelled = true;
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
     };
   }, [step.target, step.href]);
 
@@ -78,8 +87,13 @@ export function TourTooltip({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onSkip();
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
   }, [onSkip]);
 
   const isLast = stepIndex >= total - 1;
@@ -112,7 +126,7 @@ export function TourTooltip({
       <div className="absolute inset-0 bg-black/50" onClick={onSkip} aria-hidden />
       {rect && (
         <div
-          className="pointer-events-none absolute z-[91] rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background transition-all"
+          className="pointer-events-none absolute z-[91] rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background"
           style={{
             top: rect.top - pad,
             left: rect.left - pad,

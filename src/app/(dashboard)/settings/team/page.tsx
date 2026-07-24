@@ -40,6 +40,8 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>("member");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [lastAcceptUrl, setLastAcceptUrl] = useState<string | null>(null);
+  const [lastEmailSent, setLastEmailSent] = useState(true);
 
   // Current user's role (to gate actions)
   const me = useQuery<{ role?: string }>({
@@ -69,13 +71,19 @@ export default function TeamPage() {
     mutationFn: () => teamApi.inviteMember(inviteEmail.trim(), inviteRole),
     onSuccess: (res) => {
       setInviteEmail("");
-      setInviteSuccess(`Invite sent to ${res.data.email}`);
+      setLastAcceptUrl(res.data.acceptUrl);
+      setLastEmailSent(res.data.emailSent);
+      setInviteSuccess(
+        res.data.emailSent
+          ? `Invite emailed to ${res.data.email}`
+          : `Invite created for ${res.data.email} — email was not sent; copy the link below`
+      );
       setInviteError(null);
-      setTimeout(() => setInviteSuccess(null), 4000);
       queryClient.invalidateQueries({ queryKey: ["team"] });
     },
     onError: (err: Error) => {
       setInviteError(err.message);
+      setLastAcceptUrl(null);
     },
   });
 
@@ -113,8 +121,33 @@ export default function TeamPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {inviteSuccess && (
-              <Alert variant="success" title="Invitation sent" dismissible>
-                {inviteSuccess}
+              <Alert
+                variant={lastEmailSent ? "success" : "warning"}
+                title={lastEmailSent ? "Invitation sent" : "Invitation created"}
+                dismissible
+              >
+                <p>{inviteSuccess}</p>
+                {lastAcceptUrl && (
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      readOnly
+                      value={lastAcceptUrl}
+                      className="min-w-0 flex-1 bg-background font-mono text-xs"
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(lastAcceptUrl);
+                      }}
+                    >
+                      Copy link
+                    </Button>
+                  </div>
+                )}
               </Alert>
             )}
             {inviteError && (
