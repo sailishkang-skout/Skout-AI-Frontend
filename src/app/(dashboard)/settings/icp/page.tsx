@@ -41,9 +41,16 @@ function IcpSettingsContent() {
   }, [icp.data]);
 
   const save = useMutation({
-    mutationFn: () => icpApi.save(config),
+    mutationFn: () =>
+      icpApi.save({
+        ...config,
+        // Never drop wizard completion when editing ICP fields in settings.
+        onboarding: config.onboarding ?? icp.data?.config?.onboarding,
+      }),
     onSuccess: async (data) => {
+      queryClient.setQueryData(["icp"], data);
       queryClient.invalidateQueries({ queryKey: ["icp"] });
+      if (data.config) setConfig(data.config);
       setSaved(true);
       setRescoreStatus(null);
 
@@ -123,7 +130,11 @@ function IcpSettingsContent() {
         </CardHeader>
         <CardContent className="space-y-6">
           <IcpForm value={config} onChange={setConfig} />
-          <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full sm:w-auto">
+          <Button
+            onClick={() => save.mutate()}
+            disabled={save.isPending || icp.isLoading || !icp.isSuccess}
+            className="w-full sm:w-auto"
+          >
             {save.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : saved ? (

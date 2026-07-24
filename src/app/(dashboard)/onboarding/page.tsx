@@ -1,8 +1,8 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,7 +22,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useAuthReady } from "@/lib/api-client";
 import { useIcpApi } from "@/lib/icp";
+import { isOnboardingComplete } from "@/lib/scoring";
 import type { IcpConfig, OnboardingProfile } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -376,12 +378,30 @@ export default function OnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
+  const authReady = useAuthReady();
   const [step, setStep] = useState(0);
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
+  const [hydrated, setHydrated] = useState(false);
+
+  const existingIcp = useQuery({
+    queryKey: ["icp"],
+    queryFn: icpApi.get,
+    enabled: authReady,
+  });
+
+  // Already finished: skip straight to the completion screen instead of restarting.
+  useEffect(() => {
+    if (hydrated || !existingIcp.isSuccess) return;
+    setHydrated(true);
+    if (isOnboardingComplete(existingIcp.data?.config)) {
+      setStep(9);
+    }
+  }, [existingIcp.data?.config, existingIcp.isSuccess, hydrated]);
 
   const save = useMutation({
     mutationFn: () => icpApi.save(buildIcpConfig(state)),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData(["icp"], data);
       queryClient.invalidateQueries({ queryKey: ["icp"] });
       setStep(9);
     },
@@ -393,7 +413,8 @@ export default function OnboardingPage() {
   const progress = useMemo(() => {
     if (step === 0) return 0;
     if (step >= 9) return 100;
-    return Math.round((step / TOTAL_QUESTION_STEPS) * 100);
+    // Percent of steps already finished — step 1 starts at 0%, not ~13%.
+    return Math.round(((step - 1) / TOTAL_QUESTION_STEPS) * 100);
   }, [step]);
 
   const canContinue = useMemo(() => {
