@@ -19,6 +19,7 @@ export function useTeamApi() {
           expiresAt: string;
           acceptUrl: string;
           emailSent: boolean;
+          emailError?: string;
         };
       }>("/api/v1/team/invites", { method: "POST", body: JSON.stringify({ email, role }) }),
 

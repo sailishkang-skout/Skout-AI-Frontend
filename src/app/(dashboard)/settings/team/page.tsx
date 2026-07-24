@@ -76,7 +76,7 @@ export default function TeamPage() {
       setInviteSuccess(
         res.data.emailSent
           ? `Invite emailed to ${res.data.email}`
-          : `Invite created for ${res.data.email} — email was not sent; copy the link below`
+          : `Invite created for ${res.data.email} — ${res.data.emailError ?? "email was not sent"}; copy the link below`
       );
       setInviteError(null);
       queryClient.invalidateQueries({ queryKey: ["team"] });
