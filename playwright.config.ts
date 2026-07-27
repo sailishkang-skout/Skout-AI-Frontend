@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3001";
+const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://localhost:3002";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,6 +35,7 @@ export default defineConfig({
             ...process.env,
             E2E_AUTH_BYPASS: "true",
             NEXT_PUBLIC_API_URL: apiURL,
+            NEXT_PUBLIC_CRM_API_URL: crmApiURL,
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
             CLERK_SECRET_KEY: "",
           },

@@ -8,8 +8,13 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
+  Building2,
+  CalendarClock,
+  CheckSquare,
   Crosshair,
   Inbox,
+  Kanban,
+  LayoutDashboard,
   List,
   Mail,
   Search,
@@ -61,6 +66,8 @@ export type NavItem = {
   comingSoon?: boolean;
   /** Product tour spotlight target id (data-tour) */
   tourId?: string;
+  /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
+  exact?: boolean;
 };
 
 export type NavGroup = {
@@ -94,6 +101,20 @@ export const enrichmentNav: NavGroup[] = [
     items: [
       { href: "/onboarding", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
       { href: "/settings/icp", label: "ICP settings", icon: Target, tourId: "nav-icp-settings" },
+    ],
+  },
+];
+
+export const crmNav: NavGroup[] = [
+  {
+    label: "CRM",
+    items: [
+      { href: "/crm", label: "Overview", icon: LayoutDashboard, exact: true },
+      { href: "/crm/companies", label: "Companies", icon: Building2 },
+      { href: "/crm/contacts", label: "Contacts", icon: Users2 },
+      { href: "/crm/deals", label: "Deals", icon: Kanban },
+      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
+      { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
     ],
   },
 ];
@@ -142,10 +163,11 @@ function NavLink({
   icon: Icon,
   comingSoon,
   tourId,
+  exact,
   onNavigate,
 }: NavItem & { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const active = !comingSoon && (pathname === href || pathname.startsWith(`${href}/`));
+  const active = !comingSoon && (pathname === href || (!exact && pathname.startsWith(`${href}/`)));
 
   if (comingSoon) {
     return (
@@ -229,6 +251,7 @@ export function SidebarPanel({
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
         <NavSection groups={enrichmentNav} onNavigate={onNavigate} />
+        <NavSection groups={crmNav} onNavigate={onNavigate} />
         <NavSection groups={otherNav} onNavigate={onNavigate} />
         <RestartTourButton onNavigate={onNavigate} />
       </nav>

@@ -1,0 +1,141 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { useMeetingsApi } from "@/lib/crm/meetings";
+import { formatQueryError } from "@/lib/api-client";
+import { Field } from "./form-field";
+import type { Meeting, MeetingType } from "@/types/crm";
+
+const MEETING_TYPE_OPTIONS: MeetingType[] = ["call", "video", "in_person"];
+
+export function MeetingFormSheet({
+  open,
+  onClose,
+  meeting,
+  defaultLink,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  meeting?: Meeting;
+  /** Preselect which entity this meeting is linked to, when created from a detail page. */
+  defaultLink?: { contactId?: string; companyId?: string; dealId?: string };
+  onSaved?: (meeting: Meeting) => void;
+}) {
+  const queryClient = useQueryClient();
+  const meetingsApi = useMeetingsApi();
+  const isEdit = Boolean(meeting);
+
+  const [title, setTitle] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("30");
+  const [meetingType, setMeetingType] = useState<MeetingType>("call");
+  const [summary, setSummary] = useState("");
+  const [outcome, setOutcome] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle(meeting?.title ?? "");
+    setScheduledAt(meeting?.scheduledAt ? meeting.scheduledAt.slice(0, 16) : "");
+    setDurationMinutes(meeting?.durationMinutes != null ? String(meeting.durationMinutes) : "30");
+    setMeetingType(meeting?.meetingType ?? "call");
+    setSummary(meeting?.summary ?? "");
+    setOutcome(meeting?.outcome ?? "");
+  }, [open, meeting]);
+
+  const save = useMutation({
+    mutationFn: () => {
+      const input = {
+        title: title.trim(),
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString(),
+        durationMinutes: durationMinutes ? Number(durationMinutes) : undefined,
+        meetingType,
+        summary: summary.trim() || undefined,
+        outcome: outcome.trim() || undefined,
+        contactId: meeting?.contactId ?? defaultLink?.contactId ?? undefined,
+        companyId: meeting?.companyId ?? defaultLink?.companyId ?? undefined,
+        dealId: meeting?.dealId ?? defaultLink?.dealId ?? undefined,
+      };
+      return isEdit ? meetingsApi.update(meeting!.id, input) : meetingsApi.create(input);
+    },
+    onSuccess: (saved) => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "meetings"] });
+      if (saved.dealId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "deal", saved.dealId] });
+      if (saved.contactId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "contact", saved.contactId] });
+      if (saved.companyId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "company", saved.companyId] });
+      onSaved?.(saved);
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onClose={onClose} title={isEdit ? "Edit meeting" : "New meeting"}>
+      <div className="space-y-4">
+        {save.isError && (
+          <Alert variant="error">{formatQueryError(save.error, "Could not save this meeting.")}</Alert>
+        )}
+
+        <Field label="Title" required>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Discovery call" />
+        </Field>
+        <Field label="Scheduled at" required>
+          <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Duration (min)">
+            <Input
+              type="number"
+              min={0}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value)}
+            />
+          </Field>
+          <Field label="Type">
+            <Select value={meetingType} onChange={(e) => setMeetingType(e.target.value as MeetingType)}>
+              {MEETING_TYPE_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace("_", " ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Field label="Summary">
+          <textarea
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            rows={2}
+            className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          />
+        </Field>
+        {isEdit && (
+          <Field label="Outcome">
+            <textarea
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value)}
+              rows={2}
+              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+          </Field>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!title.trim() || !scheduledAt || save.isPending}>
+            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isEdit ? "Save changes" : "Create meeting"}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}

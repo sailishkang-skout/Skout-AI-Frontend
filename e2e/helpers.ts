@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:3001";
+export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1:3002";
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
@@ -30,4 +31,20 @@ export async function waitForApiMutation(
 export async function waitForApiHealth(request: import("@playwright/test").APIRequestContext) {
   const res = await request.get(`${apiURL}/api/v1/health`);
   expect(res.ok()).toBeTruthy();
+}
+
+export async function waitForCrmApiHealth(request: import("@playwright/test").APIRequestContext) {
+  const res = await request.get(`${crmApiURL}/api/v1/crm/health`);
+  expect(res.ok()).toBeTruthy();
+}
+
+/** Non-asserting health check — used to self-skip crm-*.spec.ts in environments
+ * that don't run apps/crm (e.g. CI until it's wired up there too). */
+export async function isCrmApiHealthy(request: import("@playwright/test").APIRequestContext): Promise<boolean> {
+  try {
+    const res = await request.get(`${crmApiURL}/api/v1/crm/health`);
+    return res.ok();
+  } catch {
+    return false;
+  }
 }

@@ -1,0 +1,158 @@
+"use client";
+
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckSquare, Loader2, Plus, Trash2 } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
+import { PageShell } from "@/components/layout/page-shell";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TaskFormSheet } from "@/components/crm/task-form-sheet";
+import { useTasksApi } from "@/lib/crm/tasks";
+import { useAuthReady, formatQueryError } from "@/lib/api-client";
+import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
+import { formatDueDate, taskStatusTone } from "@/lib/crm-display";
+import type { TaskStatus } from "@/types/crm";
+
+export default function TasksPage() {
+  const queryClient = useQueryClient();
+  const tasksApi = useTasksApi();
+  const authReady = useAuthReady();
+  const { canDelete } = useWorkspaceRole();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("open");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const tasks = useQuery({
+    queryKey: ["crm", "tasks", { status: statusFilter }],
+    queryFn: () => tasksApi.list({ limit: 100, status: statusFilter === "all" ? undefined : statusFilter }),
+    enabled: authReady,
+  });
+
+  const complete = useMutation({
+    mutationFn: (id: string) => tasksApi.complete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["crm", "tasks"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => tasksApi.remove(id),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["crm", "tasks"] });
+    },
+    onError: (err) => {
+      setActionError(
+        isForbiddenError(err)
+          ? "You don't have permission to delete this — ask a workspace admin or owner."
+          : formatQueryError(err, "Could not delete this task.")
+      );
+    },
+  });
+
+  const rows = tasks.data?.data ?? [];
+
+  return (
+    <PageShell data-testid="page-crm-tasks">
+      <PageHeader
+        title="Tasks"
+        description="Follow-ups and to-dos across your companies, contacts, and deals."
+        actions={
+          <Button data-testid="create-task-button" onClick={() => setSheetOpen(true)}>
+            <Plus className="h-4 w-4" />
+            New task
+          </Button>
+        }
+      />
+
+      <Select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as TaskStatus | "all")}
+        className="w-40"
+      >
+        <option value="open">Open</option>
+        <option value="done">Done</option>
+        <option value="all">All</option>
+      </Select>
+
+      {tasks.isError && (
+        <Alert variant="error" onRetry={() => tasks.refetch()}>
+          {formatQueryError(tasks.error, "Could not load tasks.")}
+        </Alert>
+      )}
+      {actionError && <Alert variant="warning" dismissible>{actionError}</Alert>}
+
+      {tasks.isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="rounded-full bg-muted p-4">
+              <CheckSquare className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="font-medium">No tasks</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((task) => {
+            const due = formatDueDate(task.dueDate);
+            return (
+              <Card key={task.id}>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <button
+                    type="button"
+                    onClick={() => complete.mutate(task.id)}
+                    disabled={task.status === "done" || (complete.isPending && complete.variables === task.id)}
+                    className="shrink-0 rounded-full border border-border p-1 hover:bg-accent disabled:opacity-50"
+                    aria-label={task.status === "done" ? "Completed" : "Mark complete"}
+                  >
+                    {complete.isPending && complete.variables === task.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckSquare className={`h-4 w-4 ${task.status === "done" ? "text-green-600" : "text-muted-foreground"}`} />
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                      {task.title}
+                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {due && <span className={due.overdue ? "text-red-600 dark:text-red-400" : ""}>{due.label}</span>}
+                      <Badge tone={taskStatusTone(task.status)}>{task.status}</Badge>
+                      <Badge tone="muted">{task.priority}</Badge>
+                    </div>
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => remove.mutate(task.id)}
+                      disabled={remove.isPending && remove.variables === task.id}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                      aria-label={`Delete ${task.title}`}
+                    >
+                      {remove.isPending && remove.variables === task.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <TaskFormSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </PageShell>
+  );
+}
