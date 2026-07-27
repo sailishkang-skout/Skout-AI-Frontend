@@ -52,7 +52,6 @@ export function ExtensionAuthSync() {
 
       const now = Date.now();
       if (!force && now - lastSyncAt.current < SYNC_THROTTLE_MS) return;
-      lastSyncAt.current = now;
       syncInFlight.current = true;
 
       try {
@@ -61,14 +60,18 @@ export function ExtensionAuthSync() {
 
         // Same token already delivered — skip the connect/ping storm to avoid a
         // ping → REQUEST_AUTH → sync feedback loop.
-        if (auth.token === lastSyncedToken.current) return;
+        if (auth.token === lastSyncedToken.current) {
+          lastSyncAt.current = now;
+          return;
+        }
 
         pingExtensionPostMessage();
         try {
           await connectExtensionSeamless(auth.token, auth.email);
           lastSyncedToken.current = auth.token;
+          lastSyncAt.current = Date.now();
         } catch {
-          // Extension not installed.
+          // Extension not installed — do not advance throttle so a later force can retry.
         }
       } finally {
         syncInFlight.current = false;
@@ -97,7 +100,8 @@ export function ExtensionAuthSync() {
 
   useEffect(() => {
     function onExtensionMessage(event: MessageEvent) {
-      if (event.source !== window || event.data?.source !== "skout-extension") return;
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if (event.data?.source !== "skout-extension") return;
       if (event.data.type === "EXTENSION_INSTALLED" && event.data.extensionId) {
         rememberExtensionId(event.data.extensionId);
       }

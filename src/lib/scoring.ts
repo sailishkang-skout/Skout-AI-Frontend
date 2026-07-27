@@ -2,7 +2,23 @@ import type { IcpConfig } from "@/types/api";
 
 /** True only after the user has finished and saved the full onboarding wizard. */
 export function isOnboardingComplete(config: IcpConfig | null | undefined): boolean {
-  return Boolean(config?.onboarding?.completedAt);
+  const onboarding = config?.onboarding;
+  if (!onboarding?.completedAt || Number.isNaN(Date.parse(onboarding.completedAt))) return false;
+
+  const hasCompany =
+    Boolean(onboarding.company?.name?.trim()) &&
+    Boolean(onboarding.company?.industry?.trim()) &&
+    Boolean(onboarding.company?.size?.trim());
+  const hasGoals = (onboarding.goals?.length ?? 0) > 0;
+  const hasIcpIndustries = (onboarding.icp?.industries?.length ?? 0) > 0;
+  const hasPeople =
+    (onboarding.people?.departments?.length ?? 0) > 0 ||
+    (onboarding.people?.seniorities?.length ?? 0) > 0 ||
+    (onboarding.people?.titles?.length ?? 0) > 0;
+  const hasMarket = (onboarding.market?.length ?? 0) > 0;
+  const hasLeadVolume = Boolean(onboarding.leadVolume?.trim());
+
+  return hasCompany && hasGoals && hasIcpIndustries && hasPeople && hasMarket && hasLeadVolume;
 }
 
 export function isIcpConfigured(config: IcpConfig | null | undefined): boolean {

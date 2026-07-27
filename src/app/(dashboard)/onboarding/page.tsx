@@ -188,6 +188,7 @@ interface WizardState {
   market: string[];
   crm: string;
   leadVolume: string;
+  customTitles: string[];
 }
 
 const INITIAL_STATE: WizardState = {
@@ -206,6 +207,7 @@ const INITIAL_STATE: WizardState = {
   market: [],
   crm: "",
   leadVolume: "",
+  customTitles: [],
 };
 
 function toggle(list: string[], item: string): string[] {
@@ -682,7 +684,7 @@ export default function OnboardingPage() {
             <div className="space-y-2">
               <FieldLabel>Job titles</FieldLabel>
               <div className="flex flex-wrap gap-2">
-                {Array.from(new Set([...TITLE_SUGGESTIONS, ...state.titles])).map((t) => (
+                {Array.from(new Set([...TITLE_SUGGESTIONS, ...state.customTitles])).map((t) => (
                   <Chip
                     key={t}
                     label={t}
@@ -699,7 +701,13 @@ export default function OnboardingPage() {
                   e.preventDefault();
                   const raw = (e.target as HTMLInputElement).value.trim();
                   if (!raw) return;
-                  set("titles", toggle(state.titles, raw));
+                  setState((prev) => ({
+                    ...prev,
+                    customTitles: prev.customTitles.includes(raw)
+                      ? prev.customTitles
+                      : [...prev.customTitles, raw],
+                    titles: prev.titles.includes(raw) ? prev.titles : [...prev.titles, raw],
+                  }));
                   (e.target as HTMLInputElement).value = "";
                 }}
               />

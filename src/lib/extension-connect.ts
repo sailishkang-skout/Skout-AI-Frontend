@@ -98,7 +98,8 @@ export function waitForExtensionPostMessageAck(
     }, timeoutMs);
 
     function handler(event: MessageEvent) {
-      if (event.source !== window || event.data?.source !== "skout-extension") return;
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if (event.data?.source !== "skout-extension") return;
       if (event.data.type !== "SKOUT_EXTENSION_CONNECTED") return;
       if (event.data.requestId !== requestId) return;
 
@@ -122,17 +123,17 @@ export function postExtensionConnect(requestId: string, token: string, email: st
       token,
       email,
     },
-    "*"
+    window.location.origin
   );
 }
 
 export function pingExtensionPostMessage() {
-  window.postMessage({ source: "skout-web", type: "SKOUT_EXTENSION_PING" }, "*");
+  window.postMessage({ source: "skout-web", type: "SKOUT_EXTENSION_PING" }, window.location.origin);
   window.dispatchEvent(new CustomEvent("skout-extension-ping"));
 }
 
 async function connectViaPostMessage(token: string, email: string): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     pingExtensionPostMessage();
     const requestId = crypto.randomUUID();
     postExtensionConnect(requestId, token, email);
@@ -141,8 +142,8 @@ async function connectViaPostMessage(token: string, email: string): Promise<void
       await waitForExtensionPostMessageAck(requestId);
       return;
     } catch (error) {
-      if (attempt === 3) throw error;
-      await sleep(600);
+      if (attempt === 1) throw error;
+      await sleep(500);
     }
   }
 }
@@ -158,7 +159,7 @@ export async function connectExtensionSeamless(token: string, email: string): Pr
     // Content script may not be ready yet — keep pinging while trying direct path.
   }
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     pingExtensionPostMessage();
 
     const extId = resolveExtensionId();
@@ -171,7 +172,7 @@ export async function connectExtensionSeamless(token: string, email: string): Pr
       await connectViaPostMessage(token, email);
       return;
     } catch {
-      await sleep(800);
+      await sleep(600);
     }
   }
 
@@ -197,7 +198,8 @@ export async function waitForExtensionDetection(timeoutMs = 15000): Promise<bool
     }
 
     function onMessage(event: MessageEvent) {
-      if (event.source !== window || event.data?.source !== "skout-extension") return;
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if (event.data?.source !== "skout-extension") return;
       if (event.data.type !== "EXTENSION_INSTALLED") return;
       if (event.data.extensionId) rememberExtensionId(event.data.extensionId);
       finish(true);
