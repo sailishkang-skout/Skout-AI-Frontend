@@ -49,8 +49,8 @@ export const GUIDES: GuideMeta[] = [
   },
   {
     slug: "integrations",
-    title: "Connect enrichment integrations",
-    summary: "Add provider API keys so enrichment can use your own accounts first.",
+    title: "Connect integrations",
+    summary: "Add Unipile for LinkedIn/WhatsApp, plus enrichment provider API keys (BYOK).",
     relatedHref: "/settings/integrations",
     relatedLabel: "Integrations",
   },

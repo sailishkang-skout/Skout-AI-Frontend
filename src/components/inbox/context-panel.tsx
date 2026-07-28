@@ -66,17 +66,30 @@ export function ContextPanel({
 
               {/* Name + title card */}
               <div className="rounded-lg bg-muted/40 px-3 py-2.5 mb-3">
-                <p className="font-semibold text-sm">{prospect.fullName ?? "—"}</p>
-                {prospect.title && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{prospect.title}</p>
-                )}
-                {prospect.companyName && (
-                  <p className="text-xs text-muted-foreground">{prospect.companyName}</p>
-                )}
+                <div className="flex items-center gap-3">
+                  {prospect.pictureUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={prospect.pictureUrl}
+                      alt=""
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{prospect.fullName ?? "—"}</p>
+                    {prospect.title && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{prospect.title}</p>
+                    )}
+                    {prospect.companyName && (
+                      <p className="text-xs text-muted-foreground">{prospect.companyName}</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="divide-y">
                 <Row label="Email" value={prospect.email} />
+                <Row label="Phone / ID" value={prospect.networkProviderId} />
                 <Row label="Domain" value={prospect.companyDomain} />
                 <Row label="Industry" value={prospect.industry} />
                 <Row label="Country" value={prospect.country} />

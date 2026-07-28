@@ -132,7 +132,7 @@ export interface ProspectList {
 }
 
 export type SequenceStatus = "draft" | "active" | "paused" | "archived";
-export type SequenceStepType = "email" | "linkedin" | "wait" | "task";
+export type SequenceStepType = "email" | "linkedin" | "whatsapp" | "wait" | "task";
 export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied";
 
 export interface Sequence {
@@ -219,6 +219,8 @@ export interface InboxThread {
   id: string;
   workspaceId: string;
   inboxId: string;
+  /** email (default), linkedin, or whatsapp */
+  channel?: "email" | "linkedin" | "whatsapp";
   enrollmentId: string | null;
   prospectId: string | null;
   subject: string;
@@ -267,6 +269,8 @@ export interface ThreadContext {
     country?: string;
     employeeCount?: number;
     linkedinUrl?: string;
+    pictureUrl?: string | null;
+    networkProviderId?: string | null;
     icpScore: number | null;
     icpBand: string | null;
     icpReasoning: string | null;

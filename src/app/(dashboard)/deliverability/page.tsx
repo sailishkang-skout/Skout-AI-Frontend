@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -14,6 +15,7 @@ import {
   Linkedin,
   Loader2,
   Mail,
+  MessageCircle,
   Plus,
   RefreshCw,
   Server,
@@ -838,11 +840,12 @@ function DomainCard({ domain, onRemove }: { domain: Domain; onRemove: () => void
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-type Tab = "inboxes" | "linkedin" | "domains" | "analytics";
+type Tab = "inboxes" | "linkedin" | "whatsapp" | "domains" | "analytics";
 
 const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "inboxes", label: "Inboxes", icon: Inbox },
   { id: "linkedin", label: "LinkedIn", icon: Linkedin },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { id: "domains", label: "Domains", icon: Globe },
   { id: "analytics", label: "Analytics", icon: TrendingUp },
 ];
@@ -850,17 +853,36 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DeliverabilityPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell>
+          <PageHeader title="Deliverability" description="Loading…" />
+        </PageShell>
+      }
+    >
+      <DeliverabilityPageContent />
+    </Suspense>
+  );
+}
+
+function DeliverabilityPageContent() {
   const authReady = useAuthReady();
   const api = useInboxApi();
   const linkedinApi = useLinkedinAccountsApi();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("inboxes");
   const [newDomain, setNewDomain] = useState("");
   const [domainError, setDomainError] = useState<string | null>(null);
   const [liAccountId, setLiAccountId] = useState("");
   const [liDisplayName, setLiDisplayName] = useState("");
   const [liError, setLiError] = useState<string | null>(null);
+  const [waAccountId, setWaAccountId] = useState("");
+  const [waDisplayName, setWaDisplayName] = useState("");
+  const [waError, setWaError] = useState<string | null>(null);
   const [inboxActionError, setInboxActionError] = useState<string | null>(null);
+  const pendingUnipileSync = useRef<"linkedin" | "whatsapp" | null>(null);
 
   const inboxes = useQuery({
     queryKey: ["inboxes"],
@@ -869,8 +891,14 @@ export default function DeliverabilityPage() {
   });
 
   const linkedinAccounts = useQuery({
-    queryKey: ["linkedin-accounts"],
-    queryFn: linkedinApi.list,
+    queryKey: ["linkedin-accounts", "linkedin"],
+    queryFn: () => linkedinApi.list("linkedin"),
+    enabled: authReady,
+  });
+
+  const whatsappAccounts = useQuery({
+    queryKey: ["linkedin-accounts", "whatsapp"],
+    queryFn: () => linkedinApi.list("whatsapp"),
     enabled: authReady,
   });
 
@@ -929,6 +957,7 @@ export default function DeliverabilityPage() {
       linkedinApi.connect({
         unipileAccountId: liAccountId.trim(),
         displayName: liDisplayName.trim() || undefined,
+        channel: "linkedin",
       }),
     onSuccess: () => {
       setLiAccountId("");
@@ -955,11 +984,88 @@ export default function DeliverabilityPage() {
   });
 
   const hostedAuth = useMutation({
-    mutationFn: () => linkedinApi.hostedAuth(window.location.origin),
+    mutationFn: () => linkedinApi.hostedAuth(window.location.origin, ["LINKEDIN"]),
     onSuccess: (res) => {
+      pendingUnipileSync.current = "linkedin";
       if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
     },
     onError: () => setLiError("Hosted LinkedIn auth is unavailable. Paste a Unipile account ID instead."),
+  });
+
+  const syncUnipile = useMutation({
+    mutationFn: (channel?: "linkedin" | "whatsapp") => linkedinApi.sync(channel),
+    onSuccess: (_res, channel) => {
+      setLiError(null);
+      setWaError(null);
+      pendingUnipileSync.current = null;
+      queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
+      if (channel === "whatsapp") setTab("whatsapp");
+      else if (channel === "linkedin") setTab("linkedin");
+    },
+    onError: () => setLiError("Could not sync accounts from Unipile. Try again or paste an account ID."),
+  });
+
+  // After hosted-auth redirect (?linkedin=connected / ?whatsapp=connected), import from Unipile.
+  // Localhost cannot receive Unipile notify_url webhooks, so sync is required.
+  useEffect(() => {
+    if (!authReady) return;
+    const li = searchParams.get("linkedin");
+    const wa = searchParams.get("whatsapp");
+    if (li === "connected") {
+      setTab("linkedin");
+      syncUnipile.mutate("linkedin");
+      window.history.replaceState({}, "", "/deliverability");
+    } else if (wa === "connected") {
+      setTab("whatsapp");
+      syncUnipile.mutate("whatsapp");
+      window.history.replaceState({}, "", "/deliverability");
+    } else if (li === "failed") {
+      setTab("linkedin");
+      setLiError("LinkedIn connection failed or was cancelled.");
+      window.history.replaceState({}, "", "/deliverability");
+    } else if (wa === "failed") {
+      setTab("whatsapp");
+      setWaError("WhatsApp connection failed or was cancelled.");
+      window.history.replaceState({}, "", "/deliverability");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when auth/search params ready
+  }, [authReady, searchParams]);
+
+  // Hosted auth opens in another tab; when focus returns, import newly linked accounts.
+  useEffect(() => {
+    if (!authReady) return;
+    const onFocus = () => {
+      const channel = pendingUnipileSync.current;
+      if (channel) syncUnipile.mutate(channel);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady]);
+
+  const connectWhatsapp = useMutation({
+    mutationFn: () =>
+      linkedinApi.connect({
+        unipileAccountId: waAccountId.trim(),
+        displayName: waDisplayName.trim() || undefined,
+        channel: "whatsapp",
+      }),
+    onSuccess: () => {
+      setWaAccountId("");
+      setWaDisplayName("");
+      setWaError(null);
+      queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
+    },
+    onError: () => setWaError("Could not connect WhatsApp account. Check the Unipile account ID."),
+  });
+
+  const hostedWhatsappAuth = useMutation({
+    mutationFn: () => linkedinApi.hostedAuth(window.location.origin, ["WHATSAPP"]),
+    onSuccess: (res) => {
+      pendingUnipileSync.current = "whatsapp";
+      if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
+    },
+    onError: () => setWaError("Hosted WhatsApp auth is unavailable. Paste a Unipile account ID instead."),
   });
 
   const addDomain = useMutation({
@@ -1122,6 +1228,15 @@ export default function DeliverabilityPage() {
                 >
                   Connect via Unipile
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => syncUnipile.mutate("linkedin")}
+                  disabled={syncUnipile.isPending}
+                  className="gap-1.5"
+                >
+                  {syncUnipile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Sync from Unipile
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1143,6 +1258,122 @@ export default function DeliverabilityPage() {
           {(linkedinAccounts.data?.data.length ?? 0) > 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
               {linkedinAccounts.data!.data.map((account: LinkedinAccount) => (
+                <Card key={account.id}>
+                  <CardContent className="flex items-start justify-between gap-3 pt-5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {account.displayName || account.unipileAccountId}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {account.sentCount}/{account.dailySendLimit} sent today window
+                      </p>
+                      {account.lastError && (
+                        <p className="mt-1 text-xs text-destructive">{account.lastError}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <Badge tone={account.status === "active" ? "success" : "muted"}>
+                        {account.status}
+                      </Badge>
+                      <div className="flex gap-1">
+                        {account.status === "active" ? (
+                          <Button size="sm" variant="outline" onClick={() => pauseLinkedin.mutate(account.id)}>
+                            Pause
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => resumeLinkedin.mutate(account.id)}>
+                            Resume
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => disconnectLinkedin.mutate(account.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── WhatsApp tab ── */}
+      {tab === "whatsapp" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Connect a WhatsApp account</CardTitle>
+              <CardDescription>
+                Sequence WhatsApp messages send server-side through Unipile. Prospects need a phone number (enrichment or import).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {whatsappAccounts.data && !whatsappAccounts.data.unipileConfigured && (
+                <Alert variant="warning">
+                  Unipile is not configured on the API yet. Set UNIPILE_DSN and UNIPILE_API_KEY, then reconnect.
+                </Alert>
+              )}
+              {waError && <Alert variant="error">{waError}</Alert>}
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  placeholder="Unipile account ID"
+                  value={waAccountId}
+                  onChange={(e) => setWaAccountId(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Input
+                  placeholder="Display name (optional)"
+                  value={waDisplayName}
+                  onChange={(e) => setWaDisplayName(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button
+                  onClick={() => connectWhatsapp.mutate()}
+                  disabled={!waAccountId.trim() || connectWhatsapp.isPending}
+                  className="gap-1.5"
+                >
+                  {connectWhatsapp.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Connect
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => hostedWhatsappAuth.mutate()}
+                  disabled={hostedWhatsappAuth.isPending}
+                >
+                  Connect via Unipile
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => syncUnipile.mutate("whatsapp")}
+                  disabled={syncUnipile.isPending}
+                  className="gap-1.5"
+                >
+                  {syncUnipile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Sync from Unipile
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {whatsappAccounts.isPending && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+            </div>
+          )}
+
+          {!whatsappAccounts.isPending && (whatsappAccounts.data?.data.length ?? 0) === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+              <MessageCircle className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium">No WhatsApp accounts connected</p>
+              <p className="mt-1 text-xs text-muted-foreground">Connect one to send sequence WhatsApp messages.</p>
+            </div>
+          )}
+
+          {(whatsappAccounts.data?.data.length ?? 0) > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {whatsappAccounts.data!.data.map((account: LinkedinAccount) => (
                 <Card key={account.id}>
                   <CardContent className="flex items-start justify-between gap-3 pt-5">
                     <div className="min-w-0">

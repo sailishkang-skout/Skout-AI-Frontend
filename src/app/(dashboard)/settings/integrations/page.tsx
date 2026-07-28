@@ -15,14 +15,18 @@ import { ApiError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
 
+const DEFAULT_UNIPILE_DSN = "https://api1.unipile.com:13111";
+
 function ProviderCard({ item }: { item: IntegrationItem }) {
   const queryClient = useQueryClient();
   const api = useIntegrationsApi();
   const [apiKey, setApiKey] = useState("");
+  const [dsn, setDsn] = useState(DEFAULT_UNIPILE_DSN);
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const isUnipile = item.provider === "unipile";
 
   const copyKey = async () => {
     if (!apiKey.trim()) return;
@@ -36,14 +40,20 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
   };
 
   const save = useMutation({
-    mutationFn: () => api.save(item.provider, apiKey),
+    mutationFn: () =>
+      api.save(item.provider, apiKey, isUnipile ? { dsn: dsn.trim() || DEFAULT_UNIPILE_DSN } : undefined),
     onSuccess: () => {
       setApiKey("");
       setShowKey(false);
       setCopied(false);
       setError(null);
-      setSuccess(`${item.name} connected. Enrichment will use your key first (25% Skout credit discount).`);
+      setSuccess(
+        isUnipile
+          ? `${item.name} connected. Use Deliverability to link LinkedIn/WhatsApp accounts.`
+          : `${item.name} connected. Enrichment will use your key first (25% Skout credit discount).`
+      );
       queryClient.invalidateQueries({ queryKey: ["integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
     },
     onError: (err) => {
       if (err instanceof ApiError) {
@@ -63,13 +73,23 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
   const remove = useMutation({
     mutationFn: () => api.remove(item.provider),
     onSuccess: () => {
-      setSuccess(`${item.name} removed. Skout platform keys will be used when available.`);
+      setSuccess(
+        isUnipile
+          ? `${item.name} removed. Platform Unipile env (if set) will be used.`
+          : `${item.name} removed. Skout platform keys will be used when available.`
+      );
       queryClient.invalidateQueries({ queryKey: ["integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
     },
   });
 
   const test = useMutation({
-    mutationFn: () => api.test(item.provider, apiKey.trim() || undefined),
+    mutationFn: () =>
+      api.test(
+        item.provider,
+        apiKey.trim() || undefined,
+        isUnipile ? { dsn: dsn.trim() || DEFAULT_UNIPILE_DSN } : undefined
+      ),
     onSuccess: () => {
       setError(null);
       setSuccess(apiKey.trim() ? "API key is valid." : "Stored key is valid.");
@@ -83,7 +103,11 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base sm:text-lg">{item.name}</CardTitle>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <CardTitle className="text-base sm:text-lg">{item.name}</CardTitle>
+              {item.category === "messaging" && <Badge tone="muted">Messaging</Badge>}
+              {item.category === "enrichment" && <Badge tone="muted">Enrichment</Badge>}
+            </div>
             <CardDescription>{item.description}</CardDescription>
           </div>
           {item.connected ? (
@@ -95,9 +119,34 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">{item.creditDiscount}</p>
+        {isUnipile && item.connected && item.dsnHint && (
+          <p className="text-xs text-muted-foreground">DSN · {item.dsnHint}</p>
+        )}
 
         {success && <Alert variant="success">{success}</Alert>}
         {error && <Alert variant="warning">{error}</Alert>}
+
+        {isUnipile && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`dsn-${item.provider}`}>
+              Unipile DSN
+            </label>
+            <Input
+              id={`dsn-${item.provider}`}
+              type="url"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={DEFAULT_UNIPILE_DSN}
+              value={dsn}
+              onChange={(e) => setDsn(e.target.value)}
+              className="font-mono text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              From Unipile dashboard → API (e.g. https://api1.unipile.com:13111). Then connect LinkedIn/WhatsApp
+              under Deliverability.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor={`key-${item.provider}`}>
@@ -199,11 +248,14 @@ export default function IntegrationsSettingsPage() {
     enabled: authReady,
   });
 
+  const messaging = integrations.data?.data.filter((i) => i.category === "messaging") ?? [];
+  const enrichment = integrations.data?.data.filter((i) => i.category !== "messaging") ?? [];
+
   return (
     <PageShell width="narrow">
       <PageHeader
-        title="Enrichment integrations"
-        description="Connect your own provider API keys. Your keys are tried first; Skout platform keys are used as fallback. You pay the provider directly and get 25% off Skout credits when your key is used."
+        title="Integrations"
+        description="Connect Unipile for LinkedIn/WhatsApp outreach, and your own enrichment provider API keys (BYOK). Workspace keys are preferred before platform defaults."
         actions={<GuideLink slug="integrations" label="Integrations guide" />}
       />
 
@@ -222,11 +274,27 @@ export default function IntegrationsSettingsPage() {
         </div>
       )}
 
-      <div className="space-y-4">
-        {integrations.data?.data.map((item) => (
-          <ProviderCard key={item.provider} item={item} />
-        ))}
-      </div>
+      {messaging.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Messaging</h2>
+          <div className="space-y-4">
+            {messaging.map((item) => (
+              <ProviderCard key={item.provider} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {enrichment.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Enrichment</h2>
+          <div className="space-y-4">
+            {enrichment.map((item) => (
+              <ProviderCard key={item.provider} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
     </PageShell>
   );
 }

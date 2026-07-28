@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Inbox, InboxThread } from "@/types/api";
 import type { BadgeProps } from "@/components/ui/badge";
+import type { MessagingAccount } from "@/lib/linkedin-messaging";
 
 const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
   { label: "All", value: undefined },
@@ -62,6 +63,7 @@ function displayName(thread: InboxThread): string {
 }
 
 export function ThreadList({
+  channel = "email",
   threads,
   loading,
   total,
@@ -70,11 +72,15 @@ export function ThreadList({
   folderFilter,
   inboxFilter,
   inboxes,
+  linkedinAccounts = [],
+  linkedinAccountFilter,
   onSelectThread,
   onChangeStatus,
   onChangeFolder,
   onChangeInbox,
+  onChangeLinkedinAccount,
 }: {
+  channel?: "email" | "linkedin" | "whatsapp";
   threads: InboxThread[];
   loading: boolean;
   total: number;
@@ -83,73 +89,100 @@ export function ThreadList({
   folderFilter: "all" | "inbound" | "sent";
   inboxFilter: string | undefined;
   inboxes: Inbox[];
+  linkedinAccounts?: MessagingAccount[];
+  linkedinAccountFilter?: string | undefined;
   onSelectThread: (thread: InboxThread) => void;
   onChangeStatus: (status: string | undefined) => void;
   onChangeFolder: (folder: "all" | "inbound" | "sent") => void;
   onChangeInbox: (inboxId: string | undefined) => void;
+  onChangeLinkedinAccount?: (accountId: string | undefined) => void;
 }) {
+  const isMessaging = channel === "linkedin" || channel === "whatsapp";
+  const messagingLabel = channel === "whatsapp" ? "WhatsApp" : "LinkedIn";
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Inbox picker */}
-      {inboxes.length > 0 && (
-        <div className="shrink-0 border-b p-2">
-          <select
-            className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
-            value={inboxFilter ?? ""}
-            onChange={(e) => onChangeInbox(e.target.value || undefined)}
-            aria-label="Filter by inbox"
-          >
-            <option value="">All inboxes</option>
-            {inboxes.map((inbox) => (
-              <option key={inbox.id} value={inbox.id}>
-                {inbox.emailAddress}
-              </option>
-            ))}
-          </select>
+      {isMessaging ? (
+        linkedinAccounts.length > 0 && (
+          <div className="shrink-0 border-b p-2">
+            <select
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+              value={linkedinAccountFilter ?? linkedinAccounts[0]?.id ?? ""}
+              onChange={(e) => onChangeLinkedinAccount?.(e.target.value || undefined)}
+              aria-label={`Filter by ${messagingLabel} account`}
+            >
+              {linkedinAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.displayName || account.phone || account.unipileAccountId}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      ) : (
+        inboxes.length > 0 && (
+          <div className="shrink-0 border-b p-2">
+            <select
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+              value={inboxFilter ?? ""}
+              onChange={(e) => onChangeInbox(e.target.value || undefined)}
+              aria-label="Filter by inbox"
+            >
+              <option value="">All inboxes</option>
+              {inboxes.map((inbox) => (
+                <option key={inbox.id} value={inbox.id}>
+                  {inbox.emailAddress}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      )}
+
+      {!isMessaging && (
+        <div className="flex gap-1 p-2 border-b shrink-0">
+          {FOLDER_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => onChangeFolder(f.value)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                folderFilter === f.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Folder: All / Inbound / Sent */}
-      <div className="flex gap-1 p-2 border-b shrink-0">
-        {FOLDER_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => onChangeFolder(f.value)}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-              folderFilter === f.value
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Status filter tabs */}
-      <div className="flex gap-1 p-2 border-b flex-wrap shrink-0">
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.label}
-            type="button"
-            onClick={() => onChangeStatus(f.value)}
-            className={cn(
-              "rounded-md px-2 py-1 text-xs font-medium transition-colors",
-              statusFilter === f.value
-                ? "bg-secondary text-secondary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {!isMessaging && (
+        <div className="flex gap-1 p-2 border-b flex-wrap shrink-0">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.label}
+              type="button"
+              onClick={() => onChangeStatus(f.value)}
+              className={cn(
+                "rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                statusFilter === f.value
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!loading && (
         <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-b shrink-0">
-          {total} thread{total !== 1 ? "s" : ""}
+          {total} {isMessaging ? "chat" : "thread"}
+          {total !== 1 ? "s" : ""}
         </div>
       )}
 
@@ -167,7 +200,7 @@ export function ThreadList({
           ))
         ) : threads.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            No threads found.
+            {isMessaging ? `No ${messagingLabel} chats found.` : "No threads found."}
           </div>
         ) : (
           threads.map((thread) => {
@@ -210,15 +243,36 @@ export function ThreadList({
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground truncate leading-tight">
-                    {thread.subject}
+                    {isMessaging
+                      ? thread.prospect?.title ||
+                        (channel === "whatsapp"
+                          ? thread.prospect?.email || `${messagingLabel} conversation`
+                          : `${messagingLabel} conversation`)
+                      : thread.subject}
                   </div>
                   <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                    <Badge
-                      tone={threadStatusTone(thread.status)}
-                      className="text-[10px] px-1.5 py-0 leading-4"
-                    >
-                      {thread.status.replace("_", " ")}
-                    </Badge>
+                    {!isMessaging && (
+                      <Badge
+                        tone={threadStatusTone(thread.status)}
+                        className="text-[10px] px-1.5 py-0 leading-4"
+                      >
+                        {thread.status.replace("_", " ")}
+                      </Badge>
+                    )}
+                    {isMessaging && (
+                      <Badge tone="info" className="text-[10px] px-1.5 py-0 leading-4">
+                        {thread.replyTag === "group"
+                          ? "Group"
+                          : thread.replyTag === "channel"
+                            ? "Channel"
+                            : messagingLabel}
+                      </Badge>
+                    )}
+                    {thread.unreadCount > 0 && (
+                      <Badge tone="warning" className="text-[10px] px-1.5 py-0 leading-4">
+                        {thread.unreadCount} unread
+                      </Badge>
+                    )}
                     {thread.prospect?.icpBand && (
                       <Badge
                         tone={
@@ -230,13 +284,8 @@ export function ThreadList({
                         }
                         className="text-[10px] px-1.5 py-0 leading-4"
                       >
-                        {thread.prospect.icpBand}
+                        ICP {thread.prospect.icpBand}
                       </Badge>
-                    )}
-                    {thread.unreadCount > 0 && (
-                      <span className="ml-auto h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-bold shrink-0">
-                        {thread.unreadCount > 9 ? "9+" : thread.unreadCount}
-                      </span>
                     )}
                   </div>
                 </div>

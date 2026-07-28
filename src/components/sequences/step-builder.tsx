@@ -22,6 +22,7 @@ import {
   ListChecks,
   Loader2,
   Mail,
+  MessageCircle,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -49,6 +50,14 @@ const STEP_CONFIG = {
     border: "border-l-violet-500",
     badge: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
     ring: "ring-violet-200 dark:ring-violet-800",
+  },
+  whatsapp: {
+    label: "WhatsApp",
+    icon: MessageCircle,
+    dot: "bg-emerald-600",
+    border: "border-l-emerald-600",
+    badge: "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    ring: "ring-emerald-200 dark:ring-emerald-800",
   },
   wait: {
     label: "Wait",
@@ -368,6 +377,28 @@ function StepCard({
             <p className="text-[11px] text-muted-foreground">
               Sent server-side via a connected LinkedIn account (Unipile). Prospects need a LinkedIn profile URL.
               Connect an account under Deliverability → LinkedIn.
+            </p>
+          </div>
+        )}
+
+        {/* ── WhatsApp fields ─────────────────────────── */}
+        {step.stepType === "whatsapp" && (
+          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
+            <textarea
+              placeholder="WhatsApp message — supports {{firstName}}, {{companyName}}, etc."
+              value={bodyDraft}
+              onChange={(e) => setBodyDraft(e.target.value)}
+              onBlur={() => {
+                if (bodyDraft !== (step.bodyTemplate ?? ""))
+                  onUpdate({ bodyTemplate: bodyDraft || null });
+              }}
+              disabled={updating}
+              rows={3}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Sent server-side via Unipile WhatsApp. Prospects need a phone number (enrich or import).
+              Connect an account under Deliverability → WhatsApp.
             </p>
           </div>
         )}

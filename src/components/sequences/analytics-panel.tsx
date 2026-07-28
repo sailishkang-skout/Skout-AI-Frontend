@@ -80,6 +80,7 @@ function StepFunnelCard({ step }: { step: SequenceStepMetrics }) {
   const stepTypeLabelMap: Record<string, string> = {
     email: "Email",
     linkedin: "LinkedIn",
+    whatsapp: "WhatsApp",
     wait: "Wait",
     task: "Task",
   };
