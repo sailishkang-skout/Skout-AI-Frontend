@@ -9,6 +9,7 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
 import { ConversationView } from "@/components/inbox/conversation-view";
 import { ContextPanel } from "@/components/inbox/context-panel";
 import { LinkedinFindPeople } from "@/components/inbox/linkedin-find-people";
@@ -320,8 +321,8 @@ export default function InboxPage() {
         ))}
       </div>
 
-      {isMessaging && (
-        <div className="flex gap-1 rounded-lg border border-border bg-muted/40 p-1 w-fit">
+      {isMessaging && !noMessagingAccounts && (
+        <div className="flex w-fit gap-1 rounded-lg border border-border bg-muted/40 p-1">
           <button
             type="button"
             onClick={() => setMessagingView("chats")}
@@ -359,22 +360,33 @@ export default function InboxPage() {
         </Alert>
       )}
 
-      {noMessagingAccounts && (
-        <Alert
-          variant="warning"
-          title={`No ${channel === "whatsapp" ? "WhatsApp" : "LinkedIn"} account connected`}
+      {noMessagingAccounts ? (
+        <div
+          className="flex min-h-[28rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-background p-10 text-center"
+          style={{ height: "min(40rem, calc(100svh - 14rem))" }}
         >
-          Connect an account via Unipile to use this inbox.{" "}
-          <Link href="/deliverability" className="font-medium underline underline-offset-2">
+          {channel === "whatsapp" ? (
+            <MessageCircle className="h-12 w-12 text-muted-foreground/40" />
+          ) : (
+            <Linkedin className="h-12 w-12 text-muted-foreground/40" />
+          )}
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              No {channel === "whatsapp" ? "WhatsApp" : "LinkedIn"} account connected
+            </p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Connect via Unipile in Deliverability to sync chats
+              {channel === "whatsapp" ? " and send new messages." : ", find people, and reply."}
+            </p>
+          </div>
+          <Link href="/deliverability" className={cn(buttonVariants(), "mt-1")}>
             Open Deliverability
           </Link>
-        </Alert>
-      )}
-
-      {isMessaging && messagingView === "find" ? (
+        </div>
+      ) : isMessaging && messagingView === "find" ? (
         <div
           className="overflow-hidden rounded-xl border bg-background"
-          style={{ height: "calc(100svh - 22rem)" }}
+          style={{ height: "min(40rem, calc(100svh - 14rem))" }}
         >
           {channel === "linkedin" ? (
             <LinkedinFindPeople
@@ -389,7 +401,7 @@ export default function InboxPage() {
               onChangeAccount={setMessagingAccountFilter}
               onSent={() => {
                 queryClient.invalidateQueries({ queryKey: WA_THREADS_KEY });
-                setMessagingView("chats");
+                window.setTimeout(() => setMessagingView("chats"), 900);
               }}
             />
           )}
@@ -412,7 +424,7 @@ export default function InboxPage() {
 
           <div
             className="flex overflow-hidden rounded-xl border bg-background"
-            style={{ height: "calc(100svh - 22rem)" }}
+            style={{ height: "min(40rem, calc(100svh - 14rem))" }}
           >
             <div className="flex w-80 shrink-0 flex-col overflow-hidden border-r xl:w-96">
               <ThreadList
@@ -460,9 +472,9 @@ export default function InboxPage() {
                   sending={replyMutation.isPending}
                   sendError={replyMutation.error as Error | null}
                   draftReply={aiDraftReply}
-                  onReply={(text) =>
-                    replyMutation.mutate({ threadId: selectedThread.id, text })
-                  }
+                  onReply={async (text) => {
+                    await replyMutation.mutateAsync({ threadId: selectedThread.id, text });
+                  }}
                   onMarkRead={() => markReadMutation.mutate(selectedThread.id)}
                   onOpenContext={() => setContextOpen(true)}
                 />

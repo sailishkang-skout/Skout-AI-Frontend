@@ -11,6 +11,10 @@ import {
   type MessagingAccount,
 } from "@/lib/linkedin-messaging";
 
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 export function WhatsappNewMessage({
   accounts,
   accountId,
@@ -26,40 +30,51 @@ export function WhatsappNewMessage({
   const [phone, setPhone] = useState("");
   const [text, setText] = useState("");
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const phoneDigits = digitsOnly(phone);
 
   const sendMutation = useMutation({
     mutationFn: () =>
       api.outreach({
         accountId,
-        phone: phone.trim(),
+        phone: phoneDigits,
         text: text.trim(),
       }),
     onSuccess: () => {
-      setStatusMsg(`Message sent to ${phone.trim()}.`);
+      setStatusMsg(`Message sent to ${phoneDigits}.`);
       setText("");
       onSent?.();
     },
   });
 
+  if (accounts.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+        <Phone className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm font-medium">No WhatsApp account selected</p>
+        <p className="max-w-sm text-xs text-muted-foreground">
+          Connect a WhatsApp account in Deliverability before sending a new message.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="shrink-0 space-y-3 border-b p-4">
-        {accounts.length > 0 && (
-          <select
-            className="h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
-            value={accountId ?? ""}
-            onChange={(e) => onChangeAccount(e.target.value || undefined)}
-            aria-label="WhatsApp account"
-          >
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.displayName || a.phone || a.unipileAccountId}
-              </option>
-            ))}
-          </select>
-        )}
+        <select
+          className="h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
+          value={accountId ?? ""}
+          onChange={(e) => onChangeAccount(e.target.value || undefined)}
+          aria-label="WhatsApp account"
+        >
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.displayName || a.phone || a.unipileAccountId}
+            </option>
+          ))}
+        </select>
         <p className="text-xs text-muted-foreground">
-          Start a WhatsApp chat by phone number (include country code, e.g. 14155552671).
+          Start a WhatsApp chat by phone number (country code + number, e.g. 14155552671).
         </p>
       </div>
 
@@ -78,13 +93,16 @@ export function WhatsappNewMessage({
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="9198XXXXXXXX"
+              placeholder="14155552671"
               inputMode="tel"
               autoComplete="tel"
               className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <p className="text-[11px] text-muted-foreground">Digits only, with country code (no + or spaces).</p>
+          <p className="text-[11px] text-muted-foreground">
+            Spaces and + are fine — we send digits only
+            {phoneDigits ? ` (${phoneDigits.length} digits)` : ""}.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -98,10 +116,15 @@ export function WhatsappNewMessage({
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end gap-2">
+          {!accountId && (
+            <p className="w-full text-right text-[11px] text-muted-foreground">
+              Select a WhatsApp account above to send.
+            </p>
+          )}
           <Button
             className="gap-1.5"
-            disabled={!phone.trim() || !text.trim() || sendMutation.isPending || !accountId}
+            disabled={!phoneDigits || !text.trim() || sendMutation.isPending || !accountId}
             onClick={() => {
               setStatusMsg(null);
               sendMutation.mutate();

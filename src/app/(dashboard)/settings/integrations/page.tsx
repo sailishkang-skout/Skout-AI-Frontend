@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError, useAuthReady } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
 
@@ -21,12 +22,18 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
   const queryClient = useQueryClient();
   const api = useIntegrationsApi();
   const [apiKey, setApiKey] = useState("");
-  const [dsn, setDsn] = useState(DEFAULT_UNIPILE_DSN);
+  const [dsn, setDsn] = useState(() =>
+    item.dsnHint ? `https://${item.dsnHint}` : DEFAULT_UNIPILE_DSN
+  );
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const isUnipile = item.provider === "unipile";
+
+  useEffect(() => {
+    if (item.dsnHint) setDsn(`https://${item.dsnHint}`);
+  }, [item.dsnHint]);
 
   const copyKey = async () => {
     if (!apiKey.trim()) return;
@@ -56,17 +63,7 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
       queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        if (err.message === "invalid_api_key") {
-          setError("That API key was rejected by the provider. Check the key and try again.");
-        } else if (err.message === "provider_timeout") {
-          setError("Provider timed out — try again in a moment.");
-        } else {
-          setError("Could not save integration. Check your key and try again.");
-        }
-      } else {
-        setError("Could not save integration.");
-      }
+      setError(formatQueryError(err, "Could not save integration. Check your key and try again."));
     },
   });
 
@@ -95,7 +92,7 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
       setSuccess(apiKey.trim() ? "API key is valid." : "Stored key is valid.");
       queryClient.invalidateQueries({ queryKey: ["integrations"] });
     },
-    onError: () => setError("Test failed — check the API key."),
+    onError: (err) => setError(formatQueryError(err, "Test failed — check the API key.")),
   });
 
   return (
@@ -120,11 +117,11 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">{item.creditDiscount}</p>
         {isUnipile && item.connected && item.dsnHint && (
-          <p className="text-xs text-muted-foreground">DSN · {item.dsnHint}</p>
+          <p className="text-xs text-muted-foreground">Current DSN · {item.dsnHint}</p>
         )}
 
         {success && <Alert variant="success">{success}</Alert>}
-        {error && <Alert variant="warning">{error}</Alert>}
+        {error && <Alert variant="error">{error}</Alert>}
 
         {isUnipile && (
           <div className="space-y-2">
@@ -142,8 +139,8 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
               className="font-mono text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              From Unipile dashboard → API (e.g. https://api1.unipile.com:13111). Then connect LinkedIn/WhatsApp
-              under Deliverability.
+              Must match the DSN shown in Unipile for this API key. Then connect LinkedIn/WhatsApp under
+              Deliverability.
             </p>
           </div>
         )}
@@ -186,6 +183,9 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
               </button>
             </div>
           </div>
+          {apiKey.trim().length > 0 && apiKey.trim().length < 8 && (
+            <p className="text-[11px] text-muted-foreground">Paste a key of at least 8 characters.</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -262,15 +262,19 @@ export default function IntegrationsSettingsPage() {
       <DemoBanner />
 
       {integrations.error && (
-        <Alert variant="error" title="Something went wrong" dismissible>
-          We couldn&apos;t load your integrations. Please try again.
+        <Alert
+          variant="error"
+          title="Couldn't load integrations"
+          onRetry={() => integrations.refetch()}
+        >
+          {formatQueryError(integrations.error, "Please try again.")}
         </Alert>
       )}
 
       {integrations.isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading integrations…
+        <div className="space-y-4">
+          <Skeleton className="h-56 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-xl" />
         </div>
       )}
 

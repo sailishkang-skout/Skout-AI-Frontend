@@ -59,7 +59,7 @@ export function ConversationView({
   messagesError: Error | null;
   sending: boolean;
   sendError: Error | null;
-  onReply: (text: string) => void;
+  onReply: (text: string) => void | Promise<void>;
   onMarkRead: () => void;
   onOpenContext: () => void;
   /** When set (e.g. from AI Ask/Auto), fills the reply composer. */
@@ -67,6 +67,11 @@ export function ConversationView({
 }) {
   const [replyText, setReplyText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isMessaging = thread.channel === "linkedin" || thread.channel === "whatsapp";
+  const title =
+    thread.prospect?.fullName?.trim() ||
+    (isMessaging ? thread.subject : thread.subject) ||
+    "Conversation";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -78,33 +83,44 @@ export function ConversationView({
     }
   }, [draftReply]);
 
-  function handleSend() {
+  async function handleSend() {
     const text = replyText.trim();
     if (!text || sending) return;
-    onReply(text);
-    setReplyText("");
+    try {
+      await onReply(text);
+      setReplyText("");
+    } catch {
+      // Keep draft so failed sends can be retried.
+    }
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b bg-background shrink-0">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold truncate">{thread.subject}</h2>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            <Badge tone={threadStatusTone(thread.status)}>
-              {thread.status.replace("_", " ")}
-            </Badge>
-            {thread.prospect?.fullName && (
+          <h2 className="truncate text-sm font-semibold">{title}</h2>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {isMessaging ? (
+              <Badge tone="info">{thread.channel === "whatsapp" ? "WhatsApp" : "LinkedIn"}</Badge>
+            ) : (
+              <Badge tone={threadStatusTone(thread.status)}>
+                {thread.status.replace("_", " ")}
+              </Badge>
+            )}
+            {!isMessaging && thread.prospect?.fullName && (
               <span className="text-xs text-muted-foreground">
                 · {thread.prospect.fullName}
                 {thread.prospect.companyName && ` @ ${thread.prospect.companyName}`}
               </span>
             )}
+            {isMessaging && thread.prospect?.companyName && (
+              <span className="text-xs text-muted-foreground">· {thread.prospect.companyName}</span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
           {thread.unreadCount > 0 && (
-            <Button size="sm" variant="outline" onClick={onMarkRead} className="text-xs h-7 px-2">
+            <Button size="sm" variant="outline" onClick={onMarkRead} className="h-7 px-2 text-xs">
               Mark read
             </Button>
           )}
@@ -112,7 +128,7 @@ export function ConversationView({
             size="sm"
             variant="outline"
             onClick={onOpenContext}
-            className="text-xs h-7 px-2 gap-1"
+            className="h-7 gap-1 px-2 text-xs"
           >
             <Info className="h-3.5 w-3.5" />
             Context
@@ -120,11 +136,11 @@ export function ConversationView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/20">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-muted/20 p-4">
         {messagesLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={cn("flex gap-3 max-w-[80%]", i % 2 === 1 && "ml-auto flex-row-reverse")}>
-              <Skeleton className="h-7 w-7 rounded-full shrink-0" />
+            <div key={i} className={cn("flex max-w-[80%] gap-3", i % 2 === 1 && "ml-auto flex-row-reverse")}>
+              <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
               <Skeleton className="h-20 flex-1 rounded-lg" />
             </div>
           ))
@@ -133,7 +149,7 @@ export function ConversationView({
             Could not load messages for this thread.
           </Alert>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex h-full items-center justify-center">
             <p className="text-sm text-muted-foreground">No messages yet.</p>
           </div>
         ) : (
@@ -142,26 +158,26 @@ export function ConversationView({
             return (
               <div
                 key={msg.id}
-                className={cn("flex gap-2.5 max-w-[min(100%,42rem)]", isOut ? "ml-auto flex-row-reverse" : "")}
+                className={cn("flex max-w-[min(100%,42rem)] gap-2.5", isOut ? "ml-auto flex-row-reverse" : "")}
               >
                 <div
                   className={cn(
-                    "h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold mt-1",
+                    "mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
                     isOut
                       ? "bg-primary text-primary-foreground"
-                      : "bg-background border text-muted-foreground"
+                      : "border bg-background text-muted-foreground"
                   )}
                 >
                   {isOut ? "Me" : "In"}
                 </div>
                 <div
                   className={cn(
-                    "flex-1 min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm",
+                    "min-w-0 flex-1 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm",
                     isOut ? "border-primary/25" : "border-border"
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] border-b border-border bg-muted/40">
-                    <div className="min-w-0 flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3.5 py-2 text-[11px]">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span
                         className={cn(
                           "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -197,25 +213,26 @@ export function ConversationView({
         </div>
       )}
 
-      <div className="border-t p-3 shrink-0 bg-background">
-        <div className="flex gap-2 items-end">
+      <div className="shrink-0 border-t bg-background p-3">
+        <div className="flex items-end gap-2">
           <textarea
-            className="flex-1 min-h-[72px] max-h-[160px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="max-h-[160px] min-h-[72px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="Type your reply… (Ctrl+Enter to send)"
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
-                handleSend();
+                void handleSend();
               }
             }}
             disabled={sending}
           />
           <Button
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={!replyText.trim() || sending}
-            className="shrink-0 h-9"
+            className="h-9 shrink-0"
+            aria-label="Send reply"
           >
             {sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

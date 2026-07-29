@@ -26,6 +26,7 @@ import {
   Wifi,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -878,9 +879,11 @@ function DeliverabilityPageContent() {
   const [liAccountId, setLiAccountId] = useState("");
   const [liDisplayName, setLiDisplayName] = useState("");
   const [liError, setLiError] = useState<string | null>(null);
+  const [liAdvanced, setLiAdvanced] = useState(false);
   const [waAccountId, setWaAccountId] = useState("");
   const [waDisplayName, setWaDisplayName] = useState("");
   const [waError, setWaError] = useState<string | null>(null);
+  const [waAdvanced, setWaAdvanced] = useState(false);
   const [inboxActionError, setInboxActionError] = useState<string | null>(null);
   const pendingUnipileSync = useRef<"linkedin" | "whatsapp" | null>(null);
 
@@ -965,7 +968,8 @@ function DeliverabilityPageContent() {
       setLiError(null);
       queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
     },
-    onError: () => setLiError("Could not connect LinkedIn account. Check the Unipile account ID."),
+    onError: (err) =>
+      setLiError(formatQueryError(err, "Could not connect LinkedIn account. Check the Unipile account ID.")),
   });
 
   const pauseLinkedin = useMutation({
@@ -987,9 +991,20 @@ function DeliverabilityPageContent() {
     mutationFn: () => linkedinApi.hostedAuth(window.location.origin, ["LINKEDIN"]),
     onSuccess: (res) => {
       pendingUnipileSync.current = "linkedin";
-      if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
+      setLiError(null);
+      if (!res.url) {
+        setLiError("Unipile did not return an auth link. Try Sync or paste an account ID.");
+        return;
+      }
+      const popup = window.open(res.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        setLiError("Popup blocked. Allow popups for this site, then try Connect via Unipile again.");
+      }
     },
-    onError: () => setLiError("Hosted LinkedIn auth is unavailable. Paste a Unipile account ID instead."),
+    onError: (err) =>
+      setLiError(
+        formatQueryError(err, "Hosted LinkedIn auth is unavailable. Paste a Unipile account ID instead.")
+      ),
   });
 
   const syncUnipile = useMutation({
@@ -1002,7 +1017,14 @@ function DeliverabilityPageContent() {
       if (channel === "whatsapp") setTab("whatsapp");
       else if (channel === "linkedin") setTab("linkedin");
     },
-    onError: () => setLiError("Could not sync accounts from Unipile. Try again or paste an account ID."),
+    onError: (err, channel) => {
+      const msg = formatQueryError(
+        err,
+        "Could not sync accounts from Unipile. Try again or paste an account ID."
+      );
+      if (channel === "whatsapp") setWaError(msg);
+      else setLiError(msg);
+    },
   });
 
   // After hosted-auth redirect (?linkedin=connected / ?whatsapp=connected), import from Unipile.
@@ -1056,16 +1078,28 @@ function DeliverabilityPageContent() {
       setWaError(null);
       queryClient.invalidateQueries({ queryKey: ["linkedin-accounts"] });
     },
-    onError: () => setWaError("Could not connect WhatsApp account. Check the Unipile account ID."),
+    onError: (err) =>
+      setWaError(formatQueryError(err, "Could not connect WhatsApp account. Check the Unipile account ID.")),
   });
 
   const hostedWhatsappAuth = useMutation({
     mutationFn: () => linkedinApi.hostedAuth(window.location.origin, ["WHATSAPP"]),
     onSuccess: (res) => {
       pendingUnipileSync.current = "whatsapp";
-      if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
+      setWaError(null);
+      if (!res.url) {
+        setWaError("Unipile did not return an auth link. Try Sync or paste an account ID.");
+        return;
+      }
+      const popup = window.open(res.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        setWaError("Popup blocked. Allow popups for this site, then try Connect via Unipile again.");
+      }
     },
-    onError: () => setWaError("Hosted WhatsApp auth is unavailable. Paste a Unipile account ID instead."),
+    onError: (err) =>
+      setWaError(
+        formatQueryError(err, "Hosted WhatsApp auth is unavailable. Paste a Unipile account ID instead.")
+      ),
   });
 
   const addDomain = useMutation({
@@ -1086,6 +1120,10 @@ function DeliverabilityPageContent() {
   const inboxList = inboxes.data?.data ?? [];
   const domainList = domains.data?.data ?? [];
   const m = metrics.data;
+  const unipileReady =
+    linkedinAccounts.data?.unipileConfigured === true ||
+    whatsappAccounts.data?.unipileConfigured === true;
+  const unipileStatusKnown = Boolean(linkedinAccounts.data || whatsappAccounts.data);
 
   return (
     <PageShell>
@@ -1113,23 +1151,25 @@ function DeliverabilityPageContent() {
       />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-lg border border-border bg-muted/40 p-1 w-fit">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-              tab === id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
+      <div className="max-w-full overflow-x-auto">
+        <div className="flex w-fit min-w-full gap-1 rounded-lg border border-border bg-muted/40 p-1 sm:min-w-0">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                tab === id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Inboxes tab ── */}
@@ -1193,50 +1233,89 @@ function DeliverabilityPageContent() {
                 Sequence connection requests and messages send server-side through Unipile — no Chrome extension required.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {linkedinAccounts.data && !linkedinAccounts.data.unipileConfigured && (
-                <Alert variant="warning">
-                  Unipile is not configured on the API yet. Set UNIPILE_DSN and UNIPILE_API_KEY, then reconnect.
+            <CardContent className="space-y-4">
+              {unipileStatusKnown && !unipileReady && (
+                <Alert variant="warning" title="Unipile not connected">
+                  Add your Unipile API key under{" "}
+                  <Link href="/settings/integrations" className="font-medium underline underline-offset-2">
+                    Settings → Integrations
+                  </Link>
+                  , then return here to connect LinkedIn.
                 </Alert>
               )}
               {liError && <Alert variant="error">{liError}</Alert>}
+
               <div className="flex flex-wrap gap-2">
-                <Input
-                  placeholder="Unipile account ID"
-                  value={liAccountId}
-                  onChange={(e) => setLiAccountId(e.target.value)}
-                  className="max-w-xs"
-                />
-                <Input
-                  placeholder="Display name (optional)"
-                  value={liDisplayName}
-                  onChange={(e) => setLiDisplayName(e.target.value)}
-                  className="max-w-xs"
-                />
                 <Button
-                  onClick={() => connectLinkedin.mutate()}
-                  disabled={!liAccountId.trim() || connectLinkedin.isPending}
+                  onClick={() => hostedAuth.mutate()}
+                  disabled={hostedAuth.isPending || (unipileStatusKnown && !unipileReady)}
                   className="gap-1.5"
                 >
-                  {connectLinkedin.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Connect
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => hostedAuth.mutate()}
-                  disabled={hostedAuth.isPending}
-                >
-                  Connect via Unipile
+                  {hostedAuth.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Linkedin className="h-4 w-4" />
+                  )}
+                  {hostedAuth.isPending ? "Opening Unipile…" : "Connect via Unipile"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => syncUnipile.mutate("linkedin")}
-                  disabled={syncUnipile.isPending}
+                  disabled={syncUnipile.isPending || (unipileStatusKnown && !unipileReady)}
                   className="gap-1.5"
                 >
-                  {syncUnipile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {syncUnipile.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
                   Sync from Unipile
                 </Button>
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => setLiAdvanced((v) => !v)}
+                >
+                  {liAdvanced ? "Hide advanced" : "Advanced: paste Unipile account ID"}
+                </button>
+                {liAdvanced && (
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      placeholder="Unipile account ID"
+                      value={liAccountId}
+                      onChange={(e) => setLiAccountId(e.target.value)}
+                      className="max-w-xs"
+                      disabled={unipileStatusKnown && !unipileReady}
+                    />
+                    <Input
+                      placeholder="Display name (optional)"
+                      value={liDisplayName}
+                      onChange={(e) => setLiDisplayName(e.target.value)}
+                      className="max-w-xs"
+                      disabled={unipileStatusKnown && !unipileReady}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => connectLinkedin.mutate()}
+                      disabled={
+                        !liAccountId.trim() ||
+                        connectLinkedin.isPending ||
+                        (unipileStatusKnown && !unipileReady)
+                      }
+                      className="gap-1.5"
+                    >
+                      {connectLinkedin.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Connect with ID
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1309,50 +1388,89 @@ function DeliverabilityPageContent() {
                 Sequence WhatsApp messages send server-side through Unipile. Prospects need a phone number (enrichment or import).
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {whatsappAccounts.data && !whatsappAccounts.data.unipileConfigured && (
-                <Alert variant="warning">
-                  Unipile is not configured on the API yet. Set UNIPILE_DSN and UNIPILE_API_KEY, then reconnect.
+            <CardContent className="space-y-4">
+              {unipileStatusKnown && !unipileReady && (
+                <Alert variant="warning" title="Unipile not connected">
+                  Add your Unipile API key under{" "}
+                  <Link href="/settings/integrations" className="font-medium underline underline-offset-2">
+                    Settings → Integrations
+                  </Link>
+                  , then return here to connect WhatsApp.
                 </Alert>
               )}
               {waError && <Alert variant="error">{waError}</Alert>}
+
               <div className="flex flex-wrap gap-2">
-                <Input
-                  placeholder="Unipile account ID"
-                  value={waAccountId}
-                  onChange={(e) => setWaAccountId(e.target.value)}
-                  className="max-w-xs"
-                />
-                <Input
-                  placeholder="Display name (optional)"
-                  value={waDisplayName}
-                  onChange={(e) => setWaDisplayName(e.target.value)}
-                  className="max-w-xs"
-                />
                 <Button
-                  onClick={() => connectWhatsapp.mutate()}
-                  disabled={!waAccountId.trim() || connectWhatsapp.isPending}
+                  onClick={() => hostedWhatsappAuth.mutate()}
+                  disabled={hostedWhatsappAuth.isPending || (unipileStatusKnown && !unipileReady)}
                   className="gap-1.5"
                 >
-                  {connectWhatsapp.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Connect
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => hostedWhatsappAuth.mutate()}
-                  disabled={hostedWhatsappAuth.isPending}
-                >
-                  Connect via Unipile
+                  {hostedWhatsappAuth.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageCircle className="h-4 w-4" />
+                  )}
+                  {hostedWhatsappAuth.isPending ? "Opening Unipile…" : "Connect via Unipile"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => syncUnipile.mutate("whatsapp")}
-                  disabled={syncUnipile.isPending}
+                  disabled={syncUnipile.isPending || (unipileStatusKnown && !unipileReady)}
                   className="gap-1.5"
                 >
-                  {syncUnipile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {syncUnipile.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
                   Sync from Unipile
                 </Button>
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => setWaAdvanced((v) => !v)}
+                >
+                  {waAdvanced ? "Hide advanced" : "Advanced: paste Unipile account ID"}
+                </button>
+                {waAdvanced && (
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      placeholder="Unipile account ID"
+                      value={waAccountId}
+                      onChange={(e) => setWaAccountId(e.target.value)}
+                      className="max-w-xs"
+                      disabled={unipileStatusKnown && !unipileReady}
+                    />
+                    <Input
+                      placeholder="Display name (optional)"
+                      value={waDisplayName}
+                      onChange={(e) => setWaDisplayName(e.target.value)}
+                      className="max-w-xs"
+                      disabled={unipileStatusKnown && !unipileReady}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => connectWhatsapp.mutate()}
+                      disabled={
+                        !waAccountId.trim() ||
+                        connectWhatsapp.isPending ||
+                        (unipileStatusKnown && !unipileReady)
+                      }
+                      className="gap-1.5"
+                    >
+                      {connectWhatsapp.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Connect with ID
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
