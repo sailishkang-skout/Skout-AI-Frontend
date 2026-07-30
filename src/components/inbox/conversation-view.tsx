@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Info, Loader2, Send } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Info, Loader2, Send, Sparkles } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { MessageBody } from "@/components/inbox/message-body";
 import { cn } from "@/lib/utils";
 import type { InboxMessage, InboxThread } from "@/types/api";
 import type { BadgeProps } from "@/components/ui/badge";
+import { formatQueryError } from "@/lib/api-client";
 
 function threadStatusTone(status: string): BadgeProps["tone"] {
   switch (status) {
@@ -52,6 +54,13 @@ export function ConversationView({
   onMarkRead,
   onOpenContext,
   draftReply,
+  sequencePaused,
+  sequenceName,
+  sequenceId,
+  suggesting,
+  onSuggestReply,
+  suggestError,
+  onBack,
 }: {
   thread: InboxThread;
   messages: InboxMessage[];
@@ -64,6 +73,14 @@ export function ConversationView({
   onOpenContext: () => void;
   /** When set (e.g. from AI Ask/Auto), fills the reply composer. */
   draftReply?: string | null;
+  sequencePaused?: boolean;
+  sequenceName?: string | null;
+  sequenceId?: string | null;
+  suggesting?: boolean;
+  onSuggestReply?: () => void;
+  suggestError?: Error | null;
+  /** Mobile: return to thread list */
+  onBack?: () => void;
 }) {
   const [replyText, setReplyText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -97,6 +114,18 @@ export function ConversationView({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-3">
+        {onBack && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={onBack}
+            className="h-8 w-8 shrink-0 p-0 lg:hidden"
+            aria-label="Back to conversations"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">{title}</h2>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -135,6 +164,26 @@ export function ConversationView({
           </Button>
         </div>
       </div>
+
+      {sequencePaused && !isMessaging && (
+        <div className="shrink-0 border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-900 dark:text-emerald-200">
+          Sequence paused — they replied
+          {sequenceName ? (
+            <>
+              {" "}
+              ·{" "}
+              {sequenceId ? (
+                <Link href={`/sequences/${sequenceId}`} className="font-medium underline underline-offset-2">
+                  {sequenceName}
+                </Link>
+              ) : (
+                <span className="font-medium">{sequenceName}</span>
+              )}
+            </>
+          ) : null}
+          . Remaining steps were skipped automatically.
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto bg-muted/20 p-4">
         {messagesLoading ? (
@@ -214,6 +263,35 @@ export function ConversationView({
       )}
 
       <div className="shrink-0 border-t bg-background p-3">
+        {!isMessaging && onSuggestReply && (
+          <div className="mb-2 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                AI can draft a reply from this thread — you review before send.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 px-2 text-xs"
+                disabled={suggesting || sending}
+                onClick={onSuggestReply}
+              >
+                {suggesting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                Suggest reply
+              </Button>
+            </div>
+            {suggestError && (
+              <Alert variant="error" title="Could not suggest a reply">
+                {formatQueryError(suggestError, "Try again in a moment.")}
+              </Alert>
+            )}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             className="max-h-[160px] min-h-[72px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"

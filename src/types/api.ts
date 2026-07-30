@@ -205,6 +205,10 @@ export interface SequenceEnrollment {
   status: SequenceEnrollmentStatus;
   enrolledAt: string;
   completedAt: string | null;
+  prospectName?: string | null;
+  prospectTitle?: string | null;
+  companyName?: string | null;
+  email?: string | null;
 }
 
 export interface EnrollSequenceResult {
@@ -285,6 +289,29 @@ export interface ThreadContext {
     sequenceName: string;
     sequenceStatus: string;
   } | null;
+  /** True when the linked enrollment stopped (reply/bounce/etc.). */
+  sequencePaused?: boolean;
+  suggestedDraft?: {
+    id: string;
+    subject: string;
+    body: string;
+    status: string;
+    confidenceScore: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export interface SuggestReplyResult {
+  threadId: string;
+  subject: string;
+  body: string;
+  confidence: number;
+  source: "llm" | "heuristic";
+  rationale: string | null;
+  draftId: string | null;
+  sequencePaused: boolean;
+  enrollmentStatus: string | null;
+  sequenceName: string | null;
 }
 
 export interface InboxThreadsResponse {

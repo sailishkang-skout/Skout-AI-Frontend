@@ -13,6 +13,7 @@ import type {
   InboxMessagesResponse,
   InboxMessage,
   ThreadContext,
+  SuggestReplyResult,
 } from "@/types/api";
 
 interface ListResponse<T> {
@@ -106,6 +107,12 @@ export function useInboxThreadsApi() {
 
     getContext: (threadId: string) =>
       fetchApi<ThreadContext>(`/api/v1/inbox/threads/${threadId}/context`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    suggestReply: (threadId: string) =>
+      fetchApi<SuggestReplyResult>(`/api/v1/inbox/threads/${threadId}/suggest-reply`, {
+        method: "POST",
         workspaceId: WORKSPACE_ID,
       }),
 

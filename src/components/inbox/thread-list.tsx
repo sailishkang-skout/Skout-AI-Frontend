@@ -199,8 +199,22 @@ export function ThreadList({
             </div>
           ))
         ) : threads.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            {isMessaging ? `No ${messagingLabel} chats found.` : "No threads found."}
+          <div className="flex flex-col items-center gap-3 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              {isMessaging ? `No ${messagingLabel} chats found.` : "No conversations match these filters."}
+            </p>
+            {(statusFilter || (folderFilter && folderFilter !== "inbound" && folderFilter !== "all")) && (
+              <button
+                type="button"
+                className="text-xs font-medium text-primary hover:underline"
+                onClick={() => {
+                  onChangeStatus(undefined);
+                  onChangeFolder(isMessaging ? "all" : "inbound");
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           threads.map((thread) => {

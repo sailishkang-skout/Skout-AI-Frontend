@@ -33,6 +33,7 @@ export default function SequencesPage() {
   const [genListId, setGenListId] = useState("");
   const [includeLinkedin, setIncludeLinkedin] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const sequences = useQuery({
     queryKey: ["sequences"],
@@ -50,10 +51,13 @@ export default function SequencesPage() {
 
   const createSequence = useMutation({
     mutationFn: () => sequencesApi.create(name.trim()),
-    onSuccess: () => {
+    onSuccess: (seq) => {
       setName("");
+      setCreateError(null);
       queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      router.push(`/sequences/${seq.id}`);
     },
+    onError: () => setCreateError("Could not create the sequence. Please try again."),
   });
 
   const generateSequence = useMutation({
@@ -83,42 +87,13 @@ export default function SequencesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Create a sequence</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center">
-            <Input
-              placeholder="e.g. SaaS VP outreach — 4 touch"
-              className="min-w-0 flex-1 bg-background"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && name.trim() && createSequence.mutate()}
-            />
-            <Button
-              onClick={() => createSequence.mutate()}
-              disabled={!name.trim() || createSequence.isPending}
-              className="w-full shrink-0 sm:w-auto"
-            >
-              {createSequence.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Create sequence
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Sparkles className="h-4 w-4 text-primary" />
             Generate a sequence with AI
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+          <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
             <textarea
               rows={3}
               placeholder="Describe your goal, e.g. 'Book demos with RevOps leaders at mid-market SaaS; lead with our list-building time savings.'"
@@ -166,11 +141,44 @@ export default function SequencesPage() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Creates a draft cadence you can review and edit. It learns from your past sequences
-              and reply/bounce results. Activate it when you&apos;re happy.
+              Creates a draft cadence you can review and edit. Activate it when you&apos;re happy, then enroll a list.
             </p>
             {genError && <p className="text-sm text-destructive">{genError}</p>}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Or start from scratch</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              placeholder="e.g. SaaS VP outreach — 4 touch"
+              className="min-w-0 flex-1 bg-background"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && name.trim() && createSequence.mutate()}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateError(null);
+                createSequence.mutate();
+              }}
+              disabled={!name.trim() || createSequence.isPending}
+              className="w-full shrink-0 sm:w-auto"
+            >
+              {createSequence.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Blank sequence
+            </Button>
+          </div>
+          {createError && <p className="mt-2 text-sm text-destructive">{createError}</p>}
         </CardContent>
       </Card>
 
@@ -205,12 +213,12 @@ export default function SequencesPage() {
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
               <div className="rounded-full bg-muted p-4">
-                <Mail className="h-8 w-8 text-muted-foreground" />
+                <Sparkles className="h-8 w-8 text-muted-foreground" />
               </div>
               <div>
                 <p className="font-medium">No sequences yet</p>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Create a sequence above, then add steps and enroll prospects.
+                  Generate a cadence with AI, or create a blank sequence and add steps yourself.
                 </p>
               </div>
             </CardContent>

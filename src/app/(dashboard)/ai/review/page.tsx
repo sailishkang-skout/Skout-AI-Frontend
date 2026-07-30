@@ -184,7 +184,7 @@ export default function AiReviewPage() {
     <PageShell data-testid="page-ai-review">
       <PageHeader
         title="AI Review Queue"
-        description="Approve & send AI outreach drafts. Sent mail appears in Inbox → Sent (Outbox)."
+        description="Approve & send AI outreach drafts. Sent mail appears in Inbox → Sent."
       />
 
       <div className="space-y-2">
@@ -227,7 +227,7 @@ export default function AiReviewPage() {
             className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Open Sent / Outbox
+            Open Sent
           </Link>
           {reviewable.length > 0 && (
             <Button
@@ -305,12 +305,11 @@ export default function AiReviewPage() {
                       {aiDraftStatusLabel(draft.status)}
                     </Badge>
                     {draft.icpScore != null && <Badge tone="muted">ICP {draft.icpScore}</Badge>}
-                    {draft.model && <Badge tone="muted">{draft.model}</Badge>}
                   </div>
 
                   <div>
                     <p className="font-medium">
-                      {draft.prospectName || draft.prospectId}
+                      {draft.prospectName || draft.companyName || "Unknown prospect"}
                       {draft.prospectTitle ? (
                         <span className="font-normal text-muted-foreground">
                           {" "}
@@ -318,7 +317,7 @@ export default function AiReviewPage() {
                         </span>
                       ) : null}
                     </p>
-                    {draft.companyName && (
+                    {draft.companyName && draft.prospectName && (
                       <p className="text-sm text-muted-foreground">{draft.companyName}</p>
                     )}
                   </div>

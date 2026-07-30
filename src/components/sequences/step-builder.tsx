@@ -375,8 +375,8 @@ function StepCard({
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              Sent server-side via a connected LinkedIn account (Unipile). Prospects need a LinkedIn profile URL.
-              Connect an account under Deliverability → LinkedIn.
+              Sent via your connected LinkedIn account. Prospects need a LinkedIn profile URL.
+              Connect under Deliverability → LinkedIn.
             </p>
           </div>
         )}
@@ -397,8 +397,8 @@ function StepCard({
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              Sent server-side via Unipile WhatsApp. Prospects need a phone number (enrich or import).
-              Connect an account under Deliverability → WhatsApp.
+              Sent via your connected WhatsApp account. Prospects need a phone number (enrich or import).
+              Connect under Deliverability → WhatsApp.
             </p>
           </div>
         )}

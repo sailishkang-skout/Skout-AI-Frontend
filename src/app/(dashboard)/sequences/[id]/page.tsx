@@ -272,10 +272,48 @@ export default function SequenceDetailPage() {
               )}
             </div>
 
-            {/* Draft activation hint */}
+            {/* Draft activation hints */}
             {sequence.status === "draft" && steps.length === 0 && (
               <div className="border-t border-border bg-amber-50/60 px-5 py-3 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
                 Add at least one step before activating this sequence.
+              </div>
+            )}
+            {sequence.status === "draft" && steps.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-emerald-50/60 px-5 py-3 text-xs text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+                <span>
+                  Ready to send? Activate this sequence, then open Enroll to add prospects.
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 gap-1.5"
+                    disabled={updateSequence.isPending}
+                    onClick={() => updateSequence.mutate({ status: "active" })}
+                  >
+                    {updateSequence.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5" />
+                    )}
+                    Activate
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7"
+                    onClick={() => setTab("enroll")}
+                  >
+                    Go to Enroll
+                  </Button>
+                </div>
+              </div>
+            )}
+            {sequence.status === "active" && tab === "builder" && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-5 py-3 text-xs text-muted-foreground">
+                <span>Sequence is live. Enroll a list to start sending.</span>
+                <Button size="sm" variant="outline" className="h-7" onClick={() => setTab("enroll")}>
+                  Open Enroll
+                </Button>
               </div>
             )}
           </div>

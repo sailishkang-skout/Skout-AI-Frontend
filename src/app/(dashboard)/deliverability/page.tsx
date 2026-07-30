@@ -508,34 +508,40 @@ function InboxCard({
               <span title="Error"><XCircle className="h-4 w-4 text-rose-500" /></span>
             )}
             {isPaused ? (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
                 onClick={onResume}
                 disabled={isResuming}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40"
-                title="Resume inbox"
+                className="h-7 gap-1 px-2 text-xs"
               >
-                {isResuming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
-              </button>
+                {isResuming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Resume
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
                 onClick={onPause}
                 disabled={isPausing}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40"
-                title="Pause inbox"
+                className="h-7 gap-1 px-2 text-xs"
               >
-                {isPausing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-              </button>
+                {isPausing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Pause
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="ghost"
               onClick={onDisconnect}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              title="Disconnect"
+              className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
             >
-              <Unplug className="h-4 w-4" />
-            </button>
+              <Unplug className="h-3.5 w-3.5" />
+              Disconnect
+            </Button>
           </div>
         </div>
 
@@ -1343,7 +1349,9 @@ function DeliverabilityPageContent() {
                       <p className="truncate text-sm font-semibold">
                         {account.displayName || account.unipileAccountId}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      {!account.displayName && (
+                        <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      )}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {account.sentCount}/{account.dailySendLimit} sent today window
                       </p>
@@ -1498,7 +1506,9 @@ function DeliverabilityPageContent() {
                       <p className="truncate text-sm font-semibold">
                         {account.displayName || account.unipileAccountId}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      {!account.displayName && (
+                        <p className="truncate text-xs text-muted-foreground">{account.unipileAccountId}</p>
+                      )}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {account.sentCount}/{account.dailySendLimit} sent today window
                       </p>

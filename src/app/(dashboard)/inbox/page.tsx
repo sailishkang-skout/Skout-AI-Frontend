@@ -148,6 +148,11 @@ export default function InboxPage() {
     autoMarkedRef.current.clear();
   }, [channel, messagingView]);
 
+  useEffect(() => {
+    setAiDraftReply(null);
+    suggestReplyMutation.reset();
+  }, [selectedThread?.id]);
+
   const emailThreadsQuery = useQuery({
     queryKey: [...THREADS_QUERY_KEY, statusFilter, folderFilter, inboxFilter],
     queryFn: () =>
@@ -210,7 +215,23 @@ export default function InboxPage() {
       isMessaging
         ? messagingApi.getContext(selectedThread!.id)
         : threadsApi.getContext(selectedThread!.id),
-    enabled: authReady && !!selectedThread && contextOpen,
+    enabled: authReady && !!selectedThread && !(isMessaging && messagingView === "find"),
+  });
+
+  // Prefill composer from an existing pending AI draft for this thread.
+  useEffect(() => {
+    if (channel !== "email") return;
+    const body = contextQuery.data?.suggestedDraft?.body?.trim();
+    if (!body) return;
+    setAiDraftReply((current) => current ?? body);
+  }, [channel, contextQuery.data?.suggestedDraft?.id, contextQuery.data?.suggestedDraft?.body]);
+
+  const suggestReplyMutation = useMutation({
+    mutationFn: (threadId: string) => threadsApi.suggestReply(threadId),
+    onSuccess: (res) => {
+      setAiDraftReply(res.body);
+      queryClient.invalidateQueries({ queryKey: [...CONTEXT_QUERY_KEY, channel, res.threadId] });
+    },
   });
 
   const markReadMutation = useMutation({
@@ -426,7 +447,12 @@ export default function InboxPage() {
             className="flex overflow-hidden rounded-xl border bg-background"
             style={{ height: "min(40rem, calc(100svh - 14rem))" }}
           >
-            <div className="flex w-80 shrink-0 flex-col overflow-hidden border-r xl:w-96">
+            <div
+              className={cn(
+                "flex w-full shrink-0 flex-col overflow-hidden border-r lg:w-80 xl:w-96",
+                selectedThread ? "hidden lg:flex" : "flex"
+              )}
+            >
               <ThreadList
                 channel={channel}
                 threads={threads}
@@ -454,7 +480,12 @@ export default function InboxPage() {
               />
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div
+              className={cn(
+                "min-w-0 flex-1 flex-col overflow-hidden",
+                selectedThread ? "flex" : "hidden lg:flex"
+              )}
+            >
               {selectedThread ? (
                 <ConversationView
                   thread={selectedThread}
@@ -472,11 +503,34 @@ export default function InboxPage() {
                   sending={replyMutation.isPending}
                   sendError={replyMutation.error as Error | null}
                   draftReply={aiDraftReply}
+                  sequencePaused={
+                    contextQuery.data?.threadId === selectedThread.id
+                      ? Boolean(contextQuery.data?.sequencePaused)
+                      : false
+                  }
+                  sequenceName={
+                    contextQuery.data?.threadId === selectedThread.id
+                      ? (contextQuery.data?.sequence?.sequenceName ?? null)
+                      : null
+                  }
+                  sequenceId={
+                    contextQuery.data?.threadId === selectedThread.id
+                      ? (contextQuery.data?.sequence?.sequenceId ?? null)
+                      : null
+                  }
+                  suggesting={suggestReplyMutation.isPending}
+                  suggestError={suggestReplyMutation.error as Error | null}
+                  onSuggestReply={
+                    channel === "email"
+                      ? () => suggestReplyMutation.mutate(selectedThread.id)
+                      : undefined
+                  }
                   onReply={async (text) => {
                     await replyMutation.mutateAsync({ threadId: selectedThread.id, text });
                   }}
                   onMarkRead={() => markReadMutation.mutate(selectedThread.id)}
                   onOpenContext={() => setContextOpen(true)}
+                  onBack={() => setSelectedThread(null)}
                 />
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground">

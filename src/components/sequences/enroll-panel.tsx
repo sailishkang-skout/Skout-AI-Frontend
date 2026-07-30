@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Users, UserX } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, Users, UserX } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export function EnrollPanel({
 
   const [selectedListId, setSelectedListId] = useState("");
   const [prospectIdsDraft, setProspectIdsDraft] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -78,7 +79,6 @@ export function EnrollPanel({
   const canEnroll = isActive && (Boolean(selectedListId) || prospectIdsDraft.trim().length > 0);
   const listOptions = useMemo(() => lists.data?.data ?? [], [lists.data]);
 
-  // ── enrollment count badges ────────────────────────────────
   const statusCounts = useMemo(() => {
     const counts: Partial<Record<SequenceEnrollmentStatus, number>> = {};
     for (const r of enrollmentRows) counts[r.status] = (counts[r.status] ?? 0) + 1;
@@ -87,14 +87,12 @@ export function EnrollPanel({
 
   return (
     <div className="space-y-5">
-      {/* ── Warning when not active ───────────────────── */}
       {!isActive && (
         <Alert variant="warning">
           Activate this sequence before enrolling prospects.
         </Alert>
       )}
 
-      {/* ── Enroll form ───────────────────────────────── */}
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -102,12 +100,12 @@ export function EnrollPanel({
             Enroll prospects
           </CardTitle>
           <CardDescription>
-            Choose a list or paste prospect IDs (comma or newline separated).
+            Pick a list to enroll everyone on it. Prefer lists over pasting IDs.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Enroll from list (optional)</label>
+            <label className="text-xs font-medium text-muted-foreground">List</label>
             <Select
               value={selectedListId}
               onChange={(e) => setSelectedListId(e.target.value)}
@@ -123,17 +121,28 @@ export function EnrollPanel({
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Or paste prospect IDs</label>
-            <textarea
-              placeholder={"prospect-id-1\nprospect-id-2"}
-              value={prospectIdsDraft}
-              onChange={(e) => setProspectIdsDraft(e.target.value)}
-              disabled={!isActive}
-              rows={3}
-              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => setShowAdvanced((v) => !v)}
+          >
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+            Advanced: paste prospect IDs
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Prospect IDs</label>
+              <textarea
+                placeholder={"prospect-id-1\nprospect-id-2"}
+                value={prospectIdsDraft}
+                onChange={(e) => setProspectIdsDraft(e.target.value)}
+                disabled={!isActive}
+                rows={3}
+                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <Button
@@ -167,7 +176,6 @@ export function EnrollPanel({
         </CardContent>
       </Card>
 
-      {/* ── Enrollment table ──────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -201,10 +209,12 @@ export function EnrollPanel({
           )}
 
           {enrollmentRows.length > 0 && (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-sm">
               <thead className="border-b border-border">
                 <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2.5 font-medium">Prospect</th>
+                  <th className="px-4 py-2.5 font-medium">Company</th>
                   <th className="px-4 py-2.5 font-medium">Enrolled</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                 </tr>
@@ -212,10 +222,19 @@ export function EnrollPanel({
               <tbody className="divide-y divide-border">
                 {enrollmentRows.map((e) => {
                   const cfg = ENROLLMENT_STATUS_CONFIG[e.status];
+                  const name = e.prospectName?.trim() || e.email || "Unknown prospect";
                   return (
                     <tr key={e.id} className="hover:bg-muted/40">
                       <td className="px-4 py-2.5">
-                        <span className="font-mono text-xs text-muted-foreground">{e.prospectId}</span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">{name}</p>
+                          {e.prospectTitle && (
+                            <p className="truncate text-xs text-muted-foreground">{e.prospectTitle}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                        {e.companyName ?? "—"}
                       </td>
                       <td className="px-4 py-2.5 text-xs text-muted-foreground">
                         {new Date(e.enrolledAt).toLocaleDateString("en-US", {
@@ -230,6 +249,7 @@ export function EnrollPanel({
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </CardContent>
       </Card>
