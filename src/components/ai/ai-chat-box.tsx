@@ -663,6 +663,17 @@ function ActionCard({
     );
   }
 
+  if (action.type === "ui_action") {
+    return (
+      <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-foreground">
+        <p className="text-xs font-medium">{action.label}</p>
+        <p className="text-[11px] text-muted-foreground">
+          Open Dexter AI to run this action{action.confirm ? " (confirmation required)" : ""}.
+        </p>
+      </div>
+    );
+  }
+
   return null;
 }
 

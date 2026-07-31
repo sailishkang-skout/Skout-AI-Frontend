@@ -24,12 +24,32 @@ export interface ChartSpec {
   unit?: string;
 }
 
+export type UiActionName =
+  | "open_ai_review"
+  | "open_inbox"
+  | "open_deliverability"
+  | "open_sequences"
+  | "open_lists"
+  | "open_search"
+  | "open_list"
+  | "open_sequence"
+  | "enroll_list"
+  | "open_analytics"
+  | "open_settings";
+
 export type ChatAction =
   | { type: "none" }
   | { type: "email"; subject: string; html: string }
   | { type: "sequence"; name: string; steps: GeneratedStep[] }
   | { type: "analysis"; title?: string; summary?: string; charts: ChartSpec[] }
-  | { type: "navigate"; path: string; label: string };
+  | { type: "navigate"; path: string; label: string }
+  | {
+      type: "ui_action";
+      name: UiActionName;
+      label: string;
+      params?: Record<string, string>;
+      confirm?: boolean;
+    };
 
 export interface ChatExportArtifact {
   dataset: string;
@@ -55,6 +75,7 @@ export interface ChatResponse {
 }
 
 export type ChatMode = "auto" | "ask";
+export type ChatAgent = "skout" | "dexter";
 
 export interface ChatContext {
   subject?: string;
@@ -86,6 +107,7 @@ export function useAiChatApi() {
       messages: { role: "user" | "assistant"; content: string }[];
       mode: ChatMode;
       stageForReview?: boolean;
+      agent?: ChatAgent;
       context?: ChatContext;
     }) =>
       fetchApi<ChatResponse>("/api/v1/ai/chat", {

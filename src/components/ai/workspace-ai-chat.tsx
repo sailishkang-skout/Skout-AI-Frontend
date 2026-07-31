@@ -2,26 +2,24 @@
 
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { AiChatBox } from "@/components/ai/ai-chat-box";
+import { DexterChat } from "@/components/ai/dexter-chat";
 import type { ChatContext } from "@/lib/ai-chat";
 
-/** Routes that already mount a page-specific AiChatBox (richer editor context). */
+/** Page-specific AiChatBox FABs also mount here — offset Dexter so both are usable. */
 const SPECIALIZED_CHAT_PREFIXES = ["/sequences", "/inbox"];
 
 /**
- * Global workspace + product AI assistant.
- * Hidden on Sequences/Inbox where a specialized chat FAB already exists —
- * those chats still receive workspace facts + guides from the API.
+ * Global Dexter AI agent — available on every dashboard page.
+ * Speaks (TTS), listens (STT), and performs confirmable in-app actions.
  */
 export function WorkspaceAiChat() {
   const pathname = usePathname() || "/";
-  const specialized = SPECIALIZED_CHAT_PREFIXES.some(
+  const offsetForSpecialized = SPECIALIZED_CHAT_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 
   const context = useMemo<ChatContext>(() => {
     const ctx: ChatContext = { kind: "general", page: pathname };
-    // Inject entity IDs from the URL when on detail pages.
     const listMatch = pathname.match(/\/lists\/([a-f0-9-]+)/);
     if (listMatch) ctx.listId = listMatch[1];
     const seqMatch = pathname.match(/\/sequences\/([a-f0-9-]+)/);
@@ -29,7 +27,5 @@ export function WorkspaceAiChat() {
     return ctx;
   }, [pathname]);
 
-  if (specialized) return null;
-
-  return <AiChatBox title="Skout AI" defaultMode="ask" context={context} />;
+  return <DexterChat context={context} offsetLeft={offsetForSpecialized} />;
 }

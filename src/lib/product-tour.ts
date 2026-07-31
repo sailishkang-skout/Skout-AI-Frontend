@@ -268,12 +268,12 @@ export const TOUR_STEPS: TourStep[] = [
     id: "ai-chat",
     target: "nav-ai-chat",
     href: "/dashboard",
-    title: "Workspace AI assistant",
-    body: "The floating Skout AI chat knows this workspace — ask for credit charts, list help, sequence ideas, or how-tos.",
+    title: "Dexter AI",
+    body: "Dexter is your voice-first workspace agent — speak or type to navigate, enroll lists, draft outreach, and answer questions with live data.",
     details: [
-      "Ask mode proposes; Auto can apply where supported",
-      "Can return charts and CSV exports for analytics questions",
-      "On Sequences/Inbox you’ll see a page-specific chat instead",
+      "Mic to talk; Dexter speaks replies aloud (browser TTS)",
+      "Ask mode proposes; confirm before enroll / send",
+      "On Sequences/Inbox a page chat stays for editor apply — Dexter sits beside it",
     ],
   },
 ];
