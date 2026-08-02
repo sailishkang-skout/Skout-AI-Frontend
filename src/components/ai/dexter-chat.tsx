@@ -35,7 +35,7 @@ import {
 } from "@/lib/dexter-speech";
 import { useSequencesApi } from "@/lib/sequences";
 import { createClientLogger } from "@/lib/logger";
-import { ChatText, TypingDots, sanitizeHtml, stripExportLinks } from "@/components/ai/ai-chat-box";
+import { sanitizeHtml, stripExportLinks } from "@/components/ai/ai-chat-box";
 
 const log = createClientLogger("dexter");
 
@@ -86,14 +86,14 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speakCancelRef = useRef<(() => void) | null>(null);
   const lastAttemptRef = useRef<ChatTurn[]>([]);
-  /** Finalized speech chunks while the mic is open — sent on stop or 3s silence. */
+  /** Finalized speech chunks while the mic is open — sent on stop or 10s silence. */
   const speechFinalRef = useRef("");
   const listeningRef = useRef(false);
   const interimRef = useRef("");
   const inputRef = useRef("");
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Auto-send after this long with no new speech results. */
-  const SILENCE_SEND_MS = 3_000;
+  const SILENCE_SEND_MS = 10_000;
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -344,7 +344,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         inputRef.current = draft;
         setInput(draft);
       }
-      // Reset the 3s pause clock whenever speech continues.
+      // Reset the 10s pause clock whenever speech continues.
       armSilenceTimer();
     };
     recognition.onerror = (event) => {
@@ -406,14 +406,12 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         data-testid="dexter-fab"
         onClick={() => setOpen(true)}
         className={cn(
-          "group fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-popover ring-4 ring-emerald-500/20 transition-transform duration-200 hover:scale-105 active:scale-95",
+          "fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl ring-4 ring-emerald-500/25 transition hover:scale-105 hover:bg-emerald-500",
           fabRight
         )}
         aria-label="Open Dexter AI"
       >
-        <span className="absolute inset-0 rounded-full bg-emerald-400/40 opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-100" />
-        <Zap className="relative h-6 w-6" />
-        <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-300" />
+        <Zap className="h-6 w-6" />
       </button>
     );
   }
@@ -423,13 +421,13 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       data-tour="nav-ai-chat"
       data-testid="dexter-panel"
       className={cn(
-        "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 flex h-[min(40rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-500/25 bg-card text-card-foreground shadow-popover",
+        "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 flex h-[min(40rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-500/30 bg-background shadow-2xl",
         panelRight
       )}
     >
-      <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-emerald-600/15 via-card to-card px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-emerald-600/15 via-background to-background px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-soft">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm">
             <Zap className="h-4 w-4" />
           </span>
           <div className="min-w-0">
@@ -486,7 +484,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       </div>
 
       <div className="border-b border-border bg-emerald-50/50 px-4 py-1.5 text-[11px] text-muted-foreground dark:bg-emerald-950/20">
-        Tap the mic to talk. Dexter sends when you tap again, or after a 3s pause.
+        Tap the mic to talk. Dexter sends when you tap again, or after a 10s pause.
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -524,13 +522,13 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
             <div key={i} className={cn("flex", t.role === "user" ? "justify-end" : "justify-start")}>
               <div
                 className={cn(
-                  "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-soft",
+                  "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
                   t.role === "user"
-                    ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-emerald-700 text-white"
-                    : "rounded-bl-md border border-border/60 bg-muted/70"
+                    ? "rounded-br-md bg-emerald-600 text-white"
+                    : "rounded-bl-md border border-border/60 bg-muted/80"
                 )}
               >
-                {display ? <ChatText text={display} /> : null}
+                {display ? <p className="whitespace-pre-wrap break-words">{display}</p> : null}
 
                 {t.action?.type === "navigate" && (
                   <div className="mt-2">
@@ -639,8 +637,8 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
 
         {send.isPending && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-border/60 bg-muted/80 px-4 py-3 text-sm text-muted-foreground shadow-soft">
-              <TypingDots />
+            <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/80 px-3.5 py-2.5 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Dexter is thinking…
             </div>
           </div>
         )}
@@ -649,13 +647,13 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       <div className="border-t border-border bg-background p-3">
         {listening && (
           <p className="mb-1.5 px-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-            Listening… tap mic to send now, or pause 3s and Dexter will send.
+            Listening… tap mic to send now, or pause 10s and Dexter will send.
           </p>
         )}
         {!listening && interim && (
           <p className="mb-1.5 px-1 text-[11px] italic text-muted-foreground">Hearing: {interim}</p>
         )}
-        <div className="flex items-end gap-2 rounded-xl border border-border bg-muted/20 p-1.5 transition-shadow focus-within:border-emerald-500/40 focus-within:shadow-glow">
+        <div className="flex items-end gap-2 rounded-xl border border-border bg-muted/20 p-1.5 focus-within:ring-2 focus-within:ring-emerald-500/30">
           {micSupported && (
             <Button
               type="button"
@@ -688,7 +686,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
             }}
             placeholder={
               listening
-                ? "Keep talking… 3s pause or tap mic to send"
+                ? "Keep talking… 10s pause or tap mic to send"
                 : micSupported
                   ? "Ask Dexter or tap the mic…"
                   : "Ask Dexter…"

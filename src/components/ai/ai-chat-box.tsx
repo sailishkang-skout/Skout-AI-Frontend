@@ -106,11 +106,11 @@ export function stripExportLinks(text: string, artifacts: ChatExportArtifact[] =
   return out;
 }
 
-/** Inline markdown: bold, inline code, external links, and in-app paths. */
-function InlineText({ text }: { text: string }): ReactNode[] {
+/** Light markdown: bold, external links, and in-app paths. */
+function ChatText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
   const re =
-    /(\*\*[^*]+\*\*|`[^`]+`|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(?<![\w@])(\/[a-z0-9][a-z0-9/_-]*))/gi;
+    /(\*\*[^*]+\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(?<![\w@])(\/[a-z0-9][a-z0-9/_-]*))/gi;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
@@ -120,12 +120,6 @@ function InlineText({ text }: { text: string }): ReactNode[] {
     }
     if (m[0].startsWith("**")) {
       parts.push(<strong key={key++}>{m[0].slice(2, -2)}</strong>);
-    } else if (m[0].startsWith("`")) {
-      parts.push(
-        <code key={key++} className="rounded bg-foreground/10 px-1 py-0.5 text-[0.85em]">
-          {m[0].slice(1, -1)}
-        </code>
-      );
     } else if (m[2] && m[3]) {
       parts.push(
         <a
@@ -148,67 +142,7 @@ function InlineText({ text }: { text: string }): ReactNode[] {
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
-  return parts;
-}
-
-const LIST_ITEM_RE = /^\s*(?:[-*]|\d+[.)])\s+(.*)$/;
-
-/**
- * Renders a chat reply as real paragraphs / lists instead of one flat blob of text.
- * Blank lines split paragraphs; a block where every line starts with "- ", "* ", or
- * "1. " renders as a proper <ul>/<ol> so multi-step answers are actually scannable.
- */
-export function ChatText({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/).filter((b) => b.trim().length > 0);
-  if (blocks.length === 0) return null;
-
-  return (
-    <div className="space-y-2">
-      {blocks.map((block, bi) => {
-        const lines = block.split("\n").filter((l) => l.trim().length > 0);
-        const isList = lines.length > 0 && lines.every((l) => LIST_ITEM_RE.test(l));
-
-        if (isList) {
-          const ordered = /^\s*\d+[.)]/.test(lines[0]!);
-          const items = lines.map((line, li) => {
-            const match = LIST_ITEM_RE.exec(line);
-            const content = match?.[1] ?? line;
-            return <li key={li}>{InlineText({ text: content })}</li>;
-          });
-          return ordered ? (
-            <ol key={bi} className="ml-4 list-decimal space-y-1">
-              {items}
-            </ol>
-          ) : (
-            <ul key={bi} className="ml-4 list-disc space-y-1">
-              {items}
-            </ul>
-          );
-        }
-
-        return (
-          <p key={bi} className="whitespace-pre-wrap break-words">
-            {InlineText({ text: block })}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Three-dot "typing" indicator — reads as a person composing a reply, not a spinner. */
-export function TypingDots({ className }: { className?: string }) {
-  return (
-    <span className={cn("inline-flex items-center gap-1", className)} aria-hidden>
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-70"
-          style={{ animationDelay: `${i * 120}ms`, animationDuration: "900ms" }}
-        />
-      ))}
-    </span>
-  );
+  return <p className="whitespace-pre-wrap break-words">{parts}</p>;
 }
 
 function suggestionsForPage(page?: string): string[] {
@@ -407,7 +341,7 @@ export function AiChatBox({
         type="button"
         data-tour="nav-ai-chat"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-[max(1.5rem,env(safe-area-inset-right))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-popover ring-4 ring-primary/20 transition-transform duration-200 hover:scale-105 active:scale-95"
+        className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-[max(1.5rem,env(safe-area-inset-right))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 hover:ring-primary/30"
         aria-label="Open AI assistant"
       >
         <Sparkles className="h-6 w-6" />
@@ -421,7 +355,7 @@ export function AiChatBox({
   return (
     <div
       data-tour="nav-ai-chat"
-      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40 flex h-[min(38rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-card-foreground shadow-popover"
+      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40 flex h-[min(38rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
     >
       <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/10 via-background to-background px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -574,8 +508,8 @@ export function AiChatBox({
         })}
         {send.isPending && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-border/60 bg-muted/80 px-4 py-3 text-sm text-muted-foreground shadow-soft">
-              <TypingDots />
+            <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/80 px-3.5 py-2.5 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
             </div>
           </div>
         )}

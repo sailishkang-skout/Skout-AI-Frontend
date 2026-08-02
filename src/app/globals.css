@@ -18,50 +18,29 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98.5%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    /* Brand: emerald — matches Dexter AI's accent so the whole product feels like one system. */
-    --primary: 160 84% 33%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 94%;
-    --secondary-foreground: 222 47% 15%;
-    --muted: 210 30% 95.5%;
-    --muted-foreground: 215 16% 44%;
-    --accent: 160 55% 94%;
-    --accent-foreground: 160 84% 22%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 60% 36%;
-    --warning: 38 92% 45%;
-    --border: 214 25% 89%;
-    --ring: 160 84% 33%;
-    --radius: 0.75rem;
-    --shadow-color: 222 47% 11%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --border: 214.3 31.8% 91.4%;
+    --radius: 0.5rem;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222 40% 7%;
+    --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-    --card: 222 35% 10%;
-    --card-foreground: 210 40% 98%;
-    --primary: 160 72% 45%;
-    --primary-foreground: 160 84% 8%;
-    --secondary: 217 28% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 28% 15%;
-    --muted-foreground: 215 20% 68%;
-    --accent: 160 40% 16%;
-    --accent-foreground: 160 60% 85%;
-    --destructive: 0 63% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 55% 48%;
-    --warning: 38 92% 55%;
-    --border: 217 24% 20%;
-    --ring: 160 72% 45%;
-    --shadow-color: 0 0% 0%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
   }
 
   * {
@@ -84,26 +63,5 @@
 
   input[type="checkbox"] {
     @apply accent-primary;
-  }
-
-  ::selection {
-    background-color: hsl(var(--primary) / 0.22);
-  }
-
-  /* Slim, unobtrusive scrollbars that fit the refreshed look (Webkit + Firefox). */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
-  }
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  *::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-    border-radius: 9999px;
-  }
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 }

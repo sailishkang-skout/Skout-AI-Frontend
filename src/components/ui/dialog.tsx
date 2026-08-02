@@ -56,7 +56,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby="dialog-title"
         className={cn(
-          "fixed left-1/2 top-1/2 z-[201] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border/70 bg-card text-card-foreground shadow-popover",
+          "fixed left-1/2 top-1/2 z-[201] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background shadow-xl",
           className
         )}
       >
