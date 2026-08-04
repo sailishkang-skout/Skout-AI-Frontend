@@ -521,14 +521,49 @@ export interface SmartListFilters {
   signal?: string;
 }
 
+export type SmartListRefreshCadence = "off" | "daily" | "weekly";
+
 export interface SmartList {
   id: string;
   workspaceId: string;
   name: string;
   filters: SmartListFilters;
   lastRunCount: number | null;
+  refreshCadence: SmartListRefreshCadence;
+  nextRefreshAt: string | null;
+  lastRefreshedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SmartListProspectDiffEntry {
+  prospectId: string;
+  fullName?: string;
+  title?: string;
+  companyDomain?: string;
+}
+
+export type SmartListRefreshStatus = "completed" | "skipped_insufficient_credits" | "failed";
+
+export interface SmartListRefreshSummary {
+  id: string;
+  smartListId: string;
+  status: SmartListRefreshStatus;
+  matchedCount: number;
+  addedCount: number;
+  droppedCount: number;
+  creditsCharged: number;
+  requiredCredits: number | null;
+  availableCredits: number | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface SmartListRefreshDetail extends SmartListRefreshSummary {
+  addedProspects: SmartListProspectDiffEntry[];
+  droppedProspects: SmartListProspectDiffEntry[];
 }
 
 export interface SmartListRunResult {
