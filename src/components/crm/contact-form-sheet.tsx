@@ -94,19 +94,19 @@ export function ContactFormSheet({
             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
           </Field>
         </div>
-        <Field label="Email">
+        <Field label="Email" fieldSource={contact?.fieldSources.email}>
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@acme.com" />
         </Field>
-        <Field label="Phone">
+        <Field label="Phone" fieldSource={contact?.fieldSources.phone}>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
         </Field>
-        <Field label="Title">
+        <Field label="Title" fieldSource={contact?.fieldSources.title}>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VP Sales" />
         </Field>
-        <Field label="LinkedIn URL">
+        <Field label="LinkedIn URL" fieldSource={contact?.fieldSources.linkedinUrl}>
           <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
         </Field>
-        <Field label="Lifecycle stage">
+        <Field label="Lifecycle stage" fieldSource={contact?.fieldSources.lifecycleStage}>
           <Select
             value={lifecycleStage}
             onChange={(e) => setLifecycleStage(e.target.value as ContactLifecycleStage)}

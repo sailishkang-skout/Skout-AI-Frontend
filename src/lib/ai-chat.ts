@@ -75,7 +75,8 @@ export interface ChatResponse {
 }
 
 export type ChatMode = "auto" | "ask";
-export type ChatAgent = "skout" | "dexter";
+/** "cro" = R19.2 admin-only CRO Copilot persona. */
+export type ChatAgent = "skout" | "dexter" | "cro";
 
 export interface ChatContext {
   subject?: string;

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   CalendarClock,
@@ -17,7 +18,9 @@ import {
   LayoutDashboard,
   List,
   Mail,
+  Phone,
   Search,
+  ShieldCheck,
   Settings,
   Sparkles,
   Target,
@@ -37,6 +40,7 @@ import {
   WORKSPACE_CURRENT_QUERY_KEY,
 } from "@/lib/enrichment";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
 
 function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
@@ -134,6 +138,10 @@ export const otherNav: NavGroup[] = [
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
+      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
+      { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
       { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
@@ -318,6 +326,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             {credits.toLocaleString()}
           </span>
         )}
+        <NotificationBell />
         <ThemeToggle />
         <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize md:inline">
           {role}
