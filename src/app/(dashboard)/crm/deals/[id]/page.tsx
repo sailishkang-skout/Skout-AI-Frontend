@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useDealsApi } from "@/lib/crm/deals";
@@ -28,7 +29,7 @@ export default function DealDetailPage() {
   const companiesApi = useCompaniesApi();
   const pipelinesApi = usePipelinesApi();
   const authReady = useAuthReady();
-  const { canDelete } = useWorkspaceRole();
+  const { role, canDelete } = useWorkspaceRole();
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -142,6 +143,16 @@ export default function DealDetailPage() {
           <ActivityTimeline entityType="deal" entityId={id} />
         </CardContent>
       </Card>
+
+      {role === "owner" || role === "admin" ? (
+        <Card>
+          <CardContent className="p-5">
+            <h2 className="mb-3 text-sm font-semibold">Audit history</h2>
+            {/* Cosmetic-only role gate: useWorkspaceRole is a client-side hint and the backend audit-log GET route currently lacks a requireRole check, so a member could still call the endpoint directly. */}
+            <AuditLogTimeline entityType="deal" entityId={id} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <DealFormSheet
         open={editOpen}

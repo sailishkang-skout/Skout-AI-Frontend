@@ -231,6 +231,20 @@ export interface ActivityInput {
   body?: string;
 }
 
+export type AuditAction = "create" | "update" | "delete";
+
+export interface AuditLog {
+  id: string;
+  workspaceId: string;
+  actorId: string | null;
+  action: AuditAction;
+  entityType: CrmEntityType;
+  entityId: string;
+  beforeState: Record<string, unknown> | null;
+  afterState: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface DashboardOverview {
   workspaceId: string;
   companies: number;
