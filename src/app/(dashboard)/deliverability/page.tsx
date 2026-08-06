@@ -475,17 +475,19 @@ function InboxCard({
   return (
     <Card className={cn(isPaused && "opacity-75")}>
       <CardContent className="pt-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3">
           <button
             type="button"
             onClick={() => setDetailsOpen((o) => !o)}
-            className="flex items-center gap-3 min-w-0 text-left rounded-md hover:opacity-90"
+            className="flex w-full items-center gap-3 text-left rounded-md hover:opacity-90"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{inbox.emailAddress}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold" title={inbox.emailAddress}>
+                {inbox.emailAddress}
+              </p>
               <p className="text-xs capitalize text-muted-foreground flex items-center gap-1">
                 {inbox.provider}
                 <span className="text-muted-foreground/70">·</span>
@@ -494,7 +496,7 @@ function InboxCard({
               </p>
             </div>
           </button>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <Badge tone={statusTone(inbox.status)} className="capitalize">
               {inbox.status === "pending_verification" ? "unverified" : inbox.status}
             </Badge>

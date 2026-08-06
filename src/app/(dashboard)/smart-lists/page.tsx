@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { Check, ExternalLink, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
+import { Check, Clock, ExternalLink, History, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,11 +14,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/crm-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { useSmartListApi } from "@/lib/smart-lists";
 import { Select } from "@/components/ui/select";
-import type { ProspectSummary, SmartListFilters } from "@/types/api";
+import { SmartListRefreshHistoryDialog } from "@/components/smart-lists/refresh-history-dialog";
+import type { ProspectSummary, SmartListFilters, SmartListRefreshCadence } from "@/types/api";
+
+const CADENCE_LABEL: Record<SmartListRefreshCadence, string> = {
+  off: "Off",
+  daily: "Daily",
+  weekly: "Weekly",
+};
 
 const EMPTY_FILTERS: SmartListFilters = {};
 
@@ -58,6 +66,8 @@ export default function SmartListsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [historyListId, setHistoryListId] = useState<string | null>(null);
+  const [historyListName, setHistoryListName] = useState("");
 
   const lists = useQuery({
     queryKey: ["smart-lists"],
@@ -145,6 +155,14 @@ export default function SmartListsPage() {
     onSuccess: (_data, id) => {
       setConfirmDeleteId(null);
       if (lastRun?.listId === id) setLastRun(null);
+      queryClient.invalidateQueries({ queryKey: ["smart-lists"] });
+    },
+  });
+
+  const updateSchedule = useMutation({
+    mutationFn: ({ id, cadence }: { id: string; cadence: SmartListRefreshCadence }) =>
+      smartListApi.updateRefreshSchedule(id, cadence),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["smart-lists"] });
     },
   });
@@ -442,6 +460,36 @@ export default function SmartListsPage() {
                           )}
                           Activate
                         </Button>
+                        <Select
+                          aria-label="Auto-refresh cadence"
+                          value={list.refreshCadence}
+                          onChange={(e) =>
+                            updateSchedule.mutate({
+                              id: list.id,
+                              cadence: e.target.value as SmartListRefreshCadence,
+                            })
+                          }
+                          disabled={updateSchedule.isPending && updateSchedule.variables?.id === list.id}
+                          className="h-9 w-full sm:w-28"
+                        >
+                          {(Object.keys(CADENCE_LABEL) as SmartListRefreshCadence[]).map((cadence) => (
+                            <option key={cadence} value={cadence}>
+                              {CADENCE_LABEL[cadence]}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Refresh history"
+                          onClick={() => {
+                            setHistoryListId(list.id);
+                            setHistoryListName(list.name);
+                          }}
+                          className="w-full sm:w-auto"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -530,11 +578,19 @@ export default function SmartListsPage() {
                       <p className="font-medium">{list.name}</p>
                     )}
                     <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{filterSummary}</p>
-                    {list.lastRunCount != null && (
-                      <Badge tone="muted" className="mt-2">
-                        {list.lastRunCount.toLocaleString()} last run
-                      </Badge>
-                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {list.lastRunCount != null && (
+                        <Badge tone="muted">{list.lastRunCount.toLocaleString()} last run</Badge>
+                      )}
+                      {list.refreshCadence !== "off" && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" aria-hidden />
+                          {list.lastRefreshedAt
+                            ? `Last refreshed ${formatDateTime(list.lastRefreshedAt)}`
+                            : "Not refreshed yet"}
+                        </span>
+                      )}
+                    </div>
                   </ListRow>
                 );
               })}
@@ -548,6 +604,15 @@ export default function SmartListsPage() {
           )}
         </CardContent>
       </Card>
+
+      {historyListId && (
+        <SmartListRefreshHistoryDialog
+          open={Boolean(historyListId)}
+          onClose={() => setHistoryListId(null)}
+          listId={historyListId}
+          listName={historyListName}
+        />
+      )}
     </PageShell>
   );
 }

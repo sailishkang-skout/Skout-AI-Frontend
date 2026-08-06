@@ -43,6 +43,7 @@ export function statusTone(status: string): BadgeTone {
     case "catch_all":
     case "risky":
     case "sample":
+    case "skipped_insufficient_credits":
       return "warning";
     default:
       return "muted";
