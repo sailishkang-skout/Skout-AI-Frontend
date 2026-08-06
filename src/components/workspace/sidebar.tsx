@@ -37,6 +37,7 @@ import {
   WORKSPACE_CURRENT_QUERY_KEY,
 } from "@/lib/enrichment";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
 
 function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
@@ -318,6 +319,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             {credits.toLocaleString()}
           </span>
         )}
+        <NotificationBell />
         <ThemeToggle />
         <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize md:inline">
           {role}

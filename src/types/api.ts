@@ -566,6 +566,22 @@ export interface SmartListRefreshDetail extends SmartListRefreshSummary {
   droppedProspects: SmartListProspectDiffEntry[];
 }
 
+/** In-app notification (R17.1). `type` is intentionally an open string, not a union — new alert
+ * kinds (list refresh, signal alert, task/sequence reminder, ...) can be added without a schema
+ * or type change on this interface. */
+export interface AppNotification {
+  id: string;
+  workspaceId: string;
+  userId: string | null;
+  type: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  body: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export interface SmartListRunResult {
   list: SmartList;
   hits: ProspectSummary[];
