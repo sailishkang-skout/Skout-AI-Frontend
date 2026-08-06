@@ -21,6 +21,15 @@ function typeLabel(type: string): string {
     .join(" ");
 }
 
+const ISO_DATE_RE = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/;
+
+/** Reminder bodies embed a raw UTC ISO timestamp (e.g. "Due 2026-08-06T09:13:14.104Z") — render it in the viewer's local time instead. */
+function localizeBody(body: string): string {
+  const match = body.match(ISO_DATE_RE);
+  if (!match) return body;
+  return body.replace(match[0], formatDateTime(match[0]));
+}
+
 export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const notificationsApi = useNotificationsApi();
@@ -65,7 +74,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
       <div
         role="menu"
         aria-label="Notifications"
-        className="absolute right-0 z-50 mt-1 flex max-h-[28rem] w-[22rem] flex-col rounded-md border border-border bg-popover shadow-md"
+        className="absolute right-0 z-50 mt-1 flex max-h-[28rem] w-[22rem] flex-col rounded-md border border-border bg-background shadow-md"
       >
         <div className="flex items-center justify-between gap-2 border-b border-border p-2.5">
           <span className="text-sm font-medium">Notifications</span>
@@ -108,7 +117,15 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            "[scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]",
+            "[&::-webkit-scrollbar]:w-1.5",
+            "[&::-webkit-scrollbar-track]:bg-transparent",
+            "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border"
+          )}
+        >
           {notifications.isLoading ? (
             <div className="space-y-2 p-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -158,7 +175,7 @@ function NotificationRow({
         <div className={cn("min-w-0 flex-1", !unread && "pl-3.5")}>
           <p className={cn("text-sm", unread ? "font-medium" : "text-muted-foreground")}>{notification.title}</p>
           {notification.body && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{notification.body}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{localizeBody(notification.body)}</p>
           )}
           <p className="mt-1 text-[11px] text-muted-foreground">{formatDateTime(notification.createdAt)}</p>
         </div>
