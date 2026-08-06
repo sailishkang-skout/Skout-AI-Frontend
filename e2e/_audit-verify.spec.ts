@@ -2,7 +2,13 @@ import { test, expect } from "@playwright/test";
 
 // Temporary verification spec: confirms the AuditLogTimeline renders end-to-end
 // in a real browser against the running frontend + CRM stub.
-test("audit log timeline renders on the contact detail page", async ({ page }) => {
+test("audit log timeline renders on the contact detail page", async ({ page, request }) => {
+  const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1:3002";
+  const checkRes = await request.get(`${crmApiURL}/api/v1/contacts/contact-1`, {
+    headers: { "x-stub-user-email": "e2e-stub-user@skout.local" },
+  });
+  test.skip(!checkRes.ok(), "contact-1 seed not present (running against real CRM API instead of stub)");
+
   // Use the stub's bypass auth (E2E_AUTH_BYPASS) so the page loads without Clerk.
   await page.goto("/crm/contacts/contact-1", { waitUntil: "domcontentloaded" });
 
