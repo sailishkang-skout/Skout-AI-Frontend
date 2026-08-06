@@ -10,6 +10,14 @@ const mockMembers = [
   { userId: "u-2", email: "admin@acme.com", fullName: "Admin Two", role: "admin", joinedAt: "2024-01-01T00:00:00.000Z" },
 ];
 
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ isLoaded: true, isSignedIn: true }),
+}));
+
+vi.mock("@clerk/clerk-react", () => ({
+  useAuth: () => ({ isLoaded: true, isSignedIn: true }),
+}));
+
 vi.mock("@/lib/crm/audit", () => ({
   useAuditLogApi: () => ({
     list: mockList,
