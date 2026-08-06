@@ -61,7 +61,7 @@ function CroChatPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          e.g. "Which deals are stalling?" or "How's rep activity this week?" — read-only, scoped to this rollup.
+          e.g. &quot;Which deals are stalling?&quot; or &quot;How&apos;s rep activity this week?&quot; — read-only, scoped to this rollup.
         </p>
         {send.isError && <Alert variant="error">{formatQueryError(send.error, "Could not reach CRO Copilot.")}</Alert>}
         {turns.length > 0 && (

@@ -164,7 +164,7 @@ export function NextBestActionCard({ entityType, entityId }: { entityType: "cont
 
         {!suggestion && !suggest.isPending && (
           <p className="text-sm text-muted-foreground">
-            Get an AI-suggested next step grounded in this record's actual activity, tasks, and meeting history.
+            Get an AI-suggested next step grounded in this record&apos;s actual activity, tasks, and meeting history.
           </p>
         )}
       </CardContent>

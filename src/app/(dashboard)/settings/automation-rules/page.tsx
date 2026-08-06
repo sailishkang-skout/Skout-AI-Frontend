@@ -252,7 +252,7 @@ function RuleRunsDialog({ rule, onClose }: { rule: ActivationRule; onClose: () =
         {runs.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (runs.data?.data.length ?? 0) === 0 ? (
-          <p className="text-sm text-muted-foreground">This rule hasn't fired yet.</p>
+          <p className="text-sm text-muted-foreground">This rule hasn&apos;t fired yet.</p>
         ) : (
           <div className="divide-y">
             {runs.data!.data.map((run) => (

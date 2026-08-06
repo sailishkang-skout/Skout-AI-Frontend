@@ -86,7 +86,7 @@ function ApolloSequenceImporter() {
       )}
       <p className="text-xs text-muted-foreground">
         Imported sequences land as drafts in Sequences — review steps before activating. Non-email steps
-        (calls, LinkedIn, etc.) import as manual task steps when Apollo's step type can't be mapped directly.
+        (calls, LinkedIn, etc.) import as manual task steps when Apollo&apos;s step type can&apos;t be mapped directly.
       </p>
     </div>
   );

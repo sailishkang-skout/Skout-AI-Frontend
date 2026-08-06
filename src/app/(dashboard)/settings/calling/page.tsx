@@ -101,7 +101,7 @@ export default function CallingSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            We call this number first when you click "Call" on a contact. E.164 format, e.g.{" "}
+            We call this number first when you click &quot;Call&quot; on a contact. E.164 format, e.g.{" "}
             <span className="font-mono">+14155551234</span>.
           </p>
           {save.isError && <Alert variant="error">{formatQueryError(save.error, "Could not save your phone number.")}</Alert>}
@@ -123,7 +123,7 @@ export default function CallingSettingsPage() {
           <p className="text-sm text-muted-foreground">
             New meetings inherit this default; each meeting can still override it individually.
             When on, the meeting bot joins on its own shortly before a meeting starts — no manual
-            "Schedule bot" click needed. Recording/transcription still requires participant consent.
+            &quot;Schedule bot&quot; click needed. Recording/transcription still requires participant consent.
           </p>
           <label className="flex items-center gap-2 text-sm">
             <input

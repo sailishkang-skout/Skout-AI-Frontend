@@ -207,7 +207,7 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
           <h1 className="text-xl font-semibold">Admin data import</h1>
           <p className="text-sm text-muted-foreground">
             Upload CSV, Excel, PDF, PNG, or SVG. Rows are activated into the configured admin
-            workspace — not a specific user's account.
+            workspace — not a specific user&apos;s account.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={onLock}>
