@@ -156,6 +156,9 @@ export interface DealsSummary {
   stages: { stageId: string; name: string; count: number; value: number }[];
 }
 
+/** R20.4 — set after a sequence "call" step's call is placed; drives cadence branching. */
+export type TaskDisposition = "connected" | "no_answer" | "voicemail" | "bad_number";
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -166,6 +169,9 @@ export interface Task {
   dueDate: string | null;
   priority: TaskPriority;
   status: TaskStatus;
+  disposition: TaskDisposition | null;
+  /** Corpus prospectId for "call" sequence-step tasks — powers the "Call now" affordance. */
+  prospectId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -187,6 +193,7 @@ export interface TaskPatch {
   dueDate?: string;
   priority?: TaskPriority;
   status?: TaskStatus;
+  disposition?: TaskDisposition;
 }
 
 /** not_scheduled | scheduled | joining | in_call | completed | failed — see R16.2. */
@@ -209,6 +216,8 @@ export interface Meeting {
   meetingUrl: string | null;
   botExternalId: string | null;
   botStatus: MeetingBotStatus;
+  /** R16.2 — opt-in auto-join; when true the meeting-auto-join worker schedules the bot on its own. */
+  autoJoinBot: boolean;
   recordingUrl: string | null;
   transcriptUrl: string | null;
   transcript: string | null;
@@ -228,6 +237,7 @@ export interface MeetingInput {
   summary?: string;
   outcome?: string;
   meetingUrl?: string;
+  autoJoinBot?: boolean;
 }
 
 export type MeetingPatch = Partial<MeetingInput>;
@@ -274,6 +284,10 @@ export interface SwitchingCost {
   totalCompanies: number;
   nativeLinkedCompanies: number;
   nativeLinkRatePct: number;
+  /** R14.3 — trailing-7-day HubSpot export volume (distinct prospects exported). */
+  hubspotExportVolume7d: number;
+  /** R14.3 — trailing-7-day CSV list-export count. */
+  csvExportVolume7d: number;
   note: string;
 }
 

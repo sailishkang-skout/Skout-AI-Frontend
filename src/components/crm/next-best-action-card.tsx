@@ -3,13 +3,15 @@
 /** R20.3 — AI next-best-action suggestion for one contact or deal. */
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatQueryError, useApiFetch } from "@/lib/api-client";
+import { Select } from "@/components/ui/select";
+import { formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { useSequencesApi } from "@/lib/sequences";
 
 type ActionType = "call" | "email" | "meeting" | "wait" | "task";
 
@@ -30,18 +32,34 @@ const ACTION_TONE: Record<ActionType, "info" | "success" | "warning" | "muted"> 
 
 export function NextBestActionCard({ entityType, entityId }: { entityType: "contact" | "deal"; entityId: string }) {
   const apiFetch = useApiFetch();
+  const authReady = useAuthReady();
+  const sequencesApi = useSequencesApi();
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestionId, setSuggestionId] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [showSequencePicker, setShowSequencePicker] = useState(false);
+  const [selectedSequenceId, setSelectedSequenceId] = useState("");
+
+  const sequences = useQuery({
+    queryKey: ["sequences", "list"],
+    queryFn: sequencesApi.list,
+    enabled: authReady && showSequencePicker,
+  });
+  const activeSequences = (sequences.data?.data ?? []).filter((s) => s.status === "active");
 
   const suggest = useMutation({
     mutationFn: () =>
-      apiFetch<{ data: { label: string; suggestion: Suggestion } }>("/api/v1/ai/next-best-action", {
+      apiFetch<{ data: { label: string; suggestion: Suggestion; suggestionId: string } }>("/api/v1/ai/next-best-action", {
         method: "POST",
         body: JSON.stringify({ entityType, entityId }),
       }),
     onSuccess: (res) => {
       setSuggestion(res.data.suggestion);
+      setSuggestionId(res.data.suggestionId);
       setTaskCreated(false);
+      setEnrolled(false);
+      setShowSequencePicker(false);
     },
   });
 
@@ -49,9 +67,18 @@ export function NextBestActionCard({ entityType, entityId }: { entityType: "cont
     mutationFn: () =>
       apiFetch("/api/v1/ai/next-best-action/create-task", {
         method: "POST",
-        body: JSON.stringify({ entityType, entityId, title: suggestion!.headline }),
+        body: JSON.stringify({ entityType, entityId, title: suggestion!.headline, suggestionId }),
       }),
     onSuccess: () => setTaskCreated(true),
+  });
+
+  const enroll = useMutation({
+    mutationFn: () =>
+      apiFetch("/api/v1/ai/next-best-action/enroll", {
+        method: "POST",
+        body: JSON.stringify({ entityId, sequenceId: selectedSequenceId, suggestionId }),
+      }),
+    onSuccess: () => setEnrolled(true),
   });
 
   return (
@@ -85,10 +112,52 @@ export function NextBestActionCard({ entityType, entityId }: { entityType: "cont
               </p>
             )}
             {suggestion.actionType !== "wait" && (
-              <Button size="sm" variant="outline" disabled={taskCreated || createTask.isPending} onClick={() => createTask.mutate()}>
-                {createTask.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {taskCreated ? "Task created" : "Create task"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" disabled={taskCreated || createTask.isPending} onClick={() => createTask.mutate()}>
+                  {createTask.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {taskCreated ? "Task created" : "Create task"}
+                </Button>
+                {/* R20.3 — "Enroll in sequence" accept option. Only meaningful for contacts —
+                    a deal has no single prospectId to enroll (see R14.1 identity-gap note). */}
+                {entityType === "contact" &&
+                  (showSequencePicker ? (
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={selectedSequenceId}
+                        onChange={(e) => setSelectedSequenceId(e.target.value)}
+                        className="h-8 w-44 text-xs"
+                        disabled={sequences.isLoading || enrolled}
+                      >
+                        <option value="" disabled>
+                          {sequences.isLoading ? "Loading…" : "Choose a sequence…"}
+                        </option>
+                        {activeSequences.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!selectedSequenceId || enrolled || enroll.isPending}
+                        onClick={() => enroll.mutate()}
+                      >
+                        {enroll.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {enrolled ? "Enrolled" : "Enroll"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={enrolled} onClick={() => setShowSequencePicker(true)}>
+                      {enrolled ? "Enrolled" : "Enroll in sequence"}
+                    </Button>
+                  ))}
+              </div>
+            )}
+            {enroll.isError && (
+              <Alert variant="error" className="text-xs">
+                {formatQueryError(enroll.error, "Could not enroll in this sequence.")}
+              </Alert>
             )}
           </div>
         )}

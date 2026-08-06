@@ -157,6 +157,13 @@ export default function CroCopilotPage() {
             <StatCard label="Native-linked contacts" value={`${summary.data.switchingCost.nativeLinkRatePct}%`} />
           </div>
 
+          {/* R14.3 — switching-cost signal: native-link rate alongside how much data left Skout
+              this week via HubSpot/CSV export. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label="HubSpot exports (7d)" value={summary.data.switchingCost.hubspotExportVolume7d} />
+            <StatCard label="CSV exports (7d)" value={summary.data.switchingCost.csvExportVolume7d} />
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>

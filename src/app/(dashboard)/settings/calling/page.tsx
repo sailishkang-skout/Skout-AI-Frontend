@@ -18,6 +18,10 @@ interface MeData {
   phone?: string | null;
 }
 
+interface WorkspaceData {
+  data: { meetingBotAutoJoinDefault: boolean };
+}
+
 export default function CallingSettingsPage() {
   const authReady = useAuthReady();
   const apiFetch = useApiFetch();
@@ -45,8 +49,26 @@ export default function CallingSettingsPage() {
     },
   });
 
+  const workspace = useQuery<WorkspaceData>({
+    queryKey: ["workspace", "current"],
+    queryFn: () => apiFetch("/api/v1/workspaces/current"),
+    enabled: authReady,
+  });
+
+  // R16.2 — workspace-wide default for new meetings' auto-join-bot flag; a per-meeting checkbox
+  // (in the meeting form) always overrides this.
+  const setAutoJoinDefault = useMutation({
+    mutationFn: (nextEnabled: boolean) =>
+      apiFetch("/api/v1/workspaces/current/meeting-bot-auto-join", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: nextEnabled }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace", "current"] }),
+  });
+
   const enabled = config.data?.data.enabled ?? false;
   const currentPhone = phone ?? me.data?.phone ?? "";
+  const autoJoinDefault = workspace.data?.data.meetingBotAutoJoinDefault ?? false;
 
   return (
     <PageShell width="narrow">
@@ -90,6 +112,31 @@ export default function CallingSettingsPage() {
               Save
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Meeting bot — auto-join default</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            New meetings inherit this default; each meeting can still override it individually.
+            When on, the meeting bot joins on its own shortly before a meeting starts — no manual
+            "Schedule bot" click needed. Recording/transcription still requires participant consent.
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={autoJoinDefault}
+              disabled={setAutoJoinDefault.isPending}
+              onChange={(e) => setAutoJoinDefault.mutate(e.target.checked)}
+            />
+            Auto-join by default for new meetings
+          </label>
+          {setAutoJoinDefault.isError && (
+            <Alert variant="error">{formatQueryError(setAutoJoinDefault.error, "Could not save this setting.")}</Alert>
+          )}
         </CardContent>
       </Card>
     </PageShell>

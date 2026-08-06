@@ -7,7 +7,7 @@ export function useCallsApi() {
   return {
     getConfig: () => fetchApi<{ data: CallConfig }>("/api/v1/calls/config"),
 
-    dial: (input: { to?: string; prospectId?: string; taskId?: string }) =>
+    dial: (input: { to?: string; prospectId?: string; taskId?: string; contactId?: string }) =>
       fetchApi<{ data: DialCallResult }>("/api/v1/calls/dial", {
         method: "POST",
         body: JSON.stringify(input),

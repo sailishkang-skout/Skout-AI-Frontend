@@ -11,9 +11,24 @@ import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useCallsApi } from "@/lib/calls";
 import { cn } from "@/lib/utils";
 
-export function CallButton({ phone, taskId }: { phone: string | null | undefined; taskId?: string }) {
+export function CallButton({
+  phone,
+  prospectId,
+  taskId,
+  contactId,
+}: {
+  /** Known phone number — used directly. Omit and pass `prospectId` instead to resolve server-side. */
+  phone?: string | null;
+  /** R20.4 — corpus prospectId, used when the caller (e.g. a sequence "call" task) doesn't have
+   * a resolved phone number on hand; the dial endpoint looks it up. */
+  prospectId?: string | null;
+  taskId?: string;
+  /** Native CRM contact uuid — lets the call-status webhook log this call on the contact's timeline. */
+  contactId?: string;
+}) {
   const authReady = useAuthReady();
   const callsApi = useCallsApi();
+  const byProspect = !phone && Boolean(prospectId);
 
   const config = useQuery({
     queryKey: ["calls", "config"],
@@ -22,7 +37,8 @@ export function CallButton({ phone, taskId }: { phone: string | null | undefined
   });
 
   const dial = useMutation({
-    mutationFn: () => callsApi.dial({ to: phone!, taskId }),
+    mutationFn: () =>
+      byProspect ? callsApi.dial({ prospectId: prospectId!, taskId, contactId }) : callsApi.dial({ to: phone!, taskId, contactId }),
   });
 
   if (!config.data?.data.enabled) {
@@ -34,7 +50,7 @@ export function CallButton({ phone, taskId }: { phone: string | null | undefined
     );
   }
 
-  if (!phone) {
+  if (!phone && !prospectId) {
     return (
       <Button size="sm" variant="outline" disabled title="No phone number on file">
         <Phone className="h-3.5 w-3.5" />
@@ -60,10 +76,12 @@ export function CallButton({ phone, taskId }: { phone: string | null | undefined
     <div className="inline-flex flex-col items-start gap-1">
       <Button size="sm" variant="outline" disabled={dial.isPending} onClick={() => dial.mutate()}>
         {dial.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
-        Call {phone}
+        {phone ? `Call ${phone}` : "Call now"}
       </Button>
       {dial.isSuccess && (
-        <span className="text-xs text-muted-foreground">Calling your phone now — it'll bridge to {phone} once you answer.</span>
+        <span className="text-xs text-muted-foreground">
+          Calling your phone now — it&apos;ll bridge to the prospect once you answer.
+        </span>
       )}
       {dial.isError && (
         <Alert variant="error" className="max-w-xs py-2 text-xs">

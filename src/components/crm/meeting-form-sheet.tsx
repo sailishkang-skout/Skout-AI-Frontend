@@ -51,6 +51,7 @@ export function MeetingFormSheet({
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
+  const [autoJoinBot, setAutoJoinBot] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +62,7 @@ export function MeetingFormSheet({
     setSummary(meeting?.summary ?? "");
     setOutcome(meeting?.outcome ?? "");
     setMeetingUrl(meeting?.meetingUrl ?? "");
+    setAutoJoinBot(meeting?.autoJoinBot ?? false);
   }, [open, meeting]);
 
   const botConfig = useQuery({
@@ -84,6 +86,7 @@ export function MeetingFormSheet({
         summary: summary.trim() || undefined,
         outcome: outcome.trim() || undefined,
         meetingUrl: meetingUrl.trim() || undefined,
+        autoJoinBot,
         contactId: meeting?.contactId ?? defaultLink?.contactId ?? undefined,
         companyId: meeting?.companyId ?? defaultLink?.companyId ?? undefined,
         dealId: meeting?.dealId ?? defaultLink?.dealId ?? undefined,
@@ -139,6 +142,33 @@ export function MeetingFormSheet({
             placeholder="https://zoom.us/j/…"
           />
         </Field>
+
+        {botConfig.data?.enabled && (
+          <label className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={autoJoinBot}
+              onChange={(e) => setAutoJoinBot(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">Auto-join with the meeting bot</span>
+              <span className="block text-xs text-muted-foreground">
+                The bot joins automatically shortly before this meeting starts — no manual &quot;Schedule bot&quot;
+                click needed. Records and transcribes the call (see consent notice below).
+              </span>
+            </span>
+          </label>
+        )}
+
+        {/* R16.2 AC — visible consent disclosure whenever recording/transcription is or will be active. */}
+        {(autoJoinBot || (isEdit && meeting && meeting.botStatus !== "not_scheduled")) && (
+          <Alert variant="warning">
+            This meeting will be recorded and transcribed by an AI notetaker bot. Make sure every
+            participant is informed before the meeting starts — consent requirements vary by
+            jurisdiction.
+          </Alert>
+        )}
 
         {isEdit && botConfig.data?.enabled && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2.5">

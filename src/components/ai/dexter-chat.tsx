@@ -175,8 +175,22 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         ok: result.ok,
         name: action.type === "ui_action" ? action.name : undefined,
       });
+
+      // R15.2 — audit trail. Only mutating (confirm-gated) actions that actually succeeded;
+      // fire-and-forget so a logging hiccup never surfaces as an action failure to the user.
+      if (result.ok && action.type === "ui_action" && action.name === "enroll_list" && action.params?.sequenceId) {
+        void api
+          .logAudit({
+            agent: "dexter",
+            action: action.name,
+            entityType: "sequence",
+            entityId: action.params.sequenceId,
+            details: { listId: action.params.listId, message: result.message },
+          })
+          .catch((err) => log.warn("dexter audit log failed", { err }));
+      }
     },
-    [router, sequences, speakReply, voiceOn]
+    [api, router, sequences, speakReply, voiceOn]
   );
 
   const send = useMutation({

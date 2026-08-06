@@ -109,7 +109,7 @@ export default function ContactDetailPage() {
               {data.title && <p className="text-sm text-muted-foreground">{data.title}</p>}
             </div>
             <div className="flex shrink-0 gap-2">
-              <CallButton phone={data.phone} />
+              <CallButton phone={data.phone} contactId={data.id} />
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5" />
                 Edit

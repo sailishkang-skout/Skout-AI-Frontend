@@ -122,6 +122,15 @@ export function useAiChatApi() {
         body: JSON.stringify(input),
       }),
 
+    /** R15.2 — log a confirmed AI-executed write action to the audit trail. Fire-and-forget:
+     * failures here must never block the action itself, which has already succeeded by the
+     * time this is called. */
+    logAudit: (input: { agent: ChatAgent; action: string; entityType: string; entityId: string; details?: Record<string, unknown> }) =>
+      fetchApi<{ data: { logged: boolean } }>("/api/v1/ai/audit", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
     /** Authenticated download of a CSV the assistant generated via export_dataset. */
     downloadExport: async (artifact: ChatExportArtifact) => {
       const path =
