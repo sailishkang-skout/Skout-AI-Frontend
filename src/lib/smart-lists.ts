@@ -3,6 +3,9 @@ import type {
   SmartList,
   SmartListActivateResult,
   SmartListFilters,
+  SmartListRefreshCadence,
+  SmartListRefreshDetail,
+  SmartListRefreshSummary,
   SmartListRunResult,
 } from "@/types/api";
 
@@ -45,5 +48,17 @@ export function useSmartListApi() {
         method: "POST",
         body: JSON.stringify(opts ?? {}),
       }),
+
+    updateRefreshSchedule: (id: string, cadence: SmartListRefreshCadence) =>
+      fetchApi<SmartList>(`/api/v1/smart-lists/${id}/refresh-schedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ cadence }),
+      }),
+
+    listRefreshes: (id: string) =>
+      fetchApi<ListEnvelope<SmartListRefreshSummary>>(`/api/v1/smart-lists/${id}/refreshes`),
+
+    getRefresh: (id: string, refreshId: string) =>
+      fetchApi<SmartListRefreshDetail>(`/api/v1/smart-lists/${id}/refreshes/${refreshId}`),
   };
 }
