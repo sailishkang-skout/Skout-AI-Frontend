@@ -29,7 +29,7 @@ test.describe("Email editor — merge tokens", () => {
     const name = `Token Test ${Date.now()}`;
     await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
     await waitForPost(page, "/api/v1/sequences", async () => {
-      await page.getByRole("button", { name: /create sequence/i }).click();
+      await page.getByRole("button", { name: /blank sequence/i }).click();
     });
 
     const card = page.locator(`[data-sequence-name="${name}"]`);

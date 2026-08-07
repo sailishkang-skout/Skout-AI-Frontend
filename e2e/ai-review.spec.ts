@@ -42,7 +42,7 @@ test.describe("AI Review Queue", () => {
     await expect(card.getByText("E2E outreach subject")).toBeVisible();
 
     await waitForApiMutation(page, `/api/v1/ai/drafts/${draft.id}/approve`, "POST", async () => {
-      await card.getByRole("button", { name: /^approve$/i }).click();
+      await card.getByRole("button", { name: /^approve/i }).click();
     });
 
     await page.getByLabel("Filter by status").selectOption("approved");
