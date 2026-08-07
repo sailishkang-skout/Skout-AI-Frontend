@@ -33,7 +33,8 @@ test.describe("Sequences", () => {
     await expect(page.locator("h1")).toHaveText(name);
 
     await page.getByRole("button", { name: "Add step" }).click();
-    await expect(page.locator('input[aria-label="Delay in days"]')).toBeVisible({ timeout: 10_000 });
+    // Delay control is rendered twice (desktop + mobile rows); .first() = the visible sm+ row.
+    await expect(page.locator('input[aria-label="Delay amount"]').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Enroll", exact: true }).click();
     await expect(page.getByText("Activate this sequence before enrolling prospects.")).toBeVisible();

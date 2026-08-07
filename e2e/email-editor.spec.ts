@@ -45,8 +45,9 @@ test.describe("Email editor — merge tokens", () => {
     });
 
     // 4. Open the email body editor modal
+    // Empty-state trigger reads "Click to open email editor…" (div[role=button]).
     const trigger = page
-      .getByRole("button", { name: /open editor|edit email body/i })
+      .getByRole("button", { name: /open email editor|edit email body/i })
       .first();
     await expect(trigger).toBeVisible({ timeout: 10_000 });
     await trigger.click();
