@@ -11,9 +11,11 @@ import { Select } from "@/components/ui/select";
 import { useTasksApi } from "@/lib/crm/tasks";
 import { formatQueryError } from "@/lib/api-client";
 import { Field } from "./form-field";
-import type { CrmEntityType, Task, TaskPriority } from "@/types/crm";
+import { TASK_TYPE_LABEL } from "@/lib/crm-display";
+import type { CrmEntityType, Task, TaskPriority, TaskType } from "@/types/crm";
 
 const PRIORITY_OPTIONS: TaskPriority[] = ["low", "medium", "high"];
+const TYPE_OPTIONS: TaskType[] = ["custom", "call", "email", "follow-up"];
 
 export function TaskFormSheet({
   open,
@@ -36,24 +38,27 @@ export function TaskFormSheet({
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [type, setType] = useState<TaskType>("custom");
 
   useEffect(() => {
     if (!open) return;
     setTitle(task?.title ?? "");
     setDueDate(task?.dueDate ? task.dueDate.slice(0, 16) : "");
     setPriority(task?.priority ?? "medium");
+    setType(task?.type ?? "custom");
   }, [open, task]);
 
   const save = useMutation({
     mutationFn: () => {
       const dueDateIso = dueDate ? new Date(dueDate).toISOString() : undefined;
       if (isEdit) {
-        return tasksApi.update(task!.id, { title: title.trim(), dueDate: dueDateIso, priority });
+        return tasksApi.update(task!.id, { title: title.trim(), dueDate: dueDateIso, priority, type });
       }
       return tasksApi.create({
         title: title.trim(),
         dueDate: dueDateIso,
         priority,
+        type,
         relatedEntityType: task?.relatedEntityType ?? defaultRelatedEntity?.type,
         relatedEntityId: task?.relatedEntityId ?? defaultRelatedEntity?.id,
       });
@@ -74,6 +79,15 @@ export function TaskFormSheet({
 
         <Field label="Title" required>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Send updated proposal" />
+        </Field>
+        <Field label="Type">
+          <Select value={type} onChange={(e) => setType(e.target.value as TaskType)}>
+            {TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {TASK_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Due date">
           <Input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />

@@ -15,13 +15,15 @@ import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { CompanyFormSheet } from "@/components/crm/company-form-sheet";
 import { ContactFormSheet } from "@/components/crm/contact-form-sheet";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
+import { TaskFormSheet } from "@/components/crm/task-form-sheet";
 import { RelatedItemRow, RelatedListPanel } from "@/components/crm/related-list-panel";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useContactsApi } from "@/lib/crm/contacts";
 import { useDealsApi } from "@/lib/crm/deals";
+import { useTasksApi } from "@/lib/crm/tasks";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
-import { dealStatusTone, formatMoney } from "@/lib/crm-display";
+import { dealStatusTone, formatDueDate, taskStatusTone, formatMoney } from "@/lib/crm-display";
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,12 +32,14 @@ export default function CompanyDetailPage() {
   const companiesApi = useCompaniesApi();
   const contactsApi = useContactsApi();
   const dealsApi = useDealsApi();
+  const tasksApi = useTasksApi();
   const authReady = useAuthReady();
   const { canDelete } = useWorkspaceRole();
 
   const [editOpen, setEditOpen] = useState(false);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
   const [dealSheetOpen, setDealSheetOpen] = useState(false);
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const company = useQuery({
@@ -57,6 +61,12 @@ export default function CompanyDetailPage() {
     enabled: authReady && Boolean(id),
   });
   const companyDeals = (deals.data?.data ?? []).filter((d) => d.companyId === id);
+
+  const tasks = useQuery({
+    queryKey: ["crm", "tasks", { relatedEntityType: "company", relatedEntityId: id }],
+    queryFn: () => tasksApi.list({ relatedEntityType: "company", relatedEntityId: id, limit: 50 }),
+    enabled: authReady && Boolean(id),
+  });
 
   const remove = useMutation({
     mutationFn: () => companiesApi.remove(id),
@@ -166,6 +176,26 @@ export default function CompanyDetailPage() {
             </RelatedItemRow>
           )}
         />
+        <RelatedListPanel
+          title="Tasks"
+          items={tasks.data?.data}
+          loading={tasks.isLoading}
+          emptyLabel="No tasks for this company yet."
+          onAdd={() => setTaskSheetOpen(true)}
+          addLabel="Add task"
+          renderItem={(task) => {
+            const due = formatDueDate(task.dueDate);
+            return (
+              <RelatedItemRow href="/crm/tasks">
+                <span className="truncate">{task.title}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {due && <span className={due.overdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>{due.label}</span>}
+                  <Badge tone={taskStatusTone(task.status)}>{task.status}</Badge>
+                </span>
+              </RelatedItemRow>
+            );
+          }}
+        />
       </div>
 
       <Card>
@@ -192,6 +222,14 @@ export default function CompanyDetailPage() {
         onClose={() => setDealSheetOpen(false)}
         defaultCompanyId={id}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["crm", "deals"] })}
+      />
+      <TaskFormSheet
+        open={taskSheetOpen}
+        onClose={() => setTaskSheetOpen(false)}
+        defaultRelatedEntity={{ type: "company", id }}
+        onSaved={() =>
+          queryClient.invalidateQueries({ queryKey: ["crm", "tasks", { relatedEntityType: "company", relatedEntityId: id }] })
+        }
       />
     </PageShell>
   );

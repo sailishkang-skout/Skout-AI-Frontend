@@ -1,5 +1,5 @@
 import { ArrowRightLeft, CalendarClock, Mail, Phone, StickyNote } from "lucide-react";
-import type { ActivityType, DealStatus, TaskStatus } from "@/types/crm";
+import type { ActivityType, DealStatus, TaskStatus, TaskType } from "@/types/crm";
 import type { BadgeProps } from "@/components/ui/badge";
 
 export { formatJobTime as formatDateTime } from "./enrichment-display";
@@ -63,5 +63,14 @@ export function dealStatusTone(status: DealStatus): BadgeProps["tone"] {
 }
 
 export function taskStatusTone(status: TaskStatus): BadgeProps["tone"] {
-  return status === "done" ? "success" : "muted";
+  if (status === "done") return "success";
+  if (status === "skipped") return "warning";
+  return "muted";
 }
+
+export const TASK_TYPE_LABEL: Record<TaskType, string> = {
+  call: "Call",
+  email: "Email",
+  "follow-up": "Follow-up",
+  custom: "Task",
+};
