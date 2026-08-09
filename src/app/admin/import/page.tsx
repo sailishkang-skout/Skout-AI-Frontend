@@ -17,37 +17,25 @@
 
 import { useState } from "react";
 import { useMutation as useRQMutation } from "@tanstack/react-query";
-import { FileUp, Loader2, Lock, Trash2, Upload } from "lucide-react";
+import { Loader2, Lock, Trash2 } from "lucide-react";
+import { ImportUploadPanel } from "@/components/import/import-upload-panel";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { apiFetch, ApiError, formatQueryError } from "@/lib/api-client";
-import type { ImportedProspectRow } from "@/lib/import-prospects";
+import { downloadSampleWithToken, fileToBase64, type DetectedSheet, type ImportedProspectRow } from "@/lib/import-prospects";
 
 const SESSION_KEY = "skout_admin_import_token";
 
 interface ParseResponse {
-  data: { rows: ImportedProspectRow[]; total: number; source: string; warnings: string[] };
+  data: { rows: ImportedProspectRow[]; total: number; source: string; warnings: string[]; sheets: DetectedSheet[] };
 }
 interface CommitResponse {
   data: { imported: number; listId: string | null; listName: string | null; prospectIds: string[]; skipped: number };
 }
 interface PingResponse {
   data: { ok: boolean; workspaceId: string };
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(new Error("Could not read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function AdminImportPage() {
@@ -143,24 +131,33 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
   const [rows, setRows] = useState<ImportedProspectRow[]>([]);
   const [source, setSource] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [sheets, setSheets] = useState<DetectedSheet[]>([]);
+  const [lastFile, setLastFile] = useState<File | null>(null);
+  const [downloadingSample, setDownloadingSample] = useState<"csv" | "xlsx" | null>(null);
   const [listName, setListName] = useState("");
   const [autoEnrich, setAutoEnrich] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const parse = useRQMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, headerMap }: { file: File; headerMap?: Record<string, string> }) => {
       const base64 = await fileToBase64(file);
       return apiFetch<ParseResponse>("/api/v1/import/prospects/parse", {
         method: "POST",
         authToken: token,
-        body: JSON.stringify({ filename: file.name, mimeType: file.type || "application/octet-stream", base64 }),
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64,
+          headerMap,
+        }),
       });
     },
     onSuccess: (res) => {
       setRows(res.data.rows);
       setSource(res.data.source);
       setWarnings(res.data.warnings);
+      setSheets(res.data.sheets ?? []);
       setParseError(null);
       setSuccessMsg(null);
     },
@@ -173,6 +170,21 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
       setRows([]);
     },
   });
+
+  const handleDownloadSample = async (format: "csv" | "xlsx") => {
+    setDownloadingSample(format);
+    try {
+      await downloadSampleWithToken(format, token);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        onLock();
+      } else {
+        setParseError(formatQueryError(err, "Could not download sample file."));
+      }
+    } finally {
+      setDownloadingSample(null);
+    }
+  };
 
   const commit = useRQMutation({
     mutationFn: () =>
@@ -192,6 +204,7 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
         }.`
       );
       setRows([]);
+      setSheets([]);
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 401) onLock();
@@ -199,6 +212,7 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
   });
 
   const preview = rows.slice(0, 50);
+  const hasRevenue = rows.some((r) => r.companyRevenue);
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-4 py-10 sm:p-6">
@@ -215,50 +229,23 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Upload className="h-4 w-4" />
-            Upload file
-          </CardTitle>
-          <CardDescription>CSV / Excel preferred. PDF and PNG/JPEG use OCR. Max 8MB.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 py-10 text-center hover:border-primary/50">
-            <FileUp className="h-8 w-8 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {parse.isPending ? "Parsing…" : "Choose CSV, Excel, PDF, PNG, or SVG"}
-            </span>
-            <input
-              type="file"
-              className="hidden"
-              accept=".csv,.xlsx,.xls,.pdf,.svg,.png,.jpg,.jpeg,.webp,.gif,text/csv,image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-              disabled={parse.isPending}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) parse.mutate(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          {parseError && (
-            <Alert variant="error" dismissible>
-              {parseError}
-            </Alert>
-          )}
-          {source && (
-            <p className="text-xs text-muted-foreground">
-              Parsed via <span className="font-medium">{source}</span> · {rows.length} row
-              {rows.length === 1 ? "" : "s"}
-            </p>
-          )}
-          {warnings.map((w) => (
-            <Alert key={w} variant="warning">
-              {w}
-            </Alert>
-          ))}
-        </CardContent>
-      </Card>
+      <ImportUploadPanel
+        isParsing={parse.isPending}
+        parseError={parseError}
+        source={source}
+        rowCount={rows.length}
+        warnings={warnings}
+        sheets={sheets}
+        onFileSelected={(file) => {
+          setLastFile(file);
+          parse.mutate({ file });
+        }}
+        onReparseWithMapping={(headerMap) => {
+          if (lastFile) parse.mutate({ file: lastFile, headerMap });
+        }}
+        onDownloadSample={handleDownloadSample}
+        downloadingSample={downloadingSample}
+      />
 
       {rows.length > 0 && (
         <Card>
@@ -266,6 +253,7 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
             <CardTitle className="text-base">Preview & commit</CardTitle>
             <CardDescription>
               Showing {preview.length} of {rows.length}.
+              {hasRevenue && " Revenue is shown for reference only — it isn't stored on import."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -294,7 +282,13 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">Domain</th>
+                    <th className="px-3 py-2">Company</th>
                     <th className="px-3 py-2">Title</th>
+                    <th className="px-3 py-2">Phone</th>
+                    <th className="px-3 py-2">LinkedIn</th>
+                    <th className="px-3 py-2">Country</th>
+                    <th className="px-3 py-2">City</th>
+                    {hasRevenue && <th className="px-3 py-2">Revenue</th>}
                     <th className="px-3 py-2 w-10" />
                   </tr>
                 </thead>
@@ -304,7 +298,28 @@ function UploadPanel({ token, onLock }: { token: string; onLock: () => void }) {
                       <td className="px-3 py-2">{row.fullName}</td>
                       <td className="px-3 py-2 text-muted-foreground">{row.email ?? "—"}</td>
                       <td className="px-3 py-2">{row.companyDomain}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.companyName ?? "—"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{row.jobTitle ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.phone ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {row.linkedinUrl ? (
+                          <a
+                            href={row.linkedinUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            Profile
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.country ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.city ?? "—"}</td>
+                      {hasRevenue && (
+                        <td className="px-3 py-2 text-muted-foreground">{row.companyRevenue ?? "—"}</td>
+                      )}
                       <td className="px-3 py-2">
                         <button
                           type="button"
