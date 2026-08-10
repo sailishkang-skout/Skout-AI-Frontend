@@ -381,6 +381,25 @@ function StepCard({
           </div>
         )}
 
+        {/* ── Manual task fields ──────────────────────── */}
+        {step.stepType === "task" && (
+          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
+            <Input
+              placeholder="Task title — e.g. Call {{firstName}} about their trial"
+              value={subjectDraft}
+              onChange={(e) => setSubjectDraft(e.target.value)}
+              onBlur={() => {
+                if (subjectDraft !== (step.subject ?? "")) onUpdate({ subject: subjectDraft || null });
+              }}
+              disabled={updating}
+              className="h-9 bg-background text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              A task is created on your CRM Tasks page when this step comes up, linked to the prospect.
+            </p>
+          </div>
+        )}
+
         {/* ── WhatsApp fields ─────────────────────────── */}
         {step.stepType === "whatsapp" && (
           <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">

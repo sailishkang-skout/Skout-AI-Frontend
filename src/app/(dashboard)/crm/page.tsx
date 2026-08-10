@@ -12,6 +12,13 @@ import { useCrmDashboardApi } from "@/lib/crm/dashboard";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL, formatDateTime, formatMoney } from "@/lib/crm-display";
 
+function taskStatSub(dueToday: number, overdue: number): string | undefined {
+  const parts: string[] = [];
+  if (dueToday > 0) parts.push(`${dueToday} due today`);
+  if (overdue > 0) parts.push(`${overdue} overdue`);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
 export default function CrmDashboardPage() {
   const dashboardApi = useCrmDashboardApi();
   const authReady = useAuthReady();
@@ -60,7 +67,7 @@ export default function CrmDashboardPage() {
               icon={CheckSquare}
               label="Open tasks"
               value={overview.data.openTasks}
-              sub={overview.data.overdueTasks > 0 ? `${overview.data.overdueTasks} overdue` : undefined}
+              sub={taskStatSub(overview.data.dueTodayTasks, overview.data.overdueTasks)}
               href="/crm/tasks"
             />
             <StatCard icon={CalendarClock} label="Upcoming meetings" value={overview.data.upcomingMeetings} href="/crm/meetings" />
