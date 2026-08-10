@@ -13,6 +13,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
+import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useDealsApi } from "@/lib/crm/deals";
 import { usePipelinesApi } from "@/lib/crm/pipelines";
@@ -135,6 +136,8 @@ export default function DealDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <NextBestActionCard entityType="deal" entityId={id} />
 
       <Card>
         <CardContent className="p-5">

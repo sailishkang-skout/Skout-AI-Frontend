@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   CalendarClock,
@@ -17,7 +18,9 @@ import {
   LayoutDashboard,
   List,
   Mail,
+  Phone,
   Search,
+  ShieldCheck,
   Settings,
   Sparkles,
   Target,
@@ -135,6 +138,10 @@ export const otherNav: NavGroup[] = [
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
+      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
+      { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
       { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },

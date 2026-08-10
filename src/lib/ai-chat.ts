@@ -75,7 +75,8 @@ export interface ChatResponse {
 }
 
 export type ChatMode = "auto" | "ask";
-export type ChatAgent = "skout" | "dexter";
+/** "cro" = R19.2 admin-only CRO Copilot persona. */
+export type ChatAgent = "skout" | "dexter" | "cro";
 
 export interface ChatContext {
   subject?: string;
@@ -117,6 +118,15 @@ export function useAiChatApi() {
 
     createFromSteps: (input: { name: string; steps: GeneratedStep[] }) =>
       fetchApi<SequenceDetail>("/api/v1/sequences/from-steps", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    /** R15.2 — log a confirmed AI-executed write action to the audit trail. Fire-and-forget:
+     * failures here must never block the action itself, which has already succeeded by the
+     * time this is called. */
+    logAudit: (input: { agent: ChatAgent; action: string; entityType: string; entityId: string; details?: Record<string, unknown> }) =>
+      fetchApi<{ data: { logged: boolean } }>("/api/v1/ai/audit", {
         method: "POST",
         body: JSON.stringify(input),
       }),
