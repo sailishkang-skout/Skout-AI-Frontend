@@ -63,7 +63,7 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Notifications"
+        aria-label={count > 0 ? `Notifications (${count} unread)` : "Notifications"}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <Bell className="h-4.5 w-4.5" />
@@ -84,7 +84,7 @@ export function NotificationBell() {
           />
           <div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-[22rem] max-w-[90vw] rounded-md border border-border bg-popover shadow-md"
+            className="absolute right-0 z-50 mt-2 w-[22rem] max-w-[90vw] rounded-md border border-border bg-background shadow-md"
           >
             <div className="flex items-center justify-between border-b px-3 py-2">
               <p className="text-sm font-semibold">Notifications</p>
