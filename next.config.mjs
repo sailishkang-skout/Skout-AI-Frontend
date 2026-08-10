@@ -12,6 +12,8 @@ const nextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",
   reactStrictMode: true,
   env: {
+    // Exposed to client so E2E can skip Clerk + onboarding gates (see icp-enforcement.tsx).
+    E2E_AUTH_BYPASS: process.env.E2E_AUTH_BYPASS ?? "",
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ??

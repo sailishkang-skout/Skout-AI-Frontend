@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
-import { useTeamApi } from "@/lib/team";
+import { useTeamApi, useWorkspaceMembers } from "@/lib/team";
 import type { WorkspaceMember, WorkspaceRole } from "@/types/api";
 
 const ROLE_ORDER: Record<WorkspaceRole, number> = { owner: 0, admin: 1, member: 2 };
@@ -53,12 +53,8 @@ export default function TeamPage() {
   const myRole = (me.data?.role ?? "member") as WorkspaceRole;
   const canManage = myRole === "owner" || myRole === "admin";
 
-  const members = useQuery({
-    queryKey: ["team", "members"],
-    queryFn: teamApi.listMembers,
-    enabled: authReady,
-    select: (r) => [...r.data].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]),
-  });
+  const members = useWorkspaceMembers();
+  const sortedMembers = members.data ? [...members.data.data].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]) : [];
 
   const invites = useQuery({
     queryKey: ["team", "invites"],
@@ -220,7 +216,7 @@ export default function TeamPage() {
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {(members.data ?? []).map((member) => (
+              {sortedMembers.map((member) => (
                 <MemberRow
                   key={member.userId}
                   member={member}

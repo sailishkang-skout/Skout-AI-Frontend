@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDueDate, formatMoney } from "./crm-display";
+import { formatDueDate, formatMoney, summarizeAuditDiff } from "./crm-display";
 
 describe("formatMoney", () => {
   it("formats a positive amount with currency", () => {
@@ -56,5 +56,51 @@ describe("formatDueDate", () => {
   it("labels a past date as N days overdue", () => {
     const past = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     expect(formatDueDate(past)).toEqual({ label: "3 days overdue", overdue: true });
+  });
+});
+
+describe("summarizeAuditDiff", () => {
+  it("renders create rows as a flat list of all new field values", () => {
+    expect(summarizeAuditDiff(null, { name: "Acme", amount: 100 }, "create")).toEqual([
+      "name: Acme",
+      "amount: $100.00",
+    ]);
+  });
+
+  it("renders update rows only for changed keys and preserves arrows", () => {
+    expect(summarizeAuditDiff({ name: "Acme", amount: 100 }, { name: "Acme", amount: 150 }, "update")).toEqual([
+      "amount: $100.00 → $150.00",
+    ]);
+  });
+
+  it("renders delete rows using the final pre-delete state and a deleted-with prefix", () => {
+    expect(summarizeAuditDiff({ name: "Acme", status: "open" }, null, "delete")).toEqual([
+      "Deleted with: name: Acme",
+      "Deleted with: status: open",
+    ]);
+  });
+
+  it("returns an empty array when both states are null", () => {
+    expect(summarizeAuditDiff(null, null, "update")).toEqual([]);
+  });
+
+  it("formats boolean, date, and null values in a diff", () => {
+    const before = { isActive: false, dueDate: null, ownerId: "u-1" };
+    const after = { isActive: true, dueDate: new Date(Date.now()).toISOString(), ownerId: "u-2" };
+    const lines = summarizeAuditDiff(before, after, "update");
+
+    expect(lines[0]).toBe("isActive: false → true");
+    expect(lines[1]).toContain(" → Due today");
+    expect(lines[2]).toBe("ownerId: u-1 → u-2");
+  });
+
+  it("renders null/undefined values as an em dash", () => {
+    expect(summarizeAuditDiff({ amount: null }, { amount: 100 }, "update")).toEqual([
+      "amount: — → $100.00",
+    ]);
+  });
+
+  it("renders a delete row as an empty diff when beforeState is null", () => {
+    expect(summarizeAuditDiff(null, null, "delete")).toEqual([]);
   });
 });

@@ -12,7 +12,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
 import { CallButton } from "@/components/crm/call-button";
+import { FieldSourceBadge } from "@/components/crm/field-source-badge";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { ContactFormSheet } from "@/components/crm/contact-form-sheet";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
@@ -35,7 +37,7 @@ export default function ContactDetailPage() {
   const dealsApi = useDealsApi();
   const tasksApi = useTasksApi();
   const authReady = useAuthReady();
-  const { canDelete } = useWorkspaceRole();
+  const { role, canDelete } = useWorkspaceRole();
 
   const [editOpen, setEditOpen] = useState(false);
   const [dealSheetOpen, setDealSheetOpen] = useState(false);
@@ -116,7 +118,12 @@ export default function ContactDetailPage() {
               <h1 className="text-xl font-semibold">
                 {data.firstName} {data.lastName}
               </h1>
-              {data.title && <p className="text-sm text-muted-foreground">{data.title}</p>}
+              {data.title && (
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  {data.title}
+                  <FieldSourceBadge field="title" fieldSources={data.fieldSources} />
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 gap-2">
               <CallButton phone={data.phone} contactId={data.id} />
@@ -132,9 +139,19 @@ export default function ContactDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-            {data.email && <span>{data.email}</span>}
-            {data.phone && <span>{data.phone}</span>}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
+            {data.email && (
+              <span className="flex items-center gap-1.5">
+                {data.email}
+                <FieldSourceBadge field="email" fieldSources={data.fieldSources} />
+              </span>
+            )}
+            {data.phone && (
+              <span className="flex items-center gap-1.5">
+                {data.phone}
+                <FieldSourceBadge field="phone" fieldSources={data.fieldSources} />
+              </span>
+            )}
           </div>
           <Badge tone="info">{data.lifecycleStage.toUpperCase()}</Badge>
         </CardContent>
@@ -198,6 +215,16 @@ export default function ContactDetailPage() {
           <ActivityTimeline entityType="contact" entityId={id} />
         </CardContent>
       </Card>
+
+      {role === "owner" || role === "admin" ? (
+        <Card>
+          <CardContent className="p-5">
+            <h2 className="mb-3 text-sm font-semibold">Audit history</h2>
+            {/* Cosmetic-only role gate: useWorkspaceRole is a client-side hint and the backend audit-log GET route currently lacks a requireRole check, so a member could still call the endpoint directly. */}
+            <AuditLogTimeline entityType="contact" entityId={id} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <ContactFormSheet
         open={editOpen}
