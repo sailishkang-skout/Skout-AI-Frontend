@@ -124,9 +124,19 @@ export function useAiChatApi() {
 
     /** R15.2 — log a confirmed AI-executed write action to the audit trail. Fire-and-forget:
      * failures here must never block the action itself, which has already succeeded by the
-     * time this is called. */
+     * time this is called. Kept for any future guarded action that isn't atomic server-side;
+     * enroll_list itself now goes through `enrollList` below instead. */
     logAudit: (input: { agent: ChatAgent; action: string; entityType: string; entityId: string; details?: Record<string, unknown> }) =>
       fetchApi<{ data: { logged: boolean } }>("/api/v1/ai/audit", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    /** R15.2 — DexterAI's one guarded write action. Enroll + audit log happen server-side in a
+     * single request, so a client that dies mid-flow can't enroll a list without it being
+     * recorded (the previous enroll-then-separately-call-/ai/audit pattern could). */
+    enrollList: (input: { listId: string; sequenceId: string }) =>
+      fetchApi<{ data: { enrolled: number; skipped: number; total: number } }>("/api/v1/ai/actions/enroll-list", {
         method: "POST",
         body: JSON.stringify(input),
       }),

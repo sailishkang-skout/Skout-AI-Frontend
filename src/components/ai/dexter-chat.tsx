@@ -33,7 +33,6 @@ import {
   warmSpeechVoices,
   type SpeechRecognitionLike,
 } from "@/lib/dexter-speech";
-import { useSequencesApi } from "@/lib/sequences";
 import { createClientLogger } from "@/lib/logger";
 import { sanitizeHtml, stripExportLinks } from "@/components/ai/ai-chat-box";
 
@@ -70,7 +69,6 @@ interface DexterChatProps {
 
 export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const api = useAiChatApi();
-  const sequences = useSequencesApi();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
@@ -154,7 +152,10 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       if (action.type !== "navigate" && action.type !== "ui_action") return;
       if (action.type === "ui_action" && action.confirm && !auto) return;
 
-      const result = await executeDexterAction(action, { router, sequences });
+      // R15.2 — enroll_list's audit log write now happens server-side in the same request as
+      // the enroll itself (POST /ai/actions/enroll-list), not as a separate client call after
+      // the fact — see executeDexterAction / api.enrollList.
+      const result = await executeDexterAction(action, { router, enrollList: api.enrollList });
       setTurns((prev) =>
         prev.map((t, i) =>
           i === turnIndex
@@ -175,22 +176,8 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         ok: result.ok,
         name: action.type === "ui_action" ? action.name : undefined,
       });
-
-      // R15.2 — audit trail. Only mutating (confirm-gated) actions that actually succeeded;
-      // fire-and-forget so a logging hiccup never surfaces as an action failure to the user.
-      if (result.ok && action.type === "ui_action" && action.name === "enroll_list" && action.params?.sequenceId) {
-        void api
-          .logAudit({
-            agent: "dexter",
-            action: action.name,
-            entityType: "sequence",
-            entityId: action.params.sequenceId,
-            details: { listId: action.params.listId, message: result.message },
-          })
-          .catch((err) => log.warn("dexter audit log failed", { err }));
-      }
     },
-    [api, router, sequences, speakReply, voiceOn]
+    [api, router, speakReply, voiceOn]
   );
 
   const send = useMutation({
