@@ -46,6 +46,11 @@ export function useProductTourOptional(): ProductTourContextValue | null {
   return useContext(ProductTourContext);
 }
 
+/** In E2E runs, the welcome modal / tour overlay would cover the app and intercept
+ * clicks (fresh browser contexts have empty localStorage, so the welcome modal always
+ * appears on first visit). Skip it entirely so page shells render unobstructed. */
+const E2E_AUTH_BYPASS = process.env.E2E_AUTH_BYPASS === "true";
+
 export function ProductTourProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,6 +60,11 @@ export function ProductTourProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (E2E_AUTH_BYPASS) {
+      setPhase("done");
+      setReady(true);
+      return;
+    }
     const state = loadTourState();
     setPersisted(state);
     if (shouldShowWelcome(state)) setPhase("welcome");
@@ -73,6 +83,7 @@ export function ProductTourProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const startTour = useCallback(() => {
+    if (E2E_AUTH_BYPASS) return;
     persist({ ...persisted, welcomeSeen: true, dismissed: false });
     setStepIndex(0);
     setPhase("tour");
@@ -81,6 +92,7 @@ export function ProductTourProvider({ children }: { children: ReactNode }) {
   }, [persist, persisted, pathname, router]);
 
   const restartTour = useCallback(() => {
+    if (E2E_AUTH_BYPASS) return;
     persist({ welcomeSeen: true, dismissed: false, completed: false });
     setStepIndex(0);
     setPhase("tour");

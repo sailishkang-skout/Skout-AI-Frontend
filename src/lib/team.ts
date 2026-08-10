@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { getApiBase, useApiFetch } from "@/lib/api-client";
 import type { AcceptInviteResult, InviteDetails, WorkspaceInvite, WorkspaceMember, WorkspaceRole } from "@/types/api";
 
@@ -41,6 +42,16 @@ export function useTeamApi() {
         { method: "POST" }
       ),
   };
+}
+
+export function useWorkspaceMembers() {
+  const teamApi = useTeamApi();
+
+  return useQuery({
+    queryKey: ["team", "members"],
+    queryFn: () => teamApi.listMembers(),
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 export async function getInviteDetails(token: string): Promise<InviteDetails> {
