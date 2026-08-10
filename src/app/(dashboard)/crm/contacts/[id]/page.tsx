@@ -13,6 +13,8 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
+import { CallButton } from "@/components/crm/call-button";
+import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { ContactFormSheet } from "@/components/crm/contact-form-sheet";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
 import { RelatedItemRow, RelatedListPanel } from "@/components/crm/related-list-panel";
@@ -108,6 +110,7 @@ export default function ContactDetailPage() {
               {data.title && <p className="text-sm text-muted-foreground">{data.title}</p>}
             </div>
             <div className="flex shrink-0 gap-2">
+              <CallButton phone={data.phone} contactId={data.id} />
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5" />
                 Edit
@@ -127,6 +130,8 @@ export default function ContactDetailPage() {
           <Badge tone="info">{data.lifecycleStage.toUpperCase()}</Badge>
         </CardContent>
       </Card>
+
+      <NextBestActionCard entityType="contact" entityId={id} />
 
       {company.data && (
         <Card>

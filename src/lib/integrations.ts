@@ -6,7 +6,7 @@ export interface IntegrationItem {
   name: string;
   description: string;
   docsUrl: string;
-  category?: "enrichment" | "messaging";
+  category?: "enrichment" | "messaging" | "gtm_import";
   connected: boolean;
   keyHint: string | null;
   status: string | null;
@@ -44,5 +44,31 @@ export function useIntegrationsApi() {
         }),
         workspaceId: WORKSPACE_ID,
       }),
+
+    /** R22.3 — browse the workspace's Apollo sequences to import. */
+    listApolloSequences: () =>
+      fetchApi<{ data: ApolloSequenceSummary[] }>("/api/v1/integrations/apollo/sequences", {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    importApolloSequence: (id: string) =>
+      fetchApi<{ data: ApolloImportResult }>(`/api/v1/integrations/apollo/sequences/${id}/import`, {
+        method: "POST",
+        workspaceId: WORKSPACE_ID,
+      }),
   };
+}
+
+export interface ApolloSequenceSummary {
+  id: string;
+  name: string;
+  numSteps: number;
+  active: boolean;
+}
+
+export interface ApolloImportResult {
+  sequenceId: string;
+  name: string;
+  stepCount: number;
+  skippedSteps: number;
 }
