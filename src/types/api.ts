@@ -192,6 +192,9 @@ export interface ProspectList {
   name: string;
   prospectCount: number;
   createdAt: string;
+  /** R10.3 — the filters this list was originally activated from, if any. Non-null means
+   * "Convert to smart list" is available (POST /lists/:id/convert-to-smart-list). */
+  sourceFilters?: SmartListFilters | null;
 }
 
 export type SequenceStatus = "draft" | "active" | "paused" | "archived";

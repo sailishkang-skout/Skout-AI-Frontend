@@ -233,10 +233,20 @@ export function useEnrichmentApi() {
     listLists: () =>
       fetchApi<ListEnvelope<ProspectList>>("/api/v1/lists", { workspaceId: WORKSPACE_ID }),
 
+    /** R10.1 — POST /lists defaults to a smart list; this always passes mode: "static"
+     * since it's the manual/name-only quick-create flow (no filters gathered here). */
     createList: (name: string) =>
       fetchApi<ProspectList>("/api/v1/lists", {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, mode: "static" }),
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    /** R10.3 — converts a static list back into a live smart list using its recorded
+     * sourceFilters. 422 not_convertible if the list has no recorded filters. */
+    convertListToSmartList: (listId: string) =>
+      fetchApi<import("@/types/api").SmartList>(`/api/v1/lists/${listId}/convert-to-smart-list`, {
+        method: "POST",
         workspaceId: WORKSPACE_ID,
       }),
 

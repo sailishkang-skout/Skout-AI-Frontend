@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -52,6 +52,7 @@ const VERIFY_BADGE: Record<
 
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const listId = params.id;
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
@@ -72,6 +73,7 @@ export default function ListDetailPage() {
   const [scoreProgress, setScoreProgress] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [convertError, setConvertError] = useState<string | null>(null);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -314,6 +316,21 @@ export default function ListDetailPage() {
     },
   });
 
+  const convertToSmartList = useMutation({
+    mutationFn: () => enrichmentApi.convertListToSmartList(listId),
+    onSuccess: (smartList) => {
+      setConvertError(null);
+      router.push(`/smart-lists?id=${smartList.id}`);
+    },
+    onError: (err) => {
+      setConvertError(
+        err instanceof ApiError && err.status === 422
+          ? "This list's original filters aren't available, so it can't be converted."
+          : "Could not convert this list. Please try again."
+      );
+    },
+  });
+
   return (
     <PageShell>
       <div className="mb-4">
@@ -426,6 +443,21 @@ export default function ListDetailPage() {
             <Play className="h-4 w-4" />
             Run sequence
           </Button>
+          {list?.sourceFilters && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={convertToSmartList.isPending}
+              onClick={() => { setConvertError(null); convertToSmartList.mutate(); }}
+            >
+              {convertToSmartList.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Convert to smart list
+            </Button>
+          )}
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -453,6 +485,7 @@ export default function ListDetailPage() {
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
       {exportError && <Alert variant="warning">{exportError}</Alert>}
+      {convertError && <Alert variant="warning">{convertError}</Alert>}
       {verifyEmails.isPending && (
         <Alert className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
