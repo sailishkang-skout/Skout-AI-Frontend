@@ -38,7 +38,7 @@ test.describe("CRM Deals board", () => {
 
     const dealName = `Quick Deal ${Date.now()}`;
     await page.getByPlaceholder("Acme — Annual Contract").fill(dealName);
-    await page.getByRole("combobox").selectOption({ label: companyName });
+    await page.getByLabel("Company").selectOption({ label: companyName });
     await page.getByRole("button", { name: "Create deal" }).click();
     await expect(page.getByText(dealName, { exact: true })).toBeVisible({ timeout: 15_000 });
   });

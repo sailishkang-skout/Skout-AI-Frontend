@@ -12,11 +12,19 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskFormSheet } from "@/components/crm/task-form-sheet";
+import { CallButton } from "@/components/crm/call-button";
 import { useTasksApi } from "@/lib/crm/tasks";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
 import { formatDueDate, taskStatusTone } from "@/lib/crm-display";
-import type { TaskStatus } from "@/types/crm";
+import type { TaskDisposition, TaskStatus } from "@/types/crm";
+
+const DISPOSITION_OPTIONS: { value: TaskDisposition; label: string }[] = [
+  { value: "connected", label: "Connected" },
+  { value: "no_answer", label: "No answer" },
+  { value: "voicemail", label: "Voicemail" },
+  { value: "bad_number", label: "Bad number" },
+];
 
 export default function TasksPage() {
   const queryClient = useQueryClient();
@@ -51,6 +59,14 @@ export default function TasksPage() {
           : formatQueryError(err, "Could not delete this task.")
       );
     },
+  });
+
+  // R20.4 — SDR sets a disposition after placing a sequence "call" step's call; this is what
+  // unblocks the cadence worker (see resolveCallDisposition() in sequence-enrollment.worker.ts).
+  const setDisposition = useMutation({
+    mutationFn: ({ id, disposition }: { id: string; disposition: TaskDisposition }) =>
+      tasksApi.update(id, { disposition }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["crm", "tasks"] }),
   });
 
   const rows = tasks.data?.data ?? [];
@@ -128,7 +144,32 @@ export default function TasksPage() {
                       {due && <span className={due.overdue ? "text-red-600 dark:text-red-400" : ""}>{due.label}</span>}
                       <Badge tone={taskStatusTone(task.status)}>{task.status}</Badge>
                       <Badge tone="muted">{task.priority}</Badge>
+                      {task.disposition && <Badge tone="muted">{task.disposition.replace("_", " ")}</Badge>}
                     </div>
+                    {/* R20.4 — sequence "call" step tasks carry a prospectId; give the SDR a
+                        one-click dial + a disposition to set once they're done. */}
+                    {task.prospectId && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <CallButton prospectId={task.prospectId} taskId={task.id} />
+                        <Select
+                          value={task.disposition ?? ""}
+                          onChange={(e) =>
+                            e.target.value &&
+                            setDisposition.mutate({ id: task.id, disposition: e.target.value as TaskDisposition })
+                          }
+                          className="h-8 w-40 text-xs"
+                        >
+                          <option value="" disabled>
+                            Set disposition…
+                          </option>
+                          {DISPOSITION_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   {canDelete && (
                     <button

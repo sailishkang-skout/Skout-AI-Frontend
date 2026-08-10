@@ -4,6 +4,8 @@ import type { CrmListEnvelope, Meeting, MeetingInput, MeetingPatch } from "@/typ
 export function useMeetingsApi() {
   const fetchApi = useCrmServiceFetch();
   return {
+    getBotConfig: () => fetchApi<{ enabled: boolean }>("/api/v1/meetings/bot-config"),
+
     list: (params?: { limit?: number; offset?: number; dealId?: string; contactId?: string; companyId?: string }) => {
       const query = new URLSearchParams();
       if (params?.limit !== undefined) query.set("limit", String(params.limit));
@@ -24,5 +26,8 @@ export function useMeetingsApi() {
       fetchApi<Meeting>(`/api/v1/meetings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
     remove: (id: string) => fetchApi<void>(`/api/v1/meetings/${id}`, { method: "DELETE" }),
+
+    /** R16.2 — schedule a meeting-bot join. Requires meetingUrl to already be set. */
+    scheduleBot: (id: string) => fetchApi<Meeting>(`/api/v1/meetings/${id}/schedule-bot`, { method: "POST" }),
   };
 }

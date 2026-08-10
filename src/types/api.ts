@@ -7,6 +7,69 @@ export interface Workspace {
   createdAt: string;
 }
 
+/** R13.4 — auto-activation rules. Mirrors apps/api/src/services/activation-rules.service.ts. */
+export type ActivationTargetAction = "activate" | "add_to_list" | "enroll_sequence";
+
+export interface ActivationRule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  scoreThreshold: number;
+  signalType: string | null;
+  targetAction: ActivationTargetAction;
+  targetId: string | null;
+  enabled: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivationRuleRun {
+  id: string;
+  workspaceId: string;
+  ruleId: string;
+  prospectId: string;
+  actionTaken: string;
+  reversedAt: string | null;
+  createdAt: string;
+}
+
+/** R17.1 — notification center + R17.4 — delivery channel. Mirrors apps/api/src/services/notifications.service.ts. */
+export type NotificationChannel = "in_app" | "email" | "both";
+
+export interface Notification {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  deliveredChannels: string[];
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: string;
+  channel: NotificationChannel;
+}
+
+/** R20.2 — Twilio click-to-call. Mirrors apps/api/src/routes/call.routes.ts. */
+export interface CallConfig {
+  enabled: boolean;
+  agentPhoneSet: boolean;
+}
+
+export interface DialCallResult {
+  callSid: string;
+  status: string;
+}
+
 export interface ProspectSummary {
   prospectId: string;
   companyId: string;
@@ -564,22 +627,6 @@ export interface SmartListRefreshSummary {
 export interface SmartListRefreshDetail extends SmartListRefreshSummary {
   addedProspects: SmartListProspectDiffEntry[];
   droppedProspects: SmartListProspectDiffEntry[];
-}
-
-/** In-app notification (R17.1). `type` is intentionally an open string, not a union — new alert
- * kinds (list refresh, signal alert, task/sequence reminder, ...) can be added without a schema
- * or type change on this interface. */
-export interface AppNotification {
-  id: string;
-  workspaceId: string;
-  userId: string | null;
-  type: string;
-  entityType: string;
-  entityId: string;
-  title: string;
-  body: string | null;
-  readAt: string | null;
-  createdAt: string;
 }
 
 export interface SmartListRunResult {

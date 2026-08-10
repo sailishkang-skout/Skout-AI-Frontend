@@ -1,5 +1,17 @@
 import { useCrmServiceFetch } from "../crm-api-client";
-import type { Company, CompanyInput, CompanyPatch, CrmListEnvelope } from "@/types/crm";
+import type { Company, CompanyInput, CompanyPatch, CrmListEnvelope, FieldSource } from "@/types/crm";
+
+export interface CompanyAutoFillPatch {
+  industry?: string;
+  employeeCount?: number;
+  revenue?: number;
+  location?: string;
+}
+export interface CompanyAutoFillResult {
+  company: Company;
+  applied: string[];
+  skipped: string[];
+}
 
 export function useCompaniesApi() {
   const fetchApi = useCrmServiceFetch();
@@ -22,5 +34,12 @@ export function useCompaniesApi() {
       fetchApi<Company>(`/api/v1/companies/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
     remove: (id: string) => fetchApi<void>(`/api/v1/companies/${id}`, { method: "DELETE" }),
+
+    /** R13.3 — auto-fill from enrichment; skips fields a human already edited. */
+    autoFill: (id: string, patch: CompanyAutoFillPatch, source: FieldSource, confidence?: number) =>
+      fetchApi<CompanyAutoFillResult>(`/api/v1/companies/${id}/auto-fill`, {
+        method: "POST",
+        body: JSON.stringify({ patch, source, confidence }),
+      }),
   };
 }

@@ -32,6 +32,12 @@ jobs:
       PLAYWRIGHT_API_URL: http://127.0.0.1:3001
       PLAYWRIGHT_CRM_API_URL: http://127.0.0.1:3002
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      # Playwright drives the frontend from http://127.0.0.1:3000 — both APIs must
+      # allow that origin (plus localhost for local dev) or the browser blocks every
+      # cross-origin fetch → waitForApiMutation 30s timeouts → 15m CI cancellation.
+      CORS_ORIGIN: http://127.0.0.1:3000,http://localhost:3000
+      # Long 32-test/1-worker runs hit the default 200 req/min rate limit → 429s.
+      RATE_LIMIT_MAX: 100000
       CI: true
     steps:
       - name: Checkout frontend
@@ -68,7 +74,7 @@ jobs:
       - name: Start API (stub auth)
         working-directory: backend
         run: |
-          AUTH_STUB=true CLERK_SECRET_KEY= REDIS_URL= CORS_ORIGIN=http://localhost:3000 pnpm --filter @skout/api dev > /tmp/skout-api.log 2>&1 &
+          AUTH_STUB=true CLERK_SECRET_KEY= REDIS_URL= CORS_ORIGIN="${CORS_ORIGIN}" pnpm --filter @skout/api dev > /tmp/skout-api.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:3001/api/v1/health >/dev/null; then
               echo "API ready"
@@ -83,7 +89,7 @@ jobs:
       - name: Start CRM API (stub auth)
         working-directory: backend
         run: |
-          AUTH_STUB=true CLERK_SECRET_KEY= pnpm --filter @skout/crm dev > /tmp/skout-crm.log 2>&1 &
+          AUTH_STUB=true CLERK_SECRET_KEY= CORS_ORIGIN="${CORS_ORIGIN}" pnpm --filter @skout/crm dev > /tmp/skout-crm.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:3002/api/v1/crm/health >/dev/null; then
               echo "CRM API ready"

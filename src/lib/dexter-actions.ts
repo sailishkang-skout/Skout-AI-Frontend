@@ -1,9 +1,10 @@
 import type { ChatAction, UiActionName } from "@/lib/ai-chat";
-import type { useSequencesApi } from "@/lib/sequences";
-
-type SequencesApi = ReturnType<typeof useSequencesApi>;
 
 type RouterLike = { push: (href: string) => void };
+
+type EnrollListFn = (input: { listId: string; sequenceId: string }) => Promise<{
+  data: { enrolled: number; skipped: number; total: number };
+}>;
 
 export type DexterActionResult =
   | { ok: true; message?: string }
@@ -54,7 +55,7 @@ export async function executeDexterAction(
   action: Extract<ChatAction, { type: "ui_action" | "navigate" }>,
   deps: {
     router: RouterLike;
-    sequences: SequencesApi;
+    enrollList: EnrollListFn;
   }
 ): Promise<DexterActionResult> {
   if (action.type === "navigate") {
@@ -72,7 +73,9 @@ export async function executeDexterAction(
       };
     }
     try {
-      const result = await deps.sequences.enroll(sequenceId, { listId });
+      // R15.2 — enroll + audit log happen together server-side (POST /ai/actions/enroll-list),
+      // not as two separate client calls.
+      const { data: result } = await deps.enrollList({ listId, sequenceId });
       deps.router.push(`/sequences/${sequenceId}?tab=enroll`);
       return {
         ok: true,
