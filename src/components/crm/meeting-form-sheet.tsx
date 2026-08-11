@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, Loader2, Video, X } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,68 @@ import { Select } from "@/components/ui/select";
 import { useMeetingsApi } from "@/lib/crm/meetings";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { Field } from "./form-field";
-import type { Meeting, MeetingType } from "@/types/crm";
+import type { Meeting, MeetingInvitee, MeetingType } from "@/types/crm";
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/** Chip-list email input — Enter or comma adds the current text as an invitee. */
+function InviteesInput({
+  invitees,
+  onChange,
+}: {
+  invitees: MeetingInvitee[];
+  onChange: (next: MeetingInvitee[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addDraft = () => {
+    const email = draft.trim().replace(/,$/, "");
+    if (!email) return;
+    if (isValidEmail(email) && !invitees.some((i) => i.email.toLowerCase() === email.toLowerCase())) {
+      onChange([...invitees, { email }]);
+    }
+    setDraft("");
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {invitees.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {invitees.map((invitee) => (
+            <span
+              key={invitee.email}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+            >
+              {invitee.email}
+              <button
+                type="button"
+                onClick={() => onChange(invitees.filter((i) => i.email !== invitee.email))}
+                className="rounded-full hover:bg-background/60"
+                aria-label={`Remove ${invitee.email}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            addDraft();
+          }
+        }}
+        onBlur={addDraft}
+        placeholder="Add an email and press Enter"
+      />
+    </div>
+  );
+}
 
 const BOT_STATUS_TONE: Record<string, "muted" | "info" | "success" | "danger"> = {
   not_scheduled: "muted",
@@ -52,6 +113,7 @@ export function MeetingFormSheet({
   const [outcome, setOutcome] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [autoJoinBot, setAutoJoinBot] = useState(false);
+  const [invitees, setInvitees] = useState<MeetingInvitee[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +125,7 @@ export function MeetingFormSheet({
     setOutcome(meeting?.outcome ?? "");
     setMeetingUrl(meeting?.meetingUrl ?? "");
     setAutoJoinBot(meeting?.autoJoinBot ?? false);
+    setInvitees(meeting?.invitees ?? []);
   }, [open, meeting]);
 
   const botConfig = useQuery({
@@ -76,6 +139,14 @@ export function MeetingFormSheet({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["crm", "meetings"] }),
   });
 
+  const scheduleGoogle = useMutation({
+    mutationFn: () => meetingsApi.scheduleGoogle(meeting!.id, invitees),
+    onSuccess: (saved) => {
+      setMeetingUrl(saved.meetingUrl ?? "");
+      queryClient.invalidateQueries({ queryKey: ["crm", "meetings"] });
+    },
+  });
+
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -87,6 +158,7 @@ export function MeetingFormSheet({
         outcome: outcome.trim() || undefined,
         meetingUrl: meetingUrl.trim() || undefined,
         autoJoinBot,
+        invitees: invitees.length > 0 ? invitees : undefined,
         contactId: meeting?.contactId ?? defaultLink?.contactId ?? undefined,
         companyId: meeting?.companyId ?? defaultLink?.companyId ?? undefined,
         dealId: meeting?.dealId ?? defaultLink?.dealId ?? undefined,
@@ -135,6 +207,10 @@ export function MeetingFormSheet({
             </Select>
           </Field>
         </div>
+        <Field label="Invitees">
+          <InviteesInput invitees={invitees} onChange={setInvitees} />
+        </Field>
+
         <Field label="Meeting link (Zoom/Meet/Teams)">
           <Input
             value={meetingUrl}
@@ -142,6 +218,30 @@ export function MeetingFormSheet({
             placeholder="https://zoom.us/j/…"
           />
         </Field>
+
+        {isEdit && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-sm">
+              <Video className="h-4 w-4 text-muted-foreground" />
+              <span>Google Meet</span>
+              {meeting!.googleEventId && <Badge tone="success">scheduled</Badge>}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={scheduleGoogle.isPending}
+              onClick={() => scheduleGoogle.mutate()}
+            >
+              {scheduleGoogle.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {meeting!.googleEventId ? "Reschedule" : "Schedule Google Meet"}
+            </Button>
+          </div>
+        )}
+        {isEdit && scheduleGoogle.isError && (
+          <Alert variant="error">
+            {formatQueryError(scheduleGoogle.error, "Could not create the Google Calendar event. Connect Google Calendar under Settings first.")}
+          </Alert>
+        )}
 
         {botConfig.data?.enabled && (
           <label className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm">

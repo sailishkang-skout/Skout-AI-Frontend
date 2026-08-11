@@ -10,6 +10,7 @@ import {
   Bell,
   BookOpen,
   Building2,
+  Calendar,
   CalendarClock,
   CheckSquare,
   Crosshair,
@@ -119,6 +120,7 @@ export const crmNav: NavGroup[] = [
       { href: "/crm/deals", label: "Deals", icon: Kanban },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
+      { href: "/crm/calendar", label: "Calendar", icon: Calendar },
     ],
   },
 ];
@@ -141,6 +143,7 @@ export const otherNav: NavGroup[] = [
       { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/settings/calendar", label: "Google Calendar", icon: Calendar },
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },

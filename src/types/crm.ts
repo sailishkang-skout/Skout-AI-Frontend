@@ -199,6 +199,11 @@ export interface TaskPatch {
 /** not_scheduled | scheduled | joining | in_call | completed | failed — see R16.2. */
 export type MeetingBotStatus = "not_scheduled" | "scheduled" | "joining" | "in_call" | "completed" | "failed";
 
+export interface MeetingInvitee {
+  email: string;
+  name?: string;
+}
+
 export interface Meeting {
   id: string;
   workspaceId: string;
@@ -221,6 +226,8 @@ export interface Meeting {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   transcript: string | null;
+  invitees: MeetingInvitee[];
+  googleEventId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -238,6 +245,7 @@ export interface MeetingInput {
   outcome?: string;
   meetingUrl?: string;
   autoJoinBot?: boolean;
+  invitees?: MeetingInvitee[];
 }
 
 export type MeetingPatch = Partial<MeetingInput>;
