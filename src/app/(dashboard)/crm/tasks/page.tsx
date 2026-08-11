@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, Loader2, Plus, Trash2 } from "lucide-react";
+import { CheckSquare, Loader2, Plus, SkipForward, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,18 @@ import { CallButton } from "@/components/crm/call-button";
 import { useTasksApi } from "@/lib/crm/tasks";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
-import { formatDueDate, taskStatusTone } from "@/lib/crm-display";
-import type { TaskDisposition, TaskStatus } from "@/types/crm";
+import { formatDueDate, taskStatusTone, TASK_TYPE_LABEL } from "@/lib/crm-display";
+import type { CrmEntityType, TaskDisposition, TaskStatus } from "@/types/crm";
+
+type AssigneeFilter = "me" | "all";
+type DueFilter = "all" | "overdue" | "today" | "week";
+
+const ENTITY_FILTER_OPTIONS: { value: CrmEntityType | "all"; label: string }[] = [
+  { value: "all", label: "All linked entities" },
+  { value: "contact", label: "Contacts" },
+  { value: "company", label: "Companies" },
+  { value: "deal", label: "Deals" },
+];
 
 const DISPOSITION_OPTIONS: { value: TaskDisposition; label: string }[] = [
   { value: "connected", label: "Connected" },
@@ -26,23 +36,55 @@ const DISPOSITION_OPTIONS: { value: TaskDisposition; label: string }[] = [
   { value: "bad_number", label: "Bad number" },
 ];
 
+function dueFilterRange(filter: DueFilter): { dueBefore?: string; dueAfter?: string } {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (filter === "overdue") return { dueBefore: startOfToday.toISOString() };
+  if (filter === "today") {
+    const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+    return { dueAfter: startOfToday.toISOString(), dueBefore: startOfTomorrow.toISOString() };
+  }
+  if (filter === "week") {
+    const in7Days = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return { dueBefore: in7Days.toISOString() };
+  }
+  return {};
+}
+
 export default function TasksPage() {
   const queryClient = useQueryClient();
   const tasksApi = useTasksApi();
   const authReady = useAuthReady();
-  const { canDelete } = useWorkspaceRole();
+  const { canDelete, userId } = useWorkspaceRole();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("open");
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("me");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
+  const [entityFilter, setEntityFilter] = useState<CrmEntityType | "all">("all");
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const dueRange = useMemo(() => dueFilterRange(dueFilter), [dueFilter]);
+
   const tasks = useQuery({
-    queryKey: ["crm", "tasks", { status: statusFilter }],
-    queryFn: () => tasksApi.list({ limit: 100, status: statusFilter === "all" ? undefined : statusFilter }),
-    enabled: authReady,
+    queryKey: ["crm", "tasks", { status: statusFilter, assigneeFilter, dueFilter, entityFilter, userId }],
+    queryFn: () =>
+      tasksApi.list({
+        limit: 100,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        assignedTo: assigneeFilter === "me" ? userId : undefined,
+        relatedEntityType: entityFilter === "all" ? undefined : entityFilter,
+        ...dueRange,
+      }),
+    enabled: authReady && (assigneeFilter !== "me" || Boolean(userId)),
   });
 
   const complete = useMutation({
     mutationFn: (id: string) => tasksApi.complete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["crm", "tasks"] }),
+  });
+
+  const skip = useMutation({
+    mutationFn: (id: string) => tasksApi.skip(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["crm", "tasks"] }),
   });
 
@@ -74,7 +116,7 @@ export default function TasksPage() {
   return (
     <PageShell data-testid="page-crm-tasks">
       <PageHeader
-        title="Tasks"
+        title={assigneeFilter === "me" ? "My Tasks" : "Tasks"}
         description="Follow-ups and to-dos across your companies, contacts, and deals."
         actions={
           <Button data-testid="create-task-button" onClick={() => setSheetOpen(true)}>
@@ -84,15 +126,43 @@ export default function TasksPage() {
         }
       />
 
-      <Select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value as TaskStatus | "all")}
-        className="w-40"
-      >
-        <option value="open">Open</option>
-        <option value="done">Done</option>
-        <option value="all">All</option>
-      </Select>
+      <div className="flex flex-wrap gap-2">
+        <Select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value as AssigneeFilter)}
+          className="w-36"
+        >
+          <option value="me">My tasks</option>
+          <option value="all">All tasks</option>
+        </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as TaskStatus | "all")}
+          className="w-36"
+        >
+          <option value="open">Open</option>
+          <option value="done">Done</option>
+          <option value="skipped">Skipped</option>
+          <option value="all">All statuses</option>
+        </Select>
+        <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value as DueFilter)} className="w-40">
+          <option value="all">Any due date</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due today</option>
+          <option value="week">Due this week</option>
+        </Select>
+        <Select
+          value={entityFilter}
+          onChange={(e) => setEntityFilter(e.target.value as CrmEntityType | "all")}
+          className="w-48"
+        >
+          {ENTITY_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </Select>
+      </div>
 
       {tasks.isError && (
         <Alert variant="error" onRetry={() => tasks.refetch()}>
@@ -126,7 +196,7 @@ export default function TasksPage() {
                   <button
                     type="button"
                     onClick={() => complete.mutate(task.id)}
-                    disabled={task.status === "done" || (complete.isPending && complete.variables === task.id)}
+                    disabled={task.status !== "open" || (complete.isPending && complete.variables === task.id)}
                     className="shrink-0 rounded-full border border-border p-1 hover:bg-accent disabled:opacity-50"
                     aria-label={task.status === "done" ? "Completed" : "Mark complete"}
                   >
@@ -137,13 +207,17 @@ export default function TasksPage() {
                     )}
                   </button>
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                    <p className={`truncate text-sm font-medium ${task.status !== "open" ? "line-through text-muted-foreground" : ""}`}>
                       {task.title}
                     </p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {due && <span className={due.overdue ? "text-red-600 dark:text-red-400" : ""}>{due.label}</span>}
+                      {due && task.status === "open" && (
+                        <span className={due.overdue ? "text-red-600 dark:text-red-400" : ""}>{due.label}</span>
+                      )}
                       <Badge tone={taskStatusTone(task.status)}>{task.status}</Badge>
+                      <Badge tone="muted">{TASK_TYPE_LABEL[task.type]}</Badge>
                       <Badge tone="muted">{task.priority}</Badge>
+                      {task.relatedEntityType && <Badge tone="info">{task.relatedEntityType}</Badge>}
                       {task.disposition && <Badge tone="muted">{task.disposition.replace("_", " ")}</Badge>}
                     </div>
                     {/* R20.4 — sequence "call" step tasks carry a prospectId; give the SDR a
@@ -171,6 +245,22 @@ export default function TasksPage() {
                       </div>
                     )}
                   </div>
+                  {task.status === "open" && (
+                    <button
+                      type="button"
+                      onClick={() => skip.mutate(task.id)}
+                      disabled={skip.isPending && skip.variables === task.id}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-40"
+                      aria-label={`Skip ${task.title}`}
+                      title="Skip"
+                    >
+                      {skip.isPending && skip.variables === task.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <SkipForward className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
                   {canDelete && (
                     <button
                       type="button"

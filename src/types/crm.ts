@@ -4,7 +4,8 @@ export type CompanyStatus = "active" | "customer" | "churned";
 export type ContactLifecycleStage = "lead" | "mql" | "sql" | "customer";
 export type DealStatus = "open" | "won" | "lost";
 export type TaskPriority = "low" | "medium" | "high";
-export type TaskStatus = "open" | "done";
+export type TaskStatus = "open" | "done" | "skipped";
+export type TaskType = "call" | "email" | "follow-up" | "custom";
 export type MeetingType = "call" | "video" | "in_person";
 export type ActivityType = "note" | "call" | "email" | "meeting" | "stage_change";
 export type CrmEntityType = "contact" | "company" | "deal";
@@ -166,9 +167,11 @@ export interface Task {
   relatedEntityType: CrmEntityType | null;
   relatedEntityId: string | null;
   title: string;
+  type: TaskType;
   dueDate: string | null;
   priority: TaskPriority;
   status: TaskStatus;
+  completedAt: string | null;
   disposition: TaskDisposition | null;
   /** Corpus prospectId for "call" sequence-step tasks — powers the "Call now" affordance. */
   prospectId: string | null;
@@ -181,6 +184,7 @@ export interface TaskInput {
   assignedTo?: string;
   relatedEntityType?: CrmEntityType;
   relatedEntityId?: string;
+  type?: TaskType;
   dueDate?: string;
   priority?: TaskPriority;
 }
@@ -190,6 +194,7 @@ export interface TaskPatch {
   assignedTo?: string;
   relatedEntityType?: CrmEntityType;
   relatedEntityId?: string;
+  type?: TaskType;
   dueDate?: string;
   priority?: TaskPriority;
   status?: TaskStatus;
@@ -294,6 +299,7 @@ export interface DashboardOverview {
   currency: string;
   openTasks: number;
   overdueTasks: number;
+  dueTodayTasks: number;
   upcomingMeetings: number;
   recentActivities: Activity[];
 }
