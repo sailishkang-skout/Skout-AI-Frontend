@@ -85,6 +85,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "tam",
+    target: "nav-tam",
+    href: "/tam",
+    title: "Market (TAM)",
+    body: "Size your total addressable market from your ICP, break it down by segment, and track how far you've worked it with a coverage funnel.",
+    details: [
+      "Each TAM recomputes its size and coverage on demand",
+      "Drill any segment into a live list to export or sequence",
+      "Coverage funnel: activated → enriched → contacted → replied → deal",
+    ],
+  },
+  {
     id: "lists",
     target: "nav-lists",
     href: "/lists",
@@ -181,6 +193,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "draft-auto-approve",
+    target: "nav-draft-auto-approve",
+    href: "/settings/draft-auto-approve",
+    title: "Draft auto-approve",
+    body: "Let high-confidence AI drafts to your best-fit prospects skip the review queue — everything else still waits for a human.",
+    details: [
+      "Set minimum ICP score and draft confidence thresholds",
+      "Keep specific lists on always-review no matter the score",
+      "Auto-approved drafts still appear in AI Review, tagged",
+    ],
+  },
+  {
     id: "analytics",
     target: "nav-analytics",
     href: "/analytics",
@@ -214,6 +238,18 @@ export const TOUR_STEPS: TourStep[] = [
       "Every auto-action is logged and reversible from the same page",
       "Optionally require a signal type alongside the score threshold",
       "Disable a rule anytime without losing its history",
+    ],
+  },
+  {
+    id: "alert-rules",
+    target: "nav-alert-rules",
+    href: "/settings/alert-rules",
+    title: "Signal alerts",
+    body: "Get notified the moment a signal you care about lands on an account you own — funding, hiring, tech changes, or risk signals like engagement decay.",
+    details: [
+      "Watch a signal type, optionally above a confidence bar",
+      "Alerts route to the owning SDR automatically",
+      "Pick real-time vs. daily digest on the Notifications page",
     ],
   },
   {

@@ -23,10 +23,13 @@ import { cn } from "@/lib/utils";
 import type { AiDraft, AiDraftStatus } from "@/types/api";
 import { sanitizeHtml } from "@/components/ai/ai-chat-box";
 
-const STATUS_FILTERS: { label: string; value: AiDraftStatus | "all" }[] = [
+type DraftFilter = AiDraftStatus | "all" | "auto_approved";
+
+const STATUS_FILTERS: { label: string; value: DraftFilter }[] = [
   { label: "Needs review", value: "pending_review" },
   { label: "Edited", value: "edited" },
   { label: "Approved", value: "approved" },
+  { label: "Auto-approved", value: "auto_approved" },
   { label: "Sent", value: "sent" },
   { label: "Rejected", value: "rejected" },
   { label: "All", value: "all" },
@@ -78,7 +81,7 @@ export default function AiReviewPage() {
   const api = useAiDraftsApi();
   const authReady = useAuthReady();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<AiDraftStatus | "all">("pending_review");
+  const [status, setStatus] = useState<DraftFilter>("pending_review");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editSubject, setEditSubject] = useState("");
@@ -88,11 +91,19 @@ export default function AiReviewPage() {
 
   const drafts = useQuery({
     queryKey: ["ai-drafts", status],
-    queryFn: () => api.list(status === "all" ? {} : { status }),
+    queryFn: () => {
+      if (status === "all") return api.list({});
+      // Auto-approved drafts carry status "approved"; the flag distinguishes them.
+      if (status === "auto_approved") return api.list({ status: "approved" });
+      return api.list({ status });
+    },
     enabled: authReady,
   });
 
-  const items = useMemo(() => drafts.data?.data ?? [], [drafts.data?.data]);
+  const items = useMemo(() => {
+    const all = drafts.data?.data ?? [];
+    return status === "auto_approved" ? all.filter((d) => d.autoApproved) : all;
+  }, [drafts.data?.data, status]);
   const reviewable = useMemo(
     () => items.filter((d) => d.status === "pending_review" || d.status === "edited"),
     [items]
@@ -205,7 +216,7 @@ export default function AiReviewPage() {
           aria-label="Filter by status"
           value={status}
           onChange={(e) => {
-            setStatus(e.target.value as AiDraftStatus | "all");
+            setStatus(e.target.value as DraftFilter);
             setSelected(new Set());
           }}
           className="w-44"
@@ -218,7 +229,11 @@ export default function AiReviewPage() {
         </Select>
 
         <span className="text-sm text-muted-foreground">
-          {drafts.data ? `${drafts.data.total} draft${drafts.data.total === 1 ? "" : "s"}` : "—"}
+          {drafts.data
+            ? `${status === "auto_approved" ? items.length : drafts.data.total} draft${
+                (status === "auto_approved" ? items.length : drafts.data.total) === 1 ? "" : "s"
+              }`
+            : "—"}
         </span>
 
         <div className="ml-auto flex flex-wrap gap-2">
@@ -304,6 +319,7 @@ export default function AiReviewPage() {
                     <Badge tone={aiDraftStatusTone(draft.status)}>
                       {aiDraftStatusLabel(draft.status)}
                     </Badge>
+                    {draft.autoApproved && <Badge tone="info">Auto-approved</Badge>}
                     {draft.icpScore != null && <Badge tone="muted">ICP {draft.icpScore}</Badge>}
                   </div>
 

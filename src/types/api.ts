@@ -57,6 +57,8 @@ export interface NotificationPreference {
   userId: string;
   type: string;
   channel: NotificationChannel;
+  /** R17.3 — when true and channel includes email, delivery batches into the daily digest instead of real-time. */
+  digest: boolean;
 }
 
 /** R20.2 — Twilio click-to-call. Mirrors apps/api/src/routes/call.routes.ts. */
@@ -407,6 +409,8 @@ export interface AiDraft {
   status: AiDraftStatus;
   model: string | null;
   confidenceScore: string | null;
+  /** R13.2 — set when this draft cleared the workspace's auto-approve thresholds instead of a human approving it. */
+  autoApproved: boolean;
   createdAt: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
@@ -1073,4 +1077,106 @@ export interface CrmExportJob {
   queuedAt: string;
   startedAt: string | null;
   completedAt: string | null;
+}
+
+/** R11.1/R11.2/R11.3 — unified signal timeline entry. Mirrors apps/api/src/services/signal.service.ts. */
+export interface Signal {
+  id: string;
+  entityType: string;
+  entityId: string;
+  signalType: string;
+  value: { reason?: string; detail?: string; score?: number } & Record<string, unknown>;
+  confidence: number | null;
+  detectedAt: string;
+  source: string | null;
+  provenance: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** R17.3 — signal-triggered SDR alerts. Mirrors apps/api/src/services/alert-rule.service.ts. */
+export interface AlertRule {
+  id: string;
+  workspaceId: string;
+  signalType: string;
+  minConfidence: number | null;
+  enabled: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** R13.2 — auto-approve thresholds for AI drafts. Mirrors apps/api/src/services/draft-auto-approve.service.ts. */
+export interface DraftAutoApproveSettings {
+  workspaceId: string;
+  enabled: boolean;
+  minIcpScore: number | null;
+  minConfidence: number | null;
+  alwaysReviewListIds: string[];
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+/** R12.1/R12.2 — TAM. Mirrors apps/api/src/services/tam.service.ts. */
+export interface TamFilterConfig {
+  industries?: string[];
+  countries?: string[];
+  seniorities?: string[];
+  minEmployees?: number;
+  maxEmployees?: number;
+}
+
+export interface TamSegmentBucket {
+  dimension: "industry" | "size" | "geo";
+  value: string;
+  count: number;
+}
+
+export interface TamCoverageFunnel {
+  total: number;
+  activated: number;
+  enriched: number;
+  contacted: number;
+  replied: number;
+  deal: number;
+}
+
+export interface Tam {
+  id: string;
+  workspaceId: string;
+  name: string;
+  filterConfig: TamFilterConfig | null;
+  totalCount: number;
+  segmentBreakdown: TamSegmentBucket[];
+  coverage: TamCoverageFunnel;
+  lastComputedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** R22.2 — generic GTM-provider import. Mirrors apps/api/src/services/import-adapters/*. */
+export type ImportProvider = "hubspot" | "apollo";
+
+export interface ImportProviderList {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface ImportProviderContact {
+  fullName?: string;
+  companyDomain: string;
+  companyName?: string;
+  email?: string;
+  title?: string;
+  phone?: string;
+  linkedinUrl?: string;
+}
+
+export interface CommitImportResult {
+  provider: ImportProvider;
+  listId: string;
+  listName: string;
+  imported: number;
+  skipped: number;
 }

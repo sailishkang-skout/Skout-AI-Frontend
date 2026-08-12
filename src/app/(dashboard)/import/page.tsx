@@ -7,6 +7,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ImportUploadPanel } from "@/components/import/import-upload-panel";
+import { ProviderImportPanel } from "@/components/import/provider-import-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -16,7 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
+import { IMPORT_PROVIDERS } from "@/lib/import-adapters";
 import { useImportApi, type DetectedSheet, type ImportedProspectRow } from "@/lib/import-prospects";
+import { cn } from "@/lib/utils";
+import type { ImportProvider } from "@/types/api";
+
+type ImportMode = "csv" | ImportProvider;
 
 export default function ImportProspectsPage() {
   const authReady = useAuthReady();
@@ -35,6 +41,7 @@ export default function ImportProspectsPage() {
   const [autoEnrich, setAutoEnrich] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [mode, setMode] = useState<ImportMode>("csv");
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -102,6 +109,43 @@ export default function ImportProspectsPage() {
 
       <DemoBanner />
 
+      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "csv"}
+          onClick={() => setMode("csv")}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            mode === "csv" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          File (CSV / Excel)
+        </button>
+        {IMPORT_PROVIDERS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === p.id}
+            onClick={() => setMode(p.id)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              mode === p.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {mode !== "csv" ? (
+        <ProviderImportPanel
+          provider={mode}
+          description={IMPORT_PROVIDERS.find((p) => p.id === mode)?.description ?? ""}
+        />
+      ) : (
+      <>
       <ImportUploadPanel
         isParsing={parse.isPending}
         parseError={parseError}
@@ -248,6 +292,8 @@ export default function ImportProspectsPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </PageShell>
   );

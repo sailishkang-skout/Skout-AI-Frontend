@@ -6,8 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgeCheck,
   BarChart3,
   Bell,
+  BellRing,
   BookOpen,
   Building2,
   Calendar,
@@ -20,6 +22,7 @@ import {
   List,
   Mail,
   Phone,
+  Radar,
   Search,
   ShieldCheck,
   Settings,
@@ -92,6 +95,7 @@ export const enrichmentNav: NavGroup[] = [
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
       { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
+      { href: "/tam", label: "Market (TAM)", icon: Radar, tourId: "nav-tam" },
     ],
   },
   {
@@ -133,6 +137,7 @@ export const otherNav: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
       { href: "/ai/review", label: "AI review", icon: Sparkles, tourId: "nav-ai-review" },
+      { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
     ],
   },
   {
@@ -141,6 +146,7 @@ export const otherNav: NavGroup[] = [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
       { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
       { href: "/settings/calendar", label: "Google Calendar", icon: Calendar },

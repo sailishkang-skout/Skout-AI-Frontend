@@ -116,26 +116,41 @@ export function NotificationBell() {
               ) : (feed.data?.data.length ?? 0) === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">You&apos;re all caught up.</p>
               ) : (
-                feed.data!.data.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => {
-                      if (!n.readAt) markRead.mutate(n.id);
-                    }}
-                    className={cn(
-                      "flex w-full flex-col items-start gap-0.5 border-b px-3 py-2.5 text-left last:border-b-0 hover:bg-accent",
-                      !n.readAt && "bg-primary/[0.04]"
-                    )}
-                  >
-                    <span className="flex w-full items-center gap-2">
-                      {!n.readAt && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
-                      <span className="truncate text-sm font-medium">{n.title}</span>
-                      <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
-                    </span>
-                    {n.body && <span className="line-clamp-2 pl-3.5 text-xs text-muted-foreground">{n.body}</span>}
-                  </button>
-                ))
+                feed.data!.data.map((n) => {
+                  // R17.3 — signal alerts (and anything else entity-linked) go straight to the
+                  // account/signal detail instead of just marking read.
+                  const detailHref =
+                    n.entityType && n.entityId && (n.entityType === "prospect" || n.entityType === "company")
+                      ? `/prospects/search?prospectId=${encodeURIComponent(n.entityId)}`
+                      : null;
+                  const content = (
+                    <>
+                      <span className="flex w-full items-center gap-2">
+                        {!n.readAt && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                        <span className="truncate text-sm font-medium">{n.title}</span>
+                        <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
+                      </span>
+                      {n.body && <span className="line-clamp-2 pl-3.5 text-xs text-muted-foreground">{n.body}</span>}
+                    </>
+                  );
+                  const className = cn(
+                    "flex w-full flex-col items-start gap-0.5 border-b px-3 py-2.5 text-left last:border-b-0 hover:bg-accent",
+                    !n.readAt && "bg-primary/[0.04]"
+                  );
+                  const onClick = () => {
+                    if (!n.readAt) markRead.mutate(n.id);
+                    setOpen(false);
+                  };
+                  return detailHref ? (
+                    <Link key={n.id} href={detailHref} onClick={onClick} className={className}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <button key={n.id} type="button" onClick={onClick} className={className}>
+                      {content}
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
