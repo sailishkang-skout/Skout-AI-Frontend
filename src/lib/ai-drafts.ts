@@ -67,6 +67,7 @@ export interface BulkApproveResult {
 const SEND_FAILURE_LABELS: Record<string, string> = {
   prospect_email_not_found: "no email on file for this prospect",
   suppressed: "the recipient is on the suppression list",
+  not_send_eligible: "the email-intelligence policy engine flagged this address (e.g. catch-all) for manual review",
   no_active_inbox: "no active sending inbox is connected",
   smtp_build_failed: "the inbox is missing SMTP credentials",
   send_failed: "the mail server rejected the send",
