@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -57,10 +58,13 @@ export default function AutomationRulesPage() {
         title="Auto-activation rules"
         description="When a prospect crosses a score threshold (and, optionally, matches a signal), automatically activate, list, or enroll them — capped at 5 active rules so automation stays reviewable."
         actions={
-          <Button onClick={() => setCreateOpen(true)} disabled={activeCount >= MAX_ACTIVE_RULES && !rules.isLoading}>
-            <Plus className="h-4 w-4" />
-            New rule
-          </Button>
+          <>
+            <GuideLink slug="automation-rules" label="Rules guide" compact />
+            <Button onClick={() => setCreateOpen(true)} disabled={activeCount >= MAX_ACTIVE_RULES && !rules.isLoading}>
+              <Plus className="h-4 w-4" />
+              New rule
+            </Button>
+          </>
         }
       />
 

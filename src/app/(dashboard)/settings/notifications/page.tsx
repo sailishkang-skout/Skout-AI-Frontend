@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -95,10 +96,13 @@ export default function NotificationSettingsPage() {
         title="Notifications"
         description="Choose how you're notified per alert type, and connect Slack for high-priority delivery outside the app."
         actions={
-          <Button variant="outline" size="sm" disabled={sendTest.isPending} onClick={() => sendTest.mutate()}>
-            <Send className="h-4 w-4" />
-            Send test
-          </Button>
+          <>
+            <GuideLink slug="alert-notifications" label="Notifications guide" compact />
+            <Button variant="outline" size="sm" disabled={sendTest.isPending} onClick={() => sendTest.mutate()}>
+              <Send className="h-4 w-4" />
+              Send test
+            </Button>
+          </>
         }
       />
 

@@ -105,7 +105,7 @@ export const TOUR_STEPS: TourStep[] = [
     details: [
       "Open a list to see members, scores, and contact status",
       "Enrich and verify emails/phones from the list detail page",
-      "Enroll the list (or selected members) into a sequence",
+      "Enroll the list into an active sequence or a 50/50 A/B experiment",
     ],
   },
   {
@@ -149,11 +149,11 @@ export const TOUR_STEPS: TourStep[] = [
     target: "nav-sequences",
     href: "/sequences",
     title: "Outreach sequences",
-    body: "Build multi-step cadences (email + LinkedIn + waits), use AI Ask/Auto for copy, and enroll lists.",
+    body: "Start manually (God Mode), from A/B templates, with Dexter AI, or as a 50/50 experiment. One engine for all.",
     details: [
-      "Ask mode proposes; Auto can apply or create immediately",
-      "Connect a sending inbox before live sends",
-      "Track replies and status back in Inbox",
+      "Visual builder: email, LinkedIn, call, conditions with Yes/No fallbacks",
+      "Activate publishes a version; Activity tab explains branches and stops",
+      "Ask/Auto still applies for copy — connect an inbox (and Unipile for LinkedIn) before live sends",
     ],
   },
   {
@@ -161,10 +161,10 @@ export const TOUR_STEPS: TourStep[] = [
     target: "nav-inbox",
     href: "/inbox",
     title: "Inbox & Sent",
-    body: "Manage conversation threads, replies, and outbound mail in one place.",
+    body: "Email, LinkedIn, and WhatsApp conversations from connected accounts, plus Sent/Outbox.",
     details: [
       "Human replies land here for follow-up",
-      "Use Sent / Outbox folders for outbound history",
+      "Connect Unipile under Integrations, then accounts under Deliverability",
       "Approve AI drafts from AI Review to send into threads",
     ],
   },

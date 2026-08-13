@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -187,6 +188,8 @@ export default function EnrichmentPage() {
         title="Enrichment"
         description="Find and verify emails, firmographics, and score-gated phone numbers on demand."
         actions={
+          <>
+          <GuideLink slug="enrichment" label="Enrichment guide" compact />
           <Card className="w-full min-w-[140px] sm:w-auto">
             <CardContent className="flex items-center gap-3 p-3 sm:p-4">
               <Coins className="h-7 w-7 shrink-0 text-amber-500" aria-hidden />
@@ -198,6 +201,7 @@ export default function EnrichmentPage() {
               </div>
             </CardContent>
           </Card>
+          </>
         }
       />
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CalendarDays, Clock, Linkedin, Loader2, Mail, MousePointerClick, Phone, Plus, Sparkles, Users } from "lucide-react";
+import { CalendarDays, Clock, FlaskConical, LayoutTemplate, Linkedin, Mail, MousePointerClick, PencilLine, Phone, Sparkles, Users } from "lucide-react";
 import { AiChatBox } from "@/components/ai/ai-chat-box";
+import { GuideLink } from "@/components/guides/guide-link";
+import { CreateSequenceDialog, type CreateSequencePath } from "@/components/sequences/create-sequence-dialog";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -13,27 +14,18 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
 import { sequenceStatusTone, useSequencesApi } from "@/lib/sequences";
-import { useEnrichmentApi } from "@/lib/enrichment";
 import { formatJobTime } from "@/lib/enrichment-display";
-import type { Sequence, SequenceStepMetrics, SequenceStepType } from "@/types/api";
+import type { Sequence, SequenceMode, SequenceStepMetrics, SequenceStepType } from "@/types/api";
 
 export default function SequencesPage() {
   const queryClient = useQueryClient();
   const sequencesApi = useSequencesApi();
-  const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [goal, setGoal] = useState("");
-  const [genListId, setGenListId] = useState("");
-  const [includeLinkedin, setIncludeLinkedin] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createPath, setCreatePath] = useState<CreateSequencePath>("choose");
 
   const sequences = useQuery({
     queryKey: ["sequences"],
@@ -41,146 +33,95 @@ export default function SequencesPage() {
     enabled: authReady,
   });
 
-  const lists = useQuery({
-    queryKey: ["lists"],
-    queryFn: enrichmentApi.listLists,
+  const experiments = useQuery({
+    queryKey: ["sequence-experiments"],
+    queryFn: sequencesApi.listExperiments,
     enabled: authReady,
   });
 
   const sequenceData = sequences.data?.data ?? [];
+  const experimentData = experiments.data?.data ?? [];
 
-  const createSequence = useMutation({
-    mutationFn: () => sequencesApi.create(name.trim()),
-    onSuccess: (seq) => {
-      setName("");
-      setCreateError(null);
-      queryClient.invalidateQueries({ queryKey: ["sequences"] });
-      router.push(`/sequences/${seq.id}`);
-    },
-    onError: () => setCreateError("Could not create the sequence. Please try again."),
-  });
-
-  const generateSequence = useMutation({
-    mutationFn: () =>
-      sequencesApi.generate({
-        goal: goal.trim(),
-        listId: genListId || undefined,
-        channels: includeLinkedin ? ["email", "linkedin"] : ["email"],
-      }),
-    onSuccess: (seq) => {
-      setGoal("");
-      setGenError(null);
-      queryClient.invalidateQueries({ queryKey: ["sequences"] });
-      router.push(`/sequences/${seq.id}`);
-    },
-    onError: () => setGenError("Could not generate a sequence. Please try again."),
-  });
+  function openCreate(path: CreateSequencePath = "choose") {
+    setCreatePath(path);
+    setCreateOpen(true);
+  }
 
   return (
     <PageShell data-testid="page-sequences">
       <PageHeader
         title="Sequences"
-        description="Multi-step outbound cadences — build a sequence, enroll prospects, and track open/click/reply performance per step."
+        description="Build outbound cadences — manually, from a template (A/B), or with Dexter AI. Track open, click, and reply performance."
+        actions={
+          <>
+            <GuideLink slug="sequences-ai" label="Sequences guide" />
+            <Button onClick={() => openCreate("choose")}>
+              <Sparkles className="h-4 w-4" />
+              New sequence
+            </Button>
+          </>
+        }
       />
 
       <DemoBanner />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Generate a sequence with AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <textarea
-              rows={3}
-              placeholder="Describe your goal, e.g. 'Book demos with RevOps leaders at mid-market SaaS; lead with our list-building time savings.'"
-              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-            />
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Select
-                aria-label="Target list (optional)"
-                value={genListId}
-                onChange={(e) => setGenListId(e.target.value)}
-                className="w-full sm:max-w-xs"
-              >
-                <option value="">Target list (optional — improves targeting)</option>
-                {(lists.data?.data ?? []).map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </Select>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border"
-                  checked={includeLinkedin}
-                  onChange={(e) => setIncludeLinkedin(e.target.checked)}
-                />
-                Include LinkedIn touches
-              </label>
-              <Button
-                onClick={() => {
-                  setGenError(null);
-                  generateSequence.mutate();
-                }}
-                disabled={!goal.trim() || generateSequence.isPending}
-                className="w-full shrink-0 sm:ml-auto sm:w-auto"
-              >
-                {generateSequence.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Generate sequence
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Creates a draft cadence you can review and edit. Activate it when you&apos;re happy, then enroll a list.
-            </p>
-            {genError && <p className="text-sm text-destructive">{genError}</p>}
-          </div>
-        </CardContent>
-      </Card>
+      <CreateSequenceDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        initialPath={createPath}
+      />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Or start from scratch</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Input
-              placeholder="e.g. SaaS VP outreach — 4 touch"
-              className="min-w-0 flex-1 bg-background"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && name.trim() && createSequence.mutate()}
-            />
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCreateError(null);
-                createSequence.mutate();
-              }}
-              disabled={!name.trim() || createSequence.isPending}
-              className="w-full shrink-0 sm:w-auto"
-            >
-              {createSequence.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Blank sequence
-            </Button>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StartCard
+          icon={PencilLine}
+          title="Manually from scratch"
+          description="God Mode visual builder with conditions, LinkedIn fallbacks, and A/B/C tests."
+          onClick={() => openCreate("manual")}
+        />
+        <StartCard
+          icon={LayoutTemplate}
+          title="Use existing templates"
+          description="A — Standard outreach or B — LinkedIn first. Same execution engine."
+          onClick={() => openCreate("templates")}
+        />
+        <StartCard
+          icon={Sparkles}
+          title="Do it with Dexter AI"
+          description="Describe the goal. Dexter drafts a cadence you review and edit."
+          onClick={() => openCreate("dexter")}
+        />
+        <StartCard
+          icon={FlaskConical}
+          title="A/B experiment (50/50)"
+          description="Email-first vs LinkedIn-first. Deterministic assignment, one engine."
+          onClick={() => openCreate("abtest")}
+        />
+      </div>
+
+      {experimentData.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold">A/B experiments</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {experimentData.map((exp) => (
+              <Link
+                key={exp.id}
+                href={`/sequences/experiments/${exp.id}`}
+                className="rounded-xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/40"
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <p className="font-medium">{exp.name}</p>
+                  <Badge tone={exp.status === "running" ? "success" : exp.status === "paused" ? "warning" : "muted"} className="capitalize">
+                    {exp.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {exp.weightA}/{exp.weightB} split · {exp.primaryMetric.replaceAll("_", " ")}
+                </p>
+              </Link>
+            ))}
           </div>
-          {createError && <p className="mt-2 text-sm text-destructive">{createError}</p>}
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       {sequences.error && (
         <Alert variant="error" title="Something went wrong" dismissible onRetry={() => sequences.refetch()}>
@@ -218,7 +159,7 @@ export default function SequencesPage() {
               <div>
                 <p className="font-medium">No sequences yet</p>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Generate a cadence with AI, or create a blank sequence and add steps yourself.
+                  Build it manually, start from a template, or let Dexter AI draft one.
                 </p>
               </div>
             </CardContent>
@@ -235,12 +176,46 @@ export default function SequencesPage() {
   );
 }
 
+function StartCard({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/40 hover:bg-accent/30"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="text-sm font-semibold">{title}</span>
+      <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
+    </button>
+  );
+}
+
+function modeLabel(mode?: SequenceMode) {
+  if (mode === "C") return "God Mode";
+  if (mode === "B") return "Mode B";
+  if (mode === "A") return "Mode A";
+  return null;
+}
+
 function stepIcon(type: SequenceStepType) {
   switch (type) {
     case "email": return <Mail className="h-3 w-3 shrink-0" />;
     case "linkedin": return <Linkedin className="h-3 w-3 shrink-0" />;
     case "wait": return <Clock className="h-3 w-3 shrink-0" />;
-    case "task": return <Phone className="h-3 w-3 shrink-0" />;
+    case "task":
+    case "call": return <Phone className="h-3 w-3 shrink-0" />;
     default: return <Mail className="h-3 w-3 shrink-0" />;
   }
 }
@@ -301,9 +276,16 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
           <Link href={`/sequences/${sequence.id}`} className="min-w-0 hover:underline">
             <CardTitle className="line-clamp-2 text-base leading-snug">{sequence.name}</CardTitle>
           </Link>
-          <Badge tone={sequenceStatusTone(sequence.status)} className="capitalize shrink-0">
-            {sequence.status}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-1">
+            {modeLabel(sequence.mode) && (
+              <Badge tone="muted" className="shrink-0">
+                {modeLabel(sequence.mode)}
+              </Badge>
+            )}
+            <Badge tone={sequenceStatusTone(sequence.status)} className="capitalize shrink-0">
+              {sequence.status}
+            </Badge>
+          </div>
         </div>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <CalendarDays className="h-3 w-3" />

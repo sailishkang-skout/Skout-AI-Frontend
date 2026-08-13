@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Briefcase, Building2, CalendarClock, CheckSquare, DollarSign, Users2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +32,11 @@ export default function CrmDashboardPage() {
 
   return (
     <PageShell data-testid="page-crm-dashboard">
-      <PageHeader title="CRM Overview" description="Your revenue workspace at a glance." />
+      <PageHeader
+        title="CRM Overview"
+        description="Your revenue workspace at a glance."
+        actions={<GuideLink slug="crm-hubspot" label="CRM guide" />}
+      />
 
       {overview.isError && (
         <Alert variant="error" onRetry={() => overview.refetch()}>

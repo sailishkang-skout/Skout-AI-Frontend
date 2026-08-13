@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Check, Loader2, Unlink } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -60,6 +61,7 @@ export default function CalendarSettingsPage() {
       <PageHeader
         title="Google Calendar"
         description="Connect your Google Calendar to schedule meetings with a real Meet link and invite attendees directly from Skout."
+        actions={<GuideLink slug="google-calendar" label="Calendar guide" />}
       />
 
       {connectFailed && <Alert variant="error">Google Calendar connection failed or was cancelled.</Alert>}

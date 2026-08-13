@@ -21,6 +21,7 @@ const ENROLLMENT_STATUS_CONFIG: Record<
   completed: { tone: "success", label: "Completed" },
   bounced:   { tone: "danger",  label: "Bounced"   },
   replied:   { tone: "success", label: "Replied"   },
+  cancelled: { tone: "muted",   label: "Stopped"   },
 };
 
 export function EnrollPanel({

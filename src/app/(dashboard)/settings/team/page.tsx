@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, Shield, Trash2, UserPlus, Users, X } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -104,6 +105,7 @@ export default function TeamPage() {
       <PageHeader
         title="Team"
         description="Manage workspace members, roles, and pending invitations."
+        actions={<GuideLink slug="team" label="Team guide" />}
       />
 
       {/* Invite form — owner/admin only */}

@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Plus, Trash2 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -49,10 +50,13 @@ export default function AlertRulesPage() {
         title="Signal alerts"
         description="Get notified the moment an important signal lands on an account you own — funding, hiring, tech changes, or risk signals like engagement decay."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            New alert
-          </Button>
+          <>
+            <GuideLink slug="alert-notifications" label="Alerts guide" compact />
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              New alert
+            </Button>
+          </>
         }
       />
 

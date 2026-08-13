@@ -80,6 +80,9 @@ export function formatQueryError(error: unknown, fallback: string): string {
       return "Your session could not be verified. Sign out and sign in again, or refresh the page.";
     }
     if (error.status >= 500) {
+      const body = error.body as { message?: string; error?: string } | undefined;
+      const detail = body?.message ?? body?.error ?? error.message;
+      if (detail && detail !== "Internal Server Error") return detail;
       return "The API returned a server error. Check that Postgres and Redis are running.";
     }
     const body = error.body as

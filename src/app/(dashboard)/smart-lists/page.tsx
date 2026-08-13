@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { Check, Clock, ExternalLink, History, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -189,6 +190,7 @@ export default function SmartListsPage() {
       <PageHeader
         title="Smart lists"
         description="Save filter sets, preview matches, and create activation lists for bulk enrichment."
+        actions={<GuideLink slug="smart-lists" label="Smart lists guide" />}
       />
 
       <DemoBanner />

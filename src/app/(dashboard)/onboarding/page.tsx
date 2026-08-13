@@ -19,6 +19,7 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import { GdprBadge } from "@/components/onboarding/gdpr-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -493,6 +494,7 @@ export default function OnboardingPage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <p className="text-xs text-muted-foreground">Takes about 2 minutes · You can edit everything later</p>
+            <GdprBadge className="mt-4 h-11 w-auto" />
           </div>
         )}
 
@@ -823,6 +825,7 @@ export default function OnboardingPage() {
                 Find my first leads
               </Button>
             </div>
+            <GdprBadge className="mt-2 h-11 w-auto" />
           </div>
         )}
       </div>
@@ -850,6 +853,11 @@ export default function OnboardingPage() {
               {step !== 8 && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </div>
+        </div>
+      )}
+      {step > 0 && step < 9 && (
+        <div className="mt-6 flex justify-center">
+          <GdprBadge className="h-9 w-auto opacity-90" />
         </div>
       )}
     </div>

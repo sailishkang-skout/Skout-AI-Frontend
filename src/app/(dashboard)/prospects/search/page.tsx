@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -247,6 +248,7 @@ export default function ProspectSearchPage() {
       <PageHeader
         title="Prospect search"
         description="Search the corpus, score against your ICP, enrich contacts, and add them to lists."
+        actions={<GuideLink slug="search-icp" label="Search & ICP guide" />}
       />
 
       <DemoBanner />

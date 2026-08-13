@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Check, CheckCheck, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
 import Link from "next/link";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -196,6 +197,7 @@ export default function AiReviewPage() {
       <PageHeader
         title="AI Review Queue"
         description="Approve & send AI outreach drafts. Sent mail appears in Inbox → Sent."
+        actions={<GuideLink slug="ai-review" label="AI Review guide" />}
       />
 
       <div className="space-y-2">

@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -75,6 +76,7 @@ export default function CallingSettingsPage() {
       <PageHeader
         title="Calling"
         description="Click-to-call dials your phone first, then bridges to the prospect once you pick up — no separate softphone needed."
+        actions={<GuideLink slug="calling" label="Calling guide" />}
       />
 
       <Card>

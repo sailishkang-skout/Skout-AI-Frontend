@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Download, ExternalLink, Loader2, Plug, Unplug } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -130,6 +131,7 @@ function CrmSettingsContent() {
       <PageHeader
         title="CRM settings"
         description="Connect HubSpot to import contacts into Skout lists and export enriched leads back to HubSpot."
+        actions={<GuideLink slug="crm-hubspot" label="CRM guide" />}
       />
 
       <DemoBanner />

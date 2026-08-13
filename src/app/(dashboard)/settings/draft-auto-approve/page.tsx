@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -81,6 +82,7 @@ export default function DraftAutoApprovePage() {
       <PageHeader
         title="AI draft auto-approve"
         description="Skip the review queue for high-confidence drafts to your best-fit prospects. Everything else keeps waiting for a human."
+        actions={<GuideLink slug="draft-auto-approve" label="Auto-approve guide" />}
       />
 
       {settings.isError && (

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Plus, Target } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -35,10 +36,13 @@ export default function TamListPage() {
         title="Total addressable market"
         description="Named, re-computable account universes from your ICP. Each TAM tracks its size, segment breakdown, and a coverage funnel — how far your workspace has worked it."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            New TAM
-          </Button>
+          <>
+            <GuideLink slug="tam" label="TAM guide" compact />
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              New TAM
+            </Button>
+          </>
         }
       />
 

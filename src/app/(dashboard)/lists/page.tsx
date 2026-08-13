@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { ListIcon, Loader2, Pencil, Play, Plus, Search, Trash2, Users, X, Zap } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -133,11 +134,14 @@ export default function ListsPage() {
         title="Lists"
         description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
         actions={
-          <Link href="/import">
-            <Button variant="outline" size="sm">
-              Import CSV / Excel / PDF
-            </Button>
-          </Link>
+          <>
+            <GuideLink slug="lists-enrich" label="Lists guide" compact />
+            <Link href="/import">
+              <Button variant="outline" size="sm">
+                Import CSV / Excel / PDF
+              </Button>
+            </Link>
+          </>
         }
       />
 

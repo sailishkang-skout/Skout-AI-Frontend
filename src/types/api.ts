@@ -200,19 +200,53 @@ export interface ProspectList {
 }
 
 export type SequenceStatus = "draft" | "active" | "paused" | "archived";
-export type SequenceStepType = "email" | "linkedin" | "whatsapp" | "wait" | "task";
-export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied";
+export type SequenceSource = "manual" | "template" | "dexter";
+export type SequenceMode = "A" | "B" | "C";
+export type SequenceStepType = "email" | "linkedin" | "whatsapp" | "call" | "wait" | "task" | "condition" | "goal";
+export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied" | "cancelled";
+export type SequenceConditionType =
+  | "linkedin_connected"
+  | "linkedin_invite_accepted"
+  | "linkedin_invite_declined"
+  | "email_opened"
+  | "email_clicked"
+  | "email_replied"
+  | "call_connected"
+  | "icp_score_gte"
+  | "has_email"
+  | "has_linkedin";
+
+export type ConditionExpression =
+  | { type: SequenceConditionType; not?: boolean; value?: number }
+  | { op: "and" | "or"; not?: boolean; clauses: ConditionExpression[] };
+export type SequenceLinkedinAction = "connect" | "message" | "inmail" | "like" | "follow";
+export type SequenceVariantKey = "A" | "B" | "C";
 
 export interface Sequence {
   id: string;
   workspaceId: string;
   name: string;
   status: SequenceStatus;
+  source?: SequenceSource;
+  templateKey?: string | null;
+  mode?: SequenceMode;
+  currentVersion?: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export type SequenceDelayUnit = "minutes" | "hours" | "days" | "weeks";
+
+export interface SequenceStepVariant {
+  id: string;
+  stepId: string;
+  variantKey: SequenceVariantKey;
+  subject: string | null;
+  bodyTemplate: string | null;
+  weight: number;
+  enabled: boolean;
+  createdAt: string;
+}
 
 export interface SequenceStep {
   id: string;
@@ -221,10 +255,27 @@ export interface SequenceStep {
   stepType: SequenceStepType;
   delayDays: number;
   delayUnit: SequenceDelayUnit;
-  linkedinAction?: "connect" | "message" | null;
+  linkedinAction?: SequenceLinkedinAction | null;
   subject: string | null;
   bodyTemplate: string | null;
+  conditionType?: SequenceConditionType | null;
+  conditionExpression?: ConditionExpression | null;
+  conditionWaitDays?: number;
+  yesNextStepId?: string | null;
+  noNextStepId?: string | null;
+  parentStepId?: string | null;
+  branch?: "yes" | "no" | null;
+  goalLabel?: string | null;
+  variants?: SequenceStepVariant[];
   createdAt: string;
+}
+
+export interface SequenceTemplateSummary {
+  key: string;
+  name: string;
+  description: string;
+  channels: string[];
+  mode?: SequenceMode;
 }
 
 export interface SequenceDetail extends Sequence {
@@ -271,12 +322,66 @@ export interface SequenceEnrollment {
   prospectId: string;
   listId: string | null;
   status: SequenceEnrollmentStatus;
+  experimentVariant?: string | null;
+  stopReason?: string | null;
+  sequenceVersionId?: string | null;
   enrolledAt: string;
   completedAt: string | null;
   prospectName?: string | null;
   prospectTitle?: string | null;
   companyName?: string | null;
   email?: string | null;
+}
+
+export interface SequenceVersionSummary {
+  id: string;
+  version: number;
+  status: string;
+  publishedAt: string;
+}
+
+export interface SequenceEvent {
+  id: string;
+  workspaceId: string;
+  sequenceId: string;
+  enrollmentId: string | null;
+  sequenceVersionId: string | null;
+  prospectId: string | null;
+  stepId: string | null;
+  eventType: string;
+  variantKey: string | null;
+  branch: string | null;
+  result: string | null;
+  reason: string | null;
+  evidence: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SequenceExperiment {
+  id: string;
+  workspaceId: string;
+  name: string;
+  status: "draft" | "running" | "paused" | "completed" | string;
+  primaryMetric: string;
+  weightA: number;
+  weightB: number;
+  sequenceAId: string;
+  sequenceBId: string;
+  durationDays: number;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  sequenceA?: { id: string; name: string; status: string; mode?: string } | null;
+  sequenceB?: { id: string; name: string; status: string; mode?: string } | null;
+}
+
+export interface SequenceExperimentAnalytics {
+  experiment: SequenceExperiment;
+  primaryMetric: string;
+  variants: {
+    A: { enrolled: number; active: number; completed: number; replied: number; bounced: number; stopped: number; replyRate: number; completionRate: number };
+    B: { enrolled: number; active: number; completed: number; replied: number; bounced: number; stopped: number; replyRate: number; completionRate: number };
+  };
 }
 
 export interface EnrollSequenceResult {
