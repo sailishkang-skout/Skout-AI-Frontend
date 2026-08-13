@@ -912,6 +912,8 @@ export interface ListMemberDetail {
   };
   score?: ProspectScoreRecord | null;
   verification?: EmailVerification | null;
+  /** R11.3 — top active signals for the list-row overlay (company + prospect). */
+  signals?: Array<{ type: string; observedAt: string; detail?: string }>;
 }
 
 export interface ListDetail extends ProspectList {

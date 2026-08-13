@@ -283,6 +283,7 @@ export const GUIDE_CONTENT: Record<GuideSlug, { sections: GuideSectionContent[] 
           "Create a list from Lists, or import prospects onto a new list.",
           "Add members from Prospect search, Add prospect, or smart-list activation.",
           "Run Enrich / Score / Verify from the list detail page.",
+          "Turn on Signal overlay to show funding, hiring, tech, and risk badges on each row. Click a badge for source, date, and confidence.",
         ],
         note: "Verify uses email intelligence when configured, then SMTP. Catch-all / risky addresses may be blocked on send.",
       },
@@ -356,6 +357,7 @@ export const GUIDE_CONTENT: Record<GuideSlug, { sections: GuideSectionContent[] 
         body: [
           "activated → enriched → contacted → replied → deal.",
           "Drill any segment into a live list to export or enroll in a sequence.",
+          "Turn on Signal overlay, then drill in — the list opens with badges already on.",
         ],
       },
     ],

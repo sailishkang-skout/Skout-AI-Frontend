@@ -2,12 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
+import { SignalBadges } from "@/components/signals/signal-badges";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -53,6 +54,7 @@ const VERIFY_BADGE: Record<
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const listId = params.id;
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
@@ -81,6 +83,7 @@ export default function ListDetailPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [detailMember, setDetailMember] = useState<ListMemberDetail | null>(null);
+  const [showSignals, setShowSignals] = useState(searchParams.get("signals") === "1");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
@@ -768,9 +771,19 @@ export default function ListDetailPage() {
               )}
             </div>
             {members.length > 0 && (
-              <Button size="sm" variant="outline" onClick={selectAll} className="w-full sm:w-auto">
-                {allSelected ? "Deselect all" : "Select all"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showSignals}
+                    onChange={(e) => setShowSignals(e.target.checked)}
+                  />
+                  Signal overlay
+                </label>
+                <Button size="sm" variant="outline" onClick={selectAll} className="w-full sm:w-auto">
+                  {allSelected ? "Deselect all" : "Select all"}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -830,6 +843,13 @@ export default function ListDetailPage() {
                             >
                               {VERIFY_BADGE[m.verification.status].label}
                             </Badge>
+                          )}
+                          {showSignals && (m.signals?.length ?? 0) > 0 && (
+                            <SignalBadges
+                              entityId={m.companyId && m.companyId !== m.prospectId ? m.companyId : m.prospectId}
+                              entityType={m.companyId && m.companyId !== m.prospectId ? "company" : "prospect"}
+                              signals={m.signals}
+                            />
                           )}
                         </div>
                         {subtitle && (

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { ScoreBadge } from "@/components/scoring/score-badge";
+import { SignalBadges } from "@/components/signals/signal-badges";
 import { GenerateDraftFromProspect } from "@/components/prospects/generate-draft-from-prospect";
 import { EnrollFromProspect } from "@/components/sequences/enroll-from-prospect";
 import { Alert } from "@/components/ui/alert";
@@ -289,6 +290,12 @@ export function ProspectDetailSheet({
   const isIcpError =
     scoreMutation.error instanceof ApiError && scoreMutation.error.status === 400;
 
+  const overlaySignals = (member?.signals?.length ? member.signals : d.signals) ?? [];
+  const overlayEntityId = d.companyId || d.prospectId;
+  const overlayEntityType = d.recordType === "company" || (d.companyId && d.companyId !== d.prospectId)
+    ? "company"
+    : "prospect";
+
   return (
     <Sheet open={open} onClose={onClose} title={title} description={subtitle || "Prospect details"}>
       <div className="space-y-6">
@@ -303,6 +310,19 @@ export function ProspectDetailSheet({
           <Alert variant="warning">
             {formatQueryError(detail.error, "Could not load full details — showing summary only.")}
           </Alert>
+        )}
+
+        {overlaySignals.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Active signals
+            </p>
+            <SignalBadges
+              entityId={overlayEntityId}
+              entityType={overlayEntityType}
+              signals={overlaySignals}
+            />
+          </div>
         )}
 
         {/* ICP Score card */}

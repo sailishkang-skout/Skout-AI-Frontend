@@ -113,7 +113,10 @@ export default function TamDetailPage() {
           {drillMsg && (
             <Alert variant="success" dismissible>
               Created list “{drillMsg.name}”.{" "}
-              <Link href={`/lists/${drillMsg.id}`} className="font-medium underline">
+              <Link
+                href={`/lists/${drillMsg.id}${showSignals ? "?signals=1" : ""}`}
+                className="font-medium underline"
+              >
                 Open list
               </Link>{" "}
               to export or push to a sequence.
@@ -127,7 +130,7 @@ export default function TamDetailPage() {
               </CardHeader>
               <CardContent>
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Drill any segment into a live list — each account row shows these signals as badges.
+                  Drill any segment into a live list with signal overlay on — each account row shows up to three active signals (funding, hiring, tech, intent, risk). Click a badge for source, date, and confidence.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {OVERLAY_LEGEND.map((t) => (
@@ -176,7 +179,13 @@ export default function TamDetailPage() {
                         .map((seg) => (
                           <div key={`${seg.dimension}-${seg.value}`} className="flex items-center justify-between gap-3 px-3 py-2">
                             <div className="flex items-center gap-2">
-                              {showSignals && <span aria-hidden>{signalIcon("headcount_growth")}</span>}
+                              {showSignals && (
+                                <span className="inline-flex gap-0.5 text-xs" aria-hidden title="Signal overlay on — badges appear on the drilled list">
+                                  {OVERLAY_LEGEND.slice(0, 3).map((t) => (
+                                    <span key={t}>{signalIcon(t)}</span>
+                                  ))}
+                                </span>
+                              )}
                               <span className="text-sm">{seg.value}</span>
                               <Badge tone="muted">{seg.count.toLocaleString()}</Badge>
                             </div>
