@@ -101,7 +101,7 @@ export default function AcceptInvitePage() {
 
   const inviteData = invite.data;
 
-  const ssoSignInUrl = `/sign-in?redirect_url=${encodeURIComponent(
+  const ssoSignInUrl = `/login?redirect_url=${encodeURIComponent(
     typeof window !== "undefined" ? window.location.href : `/invite/${token}`
   )}`;
 

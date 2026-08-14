@@ -4,6 +4,7 @@ import { NextResponse, NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
+  "/login(.*)",
   "/sign-up(.*)",
   "/auth/callback",
   "/",
@@ -55,7 +56,7 @@ function requestWithPublicOrigin(request: NextRequest): NextRequest {
   const publicOrigin =
     request.headers.get("x-skout-public-origin") ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.CLERK_SIGN_IN_URL?.replace(/\/sign-in$/, "");
+    process.env.CLERK_SIGN_IN_URL?.replace(/\/(sign-in|login)$/, "");
   if (!publicOrigin) return request;
 
   try {

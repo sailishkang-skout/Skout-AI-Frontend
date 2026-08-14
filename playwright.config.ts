@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000/app";
 const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3001";
 const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://localhost:3002";
 

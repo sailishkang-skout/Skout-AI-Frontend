@@ -3,12 +3,10 @@
 import { SignIn } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getAppOrigin } from "@/lib/app-url";
 
 export function SignInForm() {
   const [ready, setReady] = useState(false);
-  const appOrigin = getAppOrigin();
-  const callbackUrl = appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback";
+  const callbackUrl = "/auth/callback";
 
   useEffect(() => {
     setReady(true);
@@ -32,8 +30,8 @@ export function SignInForm() {
             },
           }}
           routing="path"
-          path="/sign-in"
-          signUpUrl={appOrigin ? `${appOrigin}/sign-up` : "/sign-up"}
+          path="/login"
+          signUpUrl="/sign-up"
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />
