@@ -56,15 +56,15 @@ function requestWithPublicOrigin(request: NextRequest): NextRequest {
   const publicOrigin =
     request.headers.get("x-skout-public-origin") ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.CLERK_SIGN_IN_URL?.replace(/\/(sign-in|login)$/, "");
+    "https://www.skoutai.io/app";
   if (!publicOrigin) return request;
 
   try {
-    const origin = new URL(publicOrigin);
+    const origin = new URL(publicOrigin.startsWith("http") ? publicOrigin : `https://${publicOrigin}`);
     const headers = new Headers(request.headers);
     headers.set("host", origin.host);
     headers.set("x-forwarded-host", origin.host);
-    headers.set("x-forwarded-proto", origin.protocol.replace(":", ""));
+    headers.set("x-forwarded-proto", origin.protocol.replace(":", "") || "https");
     return new NextRequest(request.nextUrl, { headers });
   } catch {
     return request;

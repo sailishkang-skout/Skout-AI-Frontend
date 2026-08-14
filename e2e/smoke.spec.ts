@@ -3,7 +3,7 @@ import { waitForApiHealth } from "./helpers";
 
 test.describe("Public pages", () => {
   test("sign-in page loads", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/");
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
     await expect(
       page

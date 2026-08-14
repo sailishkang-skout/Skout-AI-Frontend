@@ -25,7 +25,7 @@ export default async function SignUpPage() {
           }}
           routing="path"
           path="/sign-up"
-          signInUrl="/login"
+          signInUrl="/"
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />
