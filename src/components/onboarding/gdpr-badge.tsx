@@ -1,7 +1,9 @@
+import { APP_BASE_PATH } from "@/lib/app-url";
+
 export function GdprBadge({ className }: { className?: string }) {
   return (
     <img
-      src="/brand/gdpr-compliant.png"
+      src={`${APP_BASE_PATH}/brand/gdpr-compliant.png`}
       alt="GDPR Compliant"
       width={180}
       height={56}
