@@ -19,3 +19,8 @@ export function clerkPathFromLocation(
   const found = mounts.find((base) => p === base || p.startsWith(`${base}/`));
   return found ?? fallback;
 }
+
+/** Product callback after Google SSO. The Next app is mounted at /app. */
+export function clerkCallbackPath(_pathname?: string): string {
+  return "/app/auth/callback";
+}

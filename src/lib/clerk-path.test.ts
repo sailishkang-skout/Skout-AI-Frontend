@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clerkPathFromLocation, SIGN_IN_MOUNTS, SIGN_UP_MOUNTS } from "./clerk-path";
+import { clerkCallbackPath, clerkPathFromLocation, SIGN_IN_MOUNTS, SIGN_UP_MOUNTS } from "./clerk-path";
 
 describe("clerkPathFromLocation", () => {
   it("uses /app/signin when the marketing proxy hosts the app", () => {
@@ -16,5 +16,12 @@ describe("clerkPathFromLocation", () => {
 
   it("uses /app/sign-up behind the marketing host", () => {
     expect(clerkPathFromLocation("/app/sign-up", SIGN_UP_MOUNTS, "/sign-up")).toBe("/app/sign-up");
+  });
+});
+
+describe("clerkCallbackPath", () => {
+  it("always keeps the callback under /app", () => {
+    expect(clerkCallbackPath("/app/signin")).toBe("/app/auth/callback");
+    expect(clerkCallbackPath("/sign-in")).toBe("/app/auth/callback");
   });
 });

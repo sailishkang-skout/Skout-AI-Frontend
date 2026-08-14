@@ -3,15 +3,17 @@
 import { SignIn } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { clerkPathFromLocation, SIGN_IN_MOUNTS } from "@/lib/clerk-path";
+import { clerkCallbackPath, clerkPathFromLocation, SIGN_IN_MOUNTS } from "@/lib/clerk-path";
 
 export function SignInForm({ path = "/signin" }: { path?: string }) {
   const [ready, setReady] = useState(false);
   const [clerkPath, setClerkPath] = useState(path);
-  const callbackUrl = "/auth/callback";
+  const [callbackUrl, setCallbackUrl] = useState("/app/auth/callback");
 
   useEffect(() => {
-    setClerkPath(clerkPathFromLocation(window.location.pathname, SIGN_IN_MOUNTS, path));
+    const pathname = window.location.pathname;
+    setClerkPath(clerkPathFromLocation(pathname, SIGN_IN_MOUNTS, path));
+    setCallbackUrl(clerkCallbackPath(pathname));
     setReady(true);
   }, [path]);
 
