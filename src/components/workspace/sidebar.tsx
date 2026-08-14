@@ -341,7 +341,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           {role}
         </span>
         {CLERK_ENABLED ? (
-          <UserButton afterSignOutUrl="/" />
+          <UserButton afterSignOutUrl="/signin" />
         ) : null}
       </div>
     </header>

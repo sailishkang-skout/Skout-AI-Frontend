@@ -14,10 +14,11 @@ const nextConfig = {
   basePath: "/app",
   async redirects() {
     return [
-      { source: "/sign-in", destination: "/", permanent: false },
-      { source: "/sign-in/:path*", destination: "/", permanent: false },
-      { source: "/login", destination: "/", permanent: false },
-      { source: "/login/:path*", destination: "/", permanent: false },
+      { source: "/sign-in", destination: "/signin", permanent: false },
+      { source: "/sign-in/:path*", destination: "/signin/:path*", permanent: false },
+      { source: "/login", destination: "/signin", permanent: false },
+      { source: "/login/:path*", destination: "/signin/:path*", permanent: false },
+      { source: "/singin", destination: "/signin", permanent: false },
     ];
   },
   env: {
@@ -29,7 +30,7 @@ const nextConfig = {
       (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:3001"),
     NEXT_PUBLIC_APP_URL: appUrl,
     NEXT_PUBLIC_CLERK_SIGN_IN_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || appUrl.replace(/\/$/, ""),
+      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/signin`,
     NEXT_PUBLIC_CLERK_SIGN_UP_URL:
       process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || (appUrl ? `${appUrl}/sign-up` : ""),
   },
