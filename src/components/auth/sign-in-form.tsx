@@ -3,14 +3,17 @@
 import { SignIn } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { clerkPathFromLocation, SIGN_IN_MOUNTS } from "@/lib/clerk-path";
 
-export function SignInForm({ path = "/" }: { path?: string }) {
+export function SignInForm({ path = "/signin" }: { path?: string }) {
   const [ready, setReady] = useState(false);
+  const [clerkPath, setClerkPath] = useState(path);
   const callbackUrl = "/auth/callback";
 
   useEffect(() => {
+    setClerkPath(clerkPathFromLocation(window.location.pathname, SIGN_IN_MOUNTS, path));
     setReady(true);
-  }, []);
+  }, [path]);
 
   return (
     <div className="w-full max-w-[min(100vw-2rem,24rem)]">
@@ -30,8 +33,8 @@ export function SignInForm({ path = "/" }: { path?: string }) {
             },
           }}
           routing="path"
-          path={path}
-          signUpUrl="/sign-up"
+          path={clerkPath}
+          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-up" : "/sign-up"}
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />
