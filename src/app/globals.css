@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,29 +19,31 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --border: 214.3 31.8% 91.4%;
-    --radius: 0.5rem;
+    --background: 260 33% 99%;
+    --foreground: 265 40% 12%;
+    --primary: 265 70% 42%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 260 20% 96%;
+    --muted-foreground: 265 10% 42%;
+    --accent: 260 80% 96%;
+    --accent-foreground: 265 70% 32%;
+    --border: 260 12% 90%;
+    --destructive: 0 72% 51%;
+    --radius: 0.75rem;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
+    --background: 265 40% 12%;
+    --foreground: 260 20% 98%;
+    --primary: 260 80% 72%;
+    --primary-foreground: 265 40% 12%;
+    --muted: 265 20% 18%;
+    --muted-foreground: 260 10% 70%;
+    --accent: 265 22% 18%;
+    --accent-foreground: 260 20% 98%;
+    --border: 265 16% 22%;
+    --destructive: 0 62% 55%;
   }
 
   * {
@@ -59,6 +62,8 @@
     min-height: 100%;
     padding-left: env(safe-area-inset-left, 0);
     padding-right: env(safe-area-inset-right, 0);
+    font-family: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
   }
 
   input[type="checkbox"] {

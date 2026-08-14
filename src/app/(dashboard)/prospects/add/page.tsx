@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useApiFetch } from "@/lib/api-client";
+import { useEmailIntelApi } from "@/lib/email-intel";
 import {
   COMPANY_SIZE_BUCKETS,
   COMPANY_STAGE_OPTIONS,
@@ -232,6 +233,8 @@ export default function AddProspectPage() {
   const [hiring, setHiring] = useState<HiringForm>(EMPTY_HIRING);
   const [saved, setSaved] = useState<ManualProspectResponse | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [emailCheck, setEmailCheck] = useState<string | null>(null);
+  const emailIntel = useEmailIntelApi();
 
   const setC = <K extends keyof ContactForm>(k: K, v: ContactForm[K]) =>
     setContact((p) => ({ ...p, [k]: v }));
@@ -254,6 +257,23 @@ export default function AddProspectPage() {
     },
     onError: () => {
       setFormError("Something went wrong. Please check your details and try again.");
+    },
+  });
+
+  const verifyEmail = useMutation({
+    mutationFn: () => emailIntel.verify(contact.email.trim()),
+    onSuccess: (res) => {
+      const status = res.verificationStatus?.status ?? "UNKNOWN";
+      const decision = res.sendEligibility?.decision;
+      const allowed = res.sendEligibility?.allowed;
+      setEmailCheck(
+        allowed
+          ? `${status} · safe to send${decision ? ` (${decision})` : ""}`
+          : `${status}${decision ? ` · ${decision}` : ""} — review before outreach`
+      );
+    },
+    onError: () => {
+      setEmailCheck("Could not reach Email Intelligence. You can still save the prospect.");
     },
   });
 
@@ -378,12 +398,29 @@ export default function AddProspectPage() {
           />
 
           <Field label="Email">
-            <Input
-              type="email"
-              placeholder="jane@company.com"
-              value={contact.email}
-              onChange={(e) => setC("email", e.target.value)}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="email"
+                placeholder="jane@company.com"
+                value={contact.email}
+                onChange={(e) => {
+                  setC("email", e.target.value);
+                  setEmailCheck(null);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!contact.email.trim() || verifyEmail.isPending}
+                onClick={() => verifyEmail.mutate()}
+              >
+                {verifyEmail.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Verify
+              </Button>
+            </div>
+            {emailCheck && (
+              <p className="text-xs text-muted-foreground">{emailCheck}</p>
+            )}
           </Field>
 
           <Field label="Phone">

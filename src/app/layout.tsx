@@ -5,7 +5,7 @@ import { themeInitScript } from "@/lib/theme";
 
 /** System stack — avoids next/font Google fetch failures in offline/restricted Docker builds. */
 const bodyFontClass =
-  "font-sans antialiased [font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',Arial,sans-serif]";
+  "font-sans antialiased [font-family:'Work_Sans',ui-sans-serif,system-ui,-apple-system,sans-serif]";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || undefined;
 
