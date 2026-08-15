@@ -57,27 +57,27 @@ export default function CrmDashboardPage() {
               </CardContent>
             </Card>
           ))
-        ) : overview.data ? (
+        ) : (
           <>
-            <StatCard icon={Building2} label="Companies" value={overview.data.companies} href="/crm/companies" />
-            <StatCard icon={Users2} label="Contacts" value={overview.data.contacts} href="/crm/contacts" />
-            <StatCard icon={Briefcase} label="Open deals" value={overview.data.openDeals} href="/crm/deals" />
+            <StatCard icon={Building2} label="Companies" value={overview.data?.companies ?? "—"} href="/crm/companies" />
+            <StatCard icon={Users2} label="Contacts" value={overview.data?.contacts ?? "—"} href="/crm/contacts" />
+            <StatCard icon={Briefcase} label="Open deals" value={overview.data?.openDeals ?? "—"} href="/crm/deals" />
             <StatCard
               icon={DollarSign}
               label="Pipeline value"
-              value={formatMoney(overview.data.pipelineValue, overview.data.currency)}
+              value={overview.data ? formatMoney(overview.data.pipelineValue, overview.data.currency) : "—"}
               href="/crm/deals"
             />
             <StatCard
               icon={CheckSquare}
               label="Open tasks"
-              value={overview.data.openTasks}
-              sub={taskStatSub(overview.data.dueTodayTasks, overview.data.overdueTasks)}
+              value={overview.data?.openTasks ?? "—"}
+              sub={overview.data ? taskStatSub(overview.data.dueTodayTasks, overview.data.overdueTasks) : undefined}
               href="/crm/tasks"
             />
-            <StatCard icon={CalendarClock} label="Upcoming meetings" value={overview.data.upcomingMeetings} href="/crm/meetings" />
+            <StatCard icon={CalendarClock} label="Upcoming meetings" value={overview.data?.upcomingMeetings ?? "—"} href="/crm/meetings" />
           </>
-        ) : null}
+        )}
       </div>
 
       <Card>
@@ -137,8 +137,8 @@ function StatCard({
     <Link href={href}>
       <Card className="transition-colors hover:bg-accent/50">
         <CardContent className="flex items-center gap-3 p-4">
-          <div className="rounded-md bg-muted p-2">
-            <Icon className="h-5 w-5 text-muted-foreground" aria-hidden />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="h-5 w-5" aria-hidden />
           </div>
           <div>
             <p className="text-xs text-muted-foreground">{label}</p>
