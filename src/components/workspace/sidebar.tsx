@@ -5,6 +5,7 @@ import { CLERK_ENABLED } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BadgeCheck,
   BarChart3,
@@ -15,12 +16,14 @@ import {
   Calendar,
   CalendarClock,
   CheckSquare,
+  ChevronRight,
   Crosshair,
   Inbox,
   Kanban,
   LayoutDashboard,
   List,
   Mail,
+  MailCheck,
   Phone,
   Radar,
   Search,
@@ -76,6 +79,8 @@ export type NavItem = {
   tourId?: string;
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
+  /** Renders as a collapsible submenu instead of a link — `href` is unused when set. */
+  children?: NavItem[];
 };
 
 export type NavGroup = {
@@ -121,10 +126,31 @@ export const crmNav: NavGroup[] = [
       { href: "/crm", label: "Overview", icon: LayoutDashboard, exact: true },
       { href: "/crm/companies", label: "Companies", icon: Building2 },
       { href: "/crm/contacts", label: "Contacts", icon: Users2 },
-      { href: "/crm/deals", label: "Deals", icon: Kanban },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
       { href: "/crm/calendar", label: "Calendar", icon: Calendar },
+    ],
+  },
+];
+
+export const intelligenceNav: NavGroup[] = [
+  {
+    label: "Intelligence",
+    items: [
+      {
+        href: "/intelligence/email",
+        label: "Email Intelligence",
+        icon: MailCheck,
+        tourId: "nav-email-intelligence",
+        children: [
+          { href: "/intelligence/email", label: "Overview", icon: LayoutDashboard, exact: true },
+          { href: "/intelligence/email/verify", label: "Verify", icon: BadgeCheck },
+          { href: "/intelligence/email/discover", label: "Discover", icon: Search },
+          { href: "/intelligence/email/patterns", label: "Patterns", icon: Sparkles },
+        ],
+      },
+      { href: "/crm/deals", label: "Deal Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
+      { href: "/ai/review", label: "AI Review", icon: Sparkles, tourId: "nav-ai-review" },
     ],
   },
 ];
@@ -136,7 +162,6 @@ export const otherNav: NavGroup[] = [
       { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
       { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
-      { href: "/ai/review", label: "AI review", icon: Sparkles, tourId: "nav-ai-review" },
       { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
     ],
   },
@@ -219,6 +244,57 @@ function NavLink({
   );
 }
 
+function NavLinkGroup({
+  item,
+  onNavigate,
+}: {
+  item: NavItem;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const children = item.children ?? [];
+  const childActive = children.some(
+    (child) => pathname === child.href || pathname.startsWith(`${child.href}/`)
+  );
+  const [open, setOpen] = useState(childActive);
+
+  // Auto-expand when navigation lands on a child route (e.g. deep link or client nav).
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        data-tour={item.tourId}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          childActive
+            ? "text-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        )}
+      >
+        <item.icon className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="flex-1 truncate text-left">{item.label}</span>
+        <ChevronRight
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          aria-hidden
+        />
+      </button>
+      {open && (
+        <div className="ml-4 mt-0.5 space-y-1 border-l pl-3">
+          {children.map((child) => (
+            <NavLink key={child.href} {...child} onNavigate={onNavigate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavSection({
   groups,
   onNavigate,
@@ -233,9 +309,13 @@ function NavSection({
           <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
             {group.label}
           </p>
-          {group.items.map((item) => (
-            <NavLink key={item.href} {...item} onNavigate={onNavigate} />
-          ))}
+          {group.items.map((item) =>
+            item.children && item.children.length > 0 ? (
+              <NavLinkGroup key={item.href} item={item} onNavigate={onNavigate} />
+            ) : (
+              <NavLink key={item.href} {...item} onNavigate={onNavigate} />
+            )
+          )}
         </div>
       ))}
     </>
@@ -269,6 +349,7 @@ export function SidebarPanel({
       <nav className="flex-1 overflow-y-auto p-2">
         <NavSection groups={enrichmentNav} onNavigate={onNavigate} />
         <NavSection groups={crmNav} onNavigate={onNavigate} />
+        <NavSection groups={intelligenceNav} onNavigate={onNavigate} />
         <NavSection groups={otherNav} onNavigate={onNavigate} />
         <RestartTourButton onNavigate={onNavigate} />
       </nav>

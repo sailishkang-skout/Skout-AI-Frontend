@@ -53,6 +53,7 @@ const CONDITION_LABELS: Record<SequenceConditionType, string> = {
   icp_score_gte: "ICP score ≥",
   has_email: "Has email",
   has_linkedin: "Has LinkedIn URL",
+  account_has_positive_reply: "Another contact at this account replied positively",
 };
 
 function iconFor(type: SequenceStepType) {

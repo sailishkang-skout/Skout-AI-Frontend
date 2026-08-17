@@ -214,7 +214,8 @@ export type SequenceConditionType =
   | "call_connected"
   | "icp_score_gte"
   | "has_email"
-  | "has_linkedin";
+  | "has_linkedin"
+  | "account_has_positive_reply";
 
 export type ConditionExpression =
   | { type: SequenceConditionType; not?: boolean; value?: number }
