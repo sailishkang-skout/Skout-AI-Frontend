@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,52 @@ import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL, formatDateTime } from "@/lib/c
 import type { ActivityType, CrmEntityType } from "@/types/crm";
 
 const LOGGABLE_TYPES: ActivityType[] = ["note", "call", "email", "meeting"];
+
+/** Twilio call activities store "Disposition: …\nDuration: …\nRecording: …" as plain text
+ * (see apps/api/src/routes/call.routes.ts upsertCallActivity) — no structured fields exist to
+ * read instead. Parsed back out here so the call shows as a proper log line with a playable
+ * recording, rather than one run-on sentence. */
+function parseCallBody(body: string): { disposition?: string; duration?: string; recordingUrl?: string } | null {
+  const fields: Record<string, string> = {};
+  for (const line of body.split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (key === "Disposition") fields.disposition = value;
+    else if (key === "Duration") fields.duration = value;
+    else if (key === "Recording") fields.recordingUrl = value;
+  }
+  return Object.keys(fields).length > 0 ? fields : null;
+}
+
+const DISPOSITION_TONE: Record<string, BadgeProps["tone"]> = {
+  completed: "success",
+  "in-progress": "info",
+  ringing: "info",
+  queued: "info",
+  "no-answer": "warning",
+  busy: "warning",
+  failed: "danger",
+  canceled: "muted",
+};
+
+function CallActivityBody({ call }: { call: { disposition?: string; duration?: string; recordingUrl?: string } }) {
+  return (
+    <div className="mt-1.5 space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {call.disposition && (
+          <Badge tone={DISPOSITION_TONE[call.disposition] ?? "muted"}>{call.disposition.replace("-", " ")}</Badge>
+        )}
+        {call.duration && <span className="text-xs text-muted-foreground">{call.duration}</span>}
+      </div>
+      {call.recordingUrl && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption -- Twilio recordings have no caption track
+        <audio controls preload="none" src={call.recordingUrl} className="h-9 w-full max-w-sm" />
+      )}
+    </div>
+  );
+}
 
 export function ActivityTimeline({ entityType, entityId }: { entityType: CrmEntityType; entityId: string }) {
   const queryClient = useQueryClient();
@@ -107,6 +154,7 @@ export function ActivityTimeline({ entityType, entityId }: { entityType: CrmEnti
         <ul className="space-y-3">
           {rows.map((activity) => {
             const Icon = ACTIVITY_TYPE_ICON[activity.activityType];
+            const call = activity.activityType === "call" && activity.body ? parseCallBody(activity.body) : null;
             return (
               <li key={activity.id} className="flex gap-3">
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -117,7 +165,13 @@ export function ActivityTimeline({ entityType, entityId }: { entityType: CrmEnti
                     <p className="text-sm font-medium">{activity.subject || ACTIVITY_TYPE_LABEL[activity.activityType]}</p>
                     <span className="text-xs text-muted-foreground">{formatDateTime(activity.occurredAt)}</span>
                   </div>
-                  {activity.body && <p className="mt-0.5 text-sm text-muted-foreground">{activity.body}</p>}
+                  {call ? (
+                    <CallActivityBody call={call} />
+                  ) : (
+                    activity.body && (
+                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{activity.body}</p>
+                    )
+                  )}
                 </div>
               </li>
             );

@@ -140,7 +140,7 @@ export function MeetingFormSheet({
   });
 
   const scheduleGoogle = useMutation({
-    mutationFn: () => meetingsApi.scheduleGoogle(meeting!.id, invitees),
+    mutationFn: (id: string) => meetingsApi.scheduleGoogle(id, invitees),
     onSuccess: (saved) => {
       setMeetingUrl(saved.meetingUrl ?? "");
       queryClient.invalidateQueries({ queryKey: ["crm", "meetings"] });
@@ -170,6 +170,23 @@ export function MeetingFormSheet({
       if (saved.dealId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "deal", saved.dealId] });
       if (saved.contactId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "contact", saved.contactId] });
       if (saved.companyId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "company", saved.companyId] });
+      // New meeting, no link pasted in by hand, at least one invitee — auto-create the Google
+      // Meet event so the flow is one step instead of "save, reopen, click Schedule Google
+      // Meet." Google sends its own native invite email to every invitee (sendUpdates=all on
+      // the backend), so this also covers the "email invitees" ask. Best-effort: the meeting
+      // itself is already saved either way. On success, close as normal. On failure (e.g.
+      // Google Calendar not connected), keep the sheet open so the error is actually visible
+      // instead of vanishing behind an already-closed dialog — the meeting stays saved and the
+      // user can close manually or connect Google Calendar and retry from edit mode next time.
+      if (!isEdit && !saved.meetingUrl && invitees.length > 0) {
+        scheduleGoogle.mutate(saved.id, {
+          onSuccess: () => {
+            onSaved?.(saved);
+            onClose();
+          },
+        });
+        return;
+      }
       onSaved?.(saved);
       onClose();
     },
@@ -230,14 +247,21 @@ export function MeetingFormSheet({
               size="sm"
               variant="outline"
               disabled={scheduleGoogle.isPending}
-              onClick={() => scheduleGoogle.mutate()}
+              onClick={() => scheduleGoogle.mutate(meeting!.id)}
             >
               {scheduleGoogle.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {meeting!.googleEventId ? "Reschedule" : "Schedule Google Meet"}
             </Button>
           </div>
         )}
-        {isEdit && scheduleGoogle.isError && (
+        {!isEdit && invitees.length > 0 && !meetingUrl.trim() && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Video className="h-3.5 w-3.5 shrink-0" />
+            A Google Meet link will be created automatically and invitees will get a calendar
+            invite by email — connect Google Calendar under Settings first if you haven&apos;t.
+          </p>
+        )}
+        {scheduleGoogle.isError && (
           <Alert variant="error">
             {formatQueryError(scheduleGoogle.error, "Could not create the Google Calendar event. Connect Google Calendar under Settings first.")}
           </Alert>
@@ -322,8 +346,11 @@ export function MeetingFormSheet({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!title.trim() || !scheduledAt || save.isPending}>
-            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Button
+            onClick={() => save.mutate()}
+            disabled={!title.trim() || !scheduledAt || save.isPending || scheduleGoogle.isPending}
+          >
+            {(save.isPending || scheduleGoogle.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
             {isEdit ? "Save changes" : "Create meeting"}
           </Button>
         </div>
