@@ -95,7 +95,7 @@ export default function CalendarPage() {
       push(time.toDateString(), { kind: "meeting", time, meeting });
     }
     for (const event of googleEvents.data?.data ?? []) {
-      const alreadyLinked = [...linkedGoogleIds].some(
+      const alreadyLinked = Array.from(linkedGoogleIds).some(
         (id) => event.googleEventId === id || event.googleEventId.endsWith(`:${id}`)
       );
       if (alreadyLinked) continue;
