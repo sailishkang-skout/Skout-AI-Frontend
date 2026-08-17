@@ -56,6 +56,16 @@ export interface EmailIntelPatternResult {
   error?: string;
 }
 
+export interface EmailIntelWarmupStatusResult {
+  success: boolean;
+  domain: string;
+  enabled: boolean;
+  phase: string;
+  score: number | null;
+  dayInProgram: number | null;
+  error?: string;
+}
+
 export function useEmailIntelApi() {
   const fetchApi = useApiFetch();
   return {
@@ -82,5 +92,10 @@ export function useEmailIntelApi() {
         method: "POST",
         body: JSON.stringify(input),
       }),
+
+    warmupStatus: (domain: string) =>
+      fetchApi<EmailIntelWarmupStatusResult>(
+        `/api/v1/email-intel/warmup/status?domain=${encodeURIComponent(domain)}`
+      ),
   };
 }

@@ -35,7 +35,7 @@ export interface ActivationRuleRun {
 }
 
 /** R17.1 — notification center + R17.4 — delivery channel. Mirrors apps/api/src/services/notifications.service.ts. */
-export type NotificationChannel = "in_app" | "email" | "both";
+export type NotificationChannel = "in_app" | "email" | "both" | "sms";
 
 export interface Notification {
   id: string;

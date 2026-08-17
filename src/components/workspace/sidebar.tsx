@@ -147,6 +147,7 @@ export const intelligenceNav: NavGroup[] = [
           { href: "/intelligence/email/verify", label: "Verify", icon: BadgeCheck },
           { href: "/intelligence/email/discover", label: "Discover", icon: Search },
           { href: "/intelligence/email/patterns", label: "Patterns", icon: Sparkles },
+          { href: "/intelligence/email/warmup", label: "Warm-up", icon: Zap },
         ],
       },
       { href: "/crm/deals", label: "Deal Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },

@@ -14,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { useCallsApi } from "@/lib/calls";
 import { useNotificationsApi } from "@/lib/notifications";
 import type { NotificationChannel } from "@/types/api";
 
 interface MeData {
   role?: string;
+  phone?: string | null;
 }
 
 interface WorkspaceCurrentData {
@@ -37,14 +39,17 @@ const CHANNEL_LABEL: Record<NotificationChannel, string> = {
   in_app: "In-app only",
   email: "Email only",
   both: "In-app + email",
+  sms: "SMS only",
 };
 
 export default function NotificationSettingsPage() {
   const authReady = useAuthReady();
   const apiFetch = useApiFetch();
   const notificationsApi = useNotificationsApi();
+  const callsApi = useCallsApi();
   const queryClient = useQueryClient();
   const [slackUrl, setSlackUrl] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
 
   const me = useQuery<MeData>({
     queryKey: ["me"],
@@ -52,6 +57,13 @@ export default function NotificationSettingsPage() {
     enabled: authReady,
   });
   const isAdmin = me.data?.role === "owner" || me.data?.role === "admin";
+
+  const savePhone = useMutation({
+    mutationFn: (value: string) => callsApi.setMyPhone(value || null),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
+  });
+
+  const currentPhone = phone ?? me.data?.phone ?? "";
 
   const workspace = useQuery<WorkspaceCurrentData>({
     queryKey: ["workspace-current-slack"],
@@ -132,9 +144,40 @@ export default function NotificationSettingsPage() {
                   <option value="in_app">{CHANNEL_LABEL.in_app}</option>
                   <option value="email">{CHANNEL_LABEL.email}</option>
                   <option value="both">{CHANNEL_LABEL.both}</option>
+                  <option value="sms">{CHANNEL_LABEL.sms}</option>
                 </Select>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Phone number for SMS</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Required for any notification type set to SMS above, and for meeting/task reminders.
+          </p>
+          {savePhone.isError && (
+            <Alert variant="error">{formatQueryError(savePhone.error, "Could not save your phone number.")}</Alert>
+          )}
+          {savePhone.isSuccess && <Alert variant="success">Phone number saved.</Alert>}
+          <div className="flex gap-2">
+            <Input
+              type="tel"
+              value={currentPhone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 000 1234"
+            />
+            <Button
+              variant="outline"
+              disabled={savePhone.isPending}
+              onClick={() => savePhone.mutate(currentPhone.trim())}
+            >
+              Save
+            </Button>
           </div>
         </CardContent>
       </Card>
