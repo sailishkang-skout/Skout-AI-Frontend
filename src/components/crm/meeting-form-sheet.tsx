@@ -170,15 +170,22 @@ export function MeetingFormSheet({
       if (saved.dealId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "deal", saved.dealId] });
       if (saved.contactId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "contact", saved.contactId] });
       if (saved.companyId) queryClient.invalidateQueries({ queryKey: ["crm", "activities", "company", saved.companyId] });
-      // New meeting, no link pasted in by hand, at least one invitee — auto-create the Google
-      // Meet event so the flow is one step instead of "save, reopen, click Schedule Google
-      // Meet." Google sends its own native invite email to every invitee (sendUpdates=all on
-      // the backend), so this also covers the "email invitees" ask. Best-effort: the meeting
-      // itself is already saved either way. On success, close as normal. On failure (e.g.
-      // Google Calendar not connected), keep the sheet open so the error is actually visible
-      // instead of vanishing behind an already-closed dialog — the meeting stays saved and the
-      // user can close manually or connect Google Calendar and retry from edit mode next time.
-      if (!isEdit && !saved.meetingUrl && invitees.length > 0) {
+      // By default, attach a Google Meet link and keep Google attendees in sync on every save
+      // — not just on create — for anything that isn't an in-person meeting:
+      //  - No link on the meeting yet and none typed by hand → auto-create one.
+      //  - Meeting was already scheduled on Google (has a googleEventId) → re-sync on every
+      //    edit, since createCalendarEvent now PATCHes that same event (see
+      //    google-calendar.service.ts) rather than creating a duplicate. This is what makes
+      //    "add an invitee, they get emailed" work on edit, not just on first create.
+      // Skip only when the user deliberately typed their own Zoom/Teams link and this meeting
+      // has never been Google-scheduled — that's a real choice not to use Google Meet.
+      const shouldAutoScheduleGoogle =
+        meetingType !== "in_person" && (Boolean(meeting?.googleEventId) || !meetingUrl.trim());
+      // Best-effort: the meeting itself is already saved either way. On success, close as
+      // normal. On failure (e.g. Google Calendar not connected), keep the sheet open so the
+      // error is actually visible instead of vanishing behind an already-closed dialog — the
+      // user can close manually or connect Google Calendar and retry.
+      if (shouldAutoScheduleGoogle) {
         scheduleGoogle.mutate(saved.id, {
           onSuccess: () => {
             onSaved?.(saved);
@@ -254,11 +261,13 @@ export function MeetingFormSheet({
             </Button>
           </div>
         )}
-        {!isEdit && invitees.length > 0 && !meetingUrl.trim() && (
+        {meetingType !== "in_person" && (Boolean(meeting?.googleEventId) || !meetingUrl.trim()) && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <Video className="h-3.5 w-3.5 shrink-0" />
-            A Google Meet link will be created automatically and invitees will get a calendar
-            invite by email — connect Google Calendar under Settings first if you haven&apos;t.
+            {meeting?.googleEventId
+              ? "Saving will re-sync invitees on the Google Calendar event and email anyone new."
+              : "A Google Meet link will be created automatically and invitees will get a calendar invite by email."}{" "}
+            Connect Google Calendar under Settings first if you haven&apos;t.
           </p>
         )}
         {scheduleGoogle.isError && (

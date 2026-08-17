@@ -1,6 +1,16 @@
 import { useCrmServiceFetch } from "../crm-api-client";
 import type { CrmListEnvelope, Meeting, MeetingInput, MeetingInvitee, MeetingPatch } from "@/types/crm";
 
+export interface GoogleCalendarEvent {
+  googleEventId: string;
+  title: string;
+  start: string;
+  end: string;
+  hangoutLink: string | null;
+  htmlLink: string | null;
+  organizerSelf: boolean;
+}
+
 export function useMeetingsApi() {
   const fetchApi = useCrmServiceFetch();
   return {
@@ -47,5 +57,12 @@ export function useMeetingsApi() {
         method: "POST",
         body: JSON.stringify(invitees ? { invitees } : {}),
       }),
+
+    /** Everything on the current user's connected Google Calendar in range — for the calendar
+     * view to overlay alongside native meetings, including events created outside Skout. */
+    listGoogleEvents: (from: string, to: string) =>
+      fetchApi<{ data: GoogleCalendarEvent[]; connected: boolean }>(
+        `/api/v1/meetings/google-events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+      ),
   };
 }

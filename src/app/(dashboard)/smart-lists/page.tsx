@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Check, Clock, ExternalLink, History, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -16,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/crm-display";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { useSmartListApi } from "@/lib/smart-lists";
@@ -69,12 +71,20 @@ export default function SmartListsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [historyListId, setHistoryListId] = useState<string | null>(null);
   const [historyListName, setHistoryListName] = useState("");
+  // Deep-link support: TAM's "drill into a segment" creates a smart list and links here with
+  // ?highlight=<id> so the user lands on the one they just created instead of hunting for it.
+  const highlightId = useSearchParams().get("highlight");
 
   const lists = useQuery({
     queryKey: ["smart-lists"],
     queryFn: smartListApi.list,
     enabled: authReady,
   });
+
+  useEffect(() => {
+    if (!highlightId || !lists.data) return;
+    document.getElementById(`smart-list-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightId, lists.data]);
 
   const prospectLists = useQuery({
     queryKey: ["lists"],
@@ -430,6 +440,11 @@ export default function SmartListsPage() {
                 return (
                   <ListRow
                     key={list.id}
+                    id={`smart-list-${list.id}`}
+                    className={cn(
+                      highlightId === list.id &&
+                        "-mx-3 rounded-lg border-b-transparent bg-primary/5 px-3 ring-2 ring-inset ring-primary/40"
+                    )}
                     actions={
                       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                         <Button

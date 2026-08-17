@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -10,10 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MeetingFormSheet } from "@/components/crm/meeting-form-sheet";
-import { useMeetingsApi } from "@/lib/crm/meetings";
+import { useMeetingsApi, type GoogleCalendarEvent } from "@/lib/crm/meetings";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { Meeting } from "@/types/crm";
+
+type CalendarEntry =
+  | { kind: "meeting"; time: Date; meeting: Meeting }
+  | { kind: "google"; time: Date; event: GoogleCalendarEvent };
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -45,30 +49,59 @@ export default function CalendarPage() {
   const rangeFrom = grid[0]!;
   const rangeTo = grid[grid.length - 1]!;
 
+  const rangeFromIso = rangeFrom.toISOString();
+  const rangeToIso = new Date(
+    rangeTo.getFullYear(),
+    rangeTo.getMonth(),
+    rangeTo.getDate(),
+    23,
+    59,
+    59
+  ).toISOString();
+
   const meetings = useQuery({
     queryKey: ["crm", "meetings", "calendar", year, month],
-    queryFn: () =>
-      meetingsApi.list({
-        limit: 500,
-        from: rangeFrom.toISOString(),
-        to: new Date(rangeTo.getFullYear(), rangeTo.getMonth(), rangeTo.getDate(), 23, 59, 59).toISOString(),
-      }),
+    queryFn: () => meetingsApi.list({ limit: 500, from: rangeFromIso, to: rangeToIso }),
+    enabled: authReady,
+  });
+
+  // Everything on the user's connected Google Calendar in the same range, so events created
+  // directly in Google (not through Skout) also show up — not just meetings we created here.
+  // Best-effort overlay: a failure here (or no connection) never blocks the native meetings.
+  const googleEvents = useQuery({
+    queryKey: ["crm", "meetings", "google-events", year, month],
+    queryFn: () => meetingsApi.listGoogleEvents(rangeFromIso, rangeToIso),
     enabled: authReady,
   });
 
   const byDay = useMemo(() => {
-    const map = new Map<string, Meeting[]>();
-    for (const meeting of meetings.data?.data ?? []) {
-      const key = new Date(meeting.scheduledAt).toDateString();
+    const map = new Map<string, CalendarEntry[]>();
+    const push = (key: string, entry: CalendarEntry) => {
       const existing = map.get(key) ?? [];
-      existing.push(meeting);
+      existing.push(entry);
       map.set(key, existing);
+    };
+
+    // A meeting already scheduled on Google carries its googleEventId — skip that same event
+    // in the Google feed instead of showing it twice.
+    const linkedGoogleIds = new Set(
+      (meetings.data?.data ?? []).map((m) => m.googleEventId).filter((id): id is string => Boolean(id))
+    );
+
+    for (const meeting of meetings.data?.data ?? []) {
+      const time = new Date(meeting.scheduledAt);
+      push(time.toDateString(), { kind: "meeting", time, meeting });
     }
-    map.forEach((list) => {
-      list.sort((a: Meeting, b: Meeting) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-    });
+    for (const event of googleEvents.data?.data ?? []) {
+      if (linkedGoogleIds.has(event.googleEventId)) continue;
+      const time = new Date(event.start);
+      if (Number.isNaN(time.getTime())) continue;
+      push(time.toDateString(), { kind: "google", time, event });
+    }
+
+    map.forEach((list) => list.sort((a, b) => a.time.getTime() - b.time.getTime()));
     return map;
-  }, [meetings.data]);
+  }, [meetings.data, googleEvents.data]);
 
   const today = new Date();
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -135,7 +168,7 @@ export default function CalendarPage() {
           <div className="grid grid-cols-7">
             {grid.map((day) => {
               const inMonth = day.getMonth() === month;
-              const dayMeetings = byDay.get(day.toDateString()) ?? [];
+              const dayEntries = byDay.get(day.toDateString()) ?? [];
               return (
                 <div
                   key={day.toISOString()}
@@ -154,24 +187,40 @@ export default function CalendarPage() {
                     {day.getDate()}
                   </div>
                   <div className="space-y-1">
-                    {dayMeetings.map((meeting) => (
-                      <button
-                        key={meeting.id}
-                        type="button"
-                        onClick={() => {
-                          setEditingMeeting(meeting);
-                          setSheetOpen(true);
-                        }}
-                        className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-xs text-primary hover:bg-primary/20"
-                        title={meeting.title}
-                      >
-                        {new Date(meeting.scheduledAt).toLocaleTimeString(undefined, {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}{" "}
-                        {meeting.title}
-                      </button>
-                    ))}
+                    {dayEntries.map((entry) =>
+                      entry.kind === "meeting" ? (
+                        <button
+                          key={entry.meeting.id}
+                          type="button"
+                          onClick={() => {
+                            setEditingMeeting(entry.meeting);
+                            setSheetOpen(true);
+                          }}
+                          className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-xs text-primary hover:bg-primary/20"
+                          title={entry.meeting.title}
+                        >
+                          {entry.time.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}{" "}
+                          {entry.meeting.title}
+                        </button>
+                      ) : (
+                        // From the connected Google Calendar, not created in Skout — no meeting
+                        // record to edit here, so it opens the event on Google instead.
+                        <a
+                          key={entry.event.googleEventId}
+                          href={entry.event.htmlLink ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 truncate rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent"
+                          title={`${entry.event.title} (Google Calendar)`}
+                        >
+                          <span className="truncate">
+                            {entry.time.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}{" "}
+                            {entry.event.title}
+                          </span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
+                        </a>
+                      )
+                    )}
                   </div>
                 </div>
               );

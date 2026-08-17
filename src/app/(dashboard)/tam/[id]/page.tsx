@@ -112,14 +112,16 @@ export default function TamDetailPage() {
 
           {drillMsg && (
             <Alert variant="success" dismissible>
-              Created list “{drillMsg.name}”.{" "}
-              <Link
-                href={`/lists/${drillMsg.id}${showSignals ? "?signals=1" : ""}`}
-                className="font-medium underline"
-              >
-                Open list
+              Created smart list “{drillMsg.name}”.{" "}
+              {/* Drilling into a TAM segment creates a *smart* list (packages/opensearch-backed,
+                  createSmartList in tam.service.ts) — a different resource from the plain
+                  `lists` this used to link to, which 404'd because that id only ever exists in
+                  smart_lists. The smart-lists page has no per-list detail route of its own, so
+                  this deep-links into the index and scrolls/highlights the row instead. */}
+              <Link href={`/smart-lists?highlight=${drillMsg.id}`} className="font-medium underline">
+                Open smart list
               </Link>{" "}
-              to export or push to a sequence.
+              to run it, export, or push to a sequence.
             </Alert>
           )}
 
