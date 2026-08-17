@@ -53,7 +53,7 @@ export default function EmailWarmupPage() {
 
       {status.isError && (
         <Alert variant="error" title="Couldn't check warm-up status">
-          {formatQueryError(status.error)}
+          {formatQueryError(status.error, "Could not load warm-up status.")}
         </Alert>
       )}
 

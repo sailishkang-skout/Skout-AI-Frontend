@@ -78,7 +78,7 @@ export default function EmailPatternsPage() {
 
       {patterns.isError && (
         <Alert variant="error" title="Couldn't rank patterns">
-          {formatQueryError(patterns.error)}
+          {formatQueryError(patterns.error, "Could not rank email patterns.")}
         </Alert>
       )}
 

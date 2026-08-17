@@ -71,7 +71,7 @@ export default function EmailDiscoverPage() {
 
       {discover.isError && (
         <Alert variant="error" title="Couldn't discover an email">
-          {formatQueryError(discover.error)}
+          {formatQueryError(discover.error, "Could not discover an email.")}
         </Alert>
       )}
 

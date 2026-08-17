@@ -87,7 +87,7 @@ export default function EmailVerifyPage() {
 
           {verify.isError && (
             <Alert variant="error" title="Couldn't verify that email">
-              {formatQueryError(verify.error)}
+              {formatQueryError(verify.error, "Could not verify that email.")}
             </Alert>
           )}
           {verify.isSuccess && <ResultRow result={verify.data} />}
@@ -124,7 +124,7 @@ export default function EmailVerifyPage() {
 
           {verifyBatch.isError && (
             <Alert variant="error" title="Couldn't verify that batch">
-              {formatQueryError(verifyBatch.error)}
+              {formatQueryError(verifyBatch.error, "Could not verify that batch.")}
             </Alert>
           )}
           {verifyBatch.isSuccess && (

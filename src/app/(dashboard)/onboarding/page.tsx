@@ -413,7 +413,7 @@ function VerifySendingEmailCard() {
       </form>
       {verify.isError && (
         <Alert variant="error" className="mt-1 py-2 text-xs">
-          {formatQueryError(verify.error)}
+          {formatQueryError(verify.error, "Could not verify that email.")}
         </Alert>
       )}
       {verify.isSuccess && (
