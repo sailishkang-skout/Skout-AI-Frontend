@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MeetingFormSheet } from "@/components/crm/meeting-form-sheet";
-import { useMeetingsApi, type GoogleCalendarEvent } from "@/lib/crm/meetings";
+import { useMeetingsApi } from "@/lib/crm/meetings";
+import { useGoogleCalendarApi, type GoogleCalendarEvent } from "@/lib/google-calendar";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { Meeting } from "@/types/crm";
@@ -38,6 +39,7 @@ function isSameDay(a: Date, b: Date): boolean {
 
 export default function CalendarPage() {
   const meetingsApi = useMeetingsApi();
+  const googleCalendarApi = useGoogleCalendarApi();
   const authReady = useAuthReady();
   const [cursor, setCursor] = useState(() => new Date());
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -69,8 +71,8 @@ export default function CalendarPage() {
   // directly in Google (not through Skout) also show up — not just meetings we created here.
   // Best-effort overlay: a failure here (or no connection) never blocks the native meetings.
   const googleEvents = useQuery({
-    queryKey: ["crm", "meetings", "google-events", year, month],
-    queryFn: () => meetingsApi.listGoogleEvents(rangeFromIso, rangeToIso),
+    queryKey: ["calendar", "google-events", year, month],
+    queryFn: () => googleCalendarApi.listEvents(rangeFromIso, rangeToIso),
     enabled: authReady,
   });
 
@@ -93,7 +95,10 @@ export default function CalendarPage() {
       push(time.toDateString(), { kind: "meeting", time, meeting });
     }
     for (const event of googleEvents.data?.data ?? []) {
-      if (linkedGoogleIds.has(event.googleEventId)) continue;
+      const alreadyLinked = [...linkedGoogleIds].some(
+        (id) => event.googleEventId === id || event.googleEventId.endsWith(`:${id}`)
+      );
+      if (alreadyLinked) continue;
       const time = new Date(event.start);
       if (Number.isNaN(time.getTime())) continue;
       push(time.toDateString(), { kind: "google", time, event });
@@ -151,6 +156,23 @@ export default function CalendarPage() {
       {meetings.isError && (
         <Alert variant="error" onRetry={() => meetings.refetch()}>
           {formatQueryError(meetings.error, "Could not load meetings.")}
+        </Alert>
+      )}
+      {googleEvents.isError && (
+        <Alert variant="error" onRetry={() => googleEvents.refetch()}>
+          {formatQueryError(googleEvents.error, "Could not load Google Calendar events.")}
+        </Alert>
+      )}
+      {googleEvents.data?.connected === false && (
+        <Alert variant="warning">
+          Google Calendar is not connected for this account, so only meetings created in Skout are
+          shown. Connect it under Settings → Google Calendar.
+        </Alert>
+      )}
+      {googleEvents.data?.error === "google_fetch_failed" && (
+        <Alert variant="warning" onRetry={() => googleEvents.refetch()}>
+          Google Calendar is connected, but events could not be loaded. Try disconnecting and
+          reconnecting under Settings → Google Calendar.
         </Alert>
       )}
 
