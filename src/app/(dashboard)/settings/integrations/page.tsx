@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Download, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import { Calendar, Check, Copy, Download, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,7 +15,56 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
+import { useGoogleCalendarApi } from "@/lib/google-calendar";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
+
+function GoogleCalendarCard() {
+  const authReady = useAuthReady();
+  const calendarApi = useGoogleCalendarApi();
+
+  const status = useQuery({
+    queryKey: ["calendar", "connection"],
+    queryFn: calendarApi.getStatus,
+    enabled: authReady,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base sm:text-lg">Google Calendar</CardTitle>
+            <CardDescription>
+              Schedule meetings with a real Meet link and invite attendees directly from Skout.
+            </CardDescription>
+          </div>
+          {status.isLoading ? null : status.data?.connected ? (
+            <Badge tone="success">Connected</Badge>
+          ) : (
+            <Badge tone="muted">Not connected</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {status.isLoading ? (
+          <Skeleton className="h-10 w-full rounded-md" />
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              {status.data?.connected ? status.data.connectedEmail : "Each teammate connects their own calendar"}
+            </div>
+            <Link href="/settings/calendar">
+              <Button variant={status.data?.connected ? "outline" : "default"} size="sm">
+                {status.data?.connected ? "Manage" : "Connect"}
+              </Button>
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function ApolloSequenceImporter() {
   const api = useIntegrationsApi();
@@ -357,6 +407,8 @@ export default function IntegrationsSettingsPage() {
           <Skeleton className="h-56 w-full rounded-xl" />
         </div>
       )}
+
+      <GoogleCalendarCard />
 
       {messaging.length > 0 && (
         <div className="space-y-3">
