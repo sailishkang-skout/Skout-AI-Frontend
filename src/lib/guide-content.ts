@@ -424,7 +424,7 @@ export const GUIDE_CONTENT: Record<GuideSlug, { sections: GuideSectionContent[] 
       {
         title: "Connect Google",
         steps: [
-          "Open Settings → Google Calendar.",
+          "Open Settings → Integrations, and find Google Calendar at the top.",
           "Click Connect — you are redirected to Google OAuth (full page, not a popup).",
           "After redirect back, status shows Connected. No extra sync step.",
         ],

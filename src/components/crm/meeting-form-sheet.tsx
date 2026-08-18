@@ -267,12 +267,12 @@ export function MeetingFormSheet({
             {meeting?.googleEventId
               ? "Saving will re-sync invitees on the Google Calendar event and email anyone new."
               : "A Google Meet link will be created automatically and invitees will get a calendar invite by email."}{" "}
-            Connect Google Calendar under Settings first if you haven&apos;t.
+            Connect Google Calendar under Settings → Integrations first if you haven&apos;t.
           </p>
         )}
         {scheduleGoogle.isError && (
           <Alert variant="error">
-            {formatQueryError(scheduleGoogle.error, "Could not create the Google Calendar event. Connect Google Calendar under Settings first.")}
+            {formatQueryError(scheduleGoogle.error, "Could not create the Google Calendar event. Connect Google Calendar under Settings → Integrations first.")}
           </Alert>
         )}
 

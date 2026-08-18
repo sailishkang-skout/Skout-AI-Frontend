@@ -166,13 +166,13 @@ export default function CalendarPage() {
       {googleEvents.data?.connected === false && (
         <Alert variant="warning">
           Google Calendar is not connected for this account, so only meetings created in Skout are
-          shown. Connect it under Settings → Google Calendar.
+          shown. Connect it under Settings → Integrations.
         </Alert>
       )}
       {googleEvents.data?.error === "google_fetch_failed" && (
         <Alert variant="warning" onRetry={() => googleEvents.refetch()}>
           Google Calendar is connected, but events could not be loaded. Try disconnecting and
-          reconnecting under Settings → Google Calendar.
+          reconnecting under Settings → Integrations.
         </Alert>
       )}
 
