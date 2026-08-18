@@ -294,6 +294,8 @@ export interface SequenceStepMetrics {
   sent: number;
   failed: number;
   skipped: number;
+  /** Call steps only — awaiting a human to dial and set a disposition (not scheduled/sent/failed/skipped). */
+  pending: number;
   opens: number;
   clicks: number;
   /** 0–100 percentage already (do not multiply by 100 in UI) */

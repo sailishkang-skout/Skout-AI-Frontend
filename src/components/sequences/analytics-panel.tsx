@@ -83,7 +83,9 @@ function StepFunnelCard({ step }: { step: SequenceStepMetrics }) {
     whatsapp: "WhatsApp",
     wait: "Wait",
     task: "Task",
+    call: "Call",
   };
+  const isCallStep = step.stepType === "call";
 
   return (
     <Card>
@@ -114,12 +116,25 @@ function StepFunnelCard({ step }: { step: SequenceStepMetrics }) {
       </CardHeader>
 
       <CardContent className="space-y-4 pb-4">
-        {/* Delivery grid */}
-        <div className="grid grid-cols-4 divide-x divide-border rounded-lg border border-border text-center text-xs">
+        {/* Delivery grid — call steps get a 5th "Awaiting call" cell: due call steps create a
+            task and wait on a human to dial rather than auto-sending, so they land in a
+            distinct pending state instead of scheduled/sent/failed/skipped. */}
+        <div
+          className={cn(
+            "grid divide-x divide-border rounded-lg border border-border text-center text-xs",
+            isCallStep ? "grid-cols-5" : "grid-cols-4"
+          )}
+        >
           <div className="py-2">
             <p className="font-semibold tabular-nums">{step.scheduled}</p>
             <p className="text-muted-foreground">Scheduled</p>
           </div>
+          {isCallStep && (
+            <div className="py-2">
+              <p className="font-semibold tabular-nums text-blue-600 dark:text-blue-400">{step.pending}</p>
+              <p className="text-muted-foreground">Awaiting call</p>
+            </div>
+          )}
           <div className="py-2">
             <p className="font-semibold tabular-nums">{step.sent}</p>
             <p className="text-muted-foreground">Sent</p>
