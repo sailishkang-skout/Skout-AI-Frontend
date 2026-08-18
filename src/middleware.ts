@@ -1,7 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextFetchEvent } from "next/server";
 import { NextResponse, NextRequest } from "next/server";
-import { GATE_COOKIE_NAME, hashGateToken } from "@/lib/gate";
+import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
+import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
 
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
@@ -91,18 +92,19 @@ function isHealthCheck(request: NextRequest): boolean {
  * See src/app/gate/ and src/lib/gate.ts.
  */
 async function gateCheck(request: NextRequest): Promise<NextResponse | null> {
-  const gateToken = process.env.GATE_TOKEN;
+  const gateToken = GATE_TOKEN_VALUE || process.env.GATE_TOKEN;
   if (!gateToken) return null;
-  if (request.nextUrl.pathname.startsWith("/gate")) return null;
+  if (isGatePath(request.nextUrl.pathname)) return null;
 
   const cookie = request.cookies.get(GATE_COOKIE_NAME)?.value;
   if (cookie && cookie === (await hashGateToken(gateToken))) return null;
 
   // .clone() (not `new URL(path, request.url)`) so basePath ("/app") is preserved.
+  // Never copy Clerk handshake / other query params into `next` — that 431s proxies.
   const gateUrl = request.nextUrl.clone();
   gateUrl.pathname = "/gate";
   gateUrl.search = "";
-  gateUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  gateUrl.searchParams.set("next", safeNextPath(request.nextUrl.pathname));
   return NextResponse.redirect(gateUrl);
 }
 

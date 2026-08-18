@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { safeNextPath } from "@/lib/gate";
 import { unlockGate } from "./actions";
 
 export default function GatePage({
@@ -7,7 +8,7 @@ export default function GatePage({
 }: {
   searchParams: { error?: string; next?: string };
 }) {
-  const next = searchParams.next && searchParams.next.startsWith("/") ? searchParams.next : "/";
+  const next = safeNextPath(searchParams.next);
   const hasError = searchParams.error === "1";
 
   return (
