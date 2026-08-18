@@ -38,21 +38,20 @@ export interface EmailIntelDiscoveryResult {
   error?: string;
 }
 
+/** Matches the real upstream /patterns response exactly (verified against a live call —
+ * this is deliberately simpler than /discover's response: deterministic priority order,
+ * no historical-evidence scoring, no decision/confidence). */
 export interface EmailIntelPatternCandidate {
-  email: string;
   pattern: string;
-  finalScore: number;
-  decision: string;
-  confidence: number;
-  historicalSuccessRate: number;
-  reasons: string[];
+  email: string;
+  priority: number;
 }
 
 export interface EmailIntelPatternResult {
   success: boolean;
   domain: string;
-  candidates: EmailIntelPatternCandidate[];
-  recommended: EmailIntelPatternCandidate | null;
+  person?: { first_name: string; last_name: string };
+  patterns: EmailIntelPatternCandidate[];
   error?: string;
 }
 

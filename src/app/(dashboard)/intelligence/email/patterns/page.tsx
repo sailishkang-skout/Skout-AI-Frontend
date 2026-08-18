@@ -12,12 +12,6 @@ import { Input } from "@/components/ui/input";
 import { formatQueryError } from "@/lib/api-client";
 import { useEmailIntelApi } from "@/lib/email-intel";
 
-function decisionTone(decision: string): "success" | "danger" | "warning" {
-  if (decision === "STRONG" || decision === "GOOD") return "success";
-  if (decision === "REJECT") return "danger";
-  return "warning";
-}
-
 export default function EmailPatternsPage() {
   const emailIntel = useEmailIntelApi();
   const [firstName, setFirstName] = useState("");
@@ -33,11 +27,15 @@ export default function EmailPatternsPage() {
       }),
   });
 
+  // Lowest priority number = most likely pattern.
+  const ranked = [...(patterns.data?.patterns ?? [])].sort((a, b) => a.priority - b.priority);
+  const top = ranked[0];
+
   return (
     <PageShell width="narrow">
       <PageHeader
         title="Patterns"
-        description="Rank the likely email address patterns for a domain from historical evidence."
+        description="Rank the likely email address patterns for a domain, most likely first."
       />
 
       <Card>
@@ -85,30 +83,25 @@ export default function EmailPatternsPage() {
       {patterns.isSuccess && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              {patterns.data.recommended ? "Recommended" : "No confident pattern"}
-            </CardTitle>
+            <CardTitle className="text-base">{top ? "Most likely" : "No patterns generated"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {patterns.data.recommended && (
+            {top && (
               <div className="flex items-center justify-between rounded-lg border bg-accent/30 px-3 py-2.5">
-                <p className="font-mono text-sm font-medium">{patterns.data.recommended.email}</p>
-                <Badge tone="success">{patterns.data.recommended.confidence}% confidence</Badge>
+                <p className="font-mono text-sm font-medium">{top.email}</p>
+                <Badge tone="success">{top.pattern}</Badge>
               </div>
             )}
-            {patterns.data.candidates.length > 0 && (
+            {ranked.length > 1 && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">All candidates</p>
-                {patterns.data.candidates.map((candidate) => (
+                <p className="text-xs font-medium text-muted-foreground">All patterns</p>
+                {ranked.slice(1).map((candidate) => (
                   <div
                     key={candidate.email}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
                   >
                     <span className="font-mono">{candidate.email}</span>
-                    <span className="flex items-center gap-2">
-                      <Badge tone="muted">{candidate.pattern}</Badge>
-                      <Badge tone={decisionTone(candidate.decision)}>{candidate.decision}</Badge>
-                    </span>
+                    <Badge tone="muted">{candidate.pattern}</Badge>
                   </div>
                 ))}
               </div>
