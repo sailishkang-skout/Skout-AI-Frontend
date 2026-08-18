@@ -9,6 +9,7 @@ import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
+import { EmailVerifyBadge } from "@/components/prospects/email-verify-badge";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -37,19 +38,7 @@ import {
   memberSnap,
   memberSubtitle,
 } from "@/lib/list-members";
-import type { EmailVerifyStatus, ListMemberDetail, ProspectSummary } from "@/types/api";
-
-const VERIFY_BADGE: Record<
-  EmailVerifyStatus,
-  { tone: "success" | "warning" | "danger" | "muted"; label: string }
-> = {
-  valid: { tone: "success", label: "Valid" },
-  catch_all: { tone: "warning", label: "Catch-all" },
-  risky: { tone: "warning", label: "Risky" },
-  invalid: { tone: "danger", label: "Invalid" },
-  unknown: { tone: "muted", label: "Unknown" },
-  no_email: { tone: "muted", label: "No email" },
-};
+import type { ListMemberDetail, ProspectSummary } from "@/types/api";
 
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
@@ -835,14 +824,11 @@ export default function ListDetailPage() {
                             <ScoreBadge score={memberScore.score} reasoning={memberScore.reasoning} />
                           )}
                           {m.verification && (
-                            <Badge
-                              tone={VERIFY_BADGE[m.verification.status].tone}
-                              title={`Deliverability ${m.verification.deliverabilityScore}/100${
-                                m.verification.provider ? ` · ${m.verification.provider}` : ""
-                              }`}
-                            >
-                              {VERIFY_BADGE[m.verification.status].label}
-                            </Badge>
+                            <EmailVerifyBadge
+                              status={m.verification.status}
+                              deliverabilityScore={m.verification.deliverabilityScore}
+                              provider={m.verification.provider}
+                            />
                           )}
                           {showSignals && (m.signals?.length ?? 0) > 0 && (
                             <SignalBadges

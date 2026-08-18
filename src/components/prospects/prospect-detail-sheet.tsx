@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { EmailVerifyBadge } from "@/components/prospects/email-verify-badge";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
 import { GenerateDraftFromProspect } from "@/components/prospects/generate-draft-from-prospect";
@@ -273,7 +274,13 @@ export function ProspectDetailSheet({
       ? d.companyDomain
       : [d.title, d.companyDomain].filter(Boolean).join(" · ");
 
-  const email = enrichedEmail ?? detail.data?.email ?? (member?.snapshot as { email?: string })?.email;
+  // member.verification is the real Email Intelligence result the list page already fetched
+  // (GET /lists/:id) — the same data used to gate sends, not just a loose snapshot field.
+  // "no_email" is itself a real status (verification ran and found nothing to send to), which
+  // is more informative than the field silently being blank.
+  const verification = member?.verification;
+  const email =
+    enrichedEmail ?? verification?.email ?? detail.data?.email ?? (member?.snapshot as { email?: string })?.email;
   const emailStatus =
     enrichedEmailStatus ?? (member?.snapshot as { emailStatus?: string })?.emailStatus;
 
@@ -422,8 +429,23 @@ export function ProspectDetailSheet({
           <DetailRow label="Department" value={detail.data?.department} />
           <DetailRow label="Seniority" value={d.seniority !== "unknown" ? d.seniority : undefined} />
           <DetailRow label="Job function" value={detail.data?.jobFunction} />
-          <DetailRow label="Email" value={email} />
-          {emailStatus && <DetailRow label="Email status" value={emailStatus} />}
+          <DetailRow label="Email" value={email ?? (verification ? "Not found" : undefined)} />
+          {verification ? (
+            <div className="grid gap-0.5 border-b border-border py-3 last:border-0">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Email status
+              </dt>
+              <dd className="text-sm">
+                <EmailVerifyBadge
+                  status={verification.status}
+                  deliverabilityScore={verification.deliverabilityScore}
+                  provider={verification.provider}
+                />
+              </dd>
+            </div>
+          ) : (
+            emailStatus && <DetailRow label="Email status" value={emailStatus} />
+          )}
           <DetailRow label="Phone" value={detail.data?.phone} />
           <DetailRow label="LinkedIn" value={detail.data?.linkedinUrl} />
           <DetailRow label="Country" value={d.country} />
