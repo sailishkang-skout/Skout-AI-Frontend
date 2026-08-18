@@ -50,23 +50,22 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
 
+/** Renders as the last item under the Help group — same look as a normal NavLink. */
 function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
   const tour = useProductTourOptional();
   if (!tour) return null;
   return (
-    <div className="mt-3 border-t border-border px-1 pt-3">
-      <button
-        type="button"
-        onClick={() => {
-          tour.restartTour();
-          onNavigate?.();
-        }}
-        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-      >
-        <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
-        <span className="truncate">Take product tour</span>
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => {
+        tour.restartTour();
+        onNavigate?.();
+      }}
+      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+    >
+      <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
+      <span className="truncate">Take product tour</span>
+    </button>
   );
 }
 
@@ -88,33 +87,67 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-export const enrichmentNav: NavGroup[] = [
+// Sidebar order follows the user's journey, not an alphabetical feature list:
+// Discover (who to sell to) -> Outreach (how to reach them) -> Intelligence (what's
+// happening) -> CRM (what to manage) -> Automation (what Skout does for you) -> Settings.
+
+export const homeNav: NavGroup[] = [
   {
     label: "Home",
     items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3, tourId: "nav-dashboard" }],
   },
+];
+
+export const discoverNav: NavGroup[] = [
   {
     label: "Discover",
     items: [
       { href: "/prospects/search", label: "Prospect search", icon: Search, tourId: "nav-prospect-search" },
+      { href: "/tam", label: "Market (TAM)", icon: Radar, tourId: "nav-tam" },
+      { href: "/settings/icp", label: "ICP", icon: Target, tourId: "nav-icp-settings" },
+      { href: "/lists", label: "Lists", icon: List, tourId: "nav-lists" },
+      { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
-      { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
-      { href: "/tam", label: "Market (TAM)", icon: Radar, tourId: "nav-tam" },
-    ],
-  },
-  {
-    label: "Activate",
-    items: [
-      { href: "/lists", label: "Lists", icon: List, tourId: "nav-lists" },
       { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
     ],
   },
+];
+
+export const outreachNav: NavGroup[] = [
   {
-    label: "ICP",
+    label: "Outreach",
     items: [
-      { href: "/onboarding", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
-      { href: "/settings/icp", label: "ICP settings", icon: Target, tourId: "nav-icp-settings" },
+      { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
+      { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
+      { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
+      { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
+    ],
+  },
+];
+
+export const intelligenceNav: NavGroup[] = [
+  {
+    label: "Intelligence",
+    items: [
+      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
+      {
+        href: "/intelligence/email",
+        label: "Email Intelligence",
+        icon: MailCheck,
+        tourId: "nav-email-intelligence",
+        children: [
+          { href: "/intelligence/email", label: "Overview", icon: LayoutDashboard, exact: true },
+          { href: "/intelligence/email/verify", label: "Verify", icon: BadgeCheck },
+          { href: "/intelligence/email/discover", label: "Discover", icon: Search },
+          { href: "/intelligence/email/patterns", label: "Patterns", icon: Sparkles },
+          { href: "/intelligence/email/warmup", label: "Warm-up", icon: Zap },
+        ],
+      },
+      { href: "/crm/deals", label: "CRM Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
+      { href: "/ai/review", label: "AI Review", icon: Sparkles, tourId: "nav-ai-review" },
+      { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
     ],
   },
 ];
@@ -133,55 +166,38 @@ export const crmNav: NavGroup[] = [
   },
 ];
 
-export const intelligenceNav: NavGroup[] = [
+export const automationNav: NavGroup[] = [
   {
-    label: "Intelligence",
+    label: "Automation",
     items: [
-      {
-        href: "/intelligence/email",
-        label: "Email Intelligence",
-        icon: MailCheck,
-        tourId: "nav-email-intelligence",
-        children: [
-          { href: "/intelligence/email", label: "Overview", icon: LayoutDashboard, exact: true },
-          { href: "/intelligence/email/verify", label: "Verify", icon: BadgeCheck },
-          { href: "/intelligence/email/discover", label: "Discover", icon: Search },
-          { href: "/intelligence/email/patterns", label: "Patterns", icon: Sparkles },
-          { href: "/intelligence/email/warmup", label: "Warm-up", icon: Zap },
-        ],
-      },
-      { href: "/crm/deals", label: "Deal Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
-      { href: "/ai/review", label: "AI Review", icon: Sparkles, tourId: "nav-ai-review" },
+      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
     ],
   },
 ];
 
-export const otherNav: NavGroup[] = [
-  {
-    label: "Outreach",
-    items: [
-      { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
-      { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
-      { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
-      { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
-    ],
-  },
+export const settingsNav: NavGroup[] = [
   {
     label: "Settings",
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
-      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
-      { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
-      { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
-      { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
-      { href: "/settings/calendar", label: "Google Calendar", icon: Calendar },
-      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
-      { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
+      { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
       { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
       { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },
+      // Not in the new spec's visible groups — kept here rather than dropped from the nav
+      // entirely, since it's a real working page with no other listed home for it.
+      { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
+    ],
+  },
+];
+
+export const helpNav: NavGroup[] = [
+  {
+    label: "Help",
+    items: [
       { href: "/guides", label: "Setup guides", icon: BookOpen, tourId: "nav-guides" },
+      { href: "/onboarding", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
     ],
   },
 ];
@@ -348,10 +364,14 @@ export function SidebarPanel({
         )}
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
-        <NavSection groups={enrichmentNav} onNavigate={onNavigate} />
-        <NavSection groups={crmNav} onNavigate={onNavigate} />
+        <NavSection groups={homeNav} onNavigate={onNavigate} />
+        <NavSection groups={discoverNav} onNavigate={onNavigate} />
+        <NavSection groups={outreachNav} onNavigate={onNavigate} />
         <NavSection groups={intelligenceNav} onNavigate={onNavigate} />
-        <NavSection groups={otherNav} onNavigate={onNavigate} />
+        <NavSection groups={crmNav} onNavigate={onNavigate} />
+        <NavSection groups={automationNav} onNavigate={onNavigate} />
+        <NavSection groups={settingsNav} onNavigate={onNavigate} />
+        <NavSection groups={helpNav} onNavigate={onNavigate} />
         <RestartTourButton onNavigate={onNavigate} />
       </nav>
     </aside>

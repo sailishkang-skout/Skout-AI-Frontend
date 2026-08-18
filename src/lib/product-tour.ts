@@ -193,6 +193,29 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "email-intelligence",
+    target: "nav-email-intelligence",
+    href: "/intelligence/email",
+    title: "Email Intelligence",
+    body: "SMTP-based verification, discovery, and pattern ranking for sending addresses.",
+    details: [
+      "Verify a single email or a whole batch before you send to it",
+      "Discover the most likely address for a name + domain",
+      "Rank email patterns for a domain from historical evidence",
+    ],
+  },
+  {
+    id: "deal-intelligence",
+    target: "nav-deal-intelligence",
+    href: "/crm/deals",
+    title: "CRM Intelligence",
+    body: "Your deal pipeline, viewed as a source of signal rather than just a list to manage.",
+    details: [
+      "Same Deals board you manage from — just reached from Intelligence too",
+      "Spot stale or at-risk deals alongside your other signal sources",
+    ],
+  },
+  {
     id: "draft-auto-approve",
     target: "nav-draft-auto-approve",
     href: "/settings/draft-auto-approve",
