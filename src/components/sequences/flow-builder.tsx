@@ -48,12 +48,20 @@ const CONDITION_LABELS: Record<SequenceConditionType, string> = {
   linkedin_invite_declined: "LinkedIn invite declined",
   email_opened: "Email opened",
   email_clicked: "Email clicked",
+  email_opened_count_gte: "Email opened at least N times",
+  email_clicked_count_gte: "Email clicked at least N times",
   email_replied: "Email replied",
   call_connected: "Call connected",
   icp_score_gte: "ICP score ≥",
   has_email: "Has email",
   has_linkedin: "Has LinkedIn URL",
   account_has_positive_reply: "Another contact at this account replied positively",
+};
+
+const CONDITION_VALUE_DEFAULTS: Partial<Record<SequenceConditionType, number>> = {
+  icp_score_gte: 80,
+  email_opened_count_gte: 3,
+  email_clicked_count_gte: 3,
 };
 
 function iconFor(type: SequenceStepType) {
@@ -458,7 +466,11 @@ function StepEditorDialog({
         patch.conditionType = clauses[0]!.type;
         patch.conditionExpression = {
           op: compoundOp,
-          clauses: clauses.map((c) => ({ type: c.type, not: c.not || undefined, value: c.type === "icp_score_gte" ? c.value ?? 80 : undefined })),
+          clauses: clauses.map((c) => ({
+            type: c.type,
+            not: c.not || undefined,
+            value: c.type in CONDITION_VALUE_DEFAULTS ? c.value ?? CONDITION_VALUE_DEFAULTS[c.type] : undefined,
+          })),
         };
       } else {
         patch.conditionType = conditionType;
@@ -541,12 +553,15 @@ function StepEditorDialog({
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </Select>
-                    {clause.type === "icp_score_gte" && (
+                    {clause.type in CONDITION_VALUE_DEFAULTS && (
                       <Input
                         type="number"
                         className="h-8 w-16"
-                        value={clause.value ?? 80}
-                        onChange={(e) => setClauses((rows) => rows.map((r, i) => i === idx ? { ...r, value: Number(e.target.value) || 80 } : r))}
+                        value={clause.value ?? CONDITION_VALUE_DEFAULTS[clause.type]}
+                        onChange={(e) => {
+                          const fallback = CONDITION_VALUE_DEFAULTS[clause.type]!;
+                          setClauses((rows) => rows.map((r, i) => i === idx ? { ...r, value: Number(e.target.value) || fallback } : r));
+                        }}
                       />
                     )}
                     <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setClauses((rows) => rows.filter((_, i) => i !== idx))}>

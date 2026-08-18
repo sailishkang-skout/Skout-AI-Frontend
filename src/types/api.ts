@@ -210,6 +210,8 @@ export type SequenceConditionType =
   | "linkedin_invite_declined"
   | "email_opened"
   | "email_clicked"
+  | "email_opened_count_gte"
+  | "email_clicked_count_gte"
   | "email_replied"
   | "call_connected"
   | "icp_score_gte"
@@ -420,6 +422,29 @@ export interface InboxThread {
     icpScore?: number;
     icpBand?: string;
   } | null;
+}
+
+/** Row shape returned by GET /inbox/manual-review — the raw inbox_threads row (no prospect
+ * join), plus the persisted AI suggestion a human needs to approve or dismiss. */
+export interface ManualReviewThread {
+  id: string;
+  workspaceId: string;
+  inboxId: string;
+  enrollmentId: string | null;
+  prospectId: string | null;
+  subject: string;
+  status: ThreadStatus;
+  statusChangedAt: string | null;
+  unreadCount: number;
+  replyTag: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  needsReview: boolean;
+  suggestedTag: string | null;
+  suggestedNegativeSubtype: string | null;
+  suggestedConfidence: number | null;
+  suggestedReason: string | null;
 }
 
 export interface InboxMessage {

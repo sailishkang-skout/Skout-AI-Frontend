@@ -119,7 +119,16 @@ export const outreachNav: NavGroup[] = [
     label: "Outreach",
     items: [
       { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
-      { href: "/inbox", label: "Inbox", icon: Inbox, tourId: "nav-inbox" },
+      {
+        href: "/inbox",
+        label: "Inbox",
+        icon: Inbox,
+        tourId: "nav-inbox",
+        children: [
+          { href: "/inbox", label: "Conversations", icon: Inbox, exact: true },
+          { href: "/inbox/manual-review", label: "Manual review", icon: BadgeCheck },
+        ],
+      },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
       { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
