@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { waitForApiHealth } from "./helpers";
 
 test.describe("Public pages", () => {
+  test("signin page loads", async ({ page }) => {
     await page.goto("/signin");
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
     await expect(

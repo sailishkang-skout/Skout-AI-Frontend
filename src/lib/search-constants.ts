@@ -197,12 +197,12 @@ export type FilterDraft = {
   companyName: string;
   companyDomain: string;
   keyword: string;
-  industry: string;
+  industries: string[];
   subIndustry: string;
   country: string;
   state: string;
   city: string;
-  companySize: string;
+  companySizes: string[];
   // Company — Stage & Funding
   companyStage: string;
   lastFundingRound: string;
@@ -241,12 +241,12 @@ export const EMPTY_FILTER_DRAFT: FilterDraft = {
   companyName: "",
   companyDomain: "",
   keyword: "",
-  industry: "",
+  industries: [],
   subIndustry: "",
   country: "",
   state: "",
   city: "",
-  companySize: "",
+  companySizes: [],
   companyStage: "",
   lastFundingRound: "",
   revenueRange: "",
@@ -280,12 +280,12 @@ export function countActiveFilters(draft: FilterDraft): number {
     draft.companyName,
     draft.companyDomain,
     draft.keyword,
-    draft.industry,
+    draft.industries.length ? "industries" : undefined,
     draft.subIndustry,
     draft.country,
     draft.state,
     draft.city,
-    draft.companySize,
+    draft.companySizes.length ? "companySizes" : undefined,
     draft.companyStage,
     draft.lastFundingRound,
     draft.revenueRange,

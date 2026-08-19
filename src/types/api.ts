@@ -142,10 +142,12 @@ export interface ProspectSearchFilters {
   companyDomain?: string;
   keyword?: string;
   industry?: string;
+  industries?: string[];
   subIndustry?: string;
   country?: string;
   state?: string;
   city?: string;
+  employeeBuckets?: string[];
   minEmployees?: number;
   maxEmployees?: number;
   // Company — Stage & Funding

@@ -61,6 +61,10 @@ function Pill({
   );
 }
 
+function toggle(list: string[], value: string) {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CompanyFilterSheet({
@@ -87,12 +91,12 @@ export function CompanyFilterSheet({
     setDraft((d) => ({
       ...d,
       companyName: "",
-      industry: "",
+      industries: [],
       subIndustry: "",
       country: "",
       state: "",
       city: "",
-      companySize: "",
+      companySizes: [],
       companyStage: "",
       lastFundingRound: "",
       revenueRange: "",
@@ -155,12 +159,17 @@ export function CompanyFilterSheet({
             </div>
             <div>
               <Label>Industry</Label>
-              <Select value={draft.industry} onChange={(e) => set("industry", e.target.value)}>
-                <option value="">Any industry</option>
+              <div className="flex flex-wrap gap-2">
                 {INDUSTRIES.map((ind) => (
-                  <option key={ind} value={ind}>{ind}</option>
+                  <Pill
+                    key={ind}
+                    active={draft.industries.includes(ind)}
+                    onClick={() => set("industries", toggle(draft.industries, ind))}
+                  >
+                    {ind}
+                  </Pill>
                 ))}
-              </Select>
+              </div>
             </div>
             <div>
               <Label>Sub-Industry</Label>
@@ -199,12 +208,17 @@ export function CompanyFilterSheet({
             </div>
             <div>
               <Label>Company Size</Label>
-              <Select value={draft.companySize} onChange={(e) => set("companySize", e.target.value)}>
-                <option value="">Any size</option>
+              <div className="flex flex-wrap gap-2">
                 {COMPANY_SIZE_BUCKETS.map((b) => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
+                  <Pill
+                    key={b.value}
+                    active={draft.companySizes.includes(b.value)}
+                    onClick={() => set("companySizes", toggle(draft.companySizes, b.value))}
+                  >
+                    {b.label}
+                  </Pill>
                 ))}
-              </Select>
+              </div>
             </div>
           </Section>
 
