@@ -118,7 +118,8 @@ export function ProspectFilterSidebar({
   onClear?: () => void;
   className?: string;
 }) {
-  const [open, setOpen] = useState<string | null>("Person Name");
+  // Multiple sections can be open at once so users can compare filters.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(["Person Name"]));
   const set = (patch: Partial<FilterDraft>) => onChange({ ...value, ...patch });
   const activeCount = countActiveFilters(value);
 
@@ -213,12 +214,17 @@ export function ProspectFilterSidebar({
       title: "Employee Headcount",
       icon: UserCheck,
       body: (
-        <Select value={value.companySize} onChange={(e) => set({ companySize: e.target.value })}>
-          <option value="">Any size</option>
+        <div className="flex flex-wrap gap-2">
           {COMPANY_SIZE_BUCKETS.map((b) => (
-            <option key={b.value} value={b.value}>{b.label}</option>
+            <Pill
+              key={b.value}
+              active={value.companySizes.includes(b.value)}
+              onClick={() => set({ companySizes: toggle(value.companySizes, b.value) })}
+            >
+              {b.label}
+            </Pill>
           ))}
-        </Select>
+        </div>
       ),
     },
     {
@@ -227,12 +233,17 @@ export function ProspectFilterSidebar({
       body: (
         <>
           <Label>Industry</Label>
-          <Select value={value.industry} onChange={(e) => set({ industry: e.target.value })}>
-            <option value="">Any</option>
+          <div className="flex flex-wrap gap-2">
             {INDUSTRIES.map((i) => (
-              <option key={i} value={i}>{i}</option>
+              <Pill
+                key={i}
+                active={value.industries.includes(i)}
+                onClick={() => set({ industries: toggle(value.industries, i) })}
+              >
+                {i}
+              </Pill>
             ))}
-          </Select>
+          </div>
           <Label>Keyword</Label>
           <Input placeholder="e.g. payments, CRM" value={value.keyword} onChange={(e) => set({ keyword: e.target.value })} />
           <Label>Sub-industry</Label>
@@ -456,8 +467,15 @@ export function ProspectFilterSidebar({
             key={section.title}
             title={section.title}
             icon={section.icon}
-            open={open === section.title}
-            onToggle={() => setOpen((cur) => (cur === section.title ? null : section.title))}
+            open={open.has(section.title)}
+            onToggle={() =>
+              setOpen((cur) => {
+                const next = new Set(cur);
+                if (next.has(section.title)) next.delete(section.title);
+                else next.add(section.title);
+                return next;
+              })
+            }
           >
             {section.body}
           </FilterSection>

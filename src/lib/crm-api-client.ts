@@ -1,7 +1,11 @@
 import { useAuth } from "@clerk/nextjs";
 import { ApiError, CLERK_ENABLED, getClerkApiToken } from "./api-client";
 
-const CONFIGURED_CRM_API_URL = process.env.NEXT_PUBLIC_CRM_API_URL ?? "http://127.0.0.1:3002";
+/** Dev/prod often expose CRM routes on the same API Gateway host as the main API (ALB path rules). */
+const CONFIGURED_CRM_API_URL =
+  process.env.NEXT_PUBLIC_CRM_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://127.0.0.1:3002";
 
 const AUTH_LOAD_POLL_MS = 25;
 const AUTH_LOAD_TIMEOUT_MS = 8_000;

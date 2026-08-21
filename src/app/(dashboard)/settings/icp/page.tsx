@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -94,12 +95,15 @@ function IcpSettingsContent() {
         title="ICP settings"
         description="Ideal Customer Profile for AI scoring and enrichment prioritization."
         actions={
-          <Link
-            href="/onboarding/icp"
-            className="inline-flex h-10 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent sm:w-auto"
-          >
-            Setup wizard
-          </Link>
+          <>
+            <GuideLink slug="search-icp" label="ICP guide" compact />
+            <Link
+              href="/onboarding/icp"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent sm:w-auto"
+            >
+              Setup wizard
+            </Link>
+          </>
         }
       />
 

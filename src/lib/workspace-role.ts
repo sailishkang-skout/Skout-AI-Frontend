@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ApiError, useApiFetch, useAuthReady } from "./api-client";
 
 interface MeResponse {
+  userId?: string;
   role?: string;
 }
 
@@ -29,7 +30,7 @@ export function useWorkspaceRole() {
   const role = data?.role;
   const canDelete = role === "owner" || role === "admin";
 
-  return { role, canDelete };
+  return { role, canDelete, userId: data?.userId };
 }
 
 /** True if a CRM delete/mutation was rejected because the user's role isn't owner/admin. */

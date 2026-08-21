@@ -1,7 +1,13 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
-  enrichmentNav,
-  otherNav,
+  homeNav,
+  discoverNav,
+  outreachNav,
+  intelligenceNav,
+  crmNav,
+  automationNav,
+  settingsNav,
+  helpNav,
 } from "@/components/workspace/sidebar";
 import {
   loadTourState,
@@ -27,7 +33,16 @@ describe("product-tour", () => {
   });
 
   it("covers every sidebar nav target plus AI chat", () => {
-    const navTourIds = [...enrichmentNav, ...otherNav]
+    const navTourIds = [
+      ...homeNav,
+      ...discoverNav,
+      ...outreachNav,
+      ...intelligenceNav,
+      ...crmNav,
+      ...automationNav,
+      ...settingsNav,
+      ...helpNav,
+    ]
       .flatMap((g) => g.items)
       .map((i) => i.tourId)
       .filter((id): id is string => Boolean(id));

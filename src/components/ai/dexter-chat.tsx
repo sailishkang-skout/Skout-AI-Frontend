@@ -33,7 +33,6 @@ import {
   warmSpeechVoices,
   type SpeechRecognitionLike,
 } from "@/lib/dexter-speech";
-import { useSequencesApi } from "@/lib/sequences";
 import { createClientLogger } from "@/lib/logger";
 import { sanitizeHtml, stripExportLinks } from "@/components/ai/ai-chat-box";
 
@@ -70,7 +69,6 @@ interface DexterChatProps {
 
 export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const api = useAiChatApi();
-  const sequences = useSequencesApi();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
@@ -154,7 +152,10 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       if (action.type !== "navigate" && action.type !== "ui_action") return;
       if (action.type === "ui_action" && action.confirm && !auto) return;
 
-      const result = await executeDexterAction(action, { router, sequences });
+      // R15.2 — enroll_list's audit log write now happens server-side in the same request as
+      // the enroll itself (POST /ai/actions/enroll-list), not as a separate client call after
+      // the fact — see executeDexterAction / api.enrollList.
+      const result = await executeDexterAction(action, { router, enrollList: api.enrollList });
       setTurns((prev) =>
         prev.map((t, i) =>
           i === turnIndex
@@ -176,7 +177,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         name: action.type === "ui_action" ? action.name : undefined,
       });
     },
-    [router, sequences, speakReply, voiceOn]
+    [api, router, speakReply, voiceOn]
   );
 
   const send = useMutation({
@@ -211,19 +212,16 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         segregated: res.segregated,
         exports: res.exports,
       };
-      setTurns((prev) => {
-        const next = [...prev, assistantTurn];
-        // Auto-run safe actions in voice mode (navigate + non-confirm ui_action).
-        const idx = next.length - 1;
-        queueMicrotask(() => {
-          if (res.action.type === "navigate") {
-            void runAction(res.action, idx, true);
-          } else if (res.action.type === "ui_action" && !res.action.confirm) {
-            void runAction(res.action, idx, true);
-          }
-        });
-        return next;
-      });
+setTurns((prev) => [...prev, assistantTurn]);
+      // Auto-run safe actions in voice mode (navigate + non-confirm ui_action).
+      // Runs once via the mutation callback (not inside a state updater), so
+      // React StrictMode's double-invoked updaters cannot fire it twice.
+      const idx = turns.length; // index of the assistant turn being appended
+      if (res.action.type === "navigate") {
+        void runAction(res.action, idx, true);
+      } else if (res.action.type === "ui_action" && !res.action.confirm) {
+        void runAction(res.action, idx, true);
+      }
       speakReply(res.reply);
       scrollToBottom();
     },
@@ -245,18 +243,19 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
     },
   });
 
-  function submitText(text: string) {
+function submitText(text: string) {
     const trimmed = text.trim();
     if (!trimmed || send.isPending) return;
     clearSilenceTimer();
     stopSpeaking();
     setSpeaking(false);
-    setTurns((prev) => {
-      const next = [...prev, { role: "user" as const, content: trimmed }];
-      lastAttemptRef.current = next;
-      send.mutate(next);
-      return next;
-    });
+    // Build the next history outside the state updater. Scheduling send.mutate
+    // inside the updater is unsafe: React StrictMode double-invokes updaters in
+    // dev, which fired two identical chat requests and caused duplicate replies.
+    const next = [...turns, { role: "user" as const, content: trimmed }];
+    lastAttemptRef.current = next;
+    setTurns(next);
+    send.mutate(next);
     setInput("");
     inputRef.current = "";
     setInterim("");

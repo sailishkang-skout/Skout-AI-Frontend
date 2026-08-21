@@ -6,19 +6,31 @@ const require = createRequire(import.meta.url);
 
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ??
-  (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000");
+  (process.env.NODE_ENV === "production" ? "https://www.skoutai.io/app" : "http://localhost:3000/app");
 
 const nextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",
   reactStrictMode: true,
+  basePath: "/app",
+  async redirects() {
+    return [
+      { source: "/sign-in", destination: "/signin", permanent: false },
+      { source: "/sign-in/:path*", destination: "/signin/:path*", permanent: false },
+      { source: "/login", destination: "/signin", permanent: false },
+      { source: "/login/:path*", destination: "/signin/:path*", permanent: false },
+      { source: "/singin", destination: "/signin", permanent: false },
+    ];
+  },
   env: {
+    // Exposed to client so E2E can skip Clerk + onboarding gates (see icp-enforcement.tsx).
+    E2E_AUTH_BYPASS: process.env.E2E_AUTH_BYPASS ?? "",
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ??
       (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:3001"),
     NEXT_PUBLIC_APP_URL: appUrl,
     NEXT_PUBLIC_CLERK_SIGN_IN_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || (appUrl ? `${appUrl}/sign-in` : ""),
+      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/signin`,
     NEXT_PUBLIC_CLERK_SIGN_UP_URL:
       process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || (appUrl ? `${appUrl}/sign-up` : ""),
   },
@@ -26,6 +38,8 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: [
         "localhost:3000",
+        "www.skoutai.io",
+        "skoutai.io",
         ...(appUrl ? [new URL(appUrl).host] : []),
       ],
     },

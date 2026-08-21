@@ -12,6 +12,7 @@ import type {
   InboxThreadsResponse,
   InboxMessagesResponse,
   InboxMessage,
+  ManualReviewThread,
   ThreadContext,
   SuggestReplyResult,
 } from "@/types/api";
@@ -135,5 +136,19 @@ export function useInboxThreadsApi() {
         body: JSON.stringify({ status }),
         workspaceId: WORKSPACE_ID,
       }),
+
+    listManualReview: () =>
+      fetchApi<ListResponse<ManualReviewThread>>("/api/v1/inbox/manual-review", {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    resolveManualReview: (threadId: string, action: "apply" | "dismiss") =>
+      fetchApi<{ ok: boolean; action: string }>(`/api/v1/inbox/threads/${threadId}/manual-review/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ action }),
+        workspaceId: WORKSPACE_ID,
+      }),
   };
 }
+
+export const MANUAL_REVIEW_QUERY_KEY = ["inbox", "manual-review"] as const;

@@ -1,5 +1,5 @@
 import { ArrowRightLeft, CalendarClock, Mail, Phone, StickyNote } from "lucide-react";
-import type { ActivityType, DealStatus, TaskStatus } from "@/types/crm";
+import type { ActivityType, AuditAction, DealStatus, TaskStatus, TaskType } from "@/types/crm";
 import type { BadgeProps } from "@/components/ui/badge";
 
 export { formatJobTime as formatDateTime } from "./enrichment-display";
@@ -51,6 +51,73 @@ export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
   stage_change: "Stage change",
 };
 
+export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  create: "Created",
+  update: "Updated",
+  delete: "Deleted",
+};
+
+export const AUDIT_ACTION_TONE: Record<AuditAction, BadgeProps["tone"]> = {
+  create: "success",
+  update: "info",
+  delete: "danger",
+};
+
+function formatAuditFieldValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) return "—";
+
+  if (["amount", "revenue"].includes(key) && typeof value === "number") {
+    return formatMoney(value);
+  }
+
+  if (["dueDate", "closeDate", "createdAt", "updatedAt", "scheduledAt"].includes(key)) {
+    const due = formatDueDate(typeof value === "string" ? value : null);
+    if (due) return due.label;
+  }
+
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return JSON.stringify(value);
+}
+
+export function formatAuditValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return formatMoney(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return JSON.stringify(value);
+}
+
+export function summarizeAuditDiff(
+  beforeState: Record<string, unknown> | null,
+  afterState: Record<string, unknown> | null,
+  action: AuditAction
+): string[] {
+  if (action === "create") {
+    return Object.entries(afterState ?? {}).map(([key, value]) => `${key}: ${formatAuditFieldValue(key, value)}`);
+  }
+
+  if (action === "delete") {
+    return Object.entries(beforeState ?? {}).map(([key, value]) => `Deleted with: ${key}: ${formatAuditFieldValue(key, value)}`);
+  }
+
+  if (beforeState === null && afterState === null) return [];
+
+  const keys = new Set<string>([
+    ...(beforeState ? Object.keys(beforeState) : []),
+    ...(afterState ? Object.keys(afterState) : []),
+  ]);
+
+  return Array.from(keys)
+    .filter((key) => beforeState?.[key] !== afterState?.[key])
+    .map((key) => {
+      const oldValue = beforeState?.[key];
+      const newValue = afterState?.[key];
+      return `${key}: ${formatAuditFieldValue(key, oldValue)} → ${formatAuditFieldValue(key, newValue)}`;
+    });
+}
+
 export function dealStatusTone(status: DealStatus): BadgeProps["tone"] {
   switch (status) {
     case "won":
@@ -63,5 +130,14 @@ export function dealStatusTone(status: DealStatus): BadgeProps["tone"] {
 }
 
 export function taskStatusTone(status: TaskStatus): BadgeProps["tone"] {
-  return status === "done" ? "success" : "muted";
+  if (status === "done") return "success";
+  if (status === "skipped") return "warning";
+  return "muted";
 }
+
+export const TASK_TYPE_LABEL: Record<TaskType, string> = {
+  call: "Call",
+  email: "Email",
+  "follow-up": "Follow-up",
+  custom: "Task",
+};

@@ -1,6 +1,5 @@
 import {
   BUYING_INTENT_OPTIONS,
-  COMPANY_SIZE_BUCKETS,
   HEADCOUNT_GROWTH_OPTIONS,
   REVENUE_RANGES,
   type FilterDraft,
@@ -32,18 +31,15 @@ export function buildApiFilters(draft: FilterDraft): ProspectSearchFilters | und
   if (draft.companyName) f.companyName = draft.companyName;
   if (draft.companyDomain) f.companyDomain = draft.companyDomain;
   if (draft.keyword) f.keyword = draft.keyword;
-  if (draft.industry) f.industry = draft.industry;
+  if (draft.industries.length) f.industries = draft.industries;
   if (draft.subIndustry) f.subIndustry = draft.subIndustry;
   if (draft.country) f.country = draft.country;
   if (draft.state) f.state = draft.state;
   if (draft.city) f.city = draft.city;
 
-  if (draft.companySize) {
-    const bucket = COMPANY_SIZE_BUCKETS.find((b) => b.value === draft.companySize);
-    if (bucket) {
-      f.minEmployees = bucket.min;
-      if (bucket.max !== undefined) f.maxEmployees = bucket.max;
-    }
+  if (draft.companySizes.length) {
+    // Pass exact employee buckets so backend can apply multi-select OR logic.
+    f.employeeBuckets = draft.companySizes;
   }
 
   if (draft.companyStage) f.companyStage = draft.companyStage;

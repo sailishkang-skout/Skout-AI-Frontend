@@ -3,16 +3,19 @@
 import { SignIn } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getAppOrigin } from "@/lib/app-url";
+import { clerkCallbackPath, clerkPathFromLocation, SIGN_IN_MOUNTS } from "@/lib/clerk-path";
 
-export function SignInForm() {
+export function SignInForm({ path = "/signin" }: { path?: string }) {
   const [ready, setReady] = useState(false);
-  const appOrigin = getAppOrigin();
-  const callbackUrl = appOrigin ? `${appOrigin}/auth/callback` : "/auth/callback";
+  const [clerkPath, setClerkPath] = useState(path);
+  const [callbackUrl, setCallbackUrl] = useState("/app/auth/callback");
 
   useEffect(() => {
+    const pathname = window.location.pathname;
+    setClerkPath(clerkPathFromLocation(pathname, SIGN_IN_MOUNTS, path));
+    setCallbackUrl(clerkCallbackPath(pathname));
     setReady(true);
-  }, []);
+  }, [path]);
 
   return (
     <div className="w-full max-w-[min(100vw-2rem,24rem)]">
@@ -32,8 +35,8 @@ export function SignInForm() {
             },
           }}
           routing="path"
-          path="/sign-in"
-          signUpUrl={appOrigin ? `${appOrigin}/sign-up` : "/sign-up"}
+          path={clerkPath}
+          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-up" : "/sign-up"}
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />

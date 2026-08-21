@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   BarChart3,
   CalendarDays,
+  History,
   Layers,
   ListChecks,
   Loader2,
@@ -15,14 +16,18 @@ import {
   Pencil,
   Play,
   Settings2,
+  Upload,
   Users,
   X,
 } from "lucide-react";
 import { AiChatBox } from "@/components/ai/ai-chat-box";
+import { ActivityLog } from "@/components/sequences/activity-log";
 import { AnalyticsPanel } from "@/components/sequences/analytics-panel";
 import { EnrollPanel } from "@/components/sequences/enroll-panel";
 import { EnrolledListsPanel } from "@/components/sequences/enrolled-lists-panel";
+import { FlowBuilder } from "@/components/sequences/flow-builder";
 import { StepBuilder } from "@/components/sequences/step-builder";
+import type { AddStepInput, UpdateStepInput } from "@/lib/sequences";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -32,7 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { sequenceStatusTone, useSequencesApi } from "@/lib/sequences";
-import type { SequenceStatus, SequenceStepType } from "@/types/api";
+import type { SequenceStatus } from "@/types/api";
 
 const STATUS_TRANSITIONS: Record<SequenceStatus, SequenceStatus[]> = {
   draft: ["active"],
@@ -52,6 +57,7 @@ const TABS = [
   { id: "enroll",    label: "Enroll",    icon: Users      },
   { id: "lists",     label: "Lists",     icon: ListChecks },
   { id: "analytics", label: "Analytics", icon: BarChart3  },
+  { id: "activity",  label: "Activity",  icon: History    },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -94,7 +100,7 @@ export default function SequenceDetailPage() {
   });
 
   const addStep = useMutation({
-    mutationFn: (input: { stepType: SequenceStepType; delayDays: number; delayUnit?: import("@/types/api").SequenceDelayUnit }) =>
+    mutationFn: (input: AddStepInput) =>
       sequencesApi.addStep(sequenceId, input),
     onSuccess: () => {
       setActionError(null);
@@ -133,6 +139,15 @@ export default function SequenceDetailPage() {
       invalidateDetail();
     },
     onError: (err) => setActionError(formatQueryError(err, "Couldn't reorder steps.")),
+  });
+
+  const publishVersion = useMutation({
+    mutationFn: () => sequencesApi.publishVersion(sequenceId),
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this version.")),
   });
 
   function startEditName() {
@@ -222,6 +237,10 @@ export default function SequenceDetailPage() {
                   <Badge tone={sequenceStatusTone(sequence.status)} className="capitalize">
                     {sequence.status}
                   </Badge>
+                  {sequence.mode === "C" && <Badge tone="warning">God Mode</Badge>}
+                  {sequence.mode === "A" && <Badge tone="muted">Mode A</Badge>}
+                  {sequence.mode === "B" && <Badge tone="muted">Mode B</Badge>}
+                  <Badge tone="muted">v{sequence.currentVersion ?? 0}</Badge>
                 </div>
 
                 {/* Metadata row */}
@@ -238,8 +257,24 @@ export default function SequenceDetailPage() {
               </div>
 
               {/* Status action buttons */}
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {steps.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={publishVersion.isPending}
+                    onClick={() => publishVersion.mutate()}
+                    className="gap-1.5"
+                    title="Snapshot this cadence so in-flight enrollments keep the current version"
+                  >
+                    {publishVersion.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Upload className="h-3.5 w-3.5" />}
+                    Publish version
+                  </Button>
+                )}
               {availableTransitions.length > 0 && (
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <>
                   {availableTransitions.map((next) => {
                     const cfg = STATUS_ACTION_CONFIG[next];
                     if (!cfg) return null;
@@ -268,8 +303,9 @@ export default function SequenceDetailPage() {
                       </Button>
                     );
                   })}
-                </div>
+                </>
               )}
+              </div>
             </div>
 
             {/* Draft activation hints */}
@@ -345,22 +381,41 @@ export default function SequenceDetailPage() {
 
           {/* ── Tab panels ───────────────────────────────── */}
           {tab === "builder" && (
-            <StepBuilder
-              steps={steps}
-              onReorder={(ids) => reorderSteps.mutate(ids)}
-              onUpdateStep={(stepId, patch) => updateStep.mutate({ stepId, patch })}
-              onDeleteStep={(stepId) => deleteStep.mutate(stepId)}
-              onAddStep={(input) => addStep.mutate(input)}
-              reordering={reorderSteps.isPending}
-              updatingStepId={updatingStepId}
-              deletingStepId={deletingStepId}
-              adding={addStep.isPending}
-            />
+            <div className="space-y-6">
+              <FlowBuilder
+                steps={steps}
+                onAddStep={(input) => addStep.mutate(input)}
+                onUpdateStep={(stepId, patch) => updateStep.mutate({ stepId, patch: patch as UpdateStepInput })}
+                onDeleteStep={(stepId) => deleteStep.mutate(stepId)}
+                adding={addStep.isPending}
+                updatingStepId={updatingStepId}
+                deletingStepId={deletingStepId}
+              />
+              <details className="rounded-lg border border-border bg-muted/20 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+                  Linear list view
+                </summary>
+                <div className="mt-4">
+                  <StepBuilder
+                    steps={steps}
+                    onReorder={(ids) => reorderSteps.mutate(ids)}
+                    onUpdateStep={(stepId, patch) => updateStep.mutate({ stepId, patch })}
+                    onDeleteStep={(stepId) => deleteStep.mutate(stepId)}
+                    onAddStep={(input) => addStep.mutate(input)}
+                    reordering={reorderSteps.isPending}
+                    updatingStepId={updatingStepId}
+                    deletingStepId={deletingStepId}
+                    adding={addStep.isPending}
+                  />
+                </div>
+              </details>
+            </div>
           )}
 
           {tab === "enroll" && <EnrollPanel sequenceId={sequenceId} sequenceStatus={sequence.status} />}
           {tab === "lists" && <EnrolledListsPanel sequenceId={sequenceId} />}
           {tab === "analytics" && <AnalyticsPanel sequenceId={sequenceId} />}
+          {tab === "activity" && <ActivityLog sequenceId={sequenceId} />}
 
           {/* Auto / Ask AI assistant — Apply updates the focused (or first) email step */}
           <AiChatBox

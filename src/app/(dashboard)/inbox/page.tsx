@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Linkedin, Mail, MessageCircle, Search } from "lucide-react";
 import { AiChatBox } from "@/components/ai/ai-chat-box";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -310,6 +311,7 @@ export default function InboxPage() {
       <PageHeader
         title="Inbox"
         description="Email, LinkedIn, and WhatsApp conversations from your connected accounts."
+        actions={<GuideLink slug="inbox" label="Inbox guide" />}
       />
 
       <DemoBanner />

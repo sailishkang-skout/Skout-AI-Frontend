@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Loader2, Plus, Trash2, Video } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,18 @@ export default function MeetingsPage() {
                     {meeting.durationMinutes != null && <span>{meeting.durationMinutes} min</span>}
                   </div>
                 </div>
+                {meeting.meetingUrl && (
+                  <a
+                    href={meeting.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Join
+                  </a>
+                )}
                 {canDelete && (
                   <button
                     type="button"

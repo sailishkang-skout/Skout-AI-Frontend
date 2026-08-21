@@ -89,11 +89,11 @@ export function CompanyFormSheet({
         <Field label="Domain">
           <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="acme.com" />
         </Field>
-        <Field label="Industry">
+        <Field label="Industry" fieldSource={company?.fieldSources.industry}>
           <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="SaaS" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Employees">
+          <Field label="Employees" fieldSource={company?.fieldSources.employeeCount}>
             <Input
               type="number"
               min={0}
@@ -101,11 +101,11 @@ export function CompanyFormSheet({
               onChange={(e) => setEmployeeCount(e.target.value)}
             />
           </Field>
-          <Field label="Revenue">
+          <Field label="Revenue" fieldSource={company?.fieldSources.revenue}>
             <Input type="number" min={0} value={revenue} onChange={(e) => setRevenue(e.target.value)} />
           </Field>
         </div>
-        <Field label="Location">
+        <Field label="Location" fieldSource={company?.fieldSources.location}>
           <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Austin, TX" />
         </Field>
         <Field label="Status">

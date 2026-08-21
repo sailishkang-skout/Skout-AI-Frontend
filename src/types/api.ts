@@ -7,6 +7,71 @@ export interface Workspace {
   createdAt: string;
 }
 
+/** R13.4 — auto-activation rules. Mirrors apps/api/src/services/activation-rules.service.ts. */
+export type ActivationTargetAction = "activate" | "add_to_list" | "enroll_sequence";
+
+export interface ActivationRule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  scoreThreshold: number;
+  signalType: string | null;
+  targetAction: ActivationTargetAction;
+  targetId: string | null;
+  enabled: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivationRuleRun {
+  id: string;
+  workspaceId: string;
+  ruleId: string;
+  prospectId: string;
+  actionTaken: string;
+  reversedAt: string | null;
+  createdAt: string;
+}
+
+/** R17.1 — notification center + R17.4 — delivery channel. Mirrors apps/api/src/services/notifications.service.ts. */
+export type NotificationChannel = "in_app" | "email" | "both" | "sms";
+
+export interface Notification {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  deliveredChannels: string[];
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: string;
+  channel: NotificationChannel;
+  /** R17.3 — when true and channel includes email, delivery batches into the daily digest instead of real-time. */
+  digest: boolean;
+}
+
+/** R20.2 — Twilio click-to-call. Mirrors apps/api/src/routes/call.routes.ts. */
+export interface CallConfig {
+  enabled: boolean;
+  agentPhoneSet: boolean;
+}
+
+export interface DialCallResult {
+  callSid: string;
+  status: string;
+}
+
 export interface ProspectSummary {
   prospectId: string;
   companyId: string;
@@ -77,10 +142,12 @@ export interface ProspectSearchFilters {
   companyDomain?: string;
   keyword?: string;
   industry?: string;
+  industries?: string[];
   subIndustry?: string;
   country?: string;
   state?: string;
   city?: string;
+  employeeBuckets?: string[];
   minEmployees?: number;
   maxEmployees?: number;
   // Company — Stage & Funding
@@ -129,22 +196,62 @@ export interface ProspectList {
   name: string;
   prospectCount: number;
   createdAt: string;
+  /** R10.3 — the filters this list was originally activated from, if any. Non-null means
+   * "Convert to smart list" is available (POST /lists/:id/convert-to-smart-list). */
+  sourceFilters?: SmartListFilters | null;
 }
 
 export type SequenceStatus = "draft" | "active" | "paused" | "archived";
-export type SequenceStepType = "email" | "linkedin" | "whatsapp" | "wait" | "task";
-export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied";
+export type SequenceSource = "manual" | "template" | "dexter";
+export type SequenceMode = "A" | "B" | "C";
+export type SequenceStepType = "email" | "linkedin" | "whatsapp" | "call" | "wait" | "task" | "condition" | "goal";
+export type SequenceEnrollmentStatus = "active" | "completed" | "bounced" | "replied" | "cancelled";
+export type SequenceConditionType =
+  | "linkedin_connected"
+  | "linkedin_invite_accepted"
+  | "linkedin_invite_declined"
+  | "email_opened"
+  | "email_clicked"
+  | "email_opened_count_gte"
+  | "email_clicked_count_gte"
+  | "email_replied"
+  | "call_connected"
+  | "icp_score_gte"
+  | "has_email"
+  | "has_linkedin"
+  | "account_has_positive_reply";
+
+export type ConditionExpression =
+  | { type: SequenceConditionType; not?: boolean; value?: number }
+  | { op: "and" | "or"; not?: boolean; clauses: ConditionExpression[] };
+export type SequenceLinkedinAction = "connect" | "message" | "inmail" | "like" | "follow";
+export type SequenceVariantKey = "A" | "B" | "C";
 
 export interface Sequence {
   id: string;
   workspaceId: string;
   name: string;
   status: SequenceStatus;
+  source?: SequenceSource;
+  templateKey?: string | null;
+  mode?: SequenceMode;
+  currentVersion?: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export type SequenceDelayUnit = "minutes" | "hours" | "days" | "weeks";
+
+export interface SequenceStepVariant {
+  id: string;
+  stepId: string;
+  variantKey: SequenceVariantKey;
+  subject: string | null;
+  bodyTemplate: string | null;
+  weight: number;
+  enabled: boolean;
+  createdAt: string;
+}
 
 export interface SequenceStep {
   id: string;
@@ -153,10 +260,27 @@ export interface SequenceStep {
   stepType: SequenceStepType;
   delayDays: number;
   delayUnit: SequenceDelayUnit;
-  linkedinAction?: "connect" | "message" | null;
+  linkedinAction?: SequenceLinkedinAction | null;
   subject: string | null;
   bodyTemplate: string | null;
+  conditionType?: SequenceConditionType | null;
+  conditionExpression?: ConditionExpression | null;
+  conditionWaitDays?: number;
+  yesNextStepId?: string | null;
+  noNextStepId?: string | null;
+  parentStepId?: string | null;
+  branch?: "yes" | "no" | null;
+  goalLabel?: string | null;
+  variants?: SequenceStepVariant[];
   createdAt: string;
+}
+
+export interface SequenceTemplateSummary {
+  key: string;
+  name: string;
+  description: string;
+  channels: string[];
+  mode?: SequenceMode;
 }
 
 export interface SequenceDetail extends Sequence {
@@ -174,6 +298,8 @@ export interface SequenceStepMetrics {
   sent: number;
   failed: number;
   skipped: number;
+  /** Call steps only — awaiting a human to dial and set a disposition (not scheduled/sent/failed/skipped). */
+  pending: number;
   opens: number;
   clicks: number;
   /** 0–100 percentage already (do not multiply by 100 in UI) */
@@ -203,12 +329,66 @@ export interface SequenceEnrollment {
   prospectId: string;
   listId: string | null;
   status: SequenceEnrollmentStatus;
+  experimentVariant?: string | null;
+  stopReason?: string | null;
+  sequenceVersionId?: string | null;
   enrolledAt: string;
   completedAt: string | null;
   prospectName?: string | null;
   prospectTitle?: string | null;
   companyName?: string | null;
   email?: string | null;
+}
+
+export interface SequenceVersionSummary {
+  id: string;
+  version: number;
+  status: string;
+  publishedAt: string;
+}
+
+export interface SequenceEvent {
+  id: string;
+  workspaceId: string;
+  sequenceId: string;
+  enrollmentId: string | null;
+  sequenceVersionId: string | null;
+  prospectId: string | null;
+  stepId: string | null;
+  eventType: string;
+  variantKey: string | null;
+  branch: string | null;
+  result: string | null;
+  reason: string | null;
+  evidence: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SequenceExperiment {
+  id: string;
+  workspaceId: string;
+  name: string;
+  status: "draft" | "running" | "paused" | "completed" | string;
+  primaryMetric: string;
+  weightA: number;
+  weightB: number;
+  sequenceAId: string;
+  sequenceBId: string;
+  durationDays: number;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  sequenceA?: { id: string; name: string; status: string; mode?: string } | null;
+  sequenceB?: { id: string; name: string; status: string; mode?: string } | null;
+}
+
+export interface SequenceExperimentAnalytics {
+  experiment: SequenceExperiment;
+  primaryMetric: string;
+  variants: {
+    A: { enrolled: number; active: number; completed: number; replied: number; bounced: number; stopped: number; replyRate: number; completionRate: number };
+    B: { enrolled: number; active: number; completed: number; replied: number; bounced: number; stopped: number; replyRate: number; completionRate: number };
+  };
 }
 
 export interface EnrollSequenceResult {
@@ -244,6 +424,29 @@ export interface InboxThread {
     icpScore?: number;
     icpBand?: string;
   } | null;
+}
+
+/** Row shape returned by GET /inbox/manual-review — the raw inbox_threads row (no prospect
+ * join), plus the persisted AI suggestion a human needs to approve or dismiss. */
+export interface ManualReviewThread {
+  id: string;
+  workspaceId: string;
+  inboxId: string;
+  enrollmentId: string | null;
+  prospectId: string | null;
+  subject: string;
+  status: ThreadStatus;
+  statusChangedAt: string | null;
+  unreadCount: number;
+  replyTag: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  needsReview: boolean;
+  suggestedTag: string | null;
+  suggestedNegativeSubtype: string | null;
+  suggestedConfidence: number | null;
+  suggestedReason: string | null;
 }
 
 export interface InboxMessage {
@@ -341,6 +544,8 @@ export interface AiDraft {
   status: AiDraftStatus;
   model: string | null;
   confidenceScore: string | null;
+  /** R13.2 — set when this draft cleared the workspace's auto-approve thresholds instead of a human approving it. */
+  autoApproved: boolean;
   createdAt: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
@@ -521,14 +726,49 @@ export interface SmartListFilters {
   signal?: string;
 }
 
+export type SmartListRefreshCadence = "off" | "daily" | "weekly";
+
 export interface SmartList {
   id: string;
   workspaceId: string;
   name: string;
   filters: SmartListFilters;
   lastRunCount: number | null;
+  refreshCadence: SmartListRefreshCadence;
+  nextRefreshAt: string | null;
+  lastRefreshedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SmartListProspectDiffEntry {
+  prospectId: string;
+  fullName?: string;
+  title?: string;
+  companyDomain?: string;
+}
+
+export type SmartListRefreshStatus = "completed" | "skipped_insufficient_credits" | "failed";
+
+export interface SmartListRefreshSummary {
+  id: string;
+  smartListId: string;
+  status: SmartListRefreshStatus;
+  matchedCount: number;
+  addedCount: number;
+  droppedCount: number;
+  creditsCharged: number;
+  requiredCredits: number | null;
+  availableCredits: number | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface SmartListRefreshDetail extends SmartListRefreshSummary {
+  addedProspects: SmartListProspectDiffEntry[];
+  droppedProspects: SmartListProspectDiffEntry[];
 }
 
 export interface SmartListRunResult {
@@ -702,6 +942,8 @@ export interface ListMemberDetail {
   };
   score?: ProspectScoreRecord | null;
   verification?: EmailVerification | null;
+  /** R11.3 — top active signals for the list-row overlay (company + prospect). */
+  signals?: Array<{ type: string; observedAt: string; detail?: string }>;
 }
 
 export interface ListDetail extends ProspectList {
@@ -976,4 +1218,106 @@ export interface CrmExportJob {
   queuedAt: string;
   startedAt: string | null;
   completedAt: string | null;
+}
+
+/** R11.1/R11.2/R11.3 — unified signal timeline entry. Mirrors apps/api/src/services/signal.service.ts. */
+export interface Signal {
+  id: string;
+  entityType: string;
+  entityId: string;
+  signalType: string;
+  value: { reason?: string; detail?: string; score?: number } & Record<string, unknown>;
+  confidence: number | null;
+  detectedAt: string;
+  source: string | null;
+  provenance: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** R17.3 — signal-triggered SDR alerts. Mirrors apps/api/src/services/alert-rule.service.ts. */
+export interface AlertRule {
+  id: string;
+  workspaceId: string;
+  signalType: string;
+  minConfidence: number | null;
+  enabled: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** R13.2 — auto-approve thresholds for AI drafts. Mirrors apps/api/src/services/draft-auto-approve.service.ts. */
+export interface DraftAutoApproveSettings {
+  workspaceId: string;
+  enabled: boolean;
+  minIcpScore: number | null;
+  minConfidence: number | null;
+  alwaysReviewListIds: string[];
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+/** R12.1/R12.2 — TAM. Mirrors apps/api/src/services/tam.service.ts. */
+export interface TamFilterConfig {
+  industries?: string[];
+  countries?: string[];
+  seniorities?: string[];
+  minEmployees?: number;
+  maxEmployees?: number;
+}
+
+export interface TamSegmentBucket {
+  dimension: "industry" | "size" | "geo";
+  value: string;
+  count: number;
+}
+
+export interface TamCoverageFunnel {
+  total: number;
+  activated: number;
+  enriched: number;
+  contacted: number;
+  replied: number;
+  deal: number;
+}
+
+export interface Tam {
+  id: string;
+  workspaceId: string;
+  name: string;
+  filterConfig: TamFilterConfig | null;
+  totalCount: number;
+  segmentBreakdown: TamSegmentBucket[];
+  coverage: TamCoverageFunnel;
+  lastComputedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** R22.2 — generic GTM-provider import. Mirrors apps/api/src/services/import-adapters/*. */
+export type ImportProvider = "hubspot" | "apollo";
+
+export interface ImportProviderList {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface ImportProviderContact {
+  fullName?: string;
+  companyDomain: string;
+  companyName?: string;
+  email?: string;
+  title?: string;
+  phone?: string;
+  linkedinUrl?: string;
+}
+
+export interface CommitImportResult {
+  provider: ImportProvider;
+  listId: string;
+  listName: string;
+  imported: number;
+  skipped: number;
 }

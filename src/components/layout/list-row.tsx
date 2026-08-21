@@ -4,15 +4,20 @@ export function ListRow({
   children,
   actions,
   className,
+  id,
 }: {
   children: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  /** DOM id — lets a caller deep-link to (and scroll/highlight) one specific row, e.g. from a
+   * "Created list, open it" link elsewhere in the app. */
+  id?: string;
 }) {
   return (
     <li
+      id={id}
       className={cn(
-        "flex flex-col gap-3 border-b py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between",
+        "flex scroll-mt-20 flex-col gap-3 border-b py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between",
         className
       )}
     >

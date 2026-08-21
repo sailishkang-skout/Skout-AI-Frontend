@@ -1,9 +1,14 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextFetchEvent } from "next/server";
 import { NextResponse, NextRequest } from "next/server";
+import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
+import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
 
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
+  "/signin(.*)",
+  "/singin(.*)",
+  "/login(.*)",
   "/sign-up(.*)",
   "/auth/callback",
   "/",
@@ -23,6 +28,13 @@ const isProtectedRoute = createRouteMatcher([
   "/inbox(.*)",
   "/deliverability(.*)",
   "/ai(.*)",
+  // Pre-existing gap found while adding /intelligence below: CRM pages (companies, contacts,
+  // deals, tasks, meetings, calendar) were never in this list, so Clerk never protected them.
+  "/crm(.*)",
+  "/intelligence(.*)",
+  // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
+  // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
+  "/admin/cro(.*)",
 ]);
 
 const useClerkMiddleware =
@@ -52,15 +64,15 @@ function requestWithPublicOrigin(request: NextRequest): NextRequest {
   const publicOrigin =
     request.headers.get("x-skout-public-origin") ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.CLERK_SIGN_IN_URL?.replace(/\/sign-in$/, "");
+    "https://www.skoutai.io/app";
   if (!publicOrigin) return request;
 
   try {
-    const origin = new URL(publicOrigin);
+    const origin = new URL(publicOrigin.startsWith("http") ? publicOrigin : `https://${publicOrigin}`);
     const headers = new Headers(request.headers);
     headers.set("host", origin.host);
     headers.set("x-forwarded-host", origin.host);
-    headers.set("x-forwarded-proto", origin.protocol.replace(":", ""));
+    headers.set("x-forwarded-proto", origin.protocol.replace(":", "") || "https");
     return new NextRequest(request.nextUrl, { headers });
   } catch {
     return request;
@@ -73,8 +85,38 @@ function isHealthCheck(request: NextRequest): boolean {
   return ua.startsWith("ELB-HealthChecker");
 }
 
-export default function middleware(request: NextRequest, event: NextFetchEvent) {
-  if (!clerkHandler || isHealthCheck(request)) {
+/**
+ * Temporary shared-secret gate in front of the whole app (real users hitting sign-up while
+ * we're not ready for them). Set GATE_TOKEN to enable; unset it to disable entirely — nothing
+ * else changes. Runs before Clerk so it also blocks the sign-in/sign-up pages themselves.
+ * See src/app/gate/ and src/lib/gate.ts.
+ */
+async function gateCheck(request: NextRequest): Promise<NextResponse | null> {
+  const gateToken = GATE_TOKEN_VALUE || process.env.GATE_TOKEN;
+  if (!gateToken) return null;
+  if (isGatePath(request.nextUrl.pathname)) return null;
+
+  const cookie = request.cookies.get(GATE_COOKIE_NAME)?.value;
+  if (cookie && cookie === (await hashGateToken(gateToken))) return null;
+
+  // .clone() (not `new URL(path, request.url)`) so basePath ("/app") is preserved.
+  // Never copy Clerk handshake / other query params into `next` — that 431s proxies.
+  const gateUrl = request.nextUrl.clone();
+  gateUrl.pathname = "/gate";
+  gateUrl.search = "";
+  gateUrl.searchParams.set("next", safeNextPath(request.nextUrl.pathname));
+  return NextResponse.redirect(gateUrl);
+}
+
+export default async function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (isHealthCheck(request)) {
+    return NextResponse.next();
+  }
+  // Runs regardless of Clerk's config state — the gate's whole point is to block access
+  // before any auth check, so it must not get skipped just because Clerk is unconfigured.
+  const gated = await gateCheck(request);
+  if (gated) return gated;
+  if (!clerkHandler) {
     return NextResponse.next();
   }
   return clerkHandler(requestWithPublicOrigin(request), event);

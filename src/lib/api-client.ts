@@ -80,9 +80,22 @@ export function formatQueryError(error: unknown, fallback: string): string {
       return "Your session could not be verified. Sign out and sign in again, or refresh the page.";
     }
     if (error.status >= 500) {
+      const body = error.body as { message?: string; error?: string } | undefined;
+      const detail = body?.message ?? body?.error ?? error.message;
+      if (detail && detail !== "Internal Server Error") return detail;
       return "The API returned a server error. Check that Postgres and Redis are running.";
     }
-    const body = error.body as { message?: string; error?: string } | undefined;
+    const body = error.body as
+      | { message?: string; error?: string; issues?: Array<{ path?: string; message?: string }> }
+      | undefined;
+    if (body?.issues?.length) {
+      const detail = body.issues
+        .slice(0, 3)
+        .map((i) => (i.path ? `${i.path}: ${i.message}` : i.message))
+        .join("; ");
+      const more = body.issues.length > 3 ? ` (+${body.issues.length - 3} more)` : "";
+      return `${body.message ?? "Request validation failed"} — ${detail}${more}`;
+    }
     if (body?.message && body.message !== body.error) return body.message;
     if (error.message) return error.message;
   }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import { Calendar, Check, Copy, Download, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,7 +15,132 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
+import { useGoogleCalendarApi } from "@/lib/google-calendar";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
+
+function GoogleCalendarCard() {
+  const authReady = useAuthReady();
+  const calendarApi = useGoogleCalendarApi();
+
+  const status = useQuery({
+    queryKey: ["calendar", "connection"],
+    queryFn: calendarApi.getStatus,
+    enabled: authReady,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base sm:text-lg">Google Calendar</CardTitle>
+            <CardDescription>
+              Schedule meetings with a real Meet link and invite attendees directly from Skout.
+            </CardDescription>
+          </div>
+          {status.isLoading ? null : status.data?.connected ? (
+            <Badge tone="success">Connected</Badge>
+          ) : (
+            <Badge tone="muted">Not connected</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {status.isLoading ? (
+          <Skeleton className="h-10 w-full rounded-md" />
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              {status.data?.connected ? status.data.connectedEmail : "Each teammate connects their own calendar"}
+            </div>
+            <Link href="/settings/calendar">
+              <Button variant={status.data?.connected ? "outline" : "default"} size="sm">
+                {status.data?.connected ? "Manage" : "Connect"}
+              </Button>
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ApolloSequenceImporter() {
+  const api = useIntegrationsApi();
+  const queryClient = useQueryClient();
+  const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
+
+  const sequences = useQuery({
+    queryKey: ["integrations", "apollo", "sequences"],
+    queryFn: api.listApolloSequences,
+  });
+
+  const importOne = useMutation({
+    mutationFn: (id: string) => api.importApolloSequence(id),
+    onSuccess: (res, id) => {
+      setImportedIds((prev) => new Set(prev).add(id));
+      queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      return res;
+    },
+  });
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Import sequences from Apollo</h3>
+        <Button size="sm" variant="outline" disabled={sequences.isFetching} onClick={() => sequences.refetch()}>
+          {sequences.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {sequences.data ? "Refresh" : "Browse sequences"}
+        </Button>
+      </div>
+
+      {sequences.isError && (
+        <Alert variant="error">{formatQueryError(sequences.error, "Could not load Apollo sequences.")}</Alert>
+      )}
+      {importOne.isError && (
+        <Alert variant="error">{formatQueryError(importOne.error, "Could not import this sequence.")}</Alert>
+      )}
+
+      {sequences.data && (
+        sequences.data.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No email sequences found in this Apollo account.</p>
+        ) : (
+          <div className="divide-y rounded-md border border-border">
+            {sequences.data.data.map((seq) => {
+              const imported = importedIds.has(seq.id);
+              return (
+                <div key={seq.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{seq.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {seq.numSteps} step{seq.numSteps === 1 ? "" : "s"} · {seq.active ? "active" : "inactive"} in Apollo
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={imported || (importOne.isPending && importOne.variables === seq.id)}
+                    onClick={() => importOne.mutate(seq.id)}
+                  >
+                    {importOne.isPending && importOne.variables === seq.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    {imported ? "Imported" : "Import as draft"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+      <p className="text-xs text-muted-foreground">
+        Imported sequences land as drafts in Sequences — review steps before activating. Non-email steps
+        (calls, LinkedIn, etc.) import as manual task steps when Apollo&apos;s step type can&apos;t be mapped directly.
+      </p>
+    </div>
+  );
+}
 
 const DEFAULT_UNIPILE_DSN = "https://api1.unipile.com:13111";
 
@@ -104,6 +230,7 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
               <CardTitle className="text-base sm:text-lg">{item.name}</CardTitle>
               {item.category === "messaging" && <Badge tone="muted">Messaging</Badge>}
               {item.category === "enrichment" && <Badge tone="muted">Enrichment</Badge>}
+              {item.category === "gtm_import" && <Badge tone="muted">GTM import</Badge>}
             </div>
             <CardDescription>{item.description}</CardDescription>
           </div>
@@ -233,6 +360,8 @@ function ProviderCard({ item }: { item: IntegrationItem }) {
             Last validated {new Date(item.lastValidatedAt).toLocaleString()}
           </p>
         )}
+
+        {item.provider === "apollo" && item.connected && <ApolloSequenceImporter />}
       </CardContent>
     </Card>
   );
@@ -249,7 +378,8 @@ export default function IntegrationsSettingsPage() {
   });
 
   const messaging = integrations.data?.data.filter((i) => i.category === "messaging") ?? [];
-  const enrichment = integrations.data?.data.filter((i) => i.category !== "messaging") ?? [];
+  const gtmImport = integrations.data?.data.filter((i) => i.category === "gtm_import") ?? [];
+  const enrichment = integrations.data?.data.filter((i) => i.category !== "messaging" && i.category !== "gtm_import") ?? [];
 
   return (
     <PageShell width="narrow">
@@ -278,11 +408,24 @@ export default function IntegrationsSettingsPage() {
         </div>
       )}
 
+      <GoogleCalendarCard />
+
       {messaging.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Messaging</h2>
           <div className="space-y-4">
             {messaging.map((item) => (
+              <ProviderCard key={item.provider} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {gtmImport.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">GTM import</h2>
+          <div className="space-y-4">
+            {gtmImport.map((item) => (
               <ProviderCard key={item.provider} item={item} />
             ))}
           </div>

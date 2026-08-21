@@ -2,9 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
+import { SignalBadges } from "@/components/signals/signal-badges";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -57,6 +60,24 @@ export default function ProspectSearchPage() {
     setPage(1);
   }, [debouncedQuery, appliedFilters]);
   const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
+  const searchParams = useSearchParams();
+  const deepLinkProspectId = searchParams.get("prospectId");
+
+  // R17.3 — notification "alert links directly to the account/signal detail" deep link: open
+  // the detail sheet for a prospect that isn't necessarily in the current search results.
+  useEffect(() => {
+    if (!deepLinkProspectId || !authReady) return;
+    let cancelled = false;
+    api<ProspectSummary>(`/api/v1/search/prospects/${deepLinkProspectId}`)
+      .then((prospect) => {
+        if (!cancelled) setDetailProspect(prospect);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkProspectId, authReady]);
   const [scoreOverrides, setScoreOverrides] = useState<Record<string, number>>({});
   const [addListId, setAddListId] = useState("");
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
@@ -227,6 +248,7 @@ export default function ProspectSearchPage() {
       <PageHeader
         title="Prospect search"
         description="Search the corpus, score against your ICP, enrich contacts, and add them to lists."
+        actions={<GuideLink slug="search-icp" label="Search & ICP guide" />}
       />
 
       <DemoBanner />
@@ -482,13 +504,12 @@ export default function ProspectSearchPage() {
                           <p className="mt-0.5 text-xs text-muted-foreground">{p.industry}</p>
                         )}
                         {p.signals && p.signals.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {p.signals.slice(0, 3).map((s) => (
-                              <Badge key={`${s.type}-${s.observedAt}`} tone="warning">
-                                {s.type.replace(/_/g, " ")}
-                              </Badge>
-                            ))}
-                          </div>
+                          <SignalBadges
+                            entityId={p.companyId}
+                            entityType="company"
+                            signals={p.signals}
+                            className="mt-1.5"
+                          />
                         )}
                         {p.techStack && p.techStack.length > 0 && (
                           <p className="mt-1 text-xs text-muted-foreground">

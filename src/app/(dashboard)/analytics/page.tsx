@@ -15,6 +15,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -78,6 +79,7 @@ export default function AnalyticsPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <GuideLink slug="analytics" label="Analytics guide" compact />
             <div className="flex rounded-lg border border-border p-0.5">
               {PERIODS.map((p) => (
                 <button

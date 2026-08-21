@@ -3,9 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FileUp, Loader2, Trash2, Upload } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
+import { ImportUploadPanel } from "@/components/import/import-upload-panel";
+import { ProviderImportPanel } from "@/components/import/provider-import-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -15,7 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
-import { useImportApi, type ImportedProspectRow } from "@/lib/import-prospects";
+import { IMPORT_PROVIDERS } from "@/lib/import-adapters";
+import { useImportApi, type DetectedSheet, type ImportedProspectRow } from "@/lib/import-prospects";
+import { cn } from "@/lib/utils";
+import type { ImportProvider } from "@/types/api";
+
+type ImportMode = "csv" | ImportProvider;
 
 export default function ImportProspectsPage() {
   const authReady = useAuthReady();
@@ -26,11 +33,15 @@ export default function ImportProspectsPage() {
   const [rows, setRows] = useState<ImportedProspectRow[]>([]);
   const [source, setSource] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [sheets, setSheets] = useState<DetectedSheet[]>([]);
+  const [lastFile, setLastFile] = useState<File | null>(null);
+  const [downloadingSample, setDownloadingSample] = useState<"csv" | "xlsx" | null>(null);
   const [listId, setListId] = useState("");
   const [listName, setListName] = useState("");
   const [autoEnrich, setAutoEnrich] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [mode, setMode] = useState<ImportMode>("csv");
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -39,11 +50,13 @@ export default function ImportProspectsPage() {
   });
 
   const parse = useMutation({
-    mutationFn: (file: File) => importApi.parseFile(file),
+    mutationFn: ({ file, headerMap }: { file: File; headerMap?: Record<string, string> }) =>
+      importApi.parseFile(file, headerMap),
     onSuccess: (res) => {
       setRows(res.data.rows);
       setSource(res.data.source);
       setWarnings(res.data.warnings);
+      setSheets(res.data.sheets ?? []);
       setParseError(null);
       setSuccessMsg(null);
     },
@@ -52,6 +65,17 @@ export default function ImportProspectsPage() {
       setRows([]);
     },
   });
+
+  const handleDownloadSample = async (format: "csv" | "xlsx") => {
+    setDownloadingSample(format);
+    try {
+      await importApi.downloadSample(format);
+    } catch (err) {
+      setParseError(formatQueryError(err, "Could not download sample file."));
+    } finally {
+      setDownloadingSample(null);
+    }
+  };
 
   const commit = useMutation({
     mutationFn: () =>
@@ -73,6 +97,7 @@ export default function ImportProspectsPage() {
   });
 
   const preview = useMemo(() => rows.slice(0, 50), [rows]);
+  const hasRevenue = useMemo(() => rows.some((r) => r.companyRevenue), [rows]);
 
   return (
     <PageShell width="narrow">
@@ -84,52 +109,60 @@ export default function ImportProspectsPage() {
 
       <DemoBanner />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Upload className="h-4 w-4" />
-            Upload file
-          </CardTitle>
-          <CardDescription>
-            CSV / Excel preferred. PDF and PNG/JPEG use OCR when needed. SVG is parsed as text (not OCR). Max 8MB.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 py-10 text-center hover:border-primary/50">
-            <FileUp className="h-8 w-8 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {parse.isPending ? "Parsing…" : "Choose CSV, Excel, PDF, PNG, or SVG"}
-            </span>
-            <input
-              type="file"
-              className="hidden"
-              accept=".csv,.xlsx,.xls,.pdf,.svg,.png,.jpg,.jpeg,.webp,.gif,text/csv,image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-              disabled={parse.isPending}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) parse.mutate(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          {parseError && (
-            <Alert variant="error" dismissible>
-              {parseError}
-            </Alert>
+      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "csv"}
+          onClick={() => setMode("csv")}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            mode === "csv" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
           )}
-          {source && (
-            <p className="text-xs text-muted-foreground">
-              Parsed via <span className="font-medium">{source}</span> · {rows.length} row
-              {rows.length === 1 ? "" : "s"}
-            </p>
-          )}
-          {warnings.map((w) => (
-            <Alert key={w} variant="warning">
-              {w}
-            </Alert>
-          ))}
-        </CardContent>
-      </Card>
+        >
+          File (CSV / Excel)
+        </button>
+        {IMPORT_PROVIDERS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === p.id}
+            onClick={() => setMode(p.id)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              mode === p.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {mode !== "csv" ? (
+        <ProviderImportPanel
+          provider={mode}
+          description={IMPORT_PROVIDERS.find((p) => p.id === mode)?.description ?? ""}
+        />
+      ) : (
+      <>
+      <ImportUploadPanel
+        isParsing={parse.isPending}
+        parseError={parseError}
+        source={source}
+        rowCount={rows.length}
+        warnings={warnings}
+        sheets={sheets}
+        onFileSelected={(file) => {
+          setLastFile(file);
+          parse.mutate({ file });
+        }}
+        onReparseWithMapping={(headerMap) => {
+          if (lastFile) parse.mutate({ file: lastFile, headerMap });
+        }}
+        onDownloadSample={handleDownloadSample}
+        downloadingSample={downloadingSample}
+      />
 
       {rows.length > 0 && (
         <Card>
@@ -137,6 +170,7 @@ export default function ImportProspectsPage() {
             <CardTitle className="text-base">Preview & destination</CardTitle>
             <CardDescription>
               Showing {preview.length} of {rows.length}. Import into an existing list or create one.
+              {hasRevenue && " Revenue is shown for reference only — it isn't stored on import."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -179,7 +213,13 @@ export default function ImportProspectsPage() {
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">Domain</th>
+                    <th className="px-3 py-2">Company</th>
                     <th className="px-3 py-2">Title</th>
+                    <th className="px-3 py-2">Phone</th>
+                    <th className="px-3 py-2">LinkedIn</th>
+                    <th className="px-3 py-2">Country</th>
+                    <th className="px-3 py-2">City</th>
+                    {hasRevenue && <th className="px-3 py-2">Revenue</th>}
                     <th className="px-3 py-2 w-10" />
                   </tr>
                 </thead>
@@ -189,7 +229,28 @@ export default function ImportProspectsPage() {
                       <td className="px-3 py-2">{row.fullName}</td>
                       <td className="px-3 py-2 text-muted-foreground">{row.email ?? "—"}</td>
                       <td className="px-3 py-2">{row.companyDomain}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.companyName ?? "—"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{row.jobTitle ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.phone ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {row.linkedinUrl ? (
+                          <a
+                            href={row.linkedinUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            Profile
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.country ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.city ?? "—"}</td>
+                      {hasRevenue && (
+                        <td className="px-3 py-2 text-muted-foreground">{row.companyRevenue ?? "—"}</td>
+                      )}
                       <td className="px-3 py-2">
                         <button
                           type="button"
@@ -231,6 +292,8 @@ export default function ImportProspectsPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </PageShell>
   );

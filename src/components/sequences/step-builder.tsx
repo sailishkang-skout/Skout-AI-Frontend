@@ -17,13 +17,16 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Clock,
+  GitBranch,
   GripVertical,
   Linkedin,
   ListChecks,
   Loader2,
   Mail,
   MessageCircle,
+  Phone,
   Plus,
+  Target,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { EmailBodyEditor } from "@/components/sequences/email-body-editor";
-import type { SequenceDelayUnit, SequenceStep, SequenceStepType } from "@/types/api";
+import type { SequenceDelayUnit, SequenceLinkedinAction, SequenceStep, SequenceStepType } from "@/types/api";
 
 // ── Step type visual config ──────────────────────────────────
 const STEP_CONFIG = {
@@ -74,6 +77,30 @@ const STEP_CONFIG = {
     border: "border-l-emerald-500",
     badge: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
     ring: "ring-emerald-200 dark:ring-emerald-800",
+  },
+  call: {
+    label: "Call",
+    icon: Phone,
+    dot: "bg-green-600",
+    border: "border-l-green-600",
+    badge: "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    ring: "ring-green-200 dark:ring-green-800",
+  },
+  condition: {
+    label: "Condition",
+    icon: GitBranch,
+    dot: "bg-rose-500",
+    border: "border-l-rose-500",
+    badge: "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+    ring: "ring-rose-200 dark:ring-rose-800",
+  },
+  goal: {
+    label: "Goal",
+    icon: Target,
+    dot: "bg-purple-500",
+    border: "border-l-purple-500",
+    badge: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    ring: "ring-purple-200 dark:ring-purple-800",
   },
 } satisfies Record<SequenceStepType, {
   label: string;
@@ -174,7 +201,7 @@ function StepCard({
     stepType?: SequenceStepType;
     delayDays?: number;
     delayUnit?: SequenceDelayUnit;
-    linkedinAction?: "connect" | "message" | null;
+    linkedinAction?: SequenceLinkedinAction | null;
     subject?: string | null;
     bodyTemplate?: string | null;
   }) => void;
@@ -348,15 +375,18 @@ function StepCard({
         {step.stepType === "linkedin" && (
           <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
             <Select
-              value={step.linkedinAction === "message" ? "message" : "connect"}
+              value={step.linkedinAction ?? "connect"}
               onChange={(e) =>
-                onUpdate({ linkedinAction: e.target.value as "connect" | "message" })
+                onUpdate({ linkedinAction: e.target.value as SequenceLinkedinAction })
               }
               disabled={updating}
               className="h-8 max-w-xs text-xs"
             >
               <option value="connect">Connection request</option>
               <option value="message">Direct message</option>
+              <option value="inmail">InMail</option>
+              <option value="like">Like recent posts</option>
+              <option value="follow">Follow profile</option>
             </Select>
             <textarea
               placeholder={
@@ -377,6 +407,25 @@ function StepCard({
             <p className="text-[11px] text-muted-foreground">
               Sent via your connected LinkedIn account. Prospects need a LinkedIn profile URL.
               Connect under Deliverability → LinkedIn.
+            </p>
+          </div>
+        )}
+
+        {/* ── Manual task fields ──────────────────────── */}
+        {step.stepType === "task" && (
+          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
+            <Input
+              placeholder="Task title — e.g. Call {{firstName}} about their trial"
+              value={subjectDraft}
+              onChange={(e) => setSubjectDraft(e.target.value)}
+              onBlur={() => {
+                if (subjectDraft !== (step.subject ?? "")) onUpdate({ subject: subjectDraft || null });
+              }}
+              disabled={updating}
+              className="h-9 bg-background text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              A task is created on your CRM Tasks page when this step comes up, linked to the prospect.
             </p>
           </div>
         )}
@@ -427,7 +476,7 @@ export function StepBuilder({
       stepType?: SequenceStepType;
       delayDays?: number;
       delayUnit?: SequenceDelayUnit;
-      linkedinAction?: "connect" | "message" | null;
+      linkedinAction?: SequenceLinkedinAction | null;
       subject?: string | null;
       bodyTemplate?: string | null;
     },

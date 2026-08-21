@@ -2,12 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, Building2, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
+import { SignalBadges } from "@/components/signals/signal-badges";
+import { EmailVerifyBadge } from "@/components/prospects/email-verify-badge";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
@@ -36,22 +38,12 @@ import {
   memberSnap,
   memberSubtitle,
 } from "@/lib/list-members";
-import type { EmailVerifyStatus, ListMemberDetail, ProspectSummary } from "@/types/api";
-
-const VERIFY_BADGE: Record<
-  EmailVerifyStatus,
-  { tone: "success" | "warning" | "danger" | "muted"; label: string }
-> = {
-  valid: { tone: "success", label: "Valid" },
-  catch_all: { tone: "warning", label: "Catch-all" },
-  risky: { tone: "warning", label: "Risky" },
-  invalid: { tone: "danger", label: "Invalid" },
-  unknown: { tone: "muted", label: "Unknown" },
-  no_email: { tone: "muted", label: "No email" },
-};
+import type { ListMemberDetail, ProspectSummary } from "@/types/api";
 
 export default function ListDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const listId = params.id;
   const queryClient = useQueryClient();
   const enrichmentApi = useEnrichmentApi();
@@ -74,6 +66,7 @@ export default function ListDetailPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [convertError, setConvertError] = useState<string | null>(null);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -81,6 +74,7 @@ export default function ListDetailPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [detailMember, setDetailMember] = useState<ListMemberDetail | null>(null);
+  const [showSignals, setShowSignals] = useState(searchParams.get("signals") === "1");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const detail = useQuery({
@@ -335,6 +329,21 @@ export default function ListDetailPage() {
     },
   });
 
+  const convertToSmartList = useMutation({
+    mutationFn: () => enrichmentApi.convertListToSmartList(listId),
+    onSuccess: (smartList) => {
+      setConvertError(null);
+      router.push(`/smart-lists?id=${smartList.id}`);
+    },
+    onError: (err) => {
+      setConvertError(
+        err instanceof ApiError && err.status === 422
+          ? "This list's original filters aren't available, so it can't be converted."
+          : "Could not convert this list. Please try again."
+      );
+    },
+  });
+
   return (
     <PageShell>
       <div className="mb-4">
@@ -464,6 +473,21 @@ export default function ListDetailPage() {
             <Play className="h-4 w-4" />
             Run sequence
           </Button>
+          {list?.sourceFilters && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={convertToSmartList.isPending}
+              onClick={() => { setConvertError(null); convertToSmartList.mutate(); }}
+            >
+              {convertToSmartList.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Convert to smart list
+            </Button>
+          )}
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -493,6 +517,7 @@ export default function ListDetailPage() {
       {exportError && <Alert variant="warning">{exportError}</Alert>}
       {importMsg && <Alert variant="success">{importMsg}</Alert>}
       {importError && <Alert variant="warning">{importError}</Alert>}
+      {convertError && <Alert variant="warning">{convertError}</Alert>}
       {verifyEmails.isPending && (
         <Alert className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
@@ -775,9 +800,19 @@ export default function ListDetailPage() {
               )}
             </div>
             {members.length > 0 && (
-              <Button size="sm" variant="outline" onClick={selectAll} className="w-full sm:w-auto">
-                {allSelected ? "Deselect all" : "Select all"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showSignals}
+                    onChange={(e) => setShowSignals(e.target.checked)}
+                  />
+                  Signal overlay
+                </label>
+                <Button size="sm" variant="outline" onClick={selectAll} className="w-full sm:w-auto">
+                  {allSelected ? "Deselect all" : "Select all"}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -829,14 +864,18 @@ export default function ListDetailPage() {
                             <ScoreBadge score={memberScore.score} reasoning={memberScore.reasoning} />
                           )}
                           {m.verification && (
-                            <Badge
-                              tone={VERIFY_BADGE[m.verification.status].tone}
-                              title={`Deliverability ${m.verification.deliverabilityScore}/100${
-                                m.verification.provider ? ` · ${m.verification.provider}` : ""
-                              }`}
-                            >
-                              {VERIFY_BADGE[m.verification.status].label}
-                            </Badge>
+                            <EmailVerifyBadge
+                              status={m.verification.status}
+                              deliverabilityScore={m.verification.deliverabilityScore}
+                              provider={m.verification.provider}
+                            />
+                          )}
+                          {showSignals && (m.signals?.length ?? 0) > 0 && (
+                            <SignalBadges
+                              entityId={m.companyId && m.companyId !== m.prospectId ? m.companyId : m.prospectId}
+                              entityType={m.companyId && m.companyId !== m.prospectId ? "company" : "prospect"}
+                              signals={m.signals}
+                            />
                           )}
                         </div>
                         {subtitle && (

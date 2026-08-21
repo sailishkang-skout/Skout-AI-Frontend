@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { ListIcon, Loader2, Pencil, Play, Plus, Search, Trash2, Users, X, Zap } from "lucide-react";
+import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -133,11 +134,14 @@ export default function ListsPage() {
         title="Lists"
         description="Group prospects from search or smart lists, then bulk-enrich the whole list in one action."
         actions={
-          <Link href="/import">
-            <Button variant="outline" size="sm">
-              Import CSV / Excel / PDF
-            </Button>
-          </Link>
+          <>
+            <GuideLink slug="lists-enrich" label="Lists guide" compact />
+            <Link href="/import">
+              <Button variant="outline" size="sm">
+                Import CSV / Excel / PDF
+              </Button>
+            </Link>
+          </>
         }
       />
 
@@ -165,22 +169,34 @@ export default function ListsPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Create a list</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Zap className="h-4 w-4 text-primary" />
+            Build a dynamic list
+          </CardTitle>
           <CardDescription>
-            Name your list, then add prospects from{" "}
-            <Link href="/prospects/search" className="text-primary underline underline-offset-2">
-              prospect search
-            </Link>{" "}
-            or{" "}
-            <Link href="/smart-lists" className="text-primary underline underline-offset-2">
-              smart lists
-            </Link>
-            .
+            Set filters once — a smart list stays live, auto-refreshing as new prospects match.
+            This is the recommended way to start a new list.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Link href="/smart-lists">
+            <Button className="w-full sm:w-auto">
+              <Zap className="h-4 w-4" />
+              Build a dynamic list
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+
+      <details className="group rounded-lg border border-border">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium text-muted-foreground hover:text-foreground">
+          Advanced: create a manual list (name only, add prospects yourself)
+          <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
+          <span className="hidden text-xs text-muted-foreground group-open:inline">Hide</span>
+        </summary>
+        <div className="border-t border-border p-4">
           <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center">
             <Input
               placeholder="e.g. Seed SaaS — US VPs"
@@ -191,6 +207,7 @@ export default function ListsPage() {
             />
             <Button
               data-testid="create-list-button"
+              variant="outline"
               onClick={() => createList.mutate()}
               disabled={!name.trim() || createList.isPending}
               className="w-full shrink-0 sm:w-auto"
@@ -203,8 +220,8 @@ export default function ListsPage() {
               Create list
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       <div>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -365,15 +382,16 @@ export default function ListsPage() {
                 <div>
                   <p className="font-medium">No lists yet</p>
                   <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                    Create a list above, then add prospects from search using checkboxes.
+                    Start with a dynamic list — set filters once and it stays live as new
+                    prospects match.
                   </p>
                 </div>
                 <Link
-                  href="/prospects/search"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
+                  href="/smart-lists"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  <Search className="h-4 w-4" />
-                  Go to search
+                  <Zap className="h-4 w-4" />
+                  Build a dynamic list
                 </Link>
               </CardContent>
             </Card>

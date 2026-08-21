@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  BadgeCheck,
   Building2,
   CheckCircle2,
   Gauge,
@@ -19,10 +20,15 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import Link from "next/link";
+import { GdprBadge } from "@/components/onboarding/gdpr-badge";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useAuthReady } from "@/lib/api-client";
+import { formatQueryError, useAuthReady } from "@/lib/api-client";
+import { useEmailIntelApi } from "@/lib/email-intel";
 import { useIcpApi } from "@/lib/icp";
 import { isOnboardingComplete } from "@/lib/scoring";
 import type { IcpConfig, OnboardingProfile } from "@/types/api";
@@ -369,6 +375,65 @@ function FieldLabel({ children, optional }: { children: React.ReactNode; optiona
   );
 }
 
+/** Post-signup prompt to verify the address they'll actually send outreach from. */
+function VerifySendingEmailCard() {
+  const emailIntel = useEmailIntelApi();
+  const [email, setEmail] = useState("");
+
+  const verify = useMutation({
+    mutationFn: (value: string) => emailIntel.verify(value),
+  });
+
+  return (
+    <div className="w-full max-w-sm space-y-2 rounded-lg border border-border bg-muted/30 p-4 text-left">
+      <div className="flex items-center gap-2">
+        <BadgeCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        <p className="text-sm font-medium">Verify your sending email</p>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Catch typos and catch-all mailboxes before your first campaign goes out.
+      </p>
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (email.trim()) verify.mutate(email.trim());
+        }}
+      >
+        <Input
+          type="email"
+          placeholder="you@yourcompany.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className="h-9 text-sm"
+        />
+        <Button type="submit" size="sm" disabled={verify.isPending || !email.trim()}>
+          {verify.isPending ? "Checking…" : "Check"}
+        </Button>
+      </form>
+      {verify.isError && (
+        <Alert variant="error" className="mt-1 py-2 text-xs">
+          {formatQueryError(verify.error, "Could not verify that email.")}
+        </Alert>
+      )}
+      {verify.isSuccess && (
+        <div className="flex items-center justify-between rounded-md border bg-background px-2.5 py-1.5 text-xs">
+          <span className="truncate font-mono">{verify.data.email}</span>
+          <Badge tone={verify.data.sendEligibility?.allowed ? "success" : "warning"}>
+            {verify.data.sendEligibility?.decision ?? verify.data.verificationStatus?.status ?? "checked"}
+          </Badge>
+        </div>
+      )}
+      <Link
+        href="/intelligence/email"
+        className="block text-xs text-primary underline-offset-2 hover:underline"
+      >
+        More email intelligence tools →
+      </Link>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Wizard
 // ---------------------------------------------------------------------------
@@ -493,6 +558,7 @@ export default function OnboardingPage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <p className="text-xs text-muted-foreground">Takes about 2 minutes · You can edit everything later</p>
+            <GdprBadge className="mt-4 h-11 w-auto" />
           </div>
         )}
 
@@ -813,6 +879,7 @@ export default function OnboardingPage() {
                 AI scoring &amp; outreach grounded in your business
               </div>
             </div>
+            <VerifySendingEmailCard />
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button size="lg" onClick={() => router.push("/dashboard")}>
                 Take me to my dashboard
@@ -823,6 +890,7 @@ export default function OnboardingPage() {
                 Find my first leads
               </Button>
             </div>
+            <GdprBadge className="mt-2 h-11 w-auto" />
           </div>
         )}
       </div>
@@ -850,6 +918,11 @@ export default function OnboardingPage() {
               {step !== 8 && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </div>
+        </div>
+      )}
+      {step > 0 && step < 9 && (
+        <div className="mt-6 flex justify-center">
+          <GdprBadge className="h-9 w-auto opacity-90" />
         </div>
       )}
     </div>

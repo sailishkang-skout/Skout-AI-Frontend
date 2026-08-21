@@ -1,8 +1,8 @@
-/** Public frontend origin for Clerk redirects and OAuth. Never use the API URL here. */
+/** Public path prefix for the product UI on skoutai.io. */
+export const APP_BASE_PATH = "/app";
+
+/** Origin only (no /app). Used for Clerk allowedRedirectOrigins. */
 export function getAppOrigin(): string | undefined {
-  // In the browser, always trust the URL the user actually opened. NEXT_PUBLIC_* is
-  // baked at Docker build time and can still point at the internal ALB if CI used a
-  // stale DEV_API_URL — that breaks Google OAuth callbacks (redirect to HTTP ALB).
   if (typeof window !== "undefined") {
     return window.location.origin;
   }
@@ -15,4 +15,22 @@ export function getAppOrigin(): string | undefined {
     }
   }
   return undefined;
+}
+
+/** Public app base including /app, e.g. https://www.skoutai.io/app */
+export function getAppBaseUrl(): string | undefined {
+  const origin = getAppOrigin();
+  if (!origin) return undefined;
+  try {
+    const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    if (configured) {
+      const url = new URL(configured);
+      if (url.pathname && url.pathname !== "/") {
+        return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return `${origin}${APP_BASE_PATH}`;
 }
