@@ -4,9 +4,9 @@ import { useDroppable } from "@dnd-kit/core";
 import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/crm-display";
+import { formatMoneyByCurrency } from "@/lib/crm-display";
 import { DealCard } from "./deal-card";
-import type { Company, Deal, PipelineStage } from "@/types/crm";
+import type { Company, CurrencyValue, Deal, PipelineStage } from "@/types/crm";
 
 function stageDotClass(stage: PipelineStage): string {
   if (stage.isClosedWon) return "bg-emerald-500";
@@ -27,7 +27,7 @@ export function DealStageColumn({
   stage: PipelineStage;
   deals: Deal[];
   companiesById: Map<string, Company>;
-  summary: { count: number; value: number } | undefined;
+  summary: { count: number; valueByCurrency: CurrencyValue[] } | undefined;
   onAddDeal: () => void;
   className?: string;
   layout?: "column" | "row";
@@ -43,7 +43,7 @@ export function DealStageColumn({
           {stage.name}
         </p>
         <p className="text-xs text-muted-foreground">
-          {summary?.count ?? deals.length} · {formatMoney(summary?.value ?? 0, "USD")}
+          {summary?.count ?? deals.length} · {formatMoneyByCurrency(summary?.valueByCurrency)}
         </p>
       </div>
       <button

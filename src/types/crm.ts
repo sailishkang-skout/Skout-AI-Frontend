@@ -149,12 +149,17 @@ export interface DealPatch {
   status?: DealStatus;
 }
 
+export interface CurrencyValue {
+  currency: string;
+  value: number;
+}
+
 export interface DealsSummary {
   workspaceId: string;
   openDeals: number;
-  pipelineValue: number;
-  currency: string;
-  stages: { stageId: string; name: string; count: number; value: number }[];
+  /** Open pipeline value, broken out per currency — never summed across currencies. */
+  valueByCurrency: CurrencyValue[];
+  stages: { stageId: string; name: string; count: number; valueByCurrency: CurrencyValue[] }[];
 }
 
 /** R20.4 — set after a sequence "call" step's call is placed; drives cadence branching. */
@@ -329,8 +334,7 @@ export interface DashboardOverview {
   companies: number;
   contacts: number;
   openDeals: number;
-  pipelineValue: number;
-  currency: string;
+  valueByCurrency: CurrencyValue[];
   openTasks: number;
   overdueTasks: number;
   dueTodayTasks: number;

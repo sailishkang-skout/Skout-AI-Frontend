@@ -1,5 +1,5 @@
 import { ArrowRightLeft, CalendarClock, Mail, Phone, StickyNote } from "lucide-react";
-import type { ActivityType, AuditAction, DealStatus, TaskStatus, TaskType } from "@/types/crm";
+import type { ActivityType, AuditAction, CurrencyValue, DealStatus, TaskStatus, TaskType } from "@/types/crm";
 import type { BadgeProps } from "@/components/ui/badge";
 
 export { formatJobTime as formatDateTime } from "./enrichment-display";
@@ -15,6 +15,16 @@ export function formatMoney(amount: number | null | undefined, currency = "USD")
   } catch {
     return `${amount} ${currency}`;
   }
+}
+
+/** "$50,000 · ₹200,000" — each currency bucket formatted and joined, never summed together. */
+export function formatMoneyByCurrency(valueByCurrency: CurrencyValue[] | null | undefined): string {
+  if (!valueByCurrency || valueByCurrency.length === 0) return formatMoney(0);
+  return valueByCurrency
+    .slice()
+    .sort((a, b) => b.value - a.value)
+    .map((v) => formatMoney(v.value, v.currency))
+    .join(" · ");
 }
 
 /** "in 2 days" / "3 days overdue" / "today" — relative label for a task due date. */
