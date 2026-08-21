@@ -47,6 +47,12 @@ export function useCrmApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
+    importListToCrm: (listId: string) =>
+      fetchApi<{ imported: number; created: number; updated: number }>(
+        `/api/v1/lists/${listId}/import-to-crm`,
+        { method: "POST", workspaceId: WORKSPACE_ID }
+      ),
+
     getExportJob: (jobId: string) =>
       fetchApi<CrmExportJob>(`/api/v1/crm/export-jobs/${jobId}`, {
         workspaceId: WORKSPACE_ID,

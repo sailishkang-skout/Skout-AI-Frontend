@@ -178,6 +178,22 @@ export interface TaskPatch {
   status?: TaskStatus;
 }
 
+export type RsvpStatus = "needs-action" | "accepted" | "declined" | "tentative";
+
+export interface MeetingInvitee {
+  email: string;
+  name?: string;
+}
+
+/** RSVP tracking for the .ics invite channel — isolated from `invitees` (the create-time
+ *  input/Google-sync list). Empty when the meeting has no ICS attendees. */
+export interface MeetingAttendee {
+  email: string;
+  name: string | null;
+  rsvpStatus: RsvpStatus;
+  respondedAt: string | null;
+}
+
 export interface Meeting {
   id: string;
   workspaceId: string;
@@ -191,6 +207,17 @@ export interface Meeting {
   meetingType: MeetingType;
   summary: string | null;
   outcome: string | null;
+  meetingUrl: string | null;
+  botStatus: string;
+  autoJoinBot: boolean;
+  recordingUrl: string | null;
+  transcriptUrl: string | null;
+  transcript: string | null;
+  invitees: MeetingInvitee[];
+  attendees: MeetingAttendee[];
+  googleEventId: string | null;
+  icsUid: string | null;
+  icsSequence: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -206,9 +233,31 @@ export interface MeetingInput {
   organizerId?: string;
   summary?: string;
   outcome?: string;
+  meetingUrl?: string;
+  invitees?: MeetingInvitee[];
+  /** Set false to skip the immediate .ics invite email — e.g. when /schedule-google will invite
+   *  these attendees instead. Defaults to true. Only meaningful on create. */
+  sendIcsInvites?: boolean;
 }
 
-export type MeetingPatch = Partial<MeetingInput>;
+export type MeetingPatch = Partial<Omit<MeetingInput, "sendIcsInvites">>;
+
+/** A scored prospect above the workspace's deal-promotion threshold, pending a decision to
+ *  create a Company/Contact/Deal from it. Mirrors PendingCandidateDto in packages/crm-bridge. */
+export interface PromotionCandidate {
+  id: string;
+  prospectId: string;
+  score: number;
+  fullName: string | null;
+  companyName: string | null;
+  createdAt: string;
+}
+
+export interface PromotionResult {
+  companyId: string;
+  contactId: string;
+  dealId: string;
+}
 
 export interface Activity {
   id: string;

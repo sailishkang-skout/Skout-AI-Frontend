@@ -723,6 +723,10 @@ export interface WorkspaceCurrent {
   slug: string;
   createdAt: string;
   balance: number | null;
+  slackWebhookUrl?: string | null;
+  meetingBotAutoJoinDefault?: boolean;
+  /** Score threshold (0-100) above which a scored prospect is flagged as a promotion candidate. */
+  dealPromotionThreshold?: number;
 }
 
 export interface CrmConnection {

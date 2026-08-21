@@ -37,6 +37,12 @@ export function useWorkspaceApi() {
         body: JSON.stringify({ name }),
       }),
 
+    setDealPromotionThreshold: (threshold: number) =>
+      fetchApi<{ data: WorkspaceCurrent }>("/api/v1/workspaces/current/deal-promotion-threshold", {
+        method: "PUT",
+        body: JSON.stringify({ threshold }),
+      }),
+
     getTransactions: (limit = 20, offset = 0) =>
       fetchApi<{ data: CreditTransaction[]; total: number; limit: number; offset: number }>(
         `/api/v1/credits/transactions?limit=${limit}&offset=${offset}`

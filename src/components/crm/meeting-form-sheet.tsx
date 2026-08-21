@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,16 @@ import { Select } from "@/components/ui/select";
 import { useMeetingsApi } from "@/lib/crm/meetings";
 import { formatQueryError } from "@/lib/api-client";
 import { Field } from "./form-field";
-import type { Meeting, MeetingType } from "@/types/crm";
+import type { Meeting, MeetingInvitee, MeetingType, RsvpStatus } from "@/types/crm";
 
 const MEETING_TYPE_OPTIONS: MeetingType[] = ["call", "video", "in_person"];
+
+const RSVP_BADGE: Record<RsvpStatus, { tone: "success" | "warning" | "danger" | "muted"; label: string }> = {
+  accepted: { tone: "success", label: "Accepted" },
+  declined: { tone: "danger", label: "Declined" },
+  tentative: { tone: "warning", label: "Tentative" },
+  "needs-action": { tone: "muted", label: "Awaiting reply" },
+};
 
 export function MeetingFormSheet({
   open,
@@ -39,6 +47,10 @@ export function MeetingFormSheet({
   const [meetingType, setMeetingType] = useState<MeetingType>("call");
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState("");
+  const [invitees, setInvitees] = useState<MeetingInvitee[]>([]);
+  const [inviteeEmail, setInviteeEmail] = useState("");
+  const [inviteeName, setInviteeName] = useState("");
+  const [sendIcsInvites, setSendIcsInvites] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +60,30 @@ export function MeetingFormSheet({
     setMeetingType(meeting?.meetingType ?? "call");
     setSummary(meeting?.summary ?? "");
     setOutcome(meeting?.outcome ?? "");
+    setInvitees(meeting?.invitees ?? []);
+    setInviteeEmail("");
+    setInviteeName("");
+    setSendIcsInvites(true);
   }, [open, meeting]);
+
+  function addInvitee() {
+    const email = inviteeEmail.trim();
+    if (!email) return;
+    if (invitees.some((i) => i.email.toLowerCase() === email.toLowerCase())) {
+      setInviteeEmail("");
+      setInviteeName("");
+      return;
+    }
+    setInvitees((cur) => [...cur, { email, name: inviteeName.trim() || undefined }]);
+    setInviteeEmail("");
+    setInviteeName("");
+  }
+
+  function removeInvitee(email: string) {
+    setInvitees((cur) => cur.filter((i) => i.email !== email));
+  }
+
+  const attendeesByEmail = new Map((meeting?.attendees ?? []).map((a) => [a.email.toLowerCase(), a]));
 
   const save = useMutation({
     mutationFn: () => {
@@ -62,6 +97,8 @@ export function MeetingFormSheet({
         contactId: meeting?.contactId ?? defaultLink?.contactId ?? undefined,
         companyId: meeting?.companyId ?? defaultLink?.companyId ?? undefined,
         dealId: meeting?.dealId ?? defaultLink?.dealId ?? undefined,
+        invitees,
+        ...(isEdit ? {} : { sendIcsInvites }),
       };
       return isEdit ? meetingsApi.update(meeting!.id, input) : meetingsApi.create(input);
     },
@@ -107,6 +144,93 @@ export function MeetingFormSheet({
             </Select>
           </Field>
         </div>
+        <Field label="Invitees">
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={inviteeEmail}
+                onChange={(e) => setInviteeEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addInvitee();
+                  }
+                }}
+                placeholder="attendee@company.com"
+                className="flex-1"
+              />
+              <Input
+                value={inviteeName}
+                onChange={(e) => setInviteeName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addInvitee();
+                  }
+                }}
+                placeholder="Name (optional)"
+                className="w-36"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addInvitee}
+                disabled={!inviteeEmail.trim()}
+                aria-label="Add invitee"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {invitees.length > 0 && (
+              <ul className="space-y-1.5">
+                {invitees.map((inv) => {
+                  const attendee = attendeesByEmail.get(inv.email.toLowerCase());
+                  const rsvp = attendee ? RSVP_BADGE[attendee.rsvpStatus] : null;
+                  return (
+                    <li
+                      key={inv.email}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 truncate">
+                        {inv.name ? `${inv.name} · ` : ""}
+                        {inv.email}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {rsvp && <Badge tone={rsvp.tone}>{rsvp.label}</Badge>}
+                        <button
+                          type="button"
+                          onClick={() => removeInvitee(inv.email)}
+                          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          aria-label={`Remove ${inv.email}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {!isEdit && invitees.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={sendIcsInvites}
+                  onChange={(e) => setSendIcsInvites(e.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Send a calendar invite (.ics) email now
+              </label>
+            )}
+            {!isEdit && invitees.length > 0 && !sendIcsInvites && (
+              <p className="text-xs text-muted-foreground">
+                No invite will be sent — use this when you plan to schedule via Google Calendar instead.
+              </p>
+            )}
+          </div>
+        </Field>
         <Field label="Summary">
           <textarea
             value={summary}
