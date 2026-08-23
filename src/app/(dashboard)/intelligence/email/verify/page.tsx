@@ -23,6 +23,11 @@ function ResultRow({ result }: { result: EmailIntelVerifyResult }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{result.email}</p>
         {result.error && <p className="text-xs text-destructive">{result.error}</p>}
+        {result.suggestedDomain && (
+          <p className="text-xs text-muted-foreground">
+            Did you mean <span className="font-medium text-foreground">{result.suggestedDomain}</span>?
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Badge tone={statusTone(status.toLowerCase())}>{status}</Badge>
