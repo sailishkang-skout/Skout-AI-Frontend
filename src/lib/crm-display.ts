@@ -73,8 +73,52 @@ export const AUDIT_ACTION_TONE: Record<AuditAction, BadgeProps["tone"]> = {
   delete: "danger",
 };
 
+/** Internal bookkeeping fields — never meaningful to a human reading "what changed here". */
+const AUDIT_HIDDEN_FIELDS = new Set([
+  "id",
+  "workspaceId",
+  "deletedAt",
+  "fieldSources",
+  "createdAt",
+  "updatedAt",
+  "sourceProspectId",
+  "sourceProspectCompanyId",
+]);
+
+/** Field names with a friendlier label than a raw camelCase key would give. */
+const AUDIT_FIELD_LABEL: Record<string, string> = {
+  companyId: "Company",
+  ownerId: "Owner",
+  pipelineId: "Pipeline",
+  stageId: "Stage",
+  contactId: "Contact",
+  dealId: "Deal",
+  firstName: "First name",
+  lastName: "Last name",
+  linkedinUrl: "LinkedIn",
+  lifecycleStage: "Lifecycle stage",
+  employeeCount: "Employees",
+  closeDate: "Close date",
+  dueDate: "Due date",
+  scheduledAt: "Scheduled at",
+  meetingType: "Type",
+  relatedEntityType: "Related to",
+  relatedEntityId: "Related record",
+  isDefault: "Default",
+  isClosedWon: "Closed won",
+  isClosedLost: "Closed lost",
+  orderIndex: "Order",
+};
+
+/** "companyId" → "Company", "isActive" → "Is active" (fallback when no explicit label exists). */
+function humanizeAuditFieldKey(key: string): string {
+  if (AUDIT_FIELD_LABEL[key]) return AUDIT_FIELD_LABEL[key];
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 function formatAuditFieldValue(key: string, value: unknown): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined || value === "") return "—";
 
   if (["amount", "revenue"].includes(key) && typeof value === "number") {
     return formatMoney(value);
@@ -105,11 +149,15 @@ export function summarizeAuditDiff(
   action: AuditAction
 ): string[] {
   if (action === "create") {
-    return Object.entries(afterState ?? {}).map(([key, value]) => `${key}: ${formatAuditFieldValue(key, value)}`);
+    return Object.entries(afterState ?? {})
+      .filter(([key, value]) => !AUDIT_HIDDEN_FIELDS.has(key) && value !== null && value !== undefined && value !== "")
+      .map(([key, value]) => `${humanizeAuditFieldKey(key)}: ${formatAuditFieldValue(key, value)}`);
   }
 
   if (action === "delete") {
-    return Object.entries(beforeState ?? {}).map(([key, value]) => `Deleted with: ${key}: ${formatAuditFieldValue(key, value)}`);
+    return Object.entries(beforeState ?? {})
+      .filter(([key, value]) => !AUDIT_HIDDEN_FIELDS.has(key) && value !== null && value !== undefined && value !== "")
+      .map(([key, value]) => `Deleted with: ${humanizeAuditFieldKey(key)}: ${formatAuditFieldValue(key, value)}`);
   }
 
   if (beforeState === null && afterState === null) return [];
@@ -120,12 +168,14 @@ export function summarizeAuditDiff(
   ]);
 
   return Array.from(keys)
-    .filter((key) => beforeState?.[key] !== afterState?.[key])
+    .filter((key) => !AUDIT_HIDDEN_FIELDS.has(key) && beforeState?.[key] !== afterState?.[key])
     .map((key) => {
       const oldValue = beforeState?.[key];
       const newValue = afterState?.[key];
-      return `${key}: ${formatAuditFieldValue(key, oldValue)} → ${formatAuditFieldValue(key, newValue)}`;
-    });
+      return { key, old: formatAuditFieldValue(key, oldValue), next: formatAuditFieldValue(key, newValue) };
+    })
+    .filter(({ old, next }) => !(old === "—" && next === "—"))
+    .map(({ key, old, next }) => `${humanizeAuditFieldKey(key)}: ${old} → ${next}`);
 }
 
 export function dealStatusTone(status: DealStatus): BadgeProps["tone"] {
