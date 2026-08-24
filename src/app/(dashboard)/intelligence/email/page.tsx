@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, Search, Sparkles } from "lucide-react";
+import { BadgeCheck, Search, Sparkles, Flame } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const tools = [
@@ -48,6 +49,21 @@ export default function EmailIntelligenceOverviewPage() {
             </Card>
           </Link>
         ))}
+        <Link href="/intelligence/email/warmup">
+          <Card className="h-full opacity-80 transition-colors hover:border-primary/50 hover:bg-accent/40">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-muted-foreground" aria-hidden />
+                <CardTitle className="text-base">Warm-up</CardTitle>
+                <Badge tone="muted">Coming soon</Badge>
+              </div>
+              <CardDescription>
+                Gradual sending-reputation warm-up per domain, with a visible warm-up period and
+                health score. The underlying engine isn&apos;t wired to send mail yet.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </PageShell>
   );
