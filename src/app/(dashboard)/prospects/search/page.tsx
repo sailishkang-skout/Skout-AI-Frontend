@@ -166,9 +166,20 @@ export default function ProspectSearchPage() {
     });
   };
 
+  // Page-scoped: adds/removes only this page's rows from the (possibly cross-page) selection,
+  // instead of replacing the whole Set — replacing it would silently drop selections made on
+  // other pages whenever this page's row count happened to match the total selected count.
+  const allOnPageSelected = results.length > 0 && results.every((p) => selected.has(p.prospectId));
   const selectAll = () => {
-    if (selected.size === results.length) setSelected(new Set());
-    else setSelected(new Set(results.map((p) => p.prospectId)));
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (allOnPageSelected) {
+        for (const p of results) next.delete(p.prospectId);
+      } else {
+        for (const p of results) next.add(p.prospectId);
+      }
+      return next;
+    });
   };
 
   const enrich = useMutation({
@@ -227,8 +238,10 @@ export default function ProspectSearchPage() {
 
   const addToList = useMutation({
     mutationFn: () => {
-      const prospectIds = results.filter((p) => selected.has(p.prospectId)).map((p) => p.prospectId);
-      return enrichmentApi.addToList(addListId, prospectIds);
+      // `selected` already holds prospectIds accumulated across every page the user selected
+      // from — do not filter it through `results` (the current page only), or selections made
+      // on other pages silently get dropped from the request.
+      return enrichmentApi.addToList(addListId, Array.from(selected));
     },
     onSuccess: (list) => {
       setAddError(null);
@@ -368,7 +381,7 @@ export default function ProspectSearchPage() {
           <div className="flex items-center gap-2">
             {results.length > 0 && (
               <Button variant="outline" size="sm" onClick={selectAll} className="w-full sm:w-auto">
-                {selected.size === results.length ? "Clear all" : "Select all"}
+                {allOnPageSelected ? "Clear all" : "Select all"}
               </Button>
             )}
             <select
