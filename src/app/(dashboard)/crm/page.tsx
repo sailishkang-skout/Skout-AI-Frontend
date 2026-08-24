@@ -9,9 +9,10 @@ import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PromotionCandidatesPanel } from "@/components/crm/promotion-candidates-panel";
 import { useCrmDashboardApi } from "@/lib/crm/dashboard";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
-import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL, formatDateTime, formatMoney } from "@/lib/crm-display";
+import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL, formatDateTime, formatMoneyByCurrency } from "@/lib/crm-display";
 
 function taskStatSub(dueToday: number, overdue: number): string | undefined {
   const parts: string[] = [];
@@ -65,7 +66,7 @@ export default function CrmDashboardPage() {
             <StatCard
               icon={DollarSign}
               label="Pipeline value"
-              value={overview.data ? formatMoney(overview.data.pipelineValue, overview.data.currency) : "—"}
+              value={overview.data ? formatMoneyByCurrency(overview.data.valueByCurrency) : "—"}
               href="/crm/deals"
             />
             <StatCard
@@ -79,6 +80,8 @@ export default function CrmDashboardPage() {
           </>
         )}
       </div>
+
+      <PromotionCandidatesPanel />
 
       <Card>
         <CardContent className="p-4">

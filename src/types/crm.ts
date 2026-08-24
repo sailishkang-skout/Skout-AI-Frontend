@@ -149,12 +149,17 @@ export interface DealPatch {
   status?: DealStatus;
 }
 
+export interface CurrencyValue {
+  currency: string;
+  value: number;
+}
+
 export interface DealsSummary {
   workspaceId: string;
   openDeals: number;
-  pipelineValue: number;
-  currency: string;
-  stages: { stageId: string; name: string; count: number; value: number }[];
+  /** Open pipeline value, broken out per currency — never summed across currencies. */
+  valueByCurrency: CurrencyValue[];
+  stages: { stageId: string; name: string; count: number; valueByCurrency: CurrencyValue[] }[];
 }
 
 /** R20.4 — set after a sequence "call" step's call is placed; drives cadence branching. */
@@ -209,6 +214,17 @@ export interface MeetingInvitee {
   name?: string;
 }
 
+export type RsvpStatus = "needs-action" | "accepted" | "declined" | "tentative";
+
+/** RSVP tracking for the .ics invite channel — isolated from `invitees` (the create-time
+ *  input/Google-sync list). Empty when the meeting has no ICS attendees. */
+export interface MeetingAttendee {
+  email: string;
+  name: string | null;
+  rsvpStatus: RsvpStatus;
+  respondedAt: string | null;
+}
+
 export interface Meeting {
   id: string;
   workspaceId: string;
@@ -232,7 +248,10 @@ export interface Meeting {
   transcriptUrl: string | null;
   transcript: string | null;
   invitees: MeetingInvitee[];
+  attendees: MeetingAttendee[];
   googleEventId: string | null;
+  icsUid: string | null;
+  icsSequence: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -251,9 +270,29 @@ export interface MeetingInput {
   meetingUrl?: string;
   autoJoinBot?: boolean;
   invitees?: MeetingInvitee[];
+  /** Set false to skip the immediate .ics invite email — e.g. when /schedule-google will invite
+   *  these attendees instead. Defaults to true. Only meaningful on create. */
+  sendIcsInvites?: boolean;
 }
 
-export type MeetingPatch = Partial<MeetingInput>;
+export type MeetingPatch = Partial<Omit<MeetingInput, "sendIcsInvites">>;
+
+/** A scored prospect above the workspace's deal-promotion threshold, pending a decision to
+ *  create a Company/Contact/Deal from it. Mirrors PendingCandidateDto in packages/crm-bridge. */
+export interface PromotionCandidate {
+  id: string;
+  prospectId: string;
+  score: number;
+  fullName: string | null;
+  companyName: string | null;
+  createdAt: string;
+}
+
+export interface PromotionResult {
+  companyId: string;
+  contactId: string;
+  dealId: string;
+}
 
 export interface Activity {
   id: string;
@@ -295,8 +334,7 @@ export interface DashboardOverview {
   companies: number;
   contacts: number;
   openDeals: number;
-  pipelineValue: number;
-  currency: string;
+  valueByCurrency: CurrencyValue[];
   openTasks: number;
   overdueTasks: number;
   dueTodayTasks: number;

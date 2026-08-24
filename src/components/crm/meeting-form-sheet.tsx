@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Loader2, Video, X } from "lucide-react";
+import { Bot, Loader2, Plus, Video, X } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,68 +12,16 @@ import { Select } from "@/components/ui/select";
 import { useMeetingsApi } from "@/lib/crm/meetings";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { Field } from "./form-field";
-import type { Meeting, MeetingInvitee, MeetingType } from "@/types/crm";
+import type { Meeting, MeetingInvitee, MeetingType, RsvpStatus } from "@/types/crm";
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
+const MEETING_TYPE_OPTIONS: MeetingType[] = ["call", "video", "in_person"];
 
-/** Chip-list email input — Enter or comma adds the current text as an invitee. */
-function InviteesInput({
-  invitees,
-  onChange,
-}: {
-  invitees: MeetingInvitee[];
-  onChange: (next: MeetingInvitee[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-
-  const addDraft = () => {
-    const email = draft.trim().replace(/,$/, "");
-    if (!email) return;
-    if (isValidEmail(email) && !invitees.some((i) => i.email.toLowerCase() === email.toLowerCase())) {
-      onChange([...invitees, { email }]);
-    }
-    setDraft("");
-  };
-
-  return (
-    <div className="space-y-1.5">
-      {invitees.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {invitees.map((invitee) => (
-            <span
-              key={invitee.email}
-              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-            >
-              {invitee.email}
-              <button
-                type="button"
-                onClick={() => onChange(invitees.filter((i) => i.email !== invitee.email))}
-                className="rounded-full hover:bg-background/60"
-                aria-label={`Remove ${invitee.email}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <Input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === ",") {
-            e.preventDefault();
-            addDraft();
-          }
-        }}
-        onBlur={addDraft}
-        placeholder="Add an email and press Enter"
-      />
-    </div>
-  );
-}
+const RSVP_BADGE: Record<RsvpStatus, { tone: "success" | "warning" | "danger" | "muted"; label: string }> = {
+  accepted: { tone: "success", label: "Accepted" },
+  declined: { tone: "danger", label: "Declined" },
+  tentative: { tone: "warning", label: "Tentative" },
+  "needs-action": { tone: "muted", label: "Awaiting reply" },
+};
 
 const BOT_STATUS_TONE: Record<string, "muted" | "info" | "success" | "danger"> = {
   not_scheduled: "muted",
@@ -83,8 +31,6 @@ const BOT_STATUS_TONE: Record<string, "muted" | "info" | "success" | "danger"> =
   completed: "success",
   failed: "danger",
 };
-
-const MEETING_TYPE_OPTIONS: MeetingType[] = ["call", "video", "in_person"];
 
 export function MeetingFormSheet({
   open,
@@ -114,6 +60,9 @@ export function MeetingFormSheet({
   const [meetingUrl, setMeetingUrl] = useState("");
   const [autoJoinBot, setAutoJoinBot] = useState(false);
   const [invitees, setInvitees] = useState<MeetingInvitee[]>([]);
+  const [inviteeEmail, setInviteeEmail] = useState("");
+  const [inviteeName, setInviteeName] = useState("");
+  const [sendIcsInvites, setSendIcsInvites] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -126,7 +75,29 @@ export function MeetingFormSheet({
     setMeetingUrl(meeting?.meetingUrl ?? "");
     setAutoJoinBot(meeting?.autoJoinBot ?? false);
     setInvitees(meeting?.invitees ?? []);
+    setInviteeEmail("");
+    setInviteeName("");
+    setSendIcsInvites(true);
   }, [open, meeting]);
+
+  function addInvitee() {
+    const email = inviteeEmail.trim();
+    if (!email) return;
+    if (invitees.some((i) => i.email.toLowerCase() === email.toLowerCase())) {
+      setInviteeEmail("");
+      setInviteeName("");
+      return;
+    }
+    setInvitees((cur) => [...cur, { email, name: inviteeName.trim() || undefined }]);
+    setInviteeEmail("");
+    setInviteeName("");
+  }
+
+  function removeInvitee(email: string) {
+    setInvitees((cur) => cur.filter((i) => i.email !== email));
+  }
+
+  const attendeesByEmail = new Map((meeting?.attendees ?? []).map((a) => [a.email.toLowerCase(), a]));
 
   const botConfig = useQuery({
     queryKey: ["crm", "meetings", "bot-config"],
@@ -147,6 +118,13 @@ export function MeetingFormSheet({
     },
   });
 
+  // Google Meet gets auto-created (and invites attendees itself) for any non-in-person meeting
+  // that doesn't already have a manually-typed link — see the save.onSuccess comment below. When
+  // that's going to happen, the .ics channel must stay off, or invitees get double-invited
+  // through two channels for the same meeting.
+  const shouldAutoScheduleGoogle =
+    meetingType !== "in_person" && (Boolean(meeting?.googleEventId) || !meetingUrl.trim());
+
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -162,6 +140,7 @@ export function MeetingFormSheet({
         contactId: meeting?.contactId ?? defaultLink?.contactId ?? undefined,
         companyId: meeting?.companyId ?? defaultLink?.companyId ?? undefined,
         dealId: meeting?.dealId ?? defaultLink?.dealId ?? undefined,
+        ...(isEdit ? {} : { sendIcsInvites: shouldAutoScheduleGoogle ? false : sendIcsInvites }),
       };
       return isEdit ? meetingsApi.update(meeting!.id, input) : meetingsApi.create(input);
     },
@@ -179,12 +158,8 @@ export function MeetingFormSheet({
       //    "add an invitee, they get emailed" work on edit, not just on first create.
       // Skip only when the user deliberately typed their own Zoom/Teams link and this meeting
       // has never been Google-scheduled — that's a real choice not to use Google Meet.
-      const shouldAutoScheduleGoogle =
-        meetingType !== "in_person" && (Boolean(meeting?.googleEventId) || !meetingUrl.trim());
-      // Best-effort: the meeting itself is already saved either way. On success, close as
-      // normal. On failure (e.g. Google Calendar not connected), keep the sheet open so the
-      // error is actually visible instead of vanishing behind an already-closed dialog — the
-      // user can close manually or connect Google Calendar and retry.
+      // shouldAutoScheduleGoogle also gates sendIcsInvites above, so this and the .ics channel
+      // are never both live for the same meeting.
       if (shouldAutoScheduleGoogle) {
         scheduleGoogle.mutate(saved.id, {
           onSuccess: () => {
@@ -231,8 +206,99 @@ export function MeetingFormSheet({
             </Select>
           </Field>
         </div>
+
         <Field label="Invitees">
-          <InviteesInput invitees={invitees} onChange={setInvitees} />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={inviteeEmail}
+                onChange={(e) => setInviteeEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addInvitee();
+                  }
+                }}
+                placeholder="attendee@company.com"
+                className="flex-1"
+              />
+              <Input
+                value={inviteeName}
+                onChange={(e) => setInviteeName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addInvitee();
+                  }
+                }}
+                placeholder="Name (optional)"
+                className="w-36"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addInvitee}
+                disabled={!inviteeEmail.trim()}
+                aria-label="Add invitee"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {invitees.length > 0 && (
+              <ul className="space-y-1.5">
+                {invitees.map((inv) => {
+                  const attendee = attendeesByEmail.get(inv.email.toLowerCase());
+                  const rsvp = attendee ? RSVP_BADGE[attendee.rsvpStatus] : null;
+                  return (
+                    <li
+                      key={inv.email}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 truncate">
+                        {inv.name ? `${inv.name} · ` : ""}
+                        {inv.email}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {rsvp && <Badge tone={rsvp.tone}>{rsvp.label}</Badge>}
+                        <button
+                          type="button"
+                          onClick={() => removeInvitee(inv.email)}
+                          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          aria-label={`Remove ${inv.email}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {!isEdit && invitees.length > 0 && !shouldAutoScheduleGoogle && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={sendIcsInvites}
+                  onChange={(e) => setSendIcsInvites(e.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Send a calendar invite (.ics) email now
+              </label>
+            )}
+            {!isEdit && invitees.length > 0 && !shouldAutoScheduleGoogle && !sendIcsInvites && (
+              <p className="text-xs text-muted-foreground">
+                No invite will be sent — use this when you plan to schedule via Google Calendar instead.
+              </p>
+            )}
+            {invitees.length > 0 && shouldAutoScheduleGoogle && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Video className="h-3.5 w-3.5 shrink-0" />
+                Invitees will get a Google Calendar invite by email instead of a direct .ics invite.
+              </p>
+            )}
+          </div>
         </Field>
 
         <Field label="Meeting link (Zoom/Meet/Teams)">
