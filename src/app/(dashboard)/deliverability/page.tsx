@@ -562,6 +562,25 @@ function InboxCard({
           </div>
         </div>
 
+        {(inbox.warmupToolMailboxId || inbox.warmupToolStatus) && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs">
+            <span>
+              Email Warm-up
+              {inbox.warmupToolStatus ? `: ${inbox.warmupToolStatus}` : " linked"}
+            </span>
+            <Link
+              href={
+                inbox.warmupToolMailboxId
+                  ? `/warmup/control`
+                  : `/warmup/mailboxes`
+              }
+              className="font-medium text-primary hover:underline"
+            >
+              Open
+            </Link>
+          </div>
+        )}
+
         {inbox.sentCount >= 1 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className={cn(

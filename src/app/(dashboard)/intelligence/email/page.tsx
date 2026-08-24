@@ -54,12 +54,26 @@ export default function EmailIntelligenceOverviewPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-muted-foreground" aria-hidden />
-                <CardTitle className="text-base">Warm-up</CardTitle>
-                <Badge tone="muted">Coming soon</Badge>
+                <CardTitle className="text-base">Domain warm-up (intel)</CardTitle>
+                <Badge tone="muted">Scaffold</Badge>
               </div>
               <CardDescription>
-                Gradual sending-reputation warm-up per domain, with a visible warm-up period and
-                health score. The underlying engine isn&apos;t wired to send mail yet.
+                Email Intelligence domain warm-up status check. For full mailbox warm-up, pools,
+                and kill switches, use Email Warm-up in Outreach.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/warmup">
+          <Card className="h-full transition-colors hover:border-primary/50 hover:bg-accent/40">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-primary" aria-hidden />
+                <CardTitle className="text-base">Email Warm-up</CardTitle>
+              </div>
+              <CardDescription>
+                Enterprise mailbox warm-up service: mailboxes, health, conversations, pools,
+                partner network, and operations.
               </CardDescription>
             </CardHeader>
           </Card>

@@ -181,6 +181,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "email-warmup",
+    target: "nav-email-warmup",
+    href: "/warmup",
+    title: "Email Warm-up",
+    body: "Ramp mailbox reputation safely — pools, domains, health, and kill switches before you scale sends.",
+    details: [
+      "Connect mailboxes and watch warm-up control over time",
+      "Monitor health/risk and partner network conversations",
+      "Use kill switches when a domain or pool needs to pause",
+    ],
+  },
+  {
     id: "ai-review",
     target: "nav-ai-review",
     href: "/ai/review",

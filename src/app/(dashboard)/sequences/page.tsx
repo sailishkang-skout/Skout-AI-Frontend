@@ -51,10 +51,16 @@ export default function SequencesPage() {
     <PageShell data-testid="page-sequences">
       <PageHeader
         title="Sequences"
-        description="Build outbound cadences — manually, from a template (A/B), or with Dexter AI. Track open, click, and reply performance."
+        description="Build outbound cadences — manually, from a template (A/B), or with Dexter AI. Track open, click, and reply performance. Before scaling email sends, check Email Warm-up readiness for connected mailboxes."
         actions={
           <>
             <GuideLink slug="sequences-ai" label="Sequences guide" />
+            <Link
+              href="/warmup/health"
+              className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm hover:bg-accent"
+            >
+              Warm-up readiness
+            </Link>
             <Button onClick={() => openCreate("choose")}>
               <Sparkles className="h-4 w-4" />
               New sequence

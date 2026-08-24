@@ -1081,6 +1081,9 @@ export interface Inbox {
   provider: InboxProvider;
   status: InboxStatus;
   warmupStatus: string;
+  /** Present when Warm-Up Tool is configured and a matching mailbox exists. */
+  warmupToolMailboxId?: string | null;
+  warmupToolStatus?: string | null;
   dailySendLimit: number;
   sentToday: number;
   capPct: number;

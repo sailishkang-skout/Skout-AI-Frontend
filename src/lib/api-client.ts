@@ -58,6 +58,19 @@ function useAuthReadyStub(): boolean {
 
 export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
 
+function messageFromErrorBody(errBody: unknown, fallback: string): string {
+  if (!errBody || typeof errBody !== "object") return fallback;
+  const body = errBody as { message?: unknown; error?: unknown };
+  if (typeof body.message === "string" && body.message.trim()) return body.message;
+  if (typeof body.error === "string" && body.error.trim()) return body.error;
+  if (body.error && typeof body.error === "object") {
+    const nested = body.error as { message?: unknown; code?: unknown };
+    if (typeof nested.message === "string" && nested.message.trim()) return nested.message;
+    if (typeof nested.code === "string") return nested.code;
+  }
+  return fallback;
+}
+
 export function isRetryableAuthError(error: unknown): boolean {
   if (!(error instanceof ApiError)) return false;
   if (error.status === 401) {
@@ -86,7 +99,21 @@ export function formatQueryError(error: unknown, fallback: string): string {
       return "The API returned a server error. Check that Postgres and Redis are running.";
     }
     const body = error.body as
-      | { message?: string; error?: string; issues?: Array<{ path?: string; message?: string }> }
+      | {
+          message?: string;
+          error?:
+            | string
+            | {
+                message?: string;
+                code?: string;
+                fieldErrors?: Record<string, string[]>;
+              };
+          details?: {
+            error?: { message?: string; fieldErrors?: Record<string, string[]> };
+            message?: string;
+          };
+          issues?: Array<{ path?: string; message?: string }>;
+        }
       | undefined;
     if (body?.issues?.length) {
       const detail = body.issues
@@ -96,6 +123,19 @@ export function formatQueryError(error: unknown, fallback: string): string {
       const more = body.issues.length > 3 ? ` (+${body.issues.length - 3} more)` : "";
       return `${body.message ?? "Request validation failed"} — ${detail}${more}`;
     }
+    const nested =
+      typeof body?.error === "object" && body.error
+        ? body.error
+        : body?.details?.error;
+    const fieldErrors = nested?.fieldErrors;
+    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+      const detail = Object.entries(fieldErrors)
+        .slice(0, 4)
+        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(", ")}`)
+        .join("; ");
+      return `${nested?.message ?? body?.message ?? "Request validation failed"} — ${detail}`;
+    }
+    if (nested?.message) return nested.message;
     if (body?.message && body.message !== body.error) return body.message;
     if (error.message) return error.message;
   }
@@ -173,10 +213,7 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const errBody = await res.json().catch(() => undefined);
-    const message =
-      typeof errBody === "object" && errBody !== null && "error" in errBody
-        ? String((errBody as { error: string }).error)
-        : res.statusText;
+    const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
     logApiFailure(method, path, error, { workspaceId });
     throw error;
@@ -222,10 +259,7 @@ export async function apiFetchBlob(
 
   if (!res.ok) {
     const errBody = await res.json().catch(() => undefined);
-    const message =
-      typeof errBody === "object" && errBody !== null && "error" in errBody
-        ? String((errBody as { error: string }).error)
-        : res.statusText;
+    const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
     logApiFailure(method, path, error, { workspaceId });
     throw error;
