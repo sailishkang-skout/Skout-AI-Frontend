@@ -1,5 +1,5 @@
 import { ArrowRightLeft, CalendarClock, Mail, Phone, StickyNote } from "lucide-react";
-import type { ActivityType, AuditAction, DealStatus, TaskStatus, TaskType } from "@/types/crm";
+import type { ActivityType, AuditAction, CommitteeMemberRole, DealStatus, TaskStatus, TaskType } from "@/types/crm";
 import type { BadgeProps } from "@/components/ui/badge";
 
 export { formatJobTime as formatDateTime } from "./enrichment-display";
@@ -140,4 +140,23 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   email: "Email",
   "follow-up": "Follow-up",
   custom: "Task",
+};
+
+/** §8.12 CRM Intelligence — BuyingCommittee member role display. */
+export const COMMITTEE_ROLE_LABEL: Record<CommitteeMemberRole, string> = {
+  economic_buyer: "Economic buyer",
+  champion: "Champion",
+  influencer: "Influencer",
+  blocker: "Blocker",
+  user: "User",
+  unknown: "Unknown",
+};
+
+export const COMMITTEE_ROLE_TONE: Record<CommitteeMemberRole, BadgeProps["tone"]> = {
+  economic_buyer: "success",
+  champion: "success",
+  influencer: "info",
+  blocker: "danger",
+  user: "muted",
+  unknown: "muted",
 };

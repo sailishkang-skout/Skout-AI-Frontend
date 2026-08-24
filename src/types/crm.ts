@@ -157,6 +157,26 @@ export interface DealsSummary {
   stages: { stageId: string; name: string; count: number; value: number }[];
 }
 
+/** §8.12 CRM Intelligence — deal-scoped BuyingCommittee. Mirrors apps/crm's
+ * buying-committee.routes.ts / buying-committee.service.ts. */
+export type CommitteeMemberRole = "economic_buyer" | "champion" | "influencer" | "blocker" | "user" | "unknown";
+
+export interface CommitteeMember {
+  id: string;
+  committeeId: string;
+  contactId: string;
+  role: CommitteeMemberRole;
+  influence: number;
+  notes: string | null;
+}
+
+export interface CommitteeMemberInput {
+  contactId: string;
+  role?: CommitteeMemberRole;
+  influence?: number;
+  notes?: string;
+}
+
 /** R20.4 — set after a sequence "call" step's call is placed; drives cadence branching. */
 export type TaskDisposition = "connected" | "no_answer" | "voicemail" | "bad_number";
 
