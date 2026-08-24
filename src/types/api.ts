@@ -426,6 +426,26 @@ export interface InboxThread {
   } | null;
 }
 
+/**
+ * §5.2 (Enterprise Completion Plan) — a pending probabilistic identity-merge proposal, returned
+ * by GET /identity-merge/proposals. `signals` is whatever scoreCandidateMatch (backend
+ * packages/shared) recorded as its reasoning — free-form, rendered as-is rather than typed
+ * field-by-field since it's meant to be inspected by a human reviewer, not parsed by this UI.
+ */
+export interface IdentityMergeProposal {
+  id: string;
+  workspaceId: string;
+  entityType: string;
+  leftEntityId: string;
+  rightEntityId: string;
+  score: number;
+  signals: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
 /** Row shape returned by GET /inbox/manual-review — the raw inbox_threads row (no prospect
  * join), plus the persisted AI suggestion a human needs to approve or dismiss. */
 export interface ManualReviewThread {

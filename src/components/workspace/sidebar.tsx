@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Crosshair,
   Flame,
+  GitMerge,
   Globe2,
   HeartPulse,
   Inbox,
@@ -195,6 +196,7 @@ export const crmNav: NavGroup[] = [
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
       { href: "/crm/calendar", label: "Calendar", icon: Calendar },
+      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge" },
     ],
   },
 ];
