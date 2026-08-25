@@ -34,7 +34,9 @@ describe("getCrmApiBase", () => {
       value: { ...originalLocation, protocol: "http:" },
       writable: true,
     });
-    expect(getCrmApiBase()).toBe("http://127.0.0.1:3002");
+    // Falls back to NEXT_PUBLIC_API_URL (the shared dev gateway) before its own hardcoded
+    // default — CI sets NEXT_PUBLIC_API_URL, so that's what this resolves to here.
+    expect(getCrmApiBase()).toBe(process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3002");
   });
 
   it("downgrades to relative/same-origin when the page is https but the configured URL is http (mixed content)", () => {
