@@ -236,6 +236,9 @@ export interface Sequence {
   templateKey?: string | null;
   mode?: SequenceMode;
   currentVersion?: number;
+  /** Set once a human explicitly approves a Mode C ("God Mode") sequence — required before draft->active. */
+  modeCApprovedAt?: string | null;
+  modeCApprovedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -985,6 +988,10 @@ export interface WorkspaceCurrent {
   slug: string;
   createdAt: string;
   balance: number | null;
+  slackWebhookUrl?: string | null;
+  meetingBotAutoJoinDefault?: boolean;
+  /** Score threshold (0-100) above which a scored prospect is flagged as a promotion candidate. */
+  dealPromotionThreshold?: number;
 }
 
 export interface CrmConnection {

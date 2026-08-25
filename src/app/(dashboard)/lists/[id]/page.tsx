@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -64,6 +64,8 @@ export default function ListDetailPage() {
   const [scoreProgress, setScoreProgress] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [convertError, setConvertError] = useState<string | null>(null);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -265,6 +267,25 @@ export default function ListDetailPage() {
     },
   });
 
+  const importToCrm = useMutation({
+    mutationFn: () => crmApi.importListToCrm(listId),
+    onSuccess: (result) => {
+      setImportError(null);
+      setImportMsg(
+        `Imported to CRM: ${result.created} created, ${result.updated} updated (${result.imported} total).`
+      );
+      setTimeout(() => setImportMsg(null), 5000);
+    },
+    onError: (err) => {
+      setImportMsg(null);
+      setImportError(
+        err instanceof ApiError && err.status === 413
+          ? `This list is too large to import in one go (limit 500 prospects).`
+          : "Could not import this list to the CRM."
+      );
+    },
+  });
+
   function startEditName() {
     setNameDraft(list?.name ?? "");
     setEditingName(true);
@@ -397,6 +418,23 @@ export default function ListDetailPage() {
           <Button
             size="sm"
             variant="outline"
+            disabled={!members.length || importToCrm.isPending}
+            onClick={() => {
+              setImportError(null);
+              setImportMsg(null);
+              importToCrm.mutate();
+            }}
+          >
+            {importToCrm.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Building2 className="h-4 w-4" />
+            )}
+            Import to CRM
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             disabled={!members.length || scoreAll.isPending}
             onClick={() => {
               if (!requireCredits(scoreCreditCost || 1)) return;
@@ -477,6 +515,8 @@ export default function ListDetailPage() {
       {scoreError && <Alert variant="warning">{scoreError}</Alert>}
       {exportMsg && <Alert variant="success">{exportMsg}</Alert>}
       {exportError && <Alert variant="warning">{exportError}</Alert>}
+      {importMsg && <Alert variant="success">{importMsg}</Alert>}
+      {importError && <Alert variant="warning">{importError}</Alert>}
       {convertError && <Alert variant="warning">{convertError}</Alert>}
       {verifyEmails.isPending && (
         <Alert className="flex items-center gap-2">

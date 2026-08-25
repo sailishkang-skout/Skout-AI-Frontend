@@ -60,24 +60,44 @@ describe("formatDueDate", () => {
 });
 
 describe("summarizeAuditDiff", () => {
-  it("renders create rows as a flat list of all new field values", () => {
+  it("renders create rows as a flat list of all new field values, with humanized labels", () => {
     expect(summarizeAuditDiff(null, { name: "Acme", amount: 100 }, "create")).toEqual([
-      "name: Acme",
-      "amount: $100.00",
+      "Name: Acme",
+      "Amount: $100.00",
     ]);
   });
 
   it("renders update rows only for changed keys and preserves arrows", () => {
     expect(summarizeAuditDiff({ name: "Acme", amount: 100 }, { name: "Acme", amount: 150 }, "update")).toEqual([
-      "amount: $100.00 → $150.00",
+      "Amount: $100.00 → $150.00",
     ]);
   });
 
   it("renders delete rows using the final pre-delete state and a deleted-with prefix", () => {
     expect(summarizeAuditDiff({ name: "Acme", status: "open" }, null, "delete")).toEqual([
-      "Deleted with: name: Acme",
-      "Deleted with: status: open",
+      "Deleted with: Name: Acme",
+      "Deleted with: Status: open",
     ]);
+  });
+
+  it("hides internal bookkeeping fields entirely (id, workspaceId, fieldSources, timestamps, etc.)", () => {
+    const after = {
+      id: "c-1",
+      workspaceId: "ws-1",
+      name: "Acme",
+      deletedAt: null,
+      fieldSources: {},
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      sourceProspectId: "p-1",
+    };
+    expect(summarizeAuditDiff(null, after, "create")).toEqual(["Name: Acme"]);
+  });
+
+  it("skips update lines where neither side has a real value (e.g. — → —)", () => {
+    const before = { name: "Acme", email: null };
+    const after = { name: "Acme 2", email: undefined };
+    expect(summarizeAuditDiff(before, after, "update")).toEqual(["Name: Acme → Acme 2"]);
   });
 
   it("returns an empty array when both states are null", () => {
@@ -89,14 +109,14 @@ describe("summarizeAuditDiff", () => {
     const after = { isActive: true, dueDate: new Date(Date.now()).toISOString(), ownerId: "u-2" };
     const lines = summarizeAuditDiff(before, after, "update");
 
-    expect(lines[0]).toBe("isActive: false → true");
+    expect(lines[0]).toBe("Is active: false → true");
     expect(lines[1]).toContain(" → Due today");
-    expect(lines[2]).toBe("ownerId: u-1 → u-2");
+    expect(lines[2]).toBe("Owner: u-1 → u-2");
   });
 
   it("renders null/undefined values as an em dash", () => {
     expect(summarizeAuditDiff({ amount: null }, { amount: 100 }, "update")).toEqual([
-      "amount: — → $100.00",
+      "Amount: — → $100.00",
     ]);
   });
 

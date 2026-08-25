@@ -228,6 +228,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "identity-merge",
+    target: "nav-identity-merge",
+    href: "/crm/identity-merge",
+    title: "Identity merge review",
+    body: "Review suggested company and contact merges when Skout finds probable duplicates across sources.",
+    details: [
+      "Open pending proposals and compare the two records side by side",
+      "Approve to merge into the kept record, or reject if they are distinct",
+      "Keeps CRM and enrichment from duplicating the same account",
+    ],
+  },
+  {
     id: "draft-auto-approve",
     target: "nav-draft-auto-approve",
     href: "/settings/draft-auto-approve",

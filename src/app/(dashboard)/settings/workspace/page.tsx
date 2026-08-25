@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Coins, Download, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Coins, Download, Loader2, Target } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -11,7 +11,8 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAuthReady, useApiFetchBlob } from "@/lib/api-client";
+import { formatQueryError, useAuthReady, useApiFetchBlob } from "@/lib/api-client";
+import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
 import { openRazorpayCheckout } from "@/lib/billing";
 import {
   WORKSPACE_CURRENT_QUERY_KEY,
@@ -28,9 +29,12 @@ export default function WorkspaceSettingsPage() {
   const queryClient = useQueryClient();
   const workspaceApi = useWorkspaceApi();
   const authReady = useAuthReady();
+  const { canDelete: canManageWorkspace } = useWorkspaceRole();
   const fetchBlob = useApiFetchBlob();
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [threshold, setThreshold] = useState("80");
+  const [thresholdSaved, setThresholdSaved] = useState(false);
   const [topUpMsg, setTopUpMsg] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutPackId, setCheckoutPackId] = useState<string | null>(null);
@@ -87,6 +91,10 @@ export default function WorkspaceSettingsPage() {
     if (ws?.name) setName(ws.name);
   }, [ws?.name]);
 
+  useEffect(() => {
+    if (ws?.dealPromotionThreshold != null) setThreshold(String(ws.dealPromotionThreshold));
+  }, [ws?.dealPromotionThreshold]);
+
   const rename = useMutation({
     mutationFn: () => workspaceApi.rename(name.trim()),
     onSuccess: () => {
@@ -94,6 +102,15 @@ export default function WorkspaceSettingsPage() {
       refreshCredits(queryClient);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    },
+  });
+
+  const saveThreshold = useMutation({
+    mutationFn: () => workspaceApi.setDealPromotionThreshold(Number(threshold)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORKSPACE_CURRENT_QUERY_KEY });
+      setThresholdSaved(true);
+      setTimeout(() => setThresholdSaved(false), 2500);
     },
   });
 
@@ -182,6 +199,68 @@ export default function WorkspaceSettingsPage() {
               <Check className="h-4 w-4" />
             ) : null}
             {saved ? "Saved" : "Save name"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-4 w-4" />
+            Deal promotion
+          </CardTitle>
+          <CardDescription>
+            When a scored prospect crosses this threshold, it&apos;s flagged as a promotion
+            candidate on the CRM dashboard — one click turns it into a Company, Contact, and Deal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {saveThreshold.isError && (
+            <Alert variant="error" dismissible>
+              {isForbiddenError(saveThreshold.error)
+                ? "Only workspace owners or admins can change this setting."
+                : formatQueryError(saveThreshold.error, "Could not save the threshold.")}
+            </Alert>
+          )}
+          <div className="space-y-2">
+            <label htmlFor="deal-promotion-threshold" className="text-sm font-medium">
+              Score threshold (0–100)
+            </label>
+            <Input
+              id="deal-promotion-threshold"
+              type="number"
+              min={0}
+              max={100}
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+              disabled={workspace.isLoading || !canManageWorkspace}
+              className="max-w-[8rem]"
+            />
+          </div>
+          {!canManageWorkspace && (
+            <p className="text-xs text-muted-foreground">
+              Only workspace owners or admins can change this setting.
+            </p>
+          )}
+          <Button
+            onClick={() => saveThreshold.mutate()}
+            disabled={
+              saveThreshold.isPending ||
+              workspace.isLoading ||
+              !canManageWorkspace ||
+              threshold === "" ||
+              Number(threshold) < 0 ||
+              Number(threshold) > 100 ||
+              !Number.isInteger(Number(threshold))
+            }
+            className="w-full sm:w-auto"
+          >
+            {saveThreshold.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : thresholdSaved ? (
+              <Check className="h-4 w-4" />
+            ) : null}
+            {thresholdSaved ? "Saved" : "Save threshold"}
           </Button>
         </CardContent>
       </Card>

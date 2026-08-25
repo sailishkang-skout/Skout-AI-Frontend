@@ -16,7 +16,7 @@ import { useAiChatApi } from "@/lib/ai-chat";
 import { useCrmDashboardApi } from "@/lib/crm/dashboard";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useWorkspaceRole } from "@/lib/workspace-role";
-import { formatMoney } from "@/lib/crm-display";
+import { formatMoney, formatMoneyByCurrency } from "@/lib/crm-display";
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -151,7 +151,7 @@ export default function CroCopilotPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="Open pipeline" value={formatMoney(summary.data.overview.pipelineValue, summary.data.overview.currency)} />
+            <StatCard label="Open pipeline" value={formatMoneyByCurrency(summary.data.overview.valueByCurrency)} />
             <StatCard label="Open deals" value={summary.data.overview.openDeals} />
             <StatCard label="Overdue tasks" value={summary.data.overview.overdueTasks} />
             <StatCard label="Native-linked contacts" value={`${summary.data.switchingCost.nativeLinkRatePct}%`} />

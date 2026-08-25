@@ -30,6 +30,35 @@ vi.mock("@/lib/team", () => ({
   }),
 }));
 
+const mockCompaniesList = vi.fn().mockResolvedValue({
+  data: [{ id: "company-1", name: "Acme Corp" }],
+  total: 1,
+  workspaceId: "ws-1",
+});
+vi.mock("@/lib/crm/companies", () => ({
+  useCompaniesApi: () => ({
+    list: mockCompaniesList,
+  }),
+}));
+
+const mockPipelinesList = vi.fn().mockResolvedValue({
+  data: [
+    {
+      id: "pipeline-1",
+      name: "Sales Pipeline",
+      isDefault: true,
+      stages: [{ id: "stage-1", name: "Qualified", orderIndex: 0, probability: 25, isClosedWon: false, isClosedLost: false }],
+    },
+  ],
+  total: 1,
+  workspaceId: "ws-1",
+});
+vi.mock("@/lib/crm/pipelines", () => ({
+  usePipelinesApi: () => ({
+    list: mockPipelinesList,
+  }),
+}));
+
 function renderTimeline() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -154,6 +183,45 @@ describe("AuditLogTimeline", () => {
       expect(screen.getByText("Deleted")).toBeTruthy();
     });
     expect(screen.getAllByText("Owner One").length).toBeGreaterThan(0);
+  });
+
+  it("resolves companyId/stageId to real names instead of showing raw UUIDs, and hides plumbing fields", async () => {
+    mockList.mockResolvedValue({
+      data: [
+        {
+          id: "created",
+          workspaceId: "ws-1",
+          actorId: "u-1",
+          action: "create",
+          entityType: "contact",
+          entityId: "contact-1",
+          beforeState: {},
+          afterState: {
+            id: "contact-1",
+            workspaceId: "ws-1",
+            firstName: "Katie",
+            companyId: "company-1",
+            stageId: "stage-1",
+            fieldSources: {},
+            deletedAt: null,
+          },
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      total: 1,
+      workspaceId: "ws-1",
+    });
+
+    const { container } = renderTimeline();
+
+    await waitFor(() => {
+      expect(container.textContent).toContain("Acme Corp");
+    });
+    expect(container.textContent).toContain("Qualified");
+    expect(container.textContent).not.toContain("company-1");
+    expect(container.textContent).not.toContain("stage-1");
+    expect(container.textContent).not.toContain("workspaceId");
+    expect(container.textContent).not.toContain("fieldSources");
   });
 
   it("renders nothing and fails closed when the request is forbidden (403)", async () => {

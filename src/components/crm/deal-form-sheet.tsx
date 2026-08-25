@@ -43,6 +43,7 @@ export function DealFormSheet({
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<string>(CURRENCY_OPTIONS[0]);
   const [closeDate, setCloseDate] = useState("");
+  const [pipelineId, setPipelineId] = useState("");
   const [stageId, setStageId] = useState("");
   const [status, setStatus] = useState<DealStatus>("open");
 
@@ -58,7 +59,7 @@ export function DealFormSheet({
     enabled: open && authReady,
   });
 
-  const stages = pipelines.data?.data.find((p) => p.id === deal?.pipelineId)?.stages ?? pipelines.data?.data[0]?.stages ?? [];
+  const stages = pipelines.data?.data.find((p) => p.id === pipelineId)?.stages ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +71,21 @@ export function DealFormSheet({
     setStageId(deal?.stageId ?? "");
     setStatus(deal?.status ?? "open");
   }, [open, deal, defaultCompanyId]);
+
+  // Defaults to the deal's existing pipeline when editing, or the workspace default when
+  // creating fresh — waits for the pipelines list since isDefault isn't known up front.
+  useEffect(() => {
+    if (!open || !pipelines.data) return;
+    if (deal?.pipelineId) {
+      setPipelineId(deal.pipelineId);
+      return;
+    }
+    setPipelineId((cur) =>
+      cur && pipelines.data!.data.some((p) => p.id === cur)
+        ? cur
+        : (pipelines.data!.data.find((p) => p.isDefault) ?? pipelines.data!.data[0])?.id ?? ""
+    );
+  }, [open, deal, pipelines.data]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -90,6 +106,7 @@ export function DealFormSheet({
         amount: amount ? Number(amount) : undefined,
         currency,
         closeDate: closeDate || undefined,
+        pipelineId: pipelineId || undefined,
         stageId: stageId || undefined,
       });
     },
@@ -146,6 +163,24 @@ export function DealFormSheet({
         <Field label="Close date">
           <Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
         </Field>
+        {!isEdit && (pipelines.data?.data.length ?? 0) > 1 && (
+          <Field label="Pipeline">
+            <Select
+              value={pipelineId}
+              onChange={(e) => {
+                setPipelineId(e.target.value);
+                setStageId("");
+              }}
+              disabled={pipelines.isLoading}
+            >
+              {pipelines.data?.data.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         {stages.length > 0 && (
           <Field label="Stage">
             <Select value={stageId} onChange={(e) => setStageId(e.target.value)} disabled={pipelines.isLoading}>
