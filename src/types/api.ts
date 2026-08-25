@@ -1423,6 +1423,49 @@ export interface WorkbookRun {
   completedAt: string | null;
 }
 
+// R8.15 — forecasting split (model/manager/commit) and scheduled reporting.
+export interface RevenueForecast {
+  id: string;
+  workspaceId: string;
+  periodLabel: string;
+  modelAmount: number;
+  currency: string;
+  managerAdjustedAmount: number | null;
+  managerAdjustedReason: string | null;
+  managerAdjustedBy: string | null;
+  managerGapToModel: number | null;
+  repCommittedAmount: number | null;
+  repCommittedReason: string | null;
+  repCommittedBy: string | null;
+  repGapToModel: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReportCadence = "daily" | "weekly" | "monthly";
+
+export interface ReportSchedule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  cadence: ReportCadence;
+  recipientEmails: string[];
+  enabled: boolean;
+  lastSentAt: string | null;
+  nextSendAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportSnapshot {
+  id: string;
+  scheduleId: string | null;
+  workspaceId: string;
+  version: number;
+  rollup: Record<string, unknown>;
+  generatedAt: string;
+}
+
 export interface CommitImportResult {
   provider: ImportProvider;
   listId: string;
