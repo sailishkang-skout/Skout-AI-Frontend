@@ -24,6 +24,7 @@ export function EnrollFromProspect({ prospectId }: { prospectId: string }) {
   const sequencesApi = useSequencesApi();
   const queryClient = useQueryClient();
   const [sequenceId, setSequenceId] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
 
   const sequences = useQuery({
     queryKey: ["sequences"],
@@ -48,9 +49,14 @@ export function EnrollFromProspect({ prospectId }: { prospectId: string }) {
   );
 
   const enroll = useMutation({
-    mutationFn: () => sequencesApi.enroll(sequenceId, { prospectIds: [prospectId] }),
+    mutationFn: () =>
+      sequencesApi.enroll(sequenceId, {
+        prospectIds: [prospectId],
+        ...(consentConfirmed ? { consentBasis: "legitimate_interest" as const } : {}),
+      }),
     onSuccess: () => {
       setSequenceId("");
+      setConsentConfirmed(false);
       void queryClient.invalidateQueries({ queryKey: ["prospect-enrollments", prospectId] });
     },
   });
@@ -63,7 +69,7 @@ export function EnrollFromProspect({ prospectId }: { prospectId: string }) {
     },
   });
 
-  const canEnroll = !!sequenceId && !activeEnrolledIds.has(sequenceId);
+  const canEnroll = !!sequenceId && !activeEnrolledIds.has(sequenceId) && consentConfirmed;
 
   return (
     <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">
@@ -102,6 +108,7 @@ export function EnrollFromProspect({ prospectId }: { prospectId: string }) {
       )}
 
       {/* Enroll form */}
+      <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">Enroll in sequence</p>
@@ -148,6 +155,16 @@ export function EnrollFromProspect({ prospectId }: { prospectId: string }) {
           )}
           Enroll
         </Button>
+      </div>
+      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={consentConfirmed}
+          onChange={(e) => setConsentConfirmed(e.target.checked)}
+        />
+        <span>Confirm email consent basis (legitimate interest) before enroll</span>
+      </label>
       </div>
 
       {unenroll.isError && (

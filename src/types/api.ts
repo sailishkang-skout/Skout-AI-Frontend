@@ -705,6 +705,9 @@ export interface OnboardingProfile {
     industry?: string;
     size?: string;
     website?: string;
+    /** Seller HQ / operating country — asked at onboarding for regional intel */
+    hqCountry?: string;
+    locale?: string;
   };
   goals?: string[];
   icp?: {

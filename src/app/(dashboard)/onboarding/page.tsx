@@ -183,6 +183,8 @@ interface WizardState {
   companySize: string;
   companyName: string;
   website: string;
+  hqCountry: string;
+  locale: string;
   goals: string[];
   icpIndustries: string[];
   icpEmployeeRanges: string[];
@@ -202,6 +204,8 @@ const INITIAL_STATE: WizardState = {
   companySize: "",
   companyName: "",
   website: "",
+  hqCountry: "",
+  locale: "en-US",
   goals: [],
   icpIndustries: [],
   icpEmployeeRanges: [],
@@ -244,6 +248,8 @@ function buildIcpConfig(s: WizardState): IcpConfig {
       industry: s.companyIndustry || undefined,
       size: s.companySize || undefined,
       website: s.website || undefined,
+      hqCountry: s.hqCountry || undefined,
+      locale: s.locale || undefined,
     },
     goals: s.goals.length ? s.goals : undefined,
     icp: {
@@ -487,7 +493,7 @@ export default function OnboardingPage() {
   const canContinue = useMemo(() => {
     switch (step) {
       case 1:
-        return Boolean(state.companyName.trim());
+        return Boolean(state.companyName.trim()) && Boolean(state.hqCountry.trim());
       case 2:
         return Boolean(state.companyIndustry && state.companySize);
       case 3:
@@ -587,6 +593,25 @@ export default function OnboardingPage() {
                   onChange={(e) => set("website", e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">Skout can enrich this automatically.</p>
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel>Where is your company based?</FieldLabel>
+                <Input
+                  placeholder="e.g. United States, India, United Kingdom"
+                  value={state.hqCountry}
+                  onChange={(e) => set("hqCountry", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used for regional TAM, territory planning, and local outreach tone (LLM-assisted).
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel optional>Preferred locale</FieldLabel>
+                <Input
+                  placeholder="en-US"
+                  value={state.locale}
+                  onChange={(e) => set("locale", e.target.value)}
+                />
               </div>
             </div>
           </div>

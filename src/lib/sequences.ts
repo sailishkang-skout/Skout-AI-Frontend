@@ -88,6 +88,7 @@ export interface UpdateStepInput {
 export interface EnrollInput {
   prospectIds?: string[];
   listId?: string;
+  consentBasis?: "opt_in" | "legitimate_interest" | "contract" | "legal_obligation";
 }
 
 export function useSequencesApi() {
