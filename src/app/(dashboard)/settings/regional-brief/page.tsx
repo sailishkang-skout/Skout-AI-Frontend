@@ -134,6 +134,12 @@ function SlotVersions({ slot, canEditGlobal }: { slot: RegionalBriefSlot; canEdi
               </Button>
             </div>
           )}
+          {approve.isError && (
+            <Alert variant="error">{formatQueryError(approve.error, "Could not approve that version.")}</Alert>
+          )}
+          {reject.isError && (
+            <Alert variant="error">{formatQueryError(reject.error, "Could not reject that version.")}</Alert>
+          )}
         </div>
       ))}
     </div>

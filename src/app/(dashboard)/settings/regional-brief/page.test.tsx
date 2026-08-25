@@ -320,4 +320,62 @@ describe("RegionalBriefPage", () => {
     });
     expect(await screen.findByText(/awaits review/i)).toBeTruthy();
   });
+
+  it("disables the create-draft submit and shows a warning for a non-admin on a global-tier layer", async () => {
+    mockAdminCheck.mockResolvedValue({ platformAdmin: false });
+    mockListSlots.mockResolvedValue({ data: [], total: 0 });
+
+    renderPage();
+
+    // Default layer is "country" (global-tier), so a non-admin should be blocked
+    // without even needing to touch the layer select.
+    fireEvent.change(await screen.findByLabelText(/summary/i), {
+      target: { value: "US market is large" },
+    });
+    fireEvent.change(screen.getByLabelText(/^source$/i), { target: { value: "IMF 2026" } });
+    fireEvent.change(screen.getByLabelText(/effective date/i), { target: { value: "2026-01-01" } });
+    fireEvent.change(screen.getByLabelText(/evidence/i), { target: { value: "imf.org/report" } });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/only platform admins can propose drafts/i)
+      ).toBeTruthy();
+    });
+    const button = screen.getByRole("button", { name: /create draft/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(mockCreateSlot).not.toHaveBeenCalled();
+  });
+
+  it("shows an error alert when approving a version fails", async () => {
+    mockAdminCheck.mockResolvedValue({ platformAdmin: true });
+    mockListSlots.mockResolvedValue({ data: [countrySlot()], total: 1 });
+    mockListVersions.mockResolvedValue({ data: [pendingVersion()], total: 1 });
+    mockApproveVersion.mockRejectedValue(new ApiError("Forbidden", 403));
+
+    renderPage();
+
+    const approveButton = await screen.findByRole("button", { name: /approve/i });
+    fireEvent.click(approveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/forbidden/i)).toBeTruthy();
+    });
+  });
+
+  it("shows an error alert when rejecting a version fails", async () => {
+    mockAdminCheck.mockResolvedValue({ platformAdmin: true });
+    mockListSlots.mockResolvedValue({ data: [countrySlot()], total: 1 });
+    mockListVersions.mockResolvedValue({ data: [pendingVersion()], total: 1 });
+    mockRejectVersion.mockRejectedValue(new ApiError("Conflict", 409));
+    vi.spyOn(window, "prompt").mockReturnValue("Not accurate");
+
+    renderPage();
+
+    const rejectButton = await screen.findByRole("button", { name: /reject/i });
+    fireEvent.click(rejectButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/conflict/i)).toBeTruthy();
+    });
+  });
 });
