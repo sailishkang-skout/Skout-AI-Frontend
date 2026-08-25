@@ -154,6 +154,22 @@ const TOOLS = [
 
 const LEAD_VOLUMES = ["100/month", "500/month", "1000/month", "5000/month", "10000+"];
 
+const PERSONAS: { id: OnboardingProfile["persona"] & string; label: string; blurb: string }[] = [
+  { id: "admin", label: "Admin", blurb: "Sets up the workspace for the team" },
+  { id: "bdr_sdr", label: "BDR / SDR", blurb: "Prospecting and outbound daily" },
+  { id: "ae", label: "Account Executive", blurb: "Closing deals, needs qualified pipeline" },
+  { id: "manager", label: "Sales Manager", blurb: "Runs a team, tracks rep activity" },
+  { id: "revops", label: "RevOps", blurb: "Owns process, data quality, CRM hygiene" },
+  { id: "marketing_ops", label: "Marketing Ops", blurb: "Runs campaigns, ABM, lead routing" },
+  { id: "executive_viewer", label: "Executive", blurb: "Reviews reporting, not day-to-day usage" },
+];
+
+const AUTONOMY_MODES: { id: OnboardingProfile["autonomyMode"] & string; label: string; blurb: string }[] = [
+  { id: "manual", label: "Manual", blurb: "Skout suggests — you approve every send and action" },
+  { id: "assisted", label: "Assisted", blurb: "Skout drafts and acts on routine steps, flags anything new for review" },
+  { id: "autonomous", label: "Autonomous", blurb: "Skout sends and acts within your guardrails without a per-item review" },
+];
+
 /** Onboarding geography label → ICP country codes used by search/scoring. */
 const GEO_TO_COUNTRIES: Record<string, string[]> = {
   "United States": ["US"],
@@ -195,6 +211,8 @@ interface WizardState {
   crm: string;
   leadVolume: string;
   customTitles: string[];
+  persona: string;
+  autonomyMode: string;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -214,6 +232,8 @@ const INITIAL_STATE: WizardState = {
   crm: "",
   leadVolume: "",
   customTitles: [],
+  persona: "",
+  autonomyMode: "",
 };
 
 function toggle(list: string[], item: string): string[] {
@@ -260,6 +280,9 @@ function buildIcpConfig(s: WizardState): IcpConfig {
     market: s.market.length ? s.market : undefined,
     crm: s.crm || undefined,
     leadVolume: s.leadVolume || undefined,
+    persona: (s.persona || undefined) as OnboardingProfile["persona"],
+    autonomyMode: (s.autonomyMode || undefined) as OnboardingProfile["autonomyMode"],
+    connections: s.crm ? { crm: { provider: s.crm, connected: false } } : undefined,
     completedAt: new Date().toISOString(),
   };
 
@@ -438,8 +461,8 @@ function VerifySendingEmailCard() {
 // Wizard
 // ---------------------------------------------------------------------------
 
-// 0 = welcome, 1-8 = questions, 9 = finish
-const TOTAL_QUESTION_STEPS = 8;
+// 0 = welcome, 1-9 = questions, 10 = finish
+const TOTAL_QUESTION_STEPS = 9;
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -461,7 +484,7 @@ export default function OnboardingPage() {
     if (hydrated || !existingIcp.isSuccess) return;
     setHydrated(true);
     if (isOnboardingComplete(existingIcp.data?.config)) {
-      setStep(9);
+      setStep(10);
     }
   }, [existingIcp.data?.config, existingIcp.isSuccess, hydrated]);
 
@@ -479,7 +502,7 @@ export default function OnboardingPage() {
 
   const progress = useMemo(() => {
     if (step === 0) return 0;
-    if (step >= 9) return 100;
+    if (step >= 10) return 100;
     // Percent of steps already finished — step 1 starts at 0%, not ~13%.
     return Math.round(((step - 1) / TOTAL_QUESTION_STEPS) * 100);
   }, [step]);
@@ -499,6 +522,8 @@ export default function OnboardingPage() {
       case 6:
         return state.market.length > 0;
       case 8:
+        return Boolean(state.persona);
+      case 9:
         return Boolean(state.leadVolume);
       default:
         return true;
@@ -506,17 +531,17 @@ export default function OnboardingPage() {
   }, [step, state]);
 
   const next = () => {
-    if (step === 8) {
+    if (step === 9) {
       save.mutate();
       return;
     }
-    setStep((s) => Math.min(s + 1, 9));
+    setStep((s) => Math.min(s + 1, 10));
   };
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
       {/* Progress bar */}
-      {step > 0 && step < 9 && (
+      {step > 0 && step < 10 && (
         <div className="mb-8 space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-medium text-foreground">
@@ -826,8 +851,45 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------- Step 8: Lead volume */}
+        {/* ------------------------------------------ Step 8: Persona + autonomy */}
         {step === 8 && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Users}
+              title="Who's setting this up?"
+              subtitle="This tunes which defaults and next-best-actions Skout shows you."
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PERSONAS.map((p) => (
+                <OptionCard
+                  key={p.id}
+                  label={p.label}
+                  hint={p.blurb}
+                  selected={state.persona === p.id}
+                  onClick={() => set("persona", state.persona === p.id ? "" : p.id)}
+                />
+              ))}
+            </div>
+            <div className="space-y-2 pt-2">
+              <FieldLabel>How much should Skout act on its own?</FieldLabel>
+              <div className="grid gap-2">
+                {AUTONOMY_MODES.map((m) => (
+                  <OptionCard
+                    key={m.id}
+                    label={m.label}
+                    hint={m.blurb}
+                    selected={state.autonomyMode === m.id}
+                    onClick={() => set("autonomyMode", state.autonomyMode === m.id ? "" : m.id)}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Defaults to Assisted if left unset. Changeable anytime under Settings.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------- Step 9: Lead volume */}
+        {step === 9 && (
           <div className="space-y-6">
             <StepHeading
               icon={Gauge}
@@ -852,8 +914,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 9: Finish */}
-        {step === 9 && (
+        {/* ------------------------------------------------ Step 10: Finish */}
+        {step === 10 && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-400 text-white shadow-lg">
               <PartyPopper className="h-10 w-10" />
@@ -896,7 +958,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Navigation */}
-      {step > 0 && step < 9 && (
+      {step > 0 && step < 10 && (
         <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
           <Button
             variant="ghost"
@@ -907,15 +969,15 @@ export default function OnboardingPage() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            {step === 7 && (
+            {(step === 7 || step === 8) && (
               <Button variant="ghost" onClick={next} disabled={save.isPending}>
                 Skip
               </Button>
             )}
             <Button onClick={next} disabled={!canContinue || save.isPending} className="px-6">
               {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {step === 8 ? "Finish" : "Continue"}
-              {step !== 8 && <ArrowRight className="ml-2 h-4 w-4" />}
+              {step === 9 ? "Finish" : "Continue"}
+              {step !== 9 && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </div>
         </div>

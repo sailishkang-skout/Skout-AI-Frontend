@@ -698,6 +698,12 @@ export interface OnboardingProfile {
   market?: string[];
   crm?: string;
   leadVolume?: string;
+  persona?: "admin" | "bdr_sdr" | "ae" | "manager" | "revops" | "marketing_ops" | "executive_viewer";
+  connections?: {
+    crm?: { provider?: string; connected?: boolean };
+    comms?: { provider?: string; connected?: boolean };
+  };
+  autonomyMode?: "manual" | "assisted" | "autonomous";
   completedAt?: string;
 }
 
