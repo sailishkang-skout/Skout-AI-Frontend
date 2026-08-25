@@ -78,21 +78,39 @@ export default function WorkbooksPage() {
           ) : (
             <div className="divide-y">
               {workbooks.data!.data.map((wb) => (
-                <div key={wb.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{wb.name}</p>
-                      <Badge tone={wb.status === "active" ? "success" : "muted"}>
-                        {wb.status === "active" ? "Active" : "Draft"}
-                      </Badge>
+                <div key={wb.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Sparkles className="h-4 w-4" />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {wb.fields.map((f) => FIELD_LABEL[f]).join(", ")}
-                      {wb.budgetCreditsPerRun ? ` · budget ${wb.budgetCreditsPerRun} credits/run` : ""}
-                      {wb.emailQualityThreshold != null
-                        ? ` · quality ≥ ${Math.round(wb.emailQualityThreshold * 100)}%`
-                        : ""}
-                    </p>
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{wb.name}</p>
+                        <Badge tone={wb.status === "active" ? "success" : "muted"}>
+                          {wb.status === "active" ? "Active" : "Draft"}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {wb.fields.map((f) => (
+                          <span
+                            key={f}
+                            className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            {FIELD_LABEL[f]}
+                          </span>
+                        ))}
+                        {wb.emailQualityThreshold != null && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            Quality ≥ {Math.round(wb.emailQualityThreshold * 100)}%
+                          </span>
+                        )}
+                        {wb.budgetCreditsPerRun && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            Budget {wb.budgetCreditsPerRun}/run
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setRunsFor(wb)}>
@@ -267,7 +285,7 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
         ) : (runs.data?.data.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">No runs yet.</p>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-2">
             {runs.data!.data.map((run) => (
               <RunRow
                 key={run.id}
@@ -309,13 +327,11 @@ function RunRow({
 }) {
   const progress = run.totalRows > 0 ? Math.round((run.processedRows / run.totalRows) * 100) : 0;
   return (
-    <div className="space-y-2 py-3 text-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <span className="font-medium">{run.mode.replace(/_/g, " ")}</span>
-          <Badge tone={RUN_STATUS_TONE[run.status]} className="ml-2">
-            {run.status}
-          </Badge>
+    <div className="space-y-2.5 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-medium capitalize">{run.mode.replace(/_/g, " ")}</span>
+          <Badge tone={RUN_STATUS_TONE[run.status]}>{run.status}</Badge>
         </div>
         <div className="flex items-center gap-2">
           {run.status === "running" && (
@@ -338,8 +354,11 @@ function RunRow({
           )}
         </div>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+        </div>
+        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{progress}%</span>
       </div>
       <p className="text-xs text-muted-foreground">
         {run.processedRows}/{run.totalRows} rows · {run.succeededRows} succeeded · {run.failedRows} failed ·{" "}
