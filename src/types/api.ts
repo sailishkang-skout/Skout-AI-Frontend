@@ -1228,10 +1228,44 @@ export interface Signal {
   signalType: string;
   value: { reason?: string; detail?: string; score?: number } & Record<string, unknown>;
   confidence: number | null;
+  /** When the real-world event happened. Falls back to detectedAt when unknown separately. */
+  observedAt: string;
   detectedAt: string;
   source: string | null;
   provenance: Record<string, unknown>;
   createdAt: string;
+  /** Null = never expires. */
+  expiresAt: string | null;
+  /** Target actions (activation-rules TargetAction) this signal may drive. Empty = informational only. */
+  activationPaths: string[];
+}
+
+/** 8.5 — signal-stacking score. Mirrors computeSignalStackScore in signal.service.ts. */
+export type SignalStackBand = "none" | "cool" | "warm" | "hot";
+
+export interface SignalStackContribution {
+  id: string;
+  signalType: string;
+  confidence: number;
+  detectedAt: string;
+  weight: number;
+}
+
+export interface SignalStackScore {
+  score: number;
+  band: SignalStackBand;
+  distinctSignalTypes: number;
+  reachableDecisionMaker: boolean;
+  contributingSignals: SignalStackContribution[];
+}
+
+/** 8.5 — Signal Center row: one account and every live signal driving its stack score.
+ * Mirrors listWorkspaceAccountSignals in signal.service.ts. */
+export interface AccountSignalSummary {
+  companyId: string;
+  companyName: string | null;
+  stackScore: SignalStackScore;
+  signals: Signal[];
 }
 
 /** R17.3 — signal-triggered SDR alerts. Mirrors apps/api/src/services/alert-rule.service.ts. */
