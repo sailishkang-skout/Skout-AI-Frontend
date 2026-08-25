@@ -31,7 +31,7 @@ jobs:
       DATABASE_URL: postgresql://skout:skout@localhost:5432/skout
       PLAYWRIGHT_API_URL: http://127.0.0.1:3001
       PLAYWRIGHT_CRM_API_URL: http://127.0.0.1:3002
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000/app
       # Playwright drives the frontend from http://127.0.0.1:3000 — both APIs must
       # allow that origin (plus localhost for local dev) or the browser blocks every
       # cross-origin fetch → waitForApiMutation 30s timeouts → 15m CI cancellation.

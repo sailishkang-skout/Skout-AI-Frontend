@@ -170,6 +170,46 @@ const AUTONOMY_MODES: { id: OnboardingProfile["autonomyMode"] & string; label: s
   { id: "autonomous", label: "Autonomous", blurb: "Skout sends and acts within your guardrails without a per-item review" },
 ];
 
+type StepId =
+  | "persona"
+  | "company"
+  | "industry"
+  | "goals"
+  | "icp"
+  | "people"
+  | "market"
+  | "tools"
+  | "autonomy"
+  | "leadVolume";
+
+const FULL_FLOW: StepId[] = [
+  "persona",
+  "company",
+  "industry",
+  "goals",
+  "icp",
+  "people",
+  "market",
+  "tools",
+  "autonomy",
+  "leadVolume",
+];
+
+// R8.1 — persona genuinely branches the rest of onboarding, not just a label collected and
+// ignored. Admin/Manager/RevOps/Marketing Ops set up workspace-wide config, so they see
+// everything. BDR-SDR/AE need ICP+people to start prospecting but not workspace-level
+// market/tooling config. Executive Viewer is read-only/reporting-focused, so it skips
+// prospecting setup entirely rather than asking questions whose answers it'll never use.
+function contentStepsForPersona(persona: string): StepId[] {
+  if (persona === "executive_viewer") {
+    return ["persona", "company", "goals"];
+  }
+  if (persona === "bdr_sdr" || persona === "ae") {
+    return ["persona", "company", "industry", "goals", "icp", "people", "autonomy", "leadVolume"];
+  }
+  return FULL_FLOW;
+}
+
 /** Onboarding geography label → ICP country codes used by search/scoring. */
 const GEO_TO_COUNTRIES: Record<string, string[]> = {
   "United States": ["US"],
@@ -467,17 +507,22 @@ function VerifySendingEmailCard() {
 // Wizard
 // ---------------------------------------------------------------------------
 
-// 0 = welcome, 1-9 = questions, 10 = finish
-const TOTAL_QUESTION_STEPS = 9;
+type Phase = "welcome" | "questions" | "finish";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
   const authReady = useAuthReady();
-  const [step, setStep] = useState(0);
+  const [phase, setPhase] = useState<Phase>("welcome");
+  const [qIndex, setQIndex] = useState(0);
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
+
+  // R8.1 — which questions get asked, and how many, depends on the persona picked in the
+  // first question. Recomputed live as the user answers it, not fixed at wizard start.
+  const contentSteps = useMemo(() => contentStepsForPersona(state.persona), [state.persona]);
+  const currentStepId: StepId = contentSteps[qIndex] ?? contentSteps[0];
 
   const existingIcp = useQuery({
     queryKey: ["icp"],
@@ -490,7 +535,7 @@ export default function OnboardingPage() {
     if (hydrated || !existingIcp.isSuccess) return;
     setHydrated(true);
     if (isOnboardingComplete(existingIcp.data?.config)) {
-      setStep(10);
+      setPhase("finish");
     }
   }, [existingIcp.data?.config, existingIcp.isSuccess, hydrated]);
 
@@ -499,7 +544,7 @@ export default function OnboardingPage() {
     onSuccess: (data) => {
       queryClient.setQueryData(["icp"], data);
       queryClient.invalidateQueries({ queryKey: ["icp"] });
-      setStep(9);
+      setPhase("finish");
     },
   });
 
@@ -507,51 +552,59 @@ export default function OnboardingPage() {
     setState((prev) => ({ ...prev, [key]: value }));
 
   const progress = useMemo(() => {
-    if (step === 0) return 0;
-    if (step >= 10) return 100;
-    // Percent of steps already finished — step 1 starts at 0%, not ~13%.
-    return Math.round(((step - 1) / TOTAL_QUESTION_STEPS) * 100);
-  }, [step]);
+    if (phase === "welcome") return 0;
+    if (phase === "finish") return 100;
+    // Percent of steps already finished — the first question starts at 0%, not ~13%.
+    return Math.round((qIndex / contentSteps.length) * 100);
+  }, [phase, qIndex, contentSteps.length]);
 
   const canContinue = useMemo(() => {
-    switch (step) {
-      case 1:
-        return Boolean(state.companyName.trim()) && Boolean(state.hqCountry.trim());
-      case 2:
-        return Boolean(state.companyIndustry && state.companySize);
-      case 3:
-        return state.goals.length > 0;
-      case 4:
-        return state.icpIndustries.length > 0;
-      case 5:
-        return state.seniorities.length > 0 || state.departments.length > 0 || state.titles.length > 0;
-      case 6:
-        return state.market.length > 0;
-      case 8:
+    switch (currentStepId) {
+      case "persona":
         return Boolean(state.persona);
-      case 9:
+      case "company":
+        return Boolean(state.companyName.trim()) && Boolean(state.hqCountry.trim());
+      case "industry":
+        return Boolean(state.companyIndustry && state.companySize);
+      case "goals":
+        return state.goals.length > 0;
+      case "icp":
+        return state.icpIndustries.length > 0;
+      case "people":
+        return state.seniorities.length > 0 || state.departments.length > 0 || state.titles.length > 0;
+      case "market":
+        return state.market.length > 0;
+      case "leadVolume":
         return Boolean(state.leadVolume);
       default:
         return true;
     }
-  }, [step, state]);
+  }, [currentStepId, state]);
 
   const next = () => {
-    if (step === 9) {
+    if (qIndex >= contentSteps.length - 1) {
       save.mutate();
       return;
     }
-    setStep((s) => Math.min(s + 1, 10));
+    setQIndex((i) => Math.min(i + 1, contentSteps.length - 1));
+  };
+
+  const back = () => {
+    if (qIndex === 0) {
+      setPhase("welcome");
+      return;
+    }
+    setQIndex((i) => Math.max(i - 1, 0));
   };
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
       {/* Progress bar */}
-      {step > 0 && step < 10 && (
+      {phase === "questions" && (
         <div className="mb-8 space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-medium text-foreground">
-              Step {step} of {TOTAL_QUESTION_STEPS}
+              Step {qIndex + 1} of {contentSteps.length}
             </span>
             <span>{progress}%</span>
           </div>
@@ -571,8 +624,8 @@ export default function OnboardingPage() {
       )}
 
       <div className="flex-1">
-        {/* ------------------------------------------------ Step 0: Welcome */}
-        {step === 0 && (
+        {/* ------------------------------------------------ Welcome */}
+        {phase === "welcome" && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-lg">
               <Sparkles className="h-10 w-10" />
@@ -584,7 +637,14 @@ export default function OnboardingPage() {
                 best companies and contacts for your business.
               </p>
             </div>
-            <Button size="lg" className="mt-2 px-8" onClick={() => setStep(1)}>
+            <Button
+              size="lg"
+              className="mt-2 px-8"
+              onClick={() => {
+                setPhase("questions");
+                setQIndex(0);
+              }}
+            >
               Continue
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -593,8 +653,30 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------ Step 1: About company */}
-        {step === 1 && (
+        {/* ------------------------------------------ Who's setting this up (persona) */}
+        {phase === "questions" && currentStepId === "persona" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Users}
+              title="Who's setting this up?"
+              subtitle="This changes which questions you'll see next — day-to-day sellers and reporting-only viewers don't need the same setup."
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PERSONAS.map((per) => (
+                <OptionCard
+                  key={per.id}
+                  label={per.label}
+                  hint={per.blurb}
+                  selected={state.persona === per.id}
+                  onClick={() => set("persona", state.persona === per.id ? "" : per.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------ About company */}
+        {phase === "questions" && currentStepId === "company" && (
           <div className="space-y-6">
             <StepHeading
               icon={Building2}
@@ -642,8 +724,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* --------------------------------------- Step 2: Company industry */}
-        {step === 2 && (
+        {/* --------------------------------------- Company industry */}
+        {phase === "questions" && currentStepId === "industry" && (
           <div className="space-y-6">
             <StepHeading
               icon={Rocket}
@@ -679,8 +761,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------- Step 3: Goals */}
-        {step === 3 && (
+        {/* ------------------------------------------------- Goals */}
+        {phase === "questions" && currentStepId === "goals" && (
           <div className="space-y-6">
             <StepHeading
               icon={Target}
@@ -700,8 +782,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* --------------------------------------------------- Step 4: ICP */}
-        {step === 4 && (
+        {/* --------------------------------------------------- ICP */}
+        {phase === "questions" && currentStepId === "icp" && (
           <div className="space-y-6">
             <StepHeading
               icon={Search}
@@ -763,8 +845,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 5: People */}
-        {step === 5 && (
+        {/* ------------------------------------------------ People */}
+        {phase === "questions" && currentStepId === "people" && (
           <div className="space-y-6">
             <StepHeading
               icon={Users}
@@ -831,8 +913,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 6: Market */}
-        {step === 6 && (
+        {/* ------------------------------------------------ Market */}
+        {phase === "questions" && currentStepId === "market" && (
           <div className="space-y-6">
             <StepHeading
               icon={Globe}
@@ -852,8 +934,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------- Step 7: Tools */}
-        {step === 7 && (
+        {/* ------------------------------------------------- Tools */}
+        {phase === "questions" && currentStepId === "tools" && (
           <div className="space-y-6">
             <StepHeading
               icon={Plug}
@@ -876,45 +958,31 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------ Step 8: Persona + autonomy */}
-        {step === 8 && (
+        {/* ------------------------------------------ Autonomy preference */}
+        {phase === "questions" && currentStepId === "autonomy" && (
           <div className="space-y-6">
             <StepHeading
-              icon={Users}
-              title="Who's setting this up?"
-              subtitle="This tunes which defaults and next-best-actions Skout shows you."
+              icon={Gauge}
+              title="How much should Skout act on its own?"
+              subtitle="Changeable anytime later under Settings."
             />
-            <div className="grid gap-2 sm:grid-cols-2">
-              {PERSONAS.map((p) => (
+            <div className="grid gap-2">
+              {AUTONOMY_MODES.map((m) => (
                 <OptionCard
-                  key={p.id}
-                  label={p.label}
-                  hint={p.blurb}
-                  selected={state.persona === p.id}
-                  onClick={() => set("persona", state.persona === p.id ? "" : p.id)}
+                  key={m.id}
+                  label={m.label}
+                  hint={m.blurb}
+                  selected={state.autonomyMode === m.id}
+                  onClick={() => set("autonomyMode", state.autonomyMode === m.id ? "" : m.id)}
                 />
               ))}
             </div>
-            <div className="space-y-2 pt-2">
-              <FieldLabel>How much should Skout act on its own?</FieldLabel>
-              <div className="grid gap-2">
-                {AUTONOMY_MODES.map((m) => (
-                  <OptionCard
-                    key={m.id}
-                    label={m.label}
-                    hint={m.blurb}
-                    selected={state.autonomyMode === m.id}
-                    onClick={() => set("autonomyMode", state.autonomyMode === m.id ? "" : m.id)}
-                  />
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Defaults to Assisted if left unset. Changeable anytime under Settings.</p>
-            </div>
+            <p className="text-xs text-muted-foreground">Defaults to Assisted if left unset.</p>
           </div>
         )}
 
-        {/* ------------------------------------------- Step 9: Lead volume */}
-        {step === 9 && (
+        {/* ------------------------------------------- Lead volume */}
+        {phase === "questions" && currentStepId === "leadVolume" && (
           <div className="space-y-6">
             <StepHeading
               icon={Gauge}
@@ -939,8 +1007,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 10: Finish */}
-        {step === 10 && (
+        {/* ------------------------------------------------ Finish */}
+        {phase === "finish" && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-400 text-white shadow-lg">
               <PartyPopper className="h-10 w-10" />
@@ -983,31 +1051,27 @@ export default function OnboardingPage() {
       </div>
 
       {/* Navigation */}
-      {step > 0 && step < 10 && (
+      {phase === "questions" && (
         <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
-          <Button
-            variant="ghost"
-            disabled={save.isPending}
-            onClick={() => setStep((s) => Math.max(s - 1, 0))}
-          >
+          <Button variant="ghost" disabled={save.isPending} onClick={back}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
           <div className="flex items-center gap-3">
-            {(step === 7 || step === 8) && (
+            {(currentStepId === "tools" || currentStepId === "persona") && (
               <Button variant="ghost" onClick={next} disabled={save.isPending}>
                 Skip
               </Button>
             )}
             <Button onClick={next} disabled={!canContinue || save.isPending} className="px-6">
               {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {step === 9 ? "Finish" : "Continue"}
-              {step !== 9 && <ArrowRight className="ml-2 h-4 w-4" />}
+              {qIndex === contentSteps.length - 1 ? "Finish" : "Continue"}
+              {qIndex !== contentSteps.length - 1 && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </div>
         </div>
       )}
-      {step > 0 && step < 9 && (
+      {phase === "questions" && qIndex < contentSteps.length - 1 && (
         <div className="mt-6 flex justify-center">
           <GdprBadge className="h-9 w-auto opacity-90" />
         </div>
