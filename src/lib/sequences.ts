@@ -129,6 +129,11 @@ export function useSequencesApi() {
         method: "DELETE",
       }),
 
+    approveModeC: (id: string) =>
+      fetchApi<Sequence>(`/api/v1/sequences/${id}/approve-mode-c`, {
+        method: "POST",
+      }),
+
     addStep: (sequenceId: string, input: AddStepInput) =>
       fetchApi<SequenceStep>(`/api/v1/sequences/${sequenceId}/steps`, {
         method: "POST",

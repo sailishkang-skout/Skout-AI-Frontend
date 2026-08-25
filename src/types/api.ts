@@ -236,6 +236,9 @@ export interface Sequence {
   templateKey?: string | null;
   mode?: SequenceMode;
   currentVersion?: number;
+  /** Set once a human explicitly approves a Mode C ("God Mode") sequence — required before draft->active. */
+  modeCApprovedAt?: string | null;
+  modeCApprovedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
