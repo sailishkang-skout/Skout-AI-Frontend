@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Coins, List, Search, Users, Zap } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
+import { SetupChecklistCard } from "@/components/dashboard/setup-checklist-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -39,6 +40,7 @@ export default function DashboardPage() {
       />
 
       <DemoBanner />
+      <SetupChecklistCard />
 
       {!data?.icpConfigured && (
         <Alert variant="warning">

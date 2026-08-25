@@ -676,6 +676,19 @@ export interface IcpConfig {
 }
 
 /** Structured answers from the signup onboarding wizard. */
+export interface SetupChecklistItem {
+  id: "icp" | "list" | "mailbox" | "prospect";
+  label: string;
+  done: boolean;
+  href: string;
+}
+
+export interface SetupChecklist {
+  items: SetupChecklistItem[];
+  complete: boolean;
+  readyForOutboundSend: boolean;
+}
+
 export interface OnboardingProfile {
   company?: {
     name?: string;
