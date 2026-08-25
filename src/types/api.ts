@@ -720,6 +720,20 @@ export interface OnboardingProfile {
   completedAt?: string;
 }
 
+export interface AsyncJobView {
+  id: string;
+  jobType: string;
+  status: string;
+  entityType: string | null;
+  entityId: string | null;
+  result: { scored?: number; total?: number; creditsUsed?: number } | null;
+  errorMessage: string | null;
+  progress: number | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
 export interface IcpRescoreJobRef {
   jobId?: string;
   status: "pending" | "completed";
