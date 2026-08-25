@@ -33,10 +33,14 @@ export function JobDetailSheet({
 }) {
   const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
+  // "optimistic-…" ids are a client-only placeholder (see lib/enrichment.ts) — they never exist
+  // on the backend, so polling one just 500s in a loop until the real id replaces it in the
+  // jobs list cache and this sheet is reopened against it.
+  const isOptimisticId = jobId?.startsWith("optimistic-") ?? false;
   const detail = useQuery({
     queryKey: [...JOBS_QUERY_KEY, jobId],
     queryFn: () => enrichmentApi.getJob(jobId!),
-    enabled: authReady && open && !!jobId,
+    enabled: authReady && open && !!jobId && !isOptimisticId,
     initialData: fallbackJob?.id === jobId ? fallbackJob : undefined,
     refetchInterval: (q) =>
       q.state.data?.status === "running" || q.state.data?.status === "queued" ? 2000 : false,
