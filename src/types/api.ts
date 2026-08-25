@@ -1381,6 +1381,48 @@ export interface ImportProviderContact {
   linkedinUrl?: string;
 }
 
+// R8.3 — enrichment workbooks (ordered-provider waterfall config + pausable/resumable runs).
+export type WorkbookStatus = "draft" | "active";
+export type WorkbookField = "company" | "email" | "validation" | "phone";
+export type WorkbookRunMode = "sample" | "selected" | "changed_rows" | "scheduled";
+export type WorkbookRunStatus = "queued" | "running" | "paused" | "completed" | "failed";
+
+export interface EnrichmentWorkbook {
+  id: string;
+  workspaceId: string;
+  name: string;
+  fields: WorkbookField[];
+  emailQualityThreshold: number | null;
+  budgetCreditsPerRun: number | null;
+  status: WorkbookStatus;
+  activatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkbookRun {
+  id: string;
+  workbookId: string;
+  workspaceId: string;
+  listId: string;
+  mode: WorkbookRunMode;
+  targetProspectIds: string[];
+  batchId: string | null;
+  status: WorkbookRunStatus;
+  totalRows: number;
+  processedRows: number;
+  succeededRows: number;
+  failedRows: number;
+  creditsBudget: number | null;
+  creditsUsed: number;
+  rerunOfRunId: string | null;
+  errorMessage: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  pausedAt: string | null;
+  completedAt: string | null;
+}
+
 export interface CommitImportResult {
   provider: ImportProvider;
   listId: string;

@@ -112,6 +112,7 @@ export const discoverNav: NavGroup[] = [
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
       { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
+      { href: "/enrichment/workbooks", label: "Enrichment workbooks", icon: Sparkles, tourId: "nav-workbooks" },
     ],
   },
 ];
