@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pause, Play, Plus, RotateCcw, Sparkles } from "lucide-react";
+import { Loader2, Pause, Play, Plus, RotateCcw, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -331,7 +331,12 @@ function RunRow({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="font-medium capitalize">{run.mode.replace(/_/g, " ")}</span>
-          <Badge tone={RUN_STATUS_TONE[run.status]}>{run.status}</Badge>
+          <Badge tone={RUN_STATUS_TONE[run.status]} className="gap-1">
+            {(run.status === "running" || run.status === "queued") && (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            )}
+            {run.status}
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
           {run.status === "running" && (
@@ -383,11 +388,23 @@ function StartRunDialog({
   const workbooksApi = useWorkbooksApi();
   const [listId, setListId] = useState("");
   const [mode, setMode] = useState<WorkbookRunMode>("sample");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const lists = useQuery({ queryKey: ["lists", "for-workbook-run"], queryFn: listLists });
 
+  const members = useQuery({
+    queryKey: ["lists", listId, "members", "for-workbook-run"],
+    queryFn: () => workbooksApi.listMembers(listId),
+    enabled: mode === "selected" && !!listId,
+  });
+
   const start = useMutation({
-    mutationFn: () => workbooksApi.startRun(workbook.id, { listId, mode }),
+    mutationFn: () =>
+      workbooksApi.startRun(workbook.id, {
+        listId,
+        mode,
+        selectedProspectIds: mode === "selected" ? selectedIds : undefined,
+      }),
     onSuccess: () => {
       onStarted();
       onClose();
@@ -401,6 +418,12 @@ function StartRunDialog({
     { value: "scheduled", label: "Full run", disabled: workbook.status !== "active" },
   ];
 
+  const toggleSelected = (prospectId: string) =>
+    setSelectedIds((prev) => (prev.includes(prospectId) ? prev.filter((id) => id !== prospectId) : [...prev, prospectId]));
+
+  const needsSelection = mode === "selected";
+  const canStart = listId && (!needsSelection || selectedIds.length > 0) && !start.isPending;
+
   return (
     <Dialog open onClose={onClose} title="Start run">
       <div className="space-y-4">
@@ -409,7 +432,13 @@ function StartRunDialog({
         )}
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">List</span>
-          <Select value={listId} onChange={(e) => setListId(e.target.value)}>
+          <Select
+            value={listId}
+            onChange={(e) => {
+              setListId(e.target.value);
+              setSelectedIds([]);
+            }}
+          >
             <option value="">Select a list…</option>
             {(lists.data?.data ?? []).map((l) => (
               <option key={l.id} value={l.id}>
@@ -420,7 +449,13 @@ function StartRunDialog({
         </label>
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">Mode</span>
-          <Select value={mode} onChange={(e) => setMode(e.target.value as WorkbookRunMode)}>
+          <Select
+            value={mode}
+            onChange={(e) => {
+              setMode(e.target.value as WorkbookRunMode);
+              setSelectedIds([]);
+            }}
+          >
             {modeOptions.map((o) => (
               <option key={o.value} value={o.value} disabled={o.disabled}>
                 {o.label}
@@ -429,11 +464,44 @@ function StartRunDialog({
             ))}
           </Select>
         </label>
+
+        {needsSelection && listId && (
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">
+              Rows to enrich {selectedIds.length > 0 ? `(${selectedIds.length} selected)` : ""}
+            </span>
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
+              {members.isLoading ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground">Loading rows…</p>
+              ) : (members.data?.length ?? 0) === 0 ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground">This list has no prospects.</p>
+              ) : (
+                members.data!.map((m) => (
+                  <label
+                    key={m.prospectId}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-accent"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(m.prospectId)}
+                      onChange={() => toggleSelected(m.prospectId)}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span className="truncate">
+                      {m.snapshot.fullName || m.snapshot.companyName || m.snapshot.companyDomain || m.prospectId}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => start.mutate()} disabled={!listId || start.isPending}>
+          <Button onClick={() => start.mutate()} disabled={!canStart}>
             Start run
           </Button>
         </div>

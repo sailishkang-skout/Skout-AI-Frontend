@@ -4,10 +4,18 @@ import type { EnrichmentWorkbook, WorkbookField, WorkbookRun, WorkbookRunMode } 
 export const WORKBOOKS_QUERY_KEY = ["workbooks"] as const;
 export const workbookRunsQueryKey = (workbookId: string) => ["workbooks", workbookId, "runs"] as const;
 
+export interface WorkbookListMember {
+  prospectId: string;
+  companyId: string;
+  snapshot: { fullName?: string; companyName?: string; companyDomain?: string };
+  addedAt: string;
+}
+
 export function useWorkbooksApi() {
   const fetchApi = useApiFetch();
   return {
     list: () => fetchApi<{ data: EnrichmentWorkbook[]; total: number }>("/api/v1/workbooks"),
+    listMembers: (listId: string) => fetchApi<WorkbookListMember[]>(`/api/v1/lists/${listId}/members`),
     get: (id: string) => fetchApi<EnrichmentWorkbook>(`/api/v1/workbooks/${id}`),
     create: (input: { name: string; fields: WorkbookField[]; emailQualityThreshold?: number; budgetCreditsPerRun?: number }) =>
       fetchApi<EnrichmentWorkbook>("/api/v1/workbooks", { method: "POST", body: JSON.stringify(input) }),
