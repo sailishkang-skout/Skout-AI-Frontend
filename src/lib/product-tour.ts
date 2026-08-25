@@ -181,6 +181,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "email-warmup",
+    target: "nav-email-warmup",
+    href: "/warmup",
+    title: "Email Warm-up",
+    body: "Ramp mailbox reputation safely — pools, domains, health, and kill switches before you scale sends.",
+    details: [
+      "Connect mailboxes and watch warm-up control over time",
+      "Monitor health/risk and partner network conversations",
+      "Use kill switches when a domain or pool needs to pause",
+    ],
+  },
+  {
     id: "ai-review",
     target: "nav-ai-review",
     href: "/ai/review",
@@ -213,6 +225,18 @@ export const TOUR_STEPS: TourStep[] = [
     details: [
       "Same Deals board you manage from — just reached from Intelligence too",
       "Spot stale or at-risk deals alongside your other signal sources",
+    ],
+  },
+  {
+    id: "identity-merge",
+    target: "nav-identity-merge",
+    href: "/crm/identity-merge",
+    title: "Identity merge review",
+    body: "Review suggested company and contact merges when Skout finds probable duplicates across sources.",
+    details: [
+      "Open pending proposals and compare the two records side by side",
+      "Approve to merge into the kept record, or reject if they are distinct",
+      "Keeps CRM and enrichment from duplicating the same account",
     ],
   },
   {

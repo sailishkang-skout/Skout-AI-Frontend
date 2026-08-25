@@ -39,6 +39,8 @@ export function EnrollPanel({
   const [selectedListId, setSelectedListId] = useState("");
   const [prospectIdsDraft, setProspectIdsDraft] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [consentBasis, setConsentBasis] = useState<"opt_in" | "legitimate_interest">("legitimate_interest");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -67,6 +69,7 @@ export function EnrollPanel({
       return sequencesApi.enroll(sequenceId, {
         ...(selectedListId ? { listId: selectedListId } : {}),
         ...(ids.length ? { prospectIds: ids } : {}),
+        ...(consentConfirmed ? { consentBasis } : {}),
       });
     },
     onSuccess: () => {
@@ -77,7 +80,10 @@ export function EnrollPanel({
   });
 
   const isActive = sequenceStatus === "active";
-  const canEnroll = isActive && (Boolean(selectedListId) || prospectIdsDraft.trim().length > 0);
+  const canEnroll =
+    isActive &&
+    consentConfirmed &&
+    (Boolean(selectedListId) || prospectIdsDraft.trim().length > 0);
   const listOptions = useMemo(() => lists.data?.data ?? [], [lists.data]);
 
   const statusCounts = useMemo(() => {
@@ -144,6 +150,35 @@ export function EnrollPanel({
               />
             </div>
           )}
+
+          <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={consentConfirmed}
+                onChange={(e) => setConsentConfirmed(e.target.checked)}
+                disabled={!isActive}
+              />
+              <span>
+                I confirm we have a lawful basis to email these prospects (records consent before enroll).
+              </span>
+            </label>
+            <div className="space-y-1 pl-6">
+              <label className="text-xs font-medium text-muted-foreground">Consent basis</label>
+              <Select
+                value={consentBasis}
+                onChange={(e) =>
+                  setConsentBasis(e.target.value as "opt_in" | "legitimate_interest")
+                }
+                disabled={!isActive || !consentConfirmed}
+                className="w-full sm:max-w-sm"
+              >
+                <option value="legitimate_interest">Legitimate interest</option>
+                <option value="opt_in">Opt-in</option>
+              </Select>
+            </div>
+          </div>
 
           <div className="flex items-center gap-3">
             <Button

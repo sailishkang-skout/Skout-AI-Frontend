@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { BuyingCommitteeCard } from "@/components/crm/buying-committee-card";
 import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
@@ -139,6 +140,8 @@ export default function DealDetailPage() {
       )}
 
       <NextBestActionCard entityType="deal" entityId={id} />
+
+      <BuyingCommitteeCard dealId={id} companyId={data.companyId} />
 
       <Card>
         <CardContent className="p-5">

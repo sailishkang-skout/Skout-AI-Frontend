@@ -8,6 +8,8 @@ export interface EmailIntelVerifyResult {
   verificationStatus?: { status: string };
   catchAll?: boolean;
   sendEligibility?: { allowed: boolean; decision: string; decisionConfidence?: number };
+  /** Set when the domain looks like a typo of a common domain, e.g. "gmial.com" -> "gmail.com". */
+  suggestedDomain?: string;
   error?: string;
 }
 
@@ -55,6 +57,7 @@ export interface EmailIntelPatternResult {
   error?: string;
 }
 
+/** @deprecated the warm-up engine is a permanent upstream scaffold — see /intelligence/email/warmup. */
 export interface EmailIntelWarmupStatusResult {
   success: boolean;
   domain: string;
@@ -92,6 +95,7 @@ export function useEmailIntelApi() {
         body: JSON.stringify(input),
       }),
 
+    /** @deprecated see EmailIntelWarmupStatusResult above. */
     warmupStatus: (domain: string) =>
       fetchApi<EmailIntelWarmupStatusResult>(
         `/api/v1/email-intel/warmup/status?domain=${encodeURIComponent(domain)}`

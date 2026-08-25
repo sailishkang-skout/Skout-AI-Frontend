@@ -236,6 +236,9 @@ export interface Sequence {
   templateKey?: string | null;
   mode?: SequenceMode;
   currentVersion?: number;
+  /** Set once a human explicitly approves a Mode C ("God Mode") sequence — required before draft->active. */
+  modeCApprovedAt?: string | null;
+  modeCApprovedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -424,6 +427,26 @@ export interface InboxThread {
     icpScore?: number;
     icpBand?: string;
   } | null;
+}
+
+/**
+ * §5.2 (Enterprise Completion Plan) — a pending probabilistic identity-merge proposal, returned
+ * by GET /identity-merge/proposals. `signals` is whatever scoreCandidateMatch (backend
+ * packages/shared) recorded as its reasoning — free-form, rendered as-is rather than typed
+ * field-by-field since it's meant to be inspected by a human reviewer, not parsed by this UI.
+ */
+export interface IdentityMergeProposal {
+  id: string;
+  workspaceId: string;
+  entityType: string;
+  leftEntityId: string;
+  rightEntityId: string;
+  score: number;
+  signals: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
 }
 
 /** Row shape returned by GET /inbox/manual-review — the raw inbox_threads row (no prospect
@@ -695,6 +718,9 @@ export interface OnboardingProfile {
     industry?: string;
     size?: string;
     website?: string;
+    /** Seller HQ / operating country — asked at onboarding for regional intel */
+    hqCountry?: string;
+    locale?: string;
   };
   goals?: string[];
   icp?: {
@@ -1118,6 +1144,9 @@ export interface Inbox {
   provider: InboxProvider;
   status: InboxStatus;
   warmupStatus: string;
+  /** Present when Warm-Up Tool is configured and a matching mailbox exists. */
+  warmupToolMailboxId?: string | null;
+  warmupToolStatus?: string | null;
   dailySendLimit: number;
   sentToday: number;
   capPct: number;

@@ -99,6 +99,15 @@ export default function SequenceDetailPage() {
     onError: (err) => setActionError(formatQueryError(err, "Couldn't update this sequence.")),
   });
 
+  const approveModeC = useMutation({
+    mutationFn: () => sequencesApi.approveModeC(sequenceId),
+    onSuccess: () => {
+      setActionError(null);
+      invalidateDetail();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't approve this Mode C sequence.")),
+  });
+
   const addStep = useMutation({
     mutationFn: (input: AddStepInput) =>
       sequencesApi.addStep(sequenceId, input),
@@ -163,6 +172,7 @@ export default function SequenceDetailPage() {
   }
 
   const availableTransitions = sequence ? STATUS_TRANSITIONS[sequence.status] : [];
+  const needsModeCApproval = sequence?.mode === "C" && !sequence.modeCApprovedAt;
 
   return (
     <PageShell>
@@ -237,7 +247,14 @@ export default function SequenceDetailPage() {
                   <Badge tone={sequenceStatusTone(sequence.status)} className="capitalize">
                     {sequence.status}
                   </Badge>
-                  {sequence.mode === "C" && <Badge tone="warning">God Mode</Badge>}
+                  {sequence.mode === "C" && (
+                    <>
+                      <Badge tone="warning">God Mode</Badge>
+                      <Badge tone={needsModeCApproval ? "danger" : "success"}>
+                        {needsModeCApproval ? "Needs approval" : "Approved"}
+                      </Badge>
+                    </>
+                  )}
                   {sequence.mode === "A" && <Badge tone="muted">Mode A</Badge>}
                   {sequence.mode === "B" && <Badge tone="muted">Mode B</Badge>}
                   <Badge tone="muted">v{sequence.currentVersion ?? 0}</Badge>
@@ -273,12 +290,28 @@ export default function SequenceDetailPage() {
                     Publish version
                   </Button>
                 )}
+                {needsModeCApproval && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={approveModeC.isPending}
+                    onClick={() => approveModeC.mutate()}
+                    className="gap-1.5"
+                    title="Mode C (God Mode) sequences require explicit approval before they can be activated"
+                  >
+                    {approveModeC.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : null}
+                    Approve Mode C
+                  </Button>
+                )}
               {availableTransitions.length > 0 && (
                 <>
                   {availableTransitions.map((next) => {
                     const cfg = STATUS_ACTION_CONFIG[next];
                     if (!cfg) return null;
                     const Icon = cfg.icon;
+                    const blockedByModeC = next === "active" && needsModeCApproval;
                     return (
                       <Button
                         key={next}
@@ -286,10 +319,13 @@ export default function SequenceDetailPage() {
                         variant={cfg.variant}
                         disabled={
                           updateSequence.isPending ||
-                          (next === "active" && steps.length === 0)
+                          (next === "active" && steps.length === 0) ||
+                          blockedByModeC
                         }
                         title={
-                          next === "active" && steps.length === 0
+                          blockedByModeC
+                            ? "Approve this Mode C sequence before activating it"
+                            : next === "active" && steps.length === 0
                             ? "Add at least one step before activating"
                             : undefined
                         }
@@ -314,7 +350,24 @@ export default function SequenceDetailPage() {
                 Add at least one step before activating this sequence.
               </div>
             )}
-            {sequence.status === "draft" && steps.length > 0 && (
+            {sequence.status === "draft" && steps.length > 0 && needsModeCApproval && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-amber-50/60 px-5 py-3 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                <span>
+                  This is a Mode C (God Mode) sequence — it needs explicit approval before it can be activated.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  disabled={approveModeC.isPending}
+                  onClick={() => approveModeC.mutate()}
+                >
+                  {approveModeC.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                  Approve Mode C
+                </Button>
+              </div>
+            )}
+            {sequence.status === "draft" && steps.length > 0 && !needsModeCApproval && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-emerald-50/60 px-5 py-3 text-xs text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
                 <span>
                   Ready to send? Activate this sequence, then open Enroll to add prospects.

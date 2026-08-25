@@ -27,6 +27,7 @@ const isProtectedRoute = createRouteMatcher([
   "/sequences(.*)",
   "/inbox(.*)",
   "/deliverability(.*)",
+  "/warmup(.*)",
   "/ai(.*)",
   // Pre-existing gap found while adding /intelligence below: CRM pages (companies, contacts,
   // deals, tasks, meetings, calendar) were never in this list, so Clerk never protected them.
