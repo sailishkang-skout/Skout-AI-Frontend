@@ -10,5 +10,10 @@ export function useDashboardApi() {
     getSummary: () => fetchApi<{ data: DashboardSummary }>("/api/v1/dashboard/summary"),
     getSetupChecklist: () =>
       fetchApi<{ data: SetupChecklist }>("/api/v1/workspaces/current/setup-checklist"),
+    seedDemoData: () =>
+      fetchApi<{ data: { listId: string; added: number; alreadySeeded: boolean } }>(
+        "/api/v1/workspaces/current/seed-demo-data",
+        { method: "POST" }
+      ),
   };
 }
