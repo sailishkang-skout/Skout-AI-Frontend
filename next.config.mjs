@@ -19,6 +19,13 @@ const nextConfig = {
       { source: "/login", destination: "/signin", permanent: false },
       { source: "/login/:path*", destination: "/signin/:path*", permanent: false },
       { source: "/singin", destination: "/signin", permanent: false },
+      // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
+      // design — `basePath: false` here matches the literal "/" outside that basePath so
+      // localhost:3000 alone lands on /app instead of a 404. Not applied in production, where
+      // the root domain may be served by something other than this app.
+      ...(process.env.NODE_ENV === "production"
+        ? []
+        : [{ source: "/", destination: "/app", basePath: false, permanent: false }]),
     ];
   },
   env: {

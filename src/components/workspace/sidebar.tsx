@@ -119,6 +119,7 @@ export const discoverNav: NavGroup[] = [
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
       { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
+      { href: "/enrichment/workbooks", label: "Enrichment workbooks", icon: Sparkles, tourId: "nav-workbooks" },
     ],
   },
 ];
@@ -167,6 +168,8 @@ export const intelligenceNav: NavGroup[] = [
     label: "Intelligence",
     items: [
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
+      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
+      { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
       {
         href: "/intelligence/email",
         label: "Email Intelligence",

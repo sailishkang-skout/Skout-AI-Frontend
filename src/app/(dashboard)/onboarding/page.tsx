@@ -154,6 +154,78 @@ const TOOLS = [
 
 const LEAD_VOLUMES = ["100/month", "500/month", "1000/month", "5000/month", "10000+"];
 
+const BUSINESS_MODELS: { id: OnboardingProfile["businessModel"] & string; label: string; blurb: string }[] = [
+  { id: "b2b", label: "B2B", blurb: "Sell to other businesses" },
+  { id: "b2c", label: "B2C", blurb: "Sell directly to consumers" },
+  { id: "b2b2c", label: "B2B2C", blurb: "Sell through a business to their customers" },
+  { id: "marketplace", label: "Marketplace", blurb: "Connect buyers and sellers" },
+  { id: "other", label: "Other", blurb: "Something else" },
+];
+
+const DATA_POLICIES: { id: OnboardingProfile["dataPolicy"] & string; label: string; blurb: string }[] = [
+  { id: "strict", label: "Strict", blurb: "Minimal collection, shorter retention — GDPR-conservative" },
+  { id: "standard", label: "Standard", blurb: "Balanced collection and retention (default)" },
+  { id: "flexible", label: "Flexible", blurb: "Fuller enrichment and longer retention for growth" },
+];
+
+const PERSONAS: { id: OnboardingProfile["persona"] & string; label: string; blurb: string }[] = [
+  { id: "admin", label: "Admin", blurb: "Sets up the workspace for the team" },
+  { id: "bdr_sdr", label: "BDR / SDR", blurb: "Prospecting and outbound daily" },
+  { id: "ae", label: "Account Executive", blurb: "Closing deals, needs qualified pipeline" },
+  { id: "manager", label: "Sales Manager", blurb: "Runs a team, tracks rep activity" },
+  { id: "revops", label: "RevOps", blurb: "Owns process, data quality, CRM hygiene" },
+  { id: "marketing_ops", label: "Marketing Ops", blurb: "Runs campaigns, ABM, lead routing" },
+  { id: "executive_viewer", label: "Executive", blurb: "Reviews reporting, not day-to-day usage" },
+];
+
+const AUTONOMY_MODES: { id: OnboardingProfile["autonomyMode"] & string; label: string; blurb: string }[] = [
+  { id: "manual", label: "Manual", blurb: "Skout suggests — you approve every send and action" },
+  { id: "assisted", label: "Assisted", blurb: "Skout drafts and acts on routine steps, flags anything new for review" },
+  { id: "autonomous", label: "Autonomous", blurb: "Skout sends and acts within your guardrails without a per-item review" },
+];
+
+type StepId =
+  | "persona"
+  | "company"
+  | "businessData"
+  | "industry"
+  | "goals"
+  | "icp"
+  | "people"
+  | "market"
+  | "tools"
+  | "autonomy"
+  | "leadVolume";
+
+const FULL_FLOW: StepId[] = [
+  "persona",
+  "company",
+  "businessData",
+  "industry",
+  "goals",
+  "icp",
+  "people",
+  "market",
+  "tools",
+  "autonomy",
+  "leadVolume",
+];
+
+// R8.1 — persona genuinely branches the rest of onboarding, not just a label collected and
+// ignored. Admin/Manager/RevOps/Marketing Ops set up workspace-wide config, so they see
+// everything. BDR-SDR/AE need ICP+people to start prospecting but not workspace-level
+// market/tooling config. Executive Viewer is read-only/reporting-focused, so it skips
+// prospecting setup entirely rather than asking questions whose answers it'll never use.
+function contentStepsForPersona(persona: string): StepId[] {
+  if (persona === "executive_viewer") {
+    return ["persona", "company", "goals"];
+  }
+  if (persona === "bdr_sdr" || persona === "ae") {
+    return ["persona", "company", "industry", "goals", "icp", "people", "autonomy", "leadVolume"];
+  }
+  return FULL_FLOW;
+}
+
 /** Onboarding geography label → ICP country codes used by search/scoring. */
 const GEO_TO_COUNTRIES: Record<string, string[]> = {
   "United States": ["US"],
@@ -197,6 +269,10 @@ interface WizardState {
   crm: string;
   leadVolume: string;
   customTitles: string[];
+  persona: string;
+  autonomyMode: string;
+  businessModel: string;
+  dataPolicy: string;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -218,6 +294,10 @@ const INITIAL_STATE: WizardState = {
   crm: "",
   leadVolume: "",
   customTitles: [],
+  persona: "",
+  autonomyMode: "",
+  businessModel: "",
+  dataPolicy: "",
 };
 
 function toggle(list: string[], item: string): string[] {
@@ -266,6 +346,11 @@ function buildIcpConfig(s: WizardState): IcpConfig {
     market: s.market.length ? s.market : undefined,
     crm: s.crm || undefined,
     leadVolume: s.leadVolume || undefined,
+    businessModel: (s.businessModel || undefined) as OnboardingProfile["businessModel"],
+    dataPolicy: (s.dataPolicy || undefined) as OnboardingProfile["dataPolicy"],
+    persona: (s.persona || undefined) as OnboardingProfile["persona"],
+    autonomyMode: (s.autonomyMode || undefined) as OnboardingProfile["autonomyMode"],
+    connections: s.crm ? { crm: { provider: s.crm, connected: false } } : undefined,
     completedAt: new Date().toISOString(),
   };
 
@@ -444,17 +529,22 @@ function VerifySendingEmailCard() {
 // Wizard
 // ---------------------------------------------------------------------------
 
-// 0 = welcome, 1-8 = questions, 9 = finish
-const TOTAL_QUESTION_STEPS = 8;
+type Phase = "welcome" | "questions" | "finish";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const icpApi = useIcpApi();
   const authReady = useAuthReady();
-  const [step, setStep] = useState(0);
+  const [phase, setPhase] = useState<Phase>("welcome");
+  const [qIndex, setQIndex] = useState(0);
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
+
+  // R8.1 — which questions get asked, and how many, depends on the persona picked in the
+  // first question. Recomputed live as the user answers it, not fixed at wizard start.
+  const contentSteps = useMemo(() => contentStepsForPersona(state.persona), [state.persona]);
+  const currentStepId: StepId = contentSteps[qIndex] ?? contentSteps[0];
 
   const existingIcp = useQuery({
     queryKey: ["icp"],
@@ -467,7 +557,7 @@ export default function OnboardingPage() {
     if (hydrated || !existingIcp.isSuccess) return;
     setHydrated(true);
     if (isOnboardingComplete(existingIcp.data?.config)) {
-      setStep(9);
+      setPhase("finish");
     }
   }, [existingIcp.data?.config, existingIcp.isSuccess, hydrated]);
 
@@ -476,7 +566,7 @@ export default function OnboardingPage() {
     onSuccess: (data) => {
       queryClient.setQueryData(["icp"], data);
       queryClient.invalidateQueries({ queryKey: ["icp"] });
-      setStep(9);
+      setPhase("finish");
     },
   });
 
@@ -484,49 +574,59 @@ export default function OnboardingPage() {
     setState((prev) => ({ ...prev, [key]: value }));
 
   const progress = useMemo(() => {
-    if (step === 0) return 0;
-    if (step >= 9) return 100;
-    // Percent of steps already finished — step 1 starts at 0%, not ~13%.
-    return Math.round(((step - 1) / TOTAL_QUESTION_STEPS) * 100);
-  }, [step]);
+    if (phase === "welcome") return 0;
+    if (phase === "finish") return 100;
+    // Percent of steps already finished — the first question starts at 0%, not ~13%.
+    return Math.round((qIndex / contentSteps.length) * 100);
+  }, [phase, qIndex, contentSteps.length]);
 
   const canContinue = useMemo(() => {
-    switch (step) {
-      case 1:
+    switch (currentStepId) {
+      case "persona":
+        return Boolean(state.persona);
+      case "company":
         return Boolean(state.companyName.trim()) && Boolean(state.hqCountry.trim());
-      case 2:
+      case "industry":
         return Boolean(state.companyIndustry && state.companySize);
-      case 3:
+      case "goals":
         return state.goals.length > 0;
-      case 4:
+      case "icp":
         return state.icpIndustries.length > 0;
-      case 5:
+      case "people":
         return state.seniorities.length > 0 || state.departments.length > 0 || state.titles.length > 0;
-      case 6:
+      case "market":
         return state.market.length > 0;
-      case 8:
+      case "leadVolume":
         return Boolean(state.leadVolume);
       default:
         return true;
     }
-  }, [step, state]);
+  }, [currentStepId, state]);
 
   const next = () => {
-    if (step === 8) {
+    if (qIndex >= contentSteps.length - 1) {
       save.mutate();
       return;
     }
-    setStep((s) => Math.min(s + 1, 9));
+    setQIndex((i) => Math.min(i + 1, contentSteps.length - 1));
+  };
+
+  const back = () => {
+    if (qIndex === 0) {
+      setPhase("welcome");
+      return;
+    }
+    setQIndex((i) => Math.max(i - 1, 0));
   };
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
       {/* Progress bar */}
-      {step > 0 && step < 9 && (
+      {phase === "questions" && (
         <div className="mb-8 space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-medium text-foreground">
-              Step {step} of {TOTAL_QUESTION_STEPS}
+              Step {qIndex + 1} of {contentSteps.length}
             </span>
             <span>{progress}%</span>
           </div>
@@ -546,8 +646,8 @@ export default function OnboardingPage() {
       )}
 
       <div className="flex-1">
-        {/* ------------------------------------------------ Step 0: Welcome */}
-        {step === 0 && (
+        {/* ------------------------------------------------ Welcome */}
+        {phase === "welcome" && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-lg">
               <Sparkles className="h-10 w-10" />
@@ -559,7 +659,14 @@ export default function OnboardingPage() {
                 best companies and contacts for your business.
               </p>
             </div>
-            <Button size="lg" className="mt-2 px-8" onClick={() => setStep(1)}>
+            <Button
+              size="lg"
+              className="mt-2 px-8"
+              onClick={() => {
+                setPhase("questions");
+                setQIndex(0);
+              }}
+            >
               Continue
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -568,8 +675,30 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------ Step 1: About company */}
-        {step === 1 && (
+        {/* ------------------------------------------ Who's setting this up (persona) */}
+        {phase === "questions" && currentStepId === "persona" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Users}
+              title="Who's setting this up?"
+              subtitle="This changes which questions you'll see next — day-to-day sellers and reporting-only viewers don't need the same setup."
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PERSONAS.map((per) => (
+                <OptionCard
+                  key={per.id}
+                  label={per.label}
+                  hint={per.blurb}
+                  selected={state.persona === per.id}
+                  onClick={() => set("persona", state.persona === per.id ? "" : per.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------ About company */}
+        {phase === "questions" && currentStepId === "company" && (
           <div className="space-y-6">
             <StepHeading
               icon={Building2}
@@ -617,8 +746,48 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* --------------------------------------- Step 2: Company industry */}
-        {step === 2 && (
+        {/* --------------------------------------- Business model + data policy */}
+        {phase === "questions" && currentStepId === "businessData" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Building2}
+              title="How does your business work?"
+              subtitle="Shapes GTM defaults and how cautious Skout is with contact data."
+            />
+            <div className="space-y-2">
+              <FieldLabel>Business model</FieldLabel>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BUSINESS_MODELS.map((m) => (
+                  <OptionCard
+                    key={m.id}
+                    label={m.label}
+                    hint={m.blurb}
+                    selected={state.businessModel === m.id}
+                    onClick={() => set("businessModel", state.businessModel === m.id ? "" : m.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <FieldLabel>Data policy</FieldLabel>
+              <div className="grid gap-2">
+                {DATA_POLICIES.map((d) => (
+                  <OptionCard
+                    key={d.id}
+                    label={d.label}
+                    hint={d.blurb}
+                    selected={state.dataPolicy === d.id}
+                    onClick={() => set("dataPolicy", state.dataPolicy === d.id ? "" : d.id)}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Defaults to Standard if left unset. Changeable anytime under Settings.</p>
+            </div>
+          </div>
+        )}
+
+        {/* --------------------------------------- Company industry */}
+        {phase === "questions" && currentStepId === "industry" && (
           <div className="space-y-6">
             <StepHeading
               icon={Rocket}
@@ -654,8 +823,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------- Step 3: Goals */}
-        {step === 3 && (
+        {/* ------------------------------------------------- Goals */}
+        {phase === "questions" && currentStepId === "goals" && (
           <div className="space-y-6">
             <StepHeading
               icon={Target}
@@ -675,8 +844,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* --------------------------------------------------- Step 4: ICP */}
-        {step === 4 && (
+        {/* --------------------------------------------------- ICP */}
+        {phase === "questions" && currentStepId === "icp" && (
           <div className="space-y-6">
             <StepHeading
               icon={Search}
@@ -738,8 +907,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 5: People */}
-        {step === 5 && (
+        {/* ------------------------------------------------ People */}
+        {phase === "questions" && currentStepId === "people" && (
           <div className="space-y-6">
             <StepHeading
               icon={Users}
@@ -806,8 +975,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 6: Market */}
-        {step === 6 && (
+        {/* ------------------------------------------------ Market */}
+        {phase === "questions" && currentStepId === "market" && (
           <div className="space-y-6">
             <StepHeading
               icon={Globe}
@@ -827,8 +996,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------- Step 7: Tools */}
-        {step === 7 && (
+        {/* ------------------------------------------------- Tools */}
+        {phase === "questions" && currentStepId === "tools" && (
           <div className="space-y-6">
             <StepHeading
               icon={Plug}
@@ -851,8 +1020,31 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------- Step 8: Lead volume */}
-        {step === 8 && (
+        {/* ------------------------------------------ Autonomy preference */}
+        {phase === "questions" && currentStepId === "autonomy" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Gauge}
+              title="How much should Skout act on its own?"
+              subtitle="Changeable anytime later under Settings."
+            />
+            <div className="grid gap-2">
+              {AUTONOMY_MODES.map((m) => (
+                <OptionCard
+                  key={m.id}
+                  label={m.label}
+                  hint={m.blurb}
+                  selected={state.autonomyMode === m.id}
+                  onClick={() => set("autonomyMode", state.autonomyMode === m.id ? "" : m.id)}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Defaults to Assisted if left unset.</p>
+          </div>
+        )}
+
+        {/* ------------------------------------------- Lead volume */}
+        {phase === "questions" && currentStepId === "leadVolume" && (
           <div className="space-y-6">
             <StepHeading
               icon={Gauge}
@@ -877,8 +1069,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ------------------------------------------------ Step 9: Finish */}
-        {step === 9 && (
+        {/* ------------------------------------------------ Finish */}
+        {phase === "finish" && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-400 text-white shadow-lg">
               <PartyPopper className="h-10 w-10" />
@@ -921,31 +1113,27 @@ export default function OnboardingPage() {
       </div>
 
       {/* Navigation */}
-      {step > 0 && step < 9 && (
+      {phase === "questions" && (
         <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
-          <Button
-            variant="ghost"
-            disabled={save.isPending}
-            onClick={() => setStep((s) => Math.max(s - 1, 0))}
-          >
+          <Button variant="ghost" disabled={save.isPending} onClick={back}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
           <div className="flex items-center gap-3">
-            {step === 7 && (
+            {(currentStepId === "tools" || currentStepId === "persona" || currentStepId === "businessData") && (
               <Button variant="ghost" onClick={next} disabled={save.isPending}>
                 Skip
               </Button>
             )}
             <Button onClick={next} disabled={!canContinue || save.isPending} className="px-6">
               {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {step === 8 ? "Finish" : "Continue"}
-              {step !== 8 && <ArrowRight className="ml-2 h-4 w-4" />}
+              {qIndex === contentSteps.length - 1 ? "Finish" : "Continue"}
+              {qIndex !== contentSteps.length - 1 && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </div>
         </div>
       )}
-      {step > 0 && step < 9 && (
+      {phase === "questions" && qIndex < contentSteps.length - 1 && (
         <div className="mt-6 flex justify-center">
           <GdprBadge className="h-9 w-auto opacity-90" />
         </div>

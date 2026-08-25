@@ -121,6 +121,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "workbooks",
+    target: "nav-workbooks",
+    href: "/enrichment/workbooks",
+    title: "Enrichment workbooks",
+    body: "Define a reusable enrichment waterfall — fields, quality threshold, credit budget — then run it against a list.",
+    details: [
+      "Test with a sample run before activating for production",
+      "Pause, resume, and rerun just the failed rows on any run",
+      "Activate explicitly when you're ready to trust it on real data",
+    ],
+  },
+  {
     id: "icp-wizard",
     target: "nav-icp-wizard",
     href: "/onboarding",
@@ -333,6 +345,30 @@ export const TOUR_STEPS: TourStep[] = [
       "403s for non-admins at both the page and every API call",
       "Stale deals means no update in 14+ days, not a risk score",
       "Ask the embedded chat about pipeline health directly",
+    ],
+  },
+  {
+    id: "signal-center",
+    target: "nav-signal-center",
+    href: "/signals",
+    title: "Signal Center",
+    body: "Every account with a live signal, ranked by strength — multiple corroborated signals plus a reachable decision-maker score higher than one weak trigger.",
+    details: [
+      "Each signal shows its source, confidence, and expiry",
+      "A stacked score means more than one signal is corroborating it",
+      "Use it to prioritize which accounts to work next",
+    ],
+  },
+  {
+    id: "reporting",
+    target: "nav-reporting",
+    href: "/admin/reporting",
+    title: "Reporting & forecasting",
+    body: "Model-generated, manager-adjusted, and rep-committed forecast numbers with the gap explained, plus scheduled report delivery and board-pack export.",
+    details: [
+      "Set a manager adjustment or rep commitment with a required reason",
+      "Scheduled reports keep a version history of every delivery",
+      "Export a board-pack (PDF/XLSX) from the live rollup anytime",
     ],
   },
   {

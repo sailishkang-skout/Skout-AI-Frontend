@@ -58,6 +58,13 @@ function useAuthReadyStub(): boolean {
 
 export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
 
+/** True for the backend's Clerk-verification rejection of a token that was valid when
+ * fetched but expired before the request landed — Clerk's own JWT template TTL here is
+ * only ~60s, so this is routine, not a real auth failure. */
+export function isJwtExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401 && /jwt is expired/i.test(error.message);
+}
+
 function messageFromErrorBody(errBody: unknown, fallback: string): string {
   if (!errBody || typeof errBody !== "object") return fallback;
   const body = errBody as { message?: unknown; error?: unknown };
@@ -80,7 +87,8 @@ export function isRetryableAuthError(error: unknown): boolean {
       error.message.includes("Missing bearer token") ||
       error.message.includes("Invalid Clerk token") ||
       error.message.includes("Invalid authorization token") ||
-      error.message.includes("Sign in required")
+      error.message.includes("Sign in required") ||
+      isJwtExpiredError(error)
     );
   }
   return false;
@@ -311,10 +319,16 @@ function useApiFetchClerk() {
 
     const authToken = await getClerkApiToken(() => auth.getToken());
 
-    return apiFetch<T>(path, {
-      ...options,
-      authToken,
-    });
+    try {
+      return await apiFetch<T>(path, { ...options, authToken });
+    } catch (error) {
+      // Clerk's cache can hand back a token that was valid when fetched but expired by
+      // the time the backend verified it (very short TTL). Retry once with a forced
+      // fresh token instead of resending the same stale one forever.
+      if (!isJwtExpiredError(error)) throw error;
+      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      return apiFetch<T>(path, { ...options, authToken: freshToken });
+    }
   };
 }
 
@@ -333,10 +347,13 @@ function useApiFetchBlobClerk() {
 
     const authToken = await getClerkApiToken(() => auth.getToken());
 
-    return apiFetchBlob(path, {
-      ...options,
-      authToken,
-    });
+    try {
+      return await apiFetchBlob(path, { ...options, authToken });
+    } catch (error) {
+      if (!isJwtExpiredError(error)) throw error;
+      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      return apiFetchBlob(path, { ...options, authToken: freshToken });
+    }
   };
 }
 

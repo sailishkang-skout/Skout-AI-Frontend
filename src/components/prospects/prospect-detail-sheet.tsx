@@ -232,9 +232,11 @@ export function ProspectDetailSheet({
     staleTime: 60_000,
   });
 
-  // Cached score from a previous Score button click inside this sheet
+  // Cached score from a previous Score button click inside this sheet — read-only, populated
+  // via queryClient.setQueryData in scoreMutation's onSuccess below, never fetched itself.
   const cachedScore = useQuery<ScoreResult>({
     queryKey: ["prospect-score", prospectId],
+    queryFn: () => Promise.resolve(undefined as unknown as ScoreResult),
     enabled: false,
     staleTime: Infinity,
   });

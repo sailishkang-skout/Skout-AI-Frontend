@@ -699,6 +699,19 @@ export interface IcpConfig {
 }
 
 /** Structured answers from the signup onboarding wizard. */
+export interface SetupChecklistItem {
+  id: "icp" | "list" | "mailbox" | "prospect";
+  label: string;
+  done: boolean;
+  href: string;
+}
+
+export interface SetupChecklist {
+  items: SetupChecklistItem[];
+  complete: boolean;
+  readyForOutboundSend: boolean;
+}
+
 export interface OnboardingProfile {
   company?: {
     name?: string;
@@ -724,7 +737,31 @@ export interface OnboardingProfile {
   market?: string[];
   crm?: string;
   leadVolume?: string;
+  /** How the business makes money — shapes GTM defaults/copy tone Skout suggests. */
+  businessModel?: "b2b" | "b2c" | "b2b2c" | "marketplace" | "other";
+  /** How cautious to be with prospect/contact data — "strict" = minimal collection/retention. */
+  dataPolicy?: "strict" | "standard" | "flexible";
+  persona?: "admin" | "bdr_sdr" | "ae" | "manager" | "revops" | "marketing_ops" | "executive_viewer";
+  connections?: {
+    crm?: { provider?: string; connected?: boolean };
+    comms?: { provider?: string; connected?: boolean };
+  };
+  autonomyMode?: "manual" | "assisted" | "autonomous";
   completedAt?: string;
+}
+
+export interface AsyncJobView {
+  id: string;
+  jobType: string;
+  status: string;
+  entityType: string | null;
+  entityId: string | null;
+  result: { scored?: number; total?: number; creditsUsed?: number } | null;
+  errorMessage: string | null;
+  progress: number | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 export interface IcpRescoreJobRef {
@@ -1257,10 +1294,44 @@ export interface Signal {
   signalType: string;
   value: { reason?: string; detail?: string; score?: number } & Record<string, unknown>;
   confidence: number | null;
+  /** When the real-world event happened. Falls back to detectedAt when unknown separately. */
+  observedAt: string;
   detectedAt: string;
   source: string | null;
   provenance: Record<string, unknown>;
   createdAt: string;
+  /** Null = never expires. */
+  expiresAt: string | null;
+  /** Target actions (activation-rules TargetAction) this signal may drive. Empty = informational only. */
+  activationPaths: string[];
+}
+
+/** 8.5 — signal-stacking score. Mirrors computeSignalStackScore in signal.service.ts. */
+export type SignalStackBand = "none" | "cool" | "warm" | "hot";
+
+export interface SignalStackContribution {
+  id: string;
+  signalType: string;
+  confidence: number;
+  detectedAt: string;
+  weight: number;
+}
+
+export interface SignalStackScore {
+  score: number;
+  band: SignalStackBand;
+  distinctSignalTypes: number;
+  reachableDecisionMaker: boolean;
+  contributingSignals: SignalStackContribution[];
+}
+
+/** 8.5 — Signal Center row: one account and every live signal driving its stack score.
+ * Mirrors listWorkspaceAccountSignals in signal.service.ts. */
+export interface AccountSignalSummary {
+  companyId: string;
+  companyName: string | null;
+  stackScore: SignalStackScore;
+  signals: Signal[];
 }
 
 /** R17.3 — signal-triggered SDR alerts. Mirrors apps/api/src/services/alert-rule.service.ts. */
@@ -1341,6 +1412,91 @@ export interface ImportProviderContact {
   title?: string;
   phone?: string;
   linkedinUrl?: string;
+}
+
+// R8.3 — enrichment workbooks (ordered-provider waterfall config + pausable/resumable runs).
+export type WorkbookStatus = "draft" | "active";
+export type WorkbookField = "company" | "email" | "validation" | "phone";
+export type WorkbookRunMode = "sample" | "selected" | "changed_rows" | "scheduled";
+export type WorkbookRunStatus = "queued" | "running" | "paused" | "completed" | "failed";
+
+export interface EnrichmentWorkbook {
+  id: string;
+  workspaceId: string;
+  name: string;
+  fields: WorkbookField[];
+  emailQualityThreshold: number | null;
+  budgetCreditsPerRun: number | null;
+  status: WorkbookStatus;
+  activatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkbookRun {
+  id: string;
+  workbookId: string;
+  workspaceId: string;
+  listId: string;
+  mode: WorkbookRunMode;
+  targetProspectIds: string[];
+  batchId: string | null;
+  status: WorkbookRunStatus;
+  totalRows: number;
+  processedRows: number;
+  succeededRows: number;
+  failedRows: number;
+  creditsBudget: number | null;
+  creditsUsed: number;
+  rerunOfRunId: string | null;
+  errorMessage: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  pausedAt: string | null;
+  completedAt: string | null;
+}
+
+// R8.15 — forecasting split (model/manager/commit) and scheduled reporting.
+export interface RevenueForecast {
+  id: string;
+  workspaceId: string;
+  periodLabel: string;
+  modelAmount: number;
+  currency: string;
+  managerAdjustedAmount: number | null;
+  managerAdjustedReason: string | null;
+  managerAdjustedBy: string | null;
+  managerGapToModel: number | null;
+  repCommittedAmount: number | null;
+  repCommittedReason: string | null;
+  repCommittedBy: string | null;
+  repGapToModel: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReportCadence = "daily" | "weekly" | "monthly";
+
+export interface ReportSchedule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  cadence: ReportCadence;
+  recipientEmails: string[];
+  enabled: boolean;
+  lastSentAt: string | null;
+  nextSendAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportSnapshot {
+  id: string;
+  scheduleId: string | null;
+  workspaceId: string;
+  version: number;
+  rollup: Record<string, unknown>;
+  generatedAt: string;
 }
 
 export interface CommitImportResult {

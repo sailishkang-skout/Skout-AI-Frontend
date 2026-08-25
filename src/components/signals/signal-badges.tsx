@@ -78,20 +78,31 @@ function SignalBadge({
 
   return (
     <span className="relative" ref={ref}>
-      <button
-        type="button"
+      {/* Signal badges render inline inside other clickable rows (e.g. prospect search's
+          row-opens-detail button) — a real <button> here would be invalid, nested-button HTML,
+          so this is a span acting as one instead. */}
+      <span
+        role="button"
+        tabIndex={0}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }
+        }}
         title={`${signalLabel(signal.type)} — ${timeAgoShort(signal.observedAt)}`}
         className={cn(
-          "inline-flex h-5 w-5 items-center justify-center rounded-full text-xs transition-transform hover:scale-110",
+          "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs transition-transform hover:scale-110",
           risk ? "bg-amber-100 dark:bg-amber-950/50" : "bg-primary/10 dark:bg-primary/20"
         )}
       >
         {signalIcon(signal.type)}
-      </button>
+      </span>
 
       {open && (
         <div
