@@ -737,6 +737,10 @@ export interface OnboardingProfile {
   market?: string[];
   crm?: string;
   leadVolume?: string;
+  /** How the business makes money — shapes GTM defaults/copy tone Skout suggests. */
+  businessModel?: "b2b" | "b2c" | "b2b2c" | "marketplace" | "other";
+  /** How cautious to be with prospect/contact data — "strict" = minimal collection/retention. */
+  dataPolicy?: "strict" | "standard" | "flexible";
   persona?: "admin" | "bdr_sdr" | "ae" | "manager" | "revops" | "marketing_ops" | "executive_viewer";
   connections?: {
     crm?: { provider?: string; connected?: boolean };

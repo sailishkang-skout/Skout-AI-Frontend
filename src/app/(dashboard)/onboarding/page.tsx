@@ -154,6 +154,20 @@ const TOOLS = [
 
 const LEAD_VOLUMES = ["100/month", "500/month", "1000/month", "5000/month", "10000+"];
 
+const BUSINESS_MODELS: { id: OnboardingProfile["businessModel"] & string; label: string; blurb: string }[] = [
+  { id: "b2b", label: "B2B", blurb: "Sell to other businesses" },
+  { id: "b2c", label: "B2C", blurb: "Sell directly to consumers" },
+  { id: "b2b2c", label: "B2B2C", blurb: "Sell through a business to their customers" },
+  { id: "marketplace", label: "Marketplace", blurb: "Connect buyers and sellers" },
+  { id: "other", label: "Other", blurb: "Something else" },
+];
+
+const DATA_POLICIES: { id: OnboardingProfile["dataPolicy"] & string; label: string; blurb: string }[] = [
+  { id: "strict", label: "Strict", blurb: "Minimal collection, shorter retention — GDPR-conservative" },
+  { id: "standard", label: "Standard", blurb: "Balanced collection and retention (default)" },
+  { id: "flexible", label: "Flexible", blurb: "Fuller enrichment and longer retention for growth" },
+];
+
 const PERSONAS: { id: OnboardingProfile["persona"] & string; label: string; blurb: string }[] = [
   { id: "admin", label: "Admin", blurb: "Sets up the workspace for the team" },
   { id: "bdr_sdr", label: "BDR / SDR", blurb: "Prospecting and outbound daily" },
@@ -173,6 +187,7 @@ const AUTONOMY_MODES: { id: OnboardingProfile["autonomyMode"] & string; label: s
 type StepId =
   | "persona"
   | "company"
+  | "businessData"
   | "industry"
   | "goals"
   | "icp"
@@ -185,6 +200,7 @@ type StepId =
 const FULL_FLOW: StepId[] = [
   "persona",
   "company",
+  "businessData",
   "industry",
   "goals",
   "icp",
@@ -255,6 +271,8 @@ interface WizardState {
   customTitles: string[];
   persona: string;
   autonomyMode: string;
+  businessModel: string;
+  dataPolicy: string;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -278,6 +296,8 @@ const INITIAL_STATE: WizardState = {
   customTitles: [],
   persona: "",
   autonomyMode: "",
+  businessModel: "",
+  dataPolicy: "",
 };
 
 function toggle(list: string[], item: string): string[] {
@@ -326,6 +346,8 @@ function buildIcpConfig(s: WizardState): IcpConfig {
     market: s.market.length ? s.market : undefined,
     crm: s.crm || undefined,
     leadVolume: s.leadVolume || undefined,
+    businessModel: (s.businessModel || undefined) as OnboardingProfile["businessModel"],
+    dataPolicy: (s.dataPolicy || undefined) as OnboardingProfile["dataPolicy"],
     persona: (s.persona || undefined) as OnboardingProfile["persona"],
     autonomyMode: (s.autonomyMode || undefined) as OnboardingProfile["autonomyMode"],
     connections: s.crm ? { crm: { provider: s.crm, connected: false } } : undefined,
@@ -724,6 +746,46 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* --------------------------------------- Business model + data policy */}
+        {phase === "questions" && currentStepId === "businessData" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Building2}
+              title="How does your business work?"
+              subtitle="Shapes GTM defaults and how cautious Skout is with contact data."
+            />
+            <div className="space-y-2">
+              <FieldLabel>Business model</FieldLabel>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BUSINESS_MODELS.map((m) => (
+                  <OptionCard
+                    key={m.id}
+                    label={m.label}
+                    hint={m.blurb}
+                    selected={state.businessModel === m.id}
+                    onClick={() => set("businessModel", state.businessModel === m.id ? "" : m.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <FieldLabel>Data policy</FieldLabel>
+              <div className="grid gap-2">
+                {DATA_POLICIES.map((d) => (
+                  <OptionCard
+                    key={d.id}
+                    label={d.label}
+                    hint={d.blurb}
+                    selected={state.dataPolicy === d.id}
+                    onClick={() => set("dataPolicy", state.dataPolicy === d.id ? "" : d.id)}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Defaults to Standard if left unset. Changeable anytime under Settings.</p>
+            </div>
+          </div>
+        )}
+
         {/* --------------------------------------- Company industry */}
         {phase === "questions" && currentStepId === "industry" && (
           <div className="space-y-6">
@@ -1058,7 +1120,7 @@ export default function OnboardingPage() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            {(currentStepId === "tools" || currentStepId === "persona") && (
+            {(currentStepId === "tools" || currentStepId === "persona" || currentStepId === "businessData") && (
               <Button variant="ghost" onClick={next} disabled={save.isPending}>
                 Skip
               </Button>
