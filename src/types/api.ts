@@ -188,6 +188,7 @@ export interface SearchProspectsResponse {
   pageSize: number;
   cached: boolean;
   creditsUsed?: number;
+  filters?: ProspectSearchFilters;
 }
 
 export interface ProspectList {
@@ -809,6 +810,7 @@ export interface SmartListProspectDiffEntry {
   fullName?: string;
   title?: string;
   companyDomain?: string;
+  matchReason?: string;
 }
 
 export type SmartListRefreshStatus = "completed" | "skipped_insufficient_credits" | "failed";

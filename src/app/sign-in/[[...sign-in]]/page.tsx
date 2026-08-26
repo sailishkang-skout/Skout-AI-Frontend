@@ -15,7 +15,7 @@ export default async function SignInPage() {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
       {publishableKey ? (
-        <SignInForm />
+        <SignInForm path="/sign-in" />
       ) : (
         <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
           <h1 className="text-xl font-semibold">Clerk is not configured yet</h1>

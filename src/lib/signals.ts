@@ -34,6 +34,24 @@ export function useSignalsApi() {
       const qs = params.toString();
       return fetchApi<ListAccountSignalsEnvelope>(`/api/v1/signals/accounts${qs ? `?${qs}` : ""}`);
     },
+    /** 8.5 — Record a custom intent signal for an entity (company/prospect). */
+    recordSignal: (payload: {
+      entityId: string;
+      entityType?: string;
+      signalType: string;
+      reason?: string;
+      score?: number;
+      confidence?: number;
+      strength?: number;
+      source?: string;
+      observedAt?: string;
+      expiresAt?: string;
+      activationPaths?: Array<"activate" | "add_to_list" | "enroll_sequence">;
+    }) =>
+      fetchApi<{ signal: Signal }>("/api/v1/signals", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   };
 }
 
