@@ -83,5 +83,83 @@ export function useDexterPlatformApi() {
 
     getPerson360: (contactId: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/person-360/${contactId}`),
+
+    // ── §10.5 LinkedIn Voice Studio ──────────────────────────────
+    getLinkedinVoiceEligibility: (prospectId: string) =>
+      fetchApi<{
+        data: {
+          eligible: boolean;
+          status: "accepted" | "pending" | "unknown";
+          reason?: string;
+          prospectName: string;
+          linkedinUrl?: string | null;
+        };
+      }>(`/api/v1/linkedin/voice/eligibility?prospectId=${encodeURIComponent(prospectId)}`),
+
+    draftLinkedinVoiceScript: (params: {
+      prospectId: string;
+      goal?: string;
+      tone?: string;
+      customNotes?: string;
+    }) =>
+      fetchApi<{
+        data: {
+          scriptText: string;
+          regionalBriefPreview: string;
+          estimatedDurationSeconds: number;
+          prospect: {
+            id: string;
+            name: string;
+            title?: string;
+            company?: string;
+          };
+        };
+      }>("/api/v1/linkedin/voice/draft-script", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    synthesizeVoiceAudio: (params: { scriptText: string; voice?: string }) =>
+      fetchApi<{
+        data: {
+          audioBase64: string;
+          mimeType: string;
+          voice: string;
+          durationEstimateSeconds: number;
+        };
+      }>("/api/v1/linkedin/voice/synthesize", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    createLinkedinVoiceHandoff: (params: {
+      prospectId: string;
+      scriptText: string;
+      voiceChoice?: string;
+      regionalBriefPreview?: string;
+      bypassEligibilityCheck?: boolean;
+    }) =>
+      fetchApi<{
+        data: {
+          id: string;
+          handoffToken: string;
+          status: string;
+          evidenceId?: string;
+          note: string;
+        };
+      }>("/api/v1/linkedin/voice/handoff", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    confirmLinkedinVoiceSent: (handoffToken: string) =>
+      fetchApi<{ data: { id: string; status: string; confirmedAt: string } }>(
+        "/api/v1/linkedin/voice/confirm-sent",
+        {
+          method: "POST",
+          body: JSON.stringify({ handoffToken }),
+        }
+      ),
   };
 }
+

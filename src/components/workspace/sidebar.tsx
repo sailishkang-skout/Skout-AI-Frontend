@@ -31,6 +31,7 @@ import {
   Mail,
   MailCheck,
   MessageSquare,
+  Mic,
   Network,
   OctagonX,
   Phone,
@@ -140,6 +141,7 @@ export const outreachNav: NavGroup[] = [
         ],
       },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/linkedin/voice", label: "LinkedIn Voice", icon: Mic, tourId: "nav-linkedin-voice" },
       { href: "/dexter", label: "Dexter Orchestrator", icon: Sparkles, tourId: "nav-dexter-orchestrator" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
       {
