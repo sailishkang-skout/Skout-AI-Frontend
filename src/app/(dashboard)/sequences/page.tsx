@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { CalendarDays, Clock, FlaskConical, LayoutTemplate, Linkedin, Mail, MousePointerClick, PencilLine, Phone, Sparkles, Users } from "lucide-react";
-import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { GuideLink } from "@/components/guides/guide-link";
 import { CreateSequenceDialog, type CreateSequencePath } from "@/components/sequences/create-sequence-dialog";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -166,12 +165,6 @@ export default function SequencesPage() {
           </Card>
         )
       )}
-
-      <AiChatBox
-        title="Sequence assistant"
-        context={{ kind: "sequence", page: "/sequences" }}
-        onSequenceCreated={() => queryClient.invalidateQueries({ queryKey: ["sequences"] })}
-      />
     </PageShell>
   );
 }

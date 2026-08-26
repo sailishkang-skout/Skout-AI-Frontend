@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -68,6 +68,7 @@ interface DexterChatProps {
 }
 
 export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
+  const queryClient = useQueryClient();
   const api = useAiChatApi();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -152,10 +153,12 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       if (action.type !== "navigate" && action.type !== "ui_action") return;
       if (action.type === "ui_action" && action.confirm && !auto) return;
 
-      // R15.2 — enroll_list's audit log write now happens server-side in the same request as
-      // the enroll itself (POST /ai/actions/enroll-list), not as a separate client call after
-      // the fact — see executeDexterAction / api.enrollList.
       const result = await executeDexterAction(action, { router, enrollList: api.enrollList });
+      if (result.ok) {
+        void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        void queryClient.invalidateQueries({ queryKey: ["sequence-experiments"] });
+        void queryClient.invalidateQueries({ queryKey: ["lists"] });
+      }
       setTurns((prev) =>
         prev.map((t, i) =>
           i === turnIndex
@@ -177,7 +180,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         name: action.type === "ui_action" ? action.name : undefined,
       });
     },
-    [api, router, speakReply, voiceOn]
+    [api, queryClient, router, speakReply, voiceOn]
   );
 
   const send = useMutation({
@@ -202,6 +205,16 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
     },
     onSuccess: async (res) => {
       log.info("dexter reply", { actionType: res.action.type, mode });
+      // Invalidate sequences and related entities immediately so UI shows created sequences live
+      if (
+        res.sequenceId ||
+        res.applied ||
+        res.action.type === "sequence" ||
+        (res.action.type === "navigate" && res.action.path.includes("sequence"))
+      ) {
+        void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        void queryClient.invalidateQueries({ queryKey: ["sequence-experiments"] });
+      }
       const assistantTurn: ChatTurn = {
         role: "assistant",
         content: res.reply,
@@ -212,7 +225,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         segregated: res.segregated,
         exports: res.exports,
       };
-setTurns((prev) => [...prev, assistantTurn]);
+      setTurns((prev) => [...prev, assistantTurn]);
       // Auto-run safe actions in voice mode (navigate + non-confirm ui_action).
       // Runs once via the mutation callback (not inside a state updater), so
       // React StrictMode's double-invoked updaters cannot fire it twice.
@@ -386,6 +399,8 @@ function submitText(text: string) {
     mutationFn: (action: Extract<ChatAction, { type: "sequence" }>) =>
       api.createFromSteps({ name: action.name, steps: action.steps }),
     onSuccess: (seq) => {
+      void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      void queryClient.invalidateQueries({ queryKey: ["sequence-experiments"] });
       router.push(`/sequences/${seq.id}`);
     },
   });
@@ -582,19 +597,41 @@ function submitText(text: string) {
                   </div>
                 )}
 
-                {t.action?.type === "sequence" && (
-                  <div className="mt-2 space-y-1 rounded-md border border-border bg-background p-2">
-                    <p className="text-xs font-semibold">{t.action.name}</p>
+                {t.sequenceId && (
+                  <div className="mt-2">
                     <Button
                       size="sm"
-                      className="h-7"
+                      className="h-7 bg-emerald-600 hover:bg-emerald-500"
+                      onClick={() => router.push(`/sequences/${t.sequenceId}`)}
+                    >
+                      <ArrowRight className="mr-1 h-3.5 w-3.5" />
+                      Open Created Sequence
+                    </Button>
+                  </div>
+                )}
+
+                {t.action?.type === "sequence" && (
+                  <div className="mt-2 space-y-2 rounded-lg border border-border bg-background p-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">{t.action.name}</p>
+                      <span className="text-[10px] text-muted-foreground">
+                        {t.action.steps.length} steps
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-7 bg-emerald-600 hover:bg-emerald-500"
                       disabled={commitSequence.isPending || Boolean(t.sequenceId)}
-                      onClick={() => commitSequence.mutate(t.action as Extract<ChatAction, { type: "sequence" }>)}
+                      onClick={() =>
+                        commitSequence.mutate(
+                          t.action as Extract<ChatAction, { type: "sequence" }>
+                        )
+                      }
                     >
                       {commitSequence.isPending ? (
                         <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                       ) : null}
-                      Create sequence
+                      Create & Open Sequence
                     </Button>
                   </div>
                 )}
