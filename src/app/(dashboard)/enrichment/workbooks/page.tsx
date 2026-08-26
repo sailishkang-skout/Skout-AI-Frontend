@@ -394,7 +394,7 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
           <p className="text-sm text-muted-foreground">Loading runs…</p>
         ) : (runs.data?.data.length ?? 0) === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            No execution runs triggered yet. Click "Start Run" to test or execute this workbook.
+            No execution runs triggered yet. Click &quot;Start Run&quot; to test or execute this workbook.
           </div>
         ) : (
           <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
