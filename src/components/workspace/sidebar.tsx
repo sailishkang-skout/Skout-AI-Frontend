@@ -19,13 +19,21 @@ import {
   CheckSquare,
   ChevronRight,
   Crosshair,
+  Flame,
+  GitMerge,
   Globe,
+  Globe2,
+  HeartPulse,
   Inbox,
   Kanban,
+  Layers,
   LayoutDashboard,
   List,
   Mail,
   MailCheck,
+  MessageSquare,
+  Network,
+  OctagonX,
   Phone,
   Radar,
   Search,
@@ -112,6 +120,7 @@ export const discoverNav: NavGroup[] = [
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
       { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
+      { href: "/enrichment/workbooks", label: "Enrichment workbooks", icon: Sparkles, tourId: "nav-workbooks" },
     ],
   },
 ];
@@ -132,7 +141,25 @@ export const outreachNav: NavGroup[] = [
         ],
       },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/dexter", label: "Dexter Orchestrator", icon: Sparkles, tourId: "nav-dexter-orchestrator" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
+      {
+        href: "/warmup",
+        label: "Email Warm-up",
+        icon: Flame,
+        tourId: "nav-email-warmup",
+        children: [
+          { href: "/warmup", label: "Overview", icon: LayoutDashboard, exact: true },
+          { href: "/warmup/mailboxes", label: "Mailboxes", icon: Mail },
+          { href: "/warmup/control", label: "Warm-up control", icon: Zap },
+          { href: "/warmup/health", label: "Health and risk", icon: HeartPulse },
+          { href: "/warmup/conversations", label: "Conversations", icon: MessageSquare },
+          { href: "/warmup/domains", label: "Domains", icon: Globe2 },
+          { href: "/warmup/pools", label: "Pools", icon: Layers },
+          { href: "/warmup/network", label: "Partner network", icon: Network },
+          { href: "/warmup/operations", label: "Kill switches", icon: OctagonX },
+        ],
+      },
       { href: "/settings/draft-auto-approve", label: "Draft auto-approve", icon: BadgeCheck, tourId: "nav-draft-auto-approve" },
     ],
   },
@@ -143,6 +170,9 @@ export const intelligenceNav: NavGroup[] = [
     label: "Intelligence",
     items: [
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
+      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
+      { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
+      { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
       {
         href: "/intelligence/email",
         label: "Email Intelligence",
@@ -170,10 +200,12 @@ export const crmNav: NavGroup[] = [
       { href: "/crm", label: "Overview", icon: LayoutDashboard, exact: true },
       { href: "/crm/deals", label: "Deals", icon: Briefcase },
       { href: "/crm/companies", label: "Companies", icon: Building2 },
+      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360" },
       { href: "/crm/contacts", label: "Contacts", icon: Users2 },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
       { href: "/crm/calendar", label: "Calendar", icon: Calendar },
+      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge" },
     ],
   },
 ];
@@ -183,6 +215,8 @@ export const automationNav: NavGroup[] = [
     label: "Automation",
     items: [
       { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/workflows", label: "Workflow Studio", icon: GitMerge, tourId: "nav-workflow-studio" },
+      { href: "/settings/automation-policy", label: "Policy Gateway", icon: ShieldCheck, tourId: "nav-automation-policy" },
     ],
   },
 ];
@@ -361,6 +395,80 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
+  const [navRegroupEnabled, setNavRegroupEnabled] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paramVal = params.get("nav-regroup");
+    if (paramVal === "true") {
+      localStorage.setItem("nav-regroup-enabled", "true");
+      setNavRegroupEnabled(true);
+    } else if (paramVal === "false") {
+      localStorage.setItem("nav-regroup-enabled", "false");
+      setNavRegroupEnabled(false);
+    } else {
+      const localVal = localStorage.getItem("nav-regroup-enabled");
+      setNavRegroupEnabled(
+        localVal === "true" || process.env.NEXT_PUBLIC_NAV_REGROUP_ENABLED === "true"
+      );
+    }
+  }, []);
+
+  const displayGroups = navRegroupEnabled
+    ? [
+        ...homeNav,
+        ...discoverNav,
+        ...outreachNav,
+        {
+          label: "Intelligence",
+          items: intelligenceNav[0].items.filter(
+            (item) => item.href !== "/crm/intelligence"
+          ),
+        },
+        {
+          label: "CRM Intelligence",
+          items: [
+            ...crmNav[0].items.slice(0, 7),
+            {
+              href: "/crm/intelligence",
+              label: "CRM Intelligence",
+              icon: Kanban,
+              tourId: "nav-deal-intelligence",
+            },
+            ...crmNav[0].items.slice(7),
+          ],
+        },
+        ...automationNav,
+        {
+          label: "Analytics",
+          items: [
+            {
+              href: "/analytics",
+              label: "Analytics",
+              icon: BarChart3,
+              tourId: "nav-analytics",
+            },
+          ],
+        },
+        {
+          label: "Settings",
+          items: [
+            ...settingsNav[0].items.filter((item) => item.href !== "/analytics"),
+            ...helpNav[0].items,
+          ],
+        },
+      ]
+    : [
+        ...homeNav,
+        ...discoverNav,
+        ...outreachNav,
+        ...intelligenceNav,
+        ...crmNav,
+        ...automationNav,
+        ...settingsNav,
+        ...helpNav,
+      ];
+
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
@@ -377,14 +485,7 @@ export function SidebarPanel({
         )}
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
-        <NavSection groups={homeNav} onNavigate={onNavigate} />
-        <NavSection groups={discoverNav} onNavigate={onNavigate} />
-        <NavSection groups={outreachNav} onNavigate={onNavigate} />
-        <NavSection groups={intelligenceNav} onNavigate={onNavigate} />
-        <NavSection groups={crmNav} onNavigate={onNavigate} />
-        <NavSection groups={automationNav} onNavigate={onNavigate} />
-        <NavSection groups={settingsNav} onNavigate={onNavigate} />
-        <NavSection groups={helpNav} onNavigate={onNavigate} />
+        <NavSection groups={displayGroups} onNavigate={onNavigate} />
         <RestartTourButton onNavigate={onNavigate} />
       </nav>
     </aside>
@@ -456,7 +557,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           {role}
         </span>
         {CLERK_ENABLED ? (
-          <UserButton afterSignOutUrl="/signin" />
+          <UserButton afterSignOutUrl="/sign-in" />
         ) : null}
       </div>
     </header>

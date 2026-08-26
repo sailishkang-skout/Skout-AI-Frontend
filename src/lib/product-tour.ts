@@ -121,6 +121,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "workbooks",
+    target: "nav-workbooks",
+    href: "/enrichment/workbooks",
+    title: "Enrichment workbooks",
+    body: "Define a reusable enrichment waterfall — fields, quality threshold, credit budget — then run it against a list.",
+    details: [
+      "Test with a sample run before activating for production",
+      "Pause, resume, and rerun just the failed rows on any run",
+      "Activate explicitly when you're ready to trust it on real data",
+    ],
+  },
+  {
     id: "icp-wizard",
     target: "nav-icp-wizard",
     href: "/onboarding",
@@ -181,6 +193,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "email-warmup",
+    target: "nav-email-warmup",
+    href: "/warmup",
+    title: "Email Warm-up",
+    body: "Ramp mailbox reputation safely — pools, domains, health, and kill switches before you scale sends.",
+    details: [
+      "Connect mailboxes and watch warm-up control over time",
+      "Monitor health/risk and partner network conversations",
+      "Use kill switches when a domain or pool needs to pause",
+    ],
+  },
+  {
     id: "ai-review",
     target: "nav-ai-review",
     href: "/ai/review",
@@ -213,6 +237,18 @@ export const TOUR_STEPS: TourStep[] = [
     details: [
       "Same Deals board you manage from — just reached from Intelligence too",
       "Spot stale or at-risk deals alongside your other signal sources",
+    ],
+  },
+  {
+    id: "identity-merge",
+    target: "nav-identity-merge",
+    href: "/crm/identity-merge",
+    title: "Identity merge review",
+    body: "Review suggested company and contact merges when Skout finds probable duplicates across sources.",
+    details: [
+      "Open pending proposals and compare the two records side by side",
+      "Approve to merge into the kept record, or reject if they are distinct",
+      "Keeps CRM and enrichment from duplicating the same account",
     ],
   },
   {
@@ -264,6 +300,61 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "workflow-studio",
+    target: "nav-workflow-studio",
+    href: "/workflows",
+    title: "Workflow Studio",
+    body: "Watch observable async runs — start, track, and complete pipeline jobs without leaving Skout.",
+    details: [
+      "Pairs with activation rules for day-to-day automation",
+      "Use for enrich/score style runs you want to audit",
+    ],
+  },
+  {
+    id: "automation-policy",
+    target: "nav-automation-policy",
+    href: "/settings/automation-policy",
+    title: "Policy Gateway",
+    body: "Choose ask / auto / draft / approve for each automatable action so Dexter never runs uncontrolled.",
+    details: [
+      "Workspace overrides beat platform defaults",
+      "Every classification is audited under policy decisions",
+    ],
+  },
+  {
+    id: "dexter-orchestrator",
+    target: "nav-dexter-orchestrator",
+    href: "/dexter",
+    title: "Dexter Orchestrator",
+    body: "Propose a GTM plan, approve it, invoke through Policy Gateway, then record learning outcomes.",
+    details: [
+      "Chat FAB remains available for conversational Dexter",
+      "Invoke is blocked until a human approves the plan",
+    ],
+  },
+  {
+    id: "decisions",
+    target: "nav-decisions",
+    href: "/decisions",
+    title: "Decision views",
+    body: "Act on recommendations with clear options and evidence — not vanity metric dashboards.",
+    details: [
+      "Create a decision from the latest next-best-action",
+      "Decide or dismiss to keep the queue honest",
+    ],
+  },
+  {
+    id: "account-360",
+    target: "nav-account-360",
+    href: "/crm/360",
+    title: "Account & Person 360",
+    body: "One composed view of a company or contact with deals, timeline activity, and live signals.",
+    details: [
+      "Load by company UUID for Account 360",
+      "Switch to Person mode for a contact UUID",
+    ],
+  },
+  {
     id: "alert-rules",
     target: "nav-alert-rules",
     href: "/settings/alert-rules",
@@ -309,6 +400,30 @@ export const TOUR_STEPS: TourStep[] = [
       "403s for non-admins at both the page and every API call",
       "Stale deals means no update in 14+ days, not a risk score",
       "Ask the embedded chat about pipeline health directly",
+    ],
+  },
+  {
+    id: "signal-center",
+    target: "nav-signal-center",
+    href: "/signals",
+    title: "Signal Center",
+    body: "Every account with a live signal, ranked by strength — multiple corroborated signals plus a reachable decision-maker score higher than one weak trigger.",
+    details: [
+      "Each signal shows its source, confidence, and expiry",
+      "A stacked score means more than one signal is corroborating it",
+      "Use it to prioritize which accounts to work next",
+    ],
+  },
+  {
+    id: "reporting",
+    target: "nav-reporting",
+    href: "/admin/reporting",
+    title: "Reporting & forecasting",
+    body: "Model-generated, manager-adjusted, and rep-committed forecast numbers with the gap explained, plus scheduled report delivery and board-pack export.",
+    details: [
+      "Set a manager adjustment or rep commitment with a required reason",
+      "Scheduled reports keep a version history of every delivery",
+      "Export a board-pack (PDF/XLSX) from the live rollup anytime",
     ],
   },
   {

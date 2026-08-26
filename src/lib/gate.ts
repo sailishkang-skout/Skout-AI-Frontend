@@ -16,10 +16,10 @@ export function isGatePath(pathname: string): boolean {
  * prefixes basePath (`/app`), so strip a leading `/app`.
  */
 export function safeNextPath(raw: string | null | undefined): string {
-  if (!raw) return "/signin";
+  if (!raw) return "/sign-in";
   let value = raw.trim();
   if (/^https?:\/\//i.test(value) || value.startsWith("//")) {
-    return "/signin";
+    return "/sign-in";
   }
 
   for (let i = 0; i < 3; i += 1) {
@@ -37,12 +37,12 @@ export function safeNextPath(raw: string | null | undefined): string {
   }
 
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-    return "/signin";
+    return "/sign-in";
   }
-  if (value === "/app") return "/signin";
+  if (value === "/app") return "/sign-in";
   if (value.startsWith("/app/")) value = value.slice(4);
   if (isGatePath(value) || value === "/" || value.length > MAX_NEXT_PATH_LENGTH) {
-    return "/signin";
+    return "/sign-in";
   }
   return value;
 }

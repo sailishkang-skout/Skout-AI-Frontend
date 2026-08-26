@@ -1,5 +1,5 @@
 import { useApiFetch } from "./api-client";
-import type { Signal } from "@/types/api";
+import type { AccountSignalSummary, Signal } from "@/types/api";
 
 interface ListSignalsEnvelope {
   entityId: string;
@@ -8,7 +8,15 @@ interface ListSignalsEnvelope {
   total: number;
 }
 
-/** R11.1/R11.2/R11.3 — unified signal timeline. Backend: apps/api/src/routes/signal.routes.ts. */
+interface ListAccountSignalsEnvelope {
+  data: AccountSignalSummary[];
+  total: number;
+}
+
+export const ACCOUNT_SIGNALS_QUERY_KEY = ["signals", "accounts"] as const;
+
+/** R11.1/R11.2/R11.3/8.5 — unified signal timeline + Signal Center account ranking.
+ * Backend: apps/api/src/routes/signal.routes.ts. */
 export function useSignalsApi() {
   const fetchApi = useApiFetch();
   return {
@@ -19,6 +27,31 @@ export function useSignalsApi() {
       if (opts?.limit != null) params.set("limit", String(opts.limit));
       return fetchApi<ListSignalsEnvelope>(`/api/v1/signals?${params.toString()}`);
     },
+    /** 8.5 Signal Center — every activated account with a live signal, ranked by stack score. */
+    listAccounts: (opts?: { limit?: number }) => {
+      const params = new URLSearchParams();
+      if (opts?.limit != null) params.set("limit", String(opts.limit));
+      const qs = params.toString();
+      return fetchApi<ListAccountSignalsEnvelope>(`/api/v1/signals/accounts${qs ? `?${qs}` : ""}`);
+    },
+    /** 8.5 — Record a custom intent signal for an entity (company/prospect). */
+    recordSignal: (payload: {
+      entityId: string;
+      entityType?: string;
+      signalType: string;
+      reason?: string;
+      score?: number;
+      confidence?: number;
+      strength?: number;
+      source?: string;
+      observedAt?: string;
+      expiresAt?: string;
+      activationPaths?: Array<"activate" | "add_to_list" | "enroll_sequence">;
+    }) =>
+      fetchApi<{ signal: Signal }>("/api/v1/signals", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   };
 }
 

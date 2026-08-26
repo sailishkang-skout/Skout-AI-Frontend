@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useApiFetch, useAuthReady } from "./api-client";
 import { WORKSPACE_ID } from "./enrichment";
 import { isIcpConfigured } from "./scoring";
-import type { IcpConfig, IcpResponse } from "@/types/api";
+import type { AsyncJobView, IcpConfig, IcpResponse } from "@/types/api";
 
 export const ICP_SETUP_PATH = "/settings/icp";
 
@@ -17,6 +17,15 @@ export function useIcpApi() {
       fetchApi<IcpResponse>("/api/v1/workspace/icp", {
         method: "PUT",
         body: JSON.stringify(config),
+        workspaceId: WORKSPACE_ID,
+      }),
+    getRescoreJob: (jobId: string) =>
+      fetchApi<AsyncJobView>(`/api/v1/workspace/icp/rescore-jobs/${jobId}`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+    cancelRescoreJob: (jobId: string) =>
+      fetchApi<AsyncJobView>(`/api/v1/workspace/icp/rescore-jobs/${jobId}/cancel`, {
+        method: "POST",
         workspaceId: WORKSPACE_ID,
       }),
   };

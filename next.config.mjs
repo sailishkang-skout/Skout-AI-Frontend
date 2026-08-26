@@ -14,11 +14,21 @@ const nextConfig = {
   basePath: "/app",
   async redirects() {
     return [
-      { source: "/sign-in", destination: "/signin", permanent: false },
-      { source: "/sign-in/:path*", destination: "/signin/:path*", permanent: false },
-      { source: "/login", destination: "/signin", permanent: false },
-      { source: "/login/:path*", destination: "/signin/:path*", permanent: false },
-      { source: "/singin", destination: "/signin", permanent: false },
+      { source: "/signin", destination: "/sign-in", permanent: false },
+      { source: "/signin/:path*", destination: "/sign-in/:path*", permanent: false },
+      { source: "/login", destination: "/sign-in", permanent: false },
+      { source: "/login/:path*", destination: "/sign-in/:path*", permanent: false },
+      { source: "/singin", destination: "/sign-in", permanent: false },
+      { source: "/singin/:path*", destination: "/sign-in/:path*", permanent: false },
+      { source: "/sign-up", destination: "/sign-in", permanent: false },
+      { source: "/sign-up/:path*", destination: "/sign-in/:path*", permanent: false },
+      // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
+      // design — `basePath: false` here matches the literal "/" outside that basePath so
+      // localhost:3000 alone lands on /app instead of a 404. Not applied in production, where
+      // the root domain may be served by something other than this app.
+      ...(process.env.NODE_ENV === "production"
+        ? []
+        : [{ source: "/", destination: "/app", basePath: false, permanent: false }]),
     ];
   },
   env: {
@@ -30,9 +40,9 @@ const nextConfig = {
       (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:3001"),
     NEXT_PUBLIC_APP_URL: appUrl,
     NEXT_PUBLIC_CLERK_SIGN_IN_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/signin`,
+      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,
     NEXT_PUBLIC_CLERK_SIGN_UP_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || (appUrl ? `${appUrl}/sign-up` : ""),
+      process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,
   },
   experimental: {
     serverActions: {

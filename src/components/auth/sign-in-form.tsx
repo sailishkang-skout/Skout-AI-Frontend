@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { clerkCallbackPath, clerkPathFromLocation, SIGN_IN_MOUNTS } from "@/lib/clerk-path";
 
-export function SignInForm({ path = "/signin" }: { path?: string }) {
+export function SignInForm({ path = "/sign-in" }: { path?: string }) {
   const [ready, setReady] = useState(false);
   const [clerkPath, setClerkPath] = useState(path);
   const [callbackUrl, setCallbackUrl] = useState("/app/auth/callback");
@@ -36,7 +36,7 @@ export function SignInForm({ path = "/signin" }: { path?: string }) {
           }}
           routing="path"
           path={clerkPath}
-          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-up" : "/sign-up"}
+          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-in" : "/sign-in"}
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />

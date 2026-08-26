@@ -27,11 +27,13 @@ const isProtectedRoute = createRouteMatcher([
   "/sequences(.*)",
   "/inbox(.*)",
   "/deliverability(.*)",
+  "/warmup(.*)",
   "/ai(.*)",
   // Pre-existing gap found while adding /intelligence below: CRM pages (companies, contacts,
   // deals, tasks, meetings, calendar) were never in this list, so Clerk never protected them.
   "/crm(.*)",
   "/intelligence(.*)",
+  "/signals(.*)",
   // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
   // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
   "/admin/cro(.*)",

@@ -88,6 +88,7 @@ export interface UpdateStepInput {
 export interface EnrollInput {
   prospectIds?: string[];
   listId?: string;
+  consentBasis?: "opt_in" | "legitimate_interest" | "contract" | "legal_obligation";
 }
 
 export function useSequencesApi() {
@@ -127,6 +128,11 @@ export function useSequencesApi() {
     remove: (id: string) =>
       fetchApi<void>(`/api/v1/sequences/${id}`, {
         method: "DELETE",
+      }),
+
+    approveModeC: (id: string) =>
+      fetchApi<Sequence>(`/api/v1/sequences/${id}/approve-mode-c`, {
+        method: "POST",
       }),
 
     addStep: (sequenceId: string, input: AddStepInput) =>

@@ -28,6 +28,7 @@ import { buildApiFilters } from "@/lib/build-api-filters";
 import { isIcpConfigured } from "@/lib/scoring";
 import { ProspectFilterSidebar } from "@/components/prospects/prospect-filter-sidebar";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
+import { FieldEvidenceBadge } from "@/components/prospects/field-evidence-badge";
 import { Sheet } from "@/components/ui/sheet";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
 
@@ -59,6 +60,7 @@ export default function ProspectSearchPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedQuery, appliedFilters]);
+
   const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
   const searchParams = useSearchParams();
   const deepLinkProspectId = searchParams.get("prospectId");
@@ -107,6 +109,46 @@ export default function ProspectSearchPage() {
     enabled: authReady,
     placeholderData: (prev) => prev,
   });
+
+  // Synchronize NL-translated filters back to the sidebar state
+  useEffect(() => {
+    const parsed = search.data?.filters;
+    if (!parsed) return;
+
+    setAppliedFilters((curr) => {
+      const next = { ...curr };
+      let changed = false;
+
+      for (const [key, val] of Object.entries(parsed)) {
+        if (val == null) continue;
+
+        const frontendKey = key === "employeeBuckets" ? "companySizes" : (key as keyof FilterDraft);
+        if (!(frontendKey in EMPTY_FILTER_DRAFT)) continue;
+
+        const defaultValue = EMPTY_FILTER_DRAFT[frontendKey];
+        if (Array.isArray(defaultValue) && Array.isArray(val)) {
+          const currArr = next[frontendKey] as string[];
+          if (val.length !== currArr.length || !val.every((item) => currArr.includes(item))) {
+            (next[frontendKey] as string[]) = [...val];
+            changed = true;
+          }
+        } else {
+          const normalized = typeof defaultValue === "boolean" ? Boolean(val) : String(val);
+          if (next[frontendKey] !== normalized) {
+            (next as any)[frontendKey] = normalized;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        setQuery("");
+        setDebouncedQuery("");
+        return next;
+      }
+      return curr;
+    });
+  }, [search.data?.filters]);
 
   const lists = useQuery({
     queryKey: ["lists"],
@@ -166,9 +208,20 @@ export default function ProspectSearchPage() {
     });
   };
 
+  // Page-scoped: adds/removes only this page's rows from the (possibly cross-page) selection,
+  // instead of replacing the whole Set — replacing it would silently drop selections made on
+  // other pages whenever this page's row count happened to match the total selected count.
+  const allOnPageSelected = results.length > 0 && results.every((p) => selected.has(p.prospectId));
   const selectAll = () => {
-    if (selected.size === results.length) setSelected(new Set());
-    else setSelected(new Set(results.map((p) => p.prospectId)));
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (allOnPageSelected) {
+        for (const p of results) next.delete(p.prospectId);
+      } else {
+        for (const p of results) next.add(p.prospectId);
+      }
+      return next;
+    });
   };
 
   const enrich = useMutation({
@@ -227,8 +280,10 @@ export default function ProspectSearchPage() {
 
   const addToList = useMutation({
     mutationFn: () => {
-      const prospectIds = results.filter((p) => selected.has(p.prospectId)).map((p) => p.prospectId);
-      return enrichmentApi.addToList(addListId, prospectIds);
+      // `selected` already holds prospectIds accumulated across every page the user selected
+      // from — do not filter it through `results` (the current page only), or selections made
+      // on other pages silently get dropped from the request.
+      return enrichmentApi.addToList(addListId, Array.from(selected));
     },
     onSuccess: (list) => {
       setAddError(null);
@@ -368,7 +423,7 @@ export default function ProspectSearchPage() {
           <div className="flex items-center gap-2">
             {results.length > 0 && (
               <Button variant="outline" size="sm" onClick={selectAll} className="w-full sm:w-auto">
-                {selected.size === results.length ? "Clear all" : "Select all"}
+                {allOnPageSelected ? "Clear all" : "Select all"}
               </Button>
             )}
             <select
@@ -495,20 +550,26 @@ export default function ProspectSearchPage() {
                             <Badge tone="muted">{p.employeeCount.toLocaleString()} emp.</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground sm:text-sm">
-                          {p.recordType === "company"
-                            ? `${p.companyDomain}${p.country ? ` · ${p.country}` : ""}`
-                            : `${p.title || "—"} · ${p.companyDomain} · ${p.country}`}
-                        </p>
+                        <div className="text-xs text-muted-foreground sm:text-sm mt-0.5">
+                          {p.recordType === "company" ? (
+                            <span>{p.companyDomain}{p.country ? ` · ${p.country}` : ""}</span>
+                          ) : (
+                            <span className="flex items-center gap-1 flex-wrap">
+                              <span className="font-medium text-foreground">{p.title || "—"}</span>
+                              <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="title" />
+                              <span className="ml-1">· {p.companyDomain} · {p.country}</span>
+                            </span>
+                          )}
+                        </div>
                         {p.industry && (
                           <p className="mt-0.5 text-xs text-muted-foreground">{p.industry}</p>
                         )}
                         {p.signals && p.signals.length > 0 && (
                           <SignalBadges
-                            entityId={p.companyId}
-                            entityType="company"
-                            signals={p.signals}
-                            className="mt-1.5"
+                             entityId={p.companyId}
+                             entityType="company"
+                             signals={p.signals}
+                             className="mt-1.5"
                           />
                         )}
                         {p.techStack && p.techStack.length > 0 && (
@@ -519,7 +580,10 @@ export default function ProspectSearchPage() {
                         )}
                         {e?.email && (
                           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="break-all font-medium">{e.email}</span>
+                            <span className="break-all font-medium flex items-center gap-1 flex-wrap">
+                              <span>{e.email}</span>
+                              <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="email" />
+                            </span>
                             {e.status && <Badge tone={statusTone(e.status)}>{e.status}</Badge>}
                           </p>
                         )}

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { EmailVerifyBadge } from "@/components/prospects/email-verify-badge";
 import { ScoreBadge } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
+import { FieldEvidenceBadge } from "@/components/prospects/field-evidence-badge";
 import { GenerateDraftFromProspect } from "@/components/prospects/generate-draft-from-prospect";
 import { EnrollFromProspect } from "@/components/sequences/enroll-from-prospect";
 import { Alert } from "@/components/ui/alert";
@@ -21,15 +22,26 @@ import type { DimensionScore, ListMemberDetail, ProspectDetail, ProspectSnapshot
 function DetailRow({
   label,
   value,
+  entityId,
+  entityType,
+  attribute,
 }: {
   label: string;
   value: string | number | boolean | null | undefined;
+  entityId?: string | null;
+  entityType?: "prospect" | "company";
+  attribute?: string;
 }) {
   if (value == null || value === "" || value === false) return null;
   const display = typeof value === "boolean" ? (value ? "Yes" : "No") : String(value);
   return (
     <div className="grid gap-0.5 border-b border-border py-3 last:border-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center flex-wrap gap-1">
+        <span>{label}</span>
+        {entityId && entityType && attribute && (
+          <FieldEvidenceBadge entityId={entityId} entityType={entityType} attribute={attribute} />
+        )}
+      </dt>
       <dd className="text-sm break-words">{display}</dd>
     </div>
   );
@@ -232,9 +244,11 @@ export function ProspectDetailSheet({
     staleTime: 60_000,
   });
 
-  // Cached score from a previous Score button click inside this sheet
+  // Cached score from a previous Score button click inside this sheet — read-only, populated
+  // via queryClient.setQueryData in scoreMutation's onSuccess below, never fetched itself.
   const cachedScore = useQuery<ScoreResult>({
     queryKey: ["prospect-score", prospectId],
+    queryFn: () => Promise.resolve(undefined as unknown as ScoreResult),
     enabled: false,
     staleTime: Infinity,
   });
@@ -425,11 +439,11 @@ export function ProspectDetailSheet({
 
         <Section title="Contact">
           <DetailRow label="Full name" value={d.fullName} />
-          <DetailRow label="Title" value={d.title} />
+          <DetailRow label="Title" value={d.title} entityId={prospectId} entityType="prospect" attribute="title" />
           <DetailRow label="Department" value={detail.data?.department} />
           <DetailRow label="Seniority" value={d.seniority !== "unknown" ? d.seniority : undefined} />
           <DetailRow label="Job function" value={detail.data?.jobFunction} />
-          <DetailRow label="Email" value={email ?? (verification ? "Not found" : undefined)} />
+          <DetailRow label="Email" value={email ?? (verification ? "Not found" : undefined)} entityId={prospectId} entityType="prospect" attribute="email" />
           {verification ? (
             <div className="grid gap-0.5 border-b border-border py-3 last:border-0">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -446,7 +460,7 @@ export function ProspectDetailSheet({
           ) : (
             emailStatus && <DetailRow label="Email status" value={emailStatus} />
           )}
-          <DetailRow label="Phone" value={detail.data?.phone} />
+          <DetailRow label="Phone" value={detail.data?.phone} entityId={prospectId} entityType="prospect" attribute="phone" />
           <DetailRow label="LinkedIn" value={detail.data?.linkedinUrl} />
           <DetailRow label="Country" value={d.country} />
           <DetailRow
@@ -460,12 +474,12 @@ export function ProspectDetailSheet({
         </Section>
 
         <Section title="Company">
-          <DetailRow label="Company name" value={d.companyName} />
+          <DetailRow label="Company name" value={d.companyName} entityId={d.companyId || prospectId} entityType="company" attribute="name" />
           <DetailRow label="Domain" value={d.companyDomain} />
-          <DetailRow label="Industry" value={d.industry} />
+          <DetailRow label="Industry" value={d.industry} entityId={d.companyId || prospectId} entityType="company" attribute="industry" />
           <DetailRow label="Sub-industry" value={detail.data?.subIndustry} />
           <DetailRow label="Record type" value={d.recordType} />
-          <DetailRow label="Employees" value={d.employeeCount?.toLocaleString()} />
+          <DetailRow label="Employees" value={d.employeeCount?.toLocaleString()} entityId={d.companyId || prospectId} entityType="company" attribute="employeeCount" />
           <DetailRow label="Size bucket" value={detail.data?.employeeBucket} />
           <DetailRow label="Stage" value={detail.data?.companyStage} />
           <DetailRow label="Founded year" value={detail.data?.foundedYear} />

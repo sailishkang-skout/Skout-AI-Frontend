@@ -88,6 +88,6 @@ test.describe("CRM Deals API (stub auth)", () => {
     });
     const summary = await summaryRes.json();
     expect(summary.openDeals).toBe(1);
-    expect(summary.pipelineValue).toBe(1000);
+    expect(summary.valueByCurrency).toEqual([{ currency: "USD", value: 1000 }]);
   });
 });

@@ -58,6 +58,26 @@ function useAuthReadyStub(): boolean {
 
 export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
 
+/** True for the backend's Clerk-verification rejection of a token that was valid when
+ * fetched but expired before the request landed — Clerk's own JWT template TTL here is
+ * only ~60s, so this is routine, not a real auth failure. */
+export function isJwtExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401 && /jwt is expired/i.test(error.message);
+}
+
+function messageFromErrorBody(errBody: unknown, fallback: string): string {
+  if (!errBody || typeof errBody !== "object") return fallback;
+  const body = errBody as { message?: unknown; error?: unknown };
+  if (typeof body.message === "string" && body.message.trim()) return body.message;
+  if (typeof body.error === "string" && body.error.trim()) return body.error;
+  if (body.error && typeof body.error === "object") {
+    const nested = body.error as { message?: unknown; code?: unknown };
+    if (typeof nested.message === "string" && nested.message.trim()) return nested.message;
+    if (typeof nested.code === "string") return nested.code;
+  }
+  return fallback;
+}
+
 export function isRetryableAuthError(error: unknown): boolean {
   if (!(error instanceof ApiError)) return false;
   if (error.status === 401) {
@@ -67,7 +87,8 @@ export function isRetryableAuthError(error: unknown): boolean {
       error.message.includes("Missing bearer token") ||
       error.message.includes("Invalid Clerk token") ||
       error.message.includes("Invalid authorization token") ||
-      error.message.includes("Sign in required")
+      error.message.includes("Sign in required") ||
+      isJwtExpiredError(error)
     );
   }
   return false;
@@ -86,7 +107,21 @@ export function formatQueryError(error: unknown, fallback: string): string {
       return "The API returned a server error. Check that Postgres and Redis are running.";
     }
     const body = error.body as
-      | { message?: string; error?: string; issues?: Array<{ path?: string; message?: string }> }
+      | {
+          message?: string;
+          error?:
+            | string
+            | {
+                message?: string;
+                code?: string;
+                fieldErrors?: Record<string, string[]>;
+              };
+          details?: {
+            error?: { message?: string; fieldErrors?: Record<string, string[]> };
+            message?: string;
+          };
+          issues?: Array<{ path?: string; message?: string }>;
+        }
       | undefined;
     if (body?.issues?.length) {
       const detail = body.issues
@@ -96,6 +131,19 @@ export function formatQueryError(error: unknown, fallback: string): string {
       const more = body.issues.length > 3 ? ` (+${body.issues.length - 3} more)` : "";
       return `${body.message ?? "Request validation failed"} — ${detail}${more}`;
     }
+    const nested =
+      typeof body?.error === "object" && body.error
+        ? body.error
+        : body?.details?.error;
+    const fieldErrors = nested?.fieldErrors;
+    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+      const detail = Object.entries(fieldErrors)
+        .slice(0, 4)
+        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(", ")}`)
+        .join("; ");
+      return `${nested?.message ?? body?.message ?? "Request validation failed"} — ${detail}`;
+    }
+    if (nested?.message) return nested.message;
     if (body?.message && body.message !== body.error) return body.message;
     if (error.message) return error.message;
   }
@@ -173,10 +221,7 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const errBody = await res.json().catch(() => undefined);
-    const message =
-      typeof errBody === "object" && errBody !== null && "error" in errBody
-        ? String((errBody as { error: string }).error)
-        : res.statusText;
+    const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
     logApiFailure(method, path, error, { workspaceId });
     throw error;
@@ -222,10 +267,7 @@ export async function apiFetchBlob(
 
   if (!res.ok) {
     const errBody = await res.json().catch(() => undefined);
-    const message =
-      typeof errBody === "object" && errBody !== null && "error" in errBody
-        ? String((errBody as { error: string }).error)
-        : res.statusText;
+    const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
     logApiFailure(method, path, error, { workspaceId });
     throw error;
@@ -277,10 +319,16 @@ function useApiFetchClerk() {
 
     const authToken = await getClerkApiToken(() => auth.getToken());
 
-    return apiFetch<T>(path, {
-      ...options,
-      authToken,
-    });
+    try {
+      return await apiFetch<T>(path, { ...options, authToken });
+    } catch (error) {
+      // Clerk's cache can hand back a token that was valid when fetched but expired by
+      // the time the backend verified it (very short TTL). Retry once with a forced
+      // fresh token instead of resending the same stale one forever.
+      if (!isJwtExpiredError(error)) throw error;
+      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      return apiFetch<T>(path, { ...options, authToken: freshToken });
+    }
   };
 }
 
@@ -299,10 +347,13 @@ function useApiFetchBlobClerk() {
 
     const authToken = await getClerkApiToken(() => auth.getToken());
 
-    return apiFetchBlob(path, {
-      ...options,
-      authToken,
-    });
+    try {
+      return await apiFetchBlob(path, { ...options, authToken });
+    } catch (error) {
+      if (!isJwtExpiredError(error)) throw error;
+      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      return apiFetchBlob(path, { ...options, authToken: freshToken });
+    }
   };
 }
 
