@@ -393,6 +393,80 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
+  const [navRegroupEnabled, setNavRegroupEnabled] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paramVal = params.get("nav-regroup");
+    if (paramVal === "true") {
+      localStorage.setItem("nav-regroup-enabled", "true");
+      setNavRegroupEnabled(true);
+    } else if (paramVal === "false") {
+      localStorage.setItem("nav-regroup-enabled", "false");
+      setNavRegroupEnabled(false);
+    } else {
+      const localVal = localStorage.getItem("nav-regroup-enabled");
+      setNavRegroupEnabled(
+        localVal === "true" || process.env.NEXT_PUBLIC_NAV_REGROUP_ENABLED === "true"
+      );
+    }
+  }, []);
+
+  const displayGroups = navRegroupEnabled
+    ? [
+        ...homeNav,
+        ...discoverNav,
+        ...outreachNav,
+        {
+          label: "Intelligence",
+          items: intelligenceNav[0].items.filter(
+            (item) => item.href !== "/crm/intelligence"
+          ),
+        },
+        {
+          label: "CRM Intelligence",
+          items: [
+            ...crmNav[0].items.slice(0, 7),
+            {
+              href: "/crm/intelligence",
+              label: "CRM Intelligence",
+              icon: Kanban,
+              tourId: "nav-deal-intelligence",
+            },
+            ...crmNav[0].items.slice(7),
+          ],
+        },
+        ...automationNav,
+        {
+          label: "Analytics",
+          items: [
+            {
+              href: "/analytics",
+              label: "Analytics",
+              icon: BarChart3,
+              tourId: "nav-analytics",
+            },
+          ],
+        },
+        {
+          label: "Settings",
+          items: [
+            ...settingsNav[0].items.filter((item) => item.href !== "/analytics"),
+            ...helpNav[0].items,
+          ],
+        },
+      ]
+    : [
+        ...homeNav,
+        ...discoverNav,
+        ...outreachNav,
+        ...intelligenceNav,
+        ...crmNav,
+        ...automationNav,
+        ...settingsNav,
+        ...helpNav,
+      ];
+
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
@@ -409,14 +483,7 @@ export function SidebarPanel({
         )}
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
-        <NavSection groups={homeNav} onNavigate={onNavigate} />
-        <NavSection groups={discoverNav} onNavigate={onNavigate} />
-        <NavSection groups={outreachNav} onNavigate={onNavigate} />
-        <NavSection groups={intelligenceNav} onNavigate={onNavigate} />
-        <NavSection groups={crmNav} onNavigate={onNavigate} />
-        <NavSection groups={automationNav} onNavigate={onNavigate} />
-        <NavSection groups={settingsNav} onNavigate={onNavigate} />
-        <NavSection groups={helpNav} onNavigate={onNavigate} />
+        <NavSection groups={displayGroups} onNavigate={onNavigate} />
         <RestartTourButton onNavigate={onNavigate} />
       </nav>
     </aside>
@@ -488,7 +555,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           {role}
         </span>
         {CLERK_ENABLED ? (
-          <UserButton afterSignOutUrl="/signin" />
+          <UserButton afterSignOutUrl="/sign-in" />
         ) : null}
       </div>
     </header>

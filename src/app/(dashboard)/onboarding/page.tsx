@@ -194,6 +194,7 @@ type StepId =
   | "people"
   | "market"
   | "tools"
+  | "crmSetup"
   | "autonomy"
   | "leadVolume";
 
@@ -207,6 +208,7 @@ const FULL_FLOW: StepId[] = [
   "people",
   "market",
   "tools",
+  "crmSetup",
   "autonomy",
   "leadVolume",
 ];
@@ -221,7 +223,7 @@ function contentStepsForPersona(persona: string): StepId[] {
     return ["persona", "company", "goals"];
   }
   if (persona === "bdr_sdr" || persona === "ae") {
-    return ["persona", "company", "industry", "goals", "icp", "people", "autonomy", "leadVolume"];
+    return ["persona", "company", "industry", "goals", "icp", "people", "crmSetup", "autonomy", "leadVolume"];
   }
   return FULL_FLOW;
 }
@@ -273,6 +275,8 @@ interface WizardState {
   autonomyMode: string;
   businessModel: string;
   dataPolicy: string;
+  crmConnected: boolean;
+  emailConnected: boolean;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -298,6 +302,8 @@ const INITIAL_STATE: WizardState = {
   autonomyMode: "",
   businessModel: "",
   dataPolicy: "",
+  crmConnected: false,
+  emailConnected: false,
 };
 
 function toggle(list: string[], item: string): string[] {
@@ -350,7 +356,10 @@ function buildIcpConfig(s: WizardState): IcpConfig {
     dataPolicy: (s.dataPolicy || undefined) as OnboardingProfile["dataPolicy"],
     persona: (s.persona || undefined) as OnboardingProfile["persona"],
     autonomyMode: (s.autonomyMode || undefined) as OnboardingProfile["autonomyMode"],
-    connections: s.crm ? { crm: { provider: s.crm, connected: false } } : undefined,
+    connections: {
+      crm: s.crm ? { provider: s.crm, connected: s.crmConnected } : undefined,
+      comms: s.emailConnected ? { provider: "smtp_imap", connected: s.emailConnected } : undefined,
+    },
     completedAt: new Date().toISOString(),
   };
 
@@ -529,6 +538,60 @@ function VerifySendingEmailCard() {
 // Wizard
 // ---------------------------------------------------------------------------
 
+function generateIcpHypothesis(companyIndustry: string, companySize: string, hqCountry: string) {
+  // 1. Industries
+  let industries: string[] = ["SaaS", "Software"];
+  const lowerInd = companyIndustry.toLowerCase();
+  if (lowerInd.includes("saas") || lowerInd.includes("software")) {
+    industries = ["SaaS", "Software", "IT"];
+  } else if (lowerInd.includes("marketing") || lowerInd.includes("agency")) {
+    industries = ["Ecommerce", "SaaS", "Retail"];
+  } else if (lowerInd.includes("consulting") || lowerInd.includes("service") || lowerInd.includes("it")) {
+    industries = ["Finance", "SaaS", "Healthcare", "IT"];
+  } else if (lowerInd.includes("finance") || lowerInd.includes("bank")) {
+    industries = ["Finance", "SaaS"];
+  } else if (lowerInd.includes("health") || lowerInd.includes("medical")) {
+    industries = ["Healthcare", "SaaS", "Software"];
+  } else if (companyIndustry) {
+    industries = [companyIndustry, "SaaS"];
+  }
+
+  // 2. Employee ranges
+  let ranges: string[] = ["11-50", "51-200"];
+  if (companySize === "Just me" || companySize === "2-10") {
+    ranges = ["11-50", "51-200"];
+  } else if (companySize === "11-50") {
+    ranges = ["51-200", "201-500"];
+  } else if (companySize === "51-200") {
+    ranges = ["201-500", "500-1000"];
+  } else if (companySize === "201-1000" || companySize === "1000+") {
+    ranges = ["500-1000", "1000+"];
+  }
+
+  // 3. Geography
+  let geos: string[] = ["United States"];
+  if (hqCountry) {
+    const lowerHq = hqCountry.toLowerCase();
+    if (lowerHq.includes("us") || lowerHq.includes("america") || lowerHq.includes("state")) {
+      geos = ["United States"];
+    } else if (lowerHq.includes("india")) {
+      geos = ["India"];
+    } else if (lowerHq.includes("uk") || lowerHq.includes("united kingdom") || lowerHq.includes("britain")) {
+      geos = ["United Kingdom"];
+    } else if (lowerHq.includes("canada")) {
+      geos = ["Canada"];
+    } else if (lowerHq.includes("europe") || lowerHq.includes("germany") || lowerHq.includes("france")) {
+      geos = ["Europe"];
+    } else if (lowerHq.includes("australia")) {
+      geos = ["Australia"];
+    } else {
+      geos = ["United States", "Worldwide"];
+    }
+  }
+
+  return { industries, ranges, geos };
+}
+
 type Phase = "welcome" | "questions" | "finish";
 
 export default function OnboardingPage() {
@@ -541,10 +604,74 @@ export default function OnboardingPage() {
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
 
+  const [hasGeneratedHypothesis, setHasGeneratedHypothesis] = useState(false);
+  const [lastInputs, setLastInputs] = useState({ industry: "", size: "", hq: "" });
+
+  const [rescoreJobId, setRescoreJobId] = useState<string | null>(null);
+  const [rescoreJobStatus, setRescoreJobStatus] = useState<string | null>(null);
+  const [rescoreJobProgress, setRescoreJobProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!rescoreJobId || phase !== "finish") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const job = await icpApi.getRescoreJob(rescoreJobId);
+        if (cancelled) return;
+        setRescoreJobStatus(job.status);
+        if (job.progress != null) {
+          setRescoreJobProgress(job.progress);
+        }
+
+        if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+          setRescoreJobId(null);
+        }
+      } catch (err) {
+        console.error("Failed to poll rescore job:", err);
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [rescoreJobId, phase, icpApi]);
+
+  useEffect(() => {
+    if (
+      state.companyIndustry !== lastInputs.industry ||
+      state.companySize !== lastInputs.size ||
+      state.hqCountry !== lastInputs.hq
+    ) {
+      setLastInputs({
+        industry: state.companyIndustry,
+        size: state.companySize,
+        hq: state.hqCountry,
+      });
+      setHasGeneratedHypothesis(false);
+    }
+  }, [state.companyIndustry, state.companySize, state.hqCountry, lastInputs]);
+
   // R8.1 — which questions get asked, and how many, depends on the persona picked in the
   // first question. Recomputed live as the user answers it, not fixed at wizard start.
   const contentSteps = useMemo(() => contentStepsForPersona(state.persona), [state.persona]);
   const currentStepId: StepId = contentSteps[qIndex] ?? contentSteps[0];
+
+  useEffect(() => {
+    if (currentStepId === "icp" && !hasGeneratedHypothesis) {
+      const hyp = generateIcpHypothesis(state.companyIndustry, state.companySize, state.hqCountry);
+      setState((prev) => ({
+        ...prev,
+        icpIndustries: prev.icpIndustries.length > 0 ? prev.icpIndustries : hyp.industries,
+        icpEmployeeRanges: prev.icpEmployeeRanges.length > 0 ? prev.icpEmployeeRanges : hyp.ranges,
+        geographies: prev.geographies.length > 0 ? prev.geographies : hyp.geos,
+      }));
+      setHasGeneratedHypothesis(true);
+    }
+  }, [currentStepId, hasGeneratedHypothesis, state.companyIndustry, state.companySize, state.hqCountry]);
 
   const existingIcp = useQuery({
     queryKey: ["icp"],
@@ -567,6 +694,19 @@ export default function OnboardingPage() {
       queryClient.setQueryData(["icp"], data);
       queryClient.invalidateQueries({ queryKey: ["icp"] });
       setPhase("finish");
+      const job = data.rescoreJob;
+      const jid = job?.jobId || (job as any)?.id;
+      if (jid) {
+        setRescoreJobId(jid);
+        setRescoreJobStatus(job?.status || "pending");
+      }
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (jobId: string) => icpApi.cancelRescoreJob(jobId),
+    onSuccess: () => {
+      setRescoreJobId(null);
     },
   });
 
@@ -586,6 +726,8 @@ export default function OnboardingPage() {
         return Boolean(state.persona);
       case "company":
         return Boolean(state.companyName.trim()) && Boolean(state.hqCountry.trim());
+      case "businessData":
+        return Boolean(state.businessModel && state.dataPolicy);
       case "industry":
         return Boolean(state.companyIndustry && state.companySize);
       case "goals":
@@ -596,6 +738,8 @@ export default function OnboardingPage() {
         return state.seniorities.length > 0 || state.departments.length > 0 || state.titles.length > 0;
       case "market":
         return state.market.length > 0;
+      case "crmSetup":
+        return true; // Optional connections step
       case "leadVolume":
         return Boolean(state.leadVolume);
       default:
@@ -852,6 +996,19 @@ export default function OnboardingPage() {
               title="Who is your ideal customer?"
               subtitle="This builds your ICP — used for scoring, search defaults, and smart lists."
             />
+            {hasGeneratedHypothesis && (
+              <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
+                <Sparkles className="h-5 w-5 shrink-0 text-primary animate-pulse" />
+                <div className="space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    Initial ICP Hypothesis Generated
+                  </p>
+                  <p className="text-xs text-primary/80">
+                    Based on your company profile, Skout has pre-filled your target industries, company sizes, and geographies. Confirm or adjust the recommendations below.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <FieldLabel>Industry</FieldLabel>
               <div className="flex flex-wrap gap-2">
@@ -1020,6 +1177,76 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* ------------------------------------------- CRM & Comms Connection */}
+        {phase === "questions" && currentStepId === "crmSetup" && (
+          <div className="space-y-6">
+            <StepHeading
+              icon={Plug}
+              title="Connect your CRM & Comms"
+              subtitle="Link Skout to your source-of-truth databases and sending mailboxes."
+            />
+            
+            <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-5">
+              <h3 className="font-semibold text-sm">CRM Provider</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                {state.crm ? `Primary database: ${state.crm}` : "No CRM selected. Pick one below to connect."}
+              </p>
+              
+              {!state.crm && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {TOOLS.filter(t => t !== "Slack" && t !== "CSV Upload").map((tool) => (
+                    <button
+                      type="button"
+                      key={tool}
+                      onClick={() => set("crm", tool)}
+                      className={cn(
+                        "rounded-lg border p-2 text-center text-xs transition-all hover:bg-accent",
+                        state.crm === tool ? "border-primary bg-primary/5 text-primary" : "border-border"
+                      )}
+                    >
+                      {tool}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {state.crm && (
+                <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                  <span className="text-sm font-medium">{state.crm} Integration</span>
+                  <Button
+                    size="sm"
+                    variant={state.crmConnected ? "outline" : "default"}
+                    onClick={() => set("crmConnected", !state.crmConnected)}
+                  >
+                    {state.crmConnected ? "Disconnect" : "Connect"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-5">
+              <h3 className="font-semibold text-sm">Comms / Email Provider</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Connect your sending inbox for automated cold email campaigns.
+              </p>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">Google Workspace / Outlook</span>
+                  <span className="text-xs text-muted-foreground">Standard SMTP/IMAP OAuth secure link</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={state.emailConnected ? "outline" : "default"}
+                  onClick={() => set("emailConnected", !state.emailConnected)}
+                >
+                  {state.emailConnected ? "Disconnect" : "Connect"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ------------------------------------------ Autonomy preference */}
         {phase === "questions" && currentStepId === "autonomy" && (
           <div className="space-y-6">
@@ -1072,42 +1299,97 @@ export default function OnboardingPage() {
         {/* ------------------------------------------------ Finish */}
         {phase === "finish" && (
           <div className="flex flex-col items-center gap-6 py-10 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-400 text-white shadow-lg">
-              <PartyPopper className="h-10 w-10" />
-            </div>
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold">🎉 You&apos;re ready.</h1>
-              <p className="mx-auto max-w-md text-base text-muted-foreground">
-                Based on your answers we&apos;ve prepared your workspace — your ICP is configured
-                and search defaults are set.
-              </p>
-            </div>
-            <div className="grid w-full max-w-sm gap-2 text-left text-sm">
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                ICP profile saved{state.icpIndustries.length ? ` · ${state.icpIndustries.slice(0, 3).join(", ")}` : ""}
+            {rescoreJobId ? (
+              <div className="space-y-6 w-full max-w-md">
+                <div className="flex h-20 w-20 mx-auto items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-sm animate-pulse">
+                  <Sparkles className="h-10 w-10" />
+                </div>
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-bold">🎯 Initial ICP Re-score Job Running...</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Based on your target profile, Skout is re-scoring all prospects in the background.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                    <span>Progress</span>
+                    <span>{rescoreJobProgress != null ? `${rescoreJobProgress}%` : "Running..."}</span>
+                  </div>
+                  <div className="h-2 w-full bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-300 rounded-full"
+                      style={{ width: `${rescoreJobProgress ?? 10}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide block">
+                    Status: {rescoreJobStatus}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // skip to dashboard
+                      setRescoreJobId(null);
+                    }}
+                  >
+                    Skip and go to Dashboard
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="text-destructive hover:bg-destructive/5"
+                    disabled={cancelMutation.isPending}
+                    onClick={() => {
+                      cancelMutation.mutate(rescoreJobId);
+                    }}
+                  >
+                    {cancelMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Cancel Re-scoring
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                People defaults set{state.titles.length ? ` · ${state.titles.slice(0, 3).join(", ")}` : ""}
-              </div>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                AI scoring &amp; outreach grounded in your business
-              </div>
-            </div>
-            <VerifySendingEmailCard />
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button size="lg" onClick={() => router.push("/dashboard")}>
-                Take me to my dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => router.push("/prospects/search")}>
-                <Search className="mr-2 h-4 w-4" />
-                Find my first leads
-              </Button>
-            </div>
-            <GdprBadge className="mt-2 h-11 w-auto" />
+            ) : (
+              <>
+                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-400 text-white shadow-lg">
+                  <PartyPopper className="h-10 w-10" />
+                </div>
+                <div className="space-y-3">
+                  <h1 className="text-3xl font-bold">🎉 You&apos;re ready.</h1>
+                  <p className="mx-auto max-w-md text-base text-muted-foreground">
+                    Based on your answers we&apos;ve prepared your workspace — your ICP is configured
+                    and search defaults are set.
+                  </p>
+                </div>
+                <div className="grid w-full max-w-sm gap-2 text-left text-sm">
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    ICP profile saved{state.icpIndustries.length ? ` · ${state.icpIndustries.slice(0, 3).join(", ")}` : ""}
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    People defaults set{state.titles.length ? ` · ${state.titles.slice(0, 3).join(", ")}` : ""}
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    AI scoring &amp; outreach grounded in your business
+                  </div>
+                </div>
+                <VerifySendingEmailCard />
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button size="lg" onClick={() => router.push("/dashboard")}>
+                    Take me to my dashboard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={() => router.push("/prospects/search")}>
+                    <Search className="mr-2 h-4 w-4" />
+                    Find my first leads
+                  </Button>
+                </div>
+                <GdprBadge className="mt-2 h-11 w-auto" />
+              </>
+            )}
           </div>
         )}
       </div>

@@ -28,15 +28,22 @@ function DiffList({ title, tone, entries }: { title: string; tone: "success" | "
       </p>
       <ul className="space-y-1">
         {entries.map((p) => (
-          <li key={p.prospectId} className="flex items-center gap-2 text-sm">
-            <Badge tone={tone} className="shrink-0 gap-0.5 px-1.5">
+          <li key={p.prospectId} className="flex items-start gap-2 text-sm py-1">
+            <Badge tone={tone} className="mt-0.5 shrink-0 gap-0.5 px-1.5">
               <Icon className="h-3 w-3" />
             </Badge>
-            <span className="truncate">
-              {p.fullName || "Unknown"}
-              {p.title ? ` — ${p.title}` : ""}
-              {p.companyDomain ? ` (${p.companyDomain})` : ""}
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="truncate font-medium">
+                {p.fullName || "Unknown"}
+                {p.title ? ` — ${p.title}` : ""}
+                {p.companyDomain ? ` (${p.companyDomain})` : ""}
+              </span>
+              {p.matchReason && (
+                <span className="text-[11px] text-muted-foreground mt-0.5 italic">
+                  {p.matchReason}
+                </span>
+              )}
+            </div>
           </li>
         ))}
       </ul>

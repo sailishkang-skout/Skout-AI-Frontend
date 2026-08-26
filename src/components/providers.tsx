@@ -72,8 +72,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <PostHogProvider>
         <ClerkProvider
           publishableKey={publishableKey}
-          signInUrl="/app/signin"
-          signUpUrl="/app/sign-up"
+          signInUrl="/app/sign-in"
+          signUpUrl="/app/sign-in"
           signInFallbackRedirectUrl="/app/auth/callback"
           signUpFallbackRedirectUrl="/app/auth/callback"
           {...(appOrigin

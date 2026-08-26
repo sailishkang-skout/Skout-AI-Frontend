@@ -1,11 +1,17 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2, ListPlus, Plus, Send } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
+import { RecordSignalDialog } from "@/components/signals/record-signal-dialog";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import {
@@ -82,6 +88,8 @@ function SignalRow({ signal }: { signal: Signal }) {
 }
 
 function AccountCard({ account }: { account: AccountSignalSummary }) {
+  const router = useRouter();
+  const [activated, setActivated] = useState(false);
   const { stackScore } = account;
   const visibleSignals = [...account.signals].sort(
     (a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
@@ -109,6 +117,39 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
             <SignalRow key={signal.id} signal={signal} />
           ))}
         </ul>
+
+        {/* Action Triggers */}
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/50 text-xs">
+          <Button
+            size="sm"
+            variant={activated ? "outline" : "default"}
+            className="h-7 text-xs gap-1"
+            onClick={() => setActivated(!activated)}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+            {activated ? "Activated" : "Activate Outbound"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1"
+            onClick={() => router.push(`/prospects/lists`)}
+          >
+            <ListPlus className="h-3.5 w-3.5" />
+            Add to List
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1"
+            onClick={() => router.push(`/outreach/sequences`)}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Enroll Sequence
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -117,6 +158,9 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
 export default function SignalCenterPage() {
   const authReady = useAuthReady();
   const signalsApi = useSignalsApi();
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [selectedBand, setSelectedBand] = useState<string>("all");
+  const [selectedType, setSelectedType] = useState<string>("all");
 
   const accountsQuery = useQuery({
     queryKey: ACCOUNT_SIGNALS_QUERY_KEY,
@@ -124,12 +168,76 @@ export default function SignalCenterPage() {
     enabled: authReady,
   });
 
+  const availableSignalTypes = useMemo(() => {
+    if (!accountsQuery.data) return [];
+    const types = new Set<string>();
+    for (const acc of accountsQuery.data.data) {
+      for (const sig of acc.signals) {
+        types.add(sig.signalType);
+      }
+    }
+    return Array.from(types);
+  }, [accountsQuery.data]);
+
+  const filteredAccounts = useMemo(() => {
+    if (!accountsQuery.data) return [];
+    return accountsQuery.data.data.filter((acc) => {
+      if (selectedBand !== "all" && acc.stackScore.band !== selectedBand) {
+        return false;
+      }
+      if (selectedType !== "all" && !acc.signals.some((s) => s.signalType === selectedType)) {
+        return false;
+      }
+      return true;
+    });
+  }, [accountsQuery.data, selectedBand, selectedType]);
+
   return (
     <PageShell>
       <PageHeader
         title="Signal Center"
         description="Every account with a live signal, ranked by strength — multiple corroborated signals plus a reachable decision-maker score higher than one weak trigger."
+        actions={
+          <Button onClick={() => setRecordOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Record Signal
+          </Button>
+        }
       />
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Band:</span>
+          {(["all", "hot", "warm", "cool"] as const).map((band) => (
+            <Button
+              key={band}
+              variant={selectedBand === band ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs capitalize"
+              onClick={() => setSelectedBand(band)}
+            >
+              {band === "all" ? "All Bands" : BAND_LABEL[band]}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Signal Type:</span>
+          <Select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="h-8 text-xs w-48"
+          >
+            <option value="all">All Types ({availableSignalTypes.length})</option>
+            {availableSignalTypes.map((type) => (
+              <option key={type} value={type}>
+                {signalIcon(type)} {signalLabel(type)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
 
       {accountsQuery.isLoading && (
         <div className="space-y-3">
@@ -145,19 +253,23 @@ export default function SignalCenterPage() {
         </Alert>
       )}
 
-      {accountsQuery.data && accountsQuery.data.data.length === 0 && (
+      {accountsQuery.data && filteredAccounts.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-          No accounts have a live signal right now.
+          {accountsQuery.data.data.length === 0
+            ? "No accounts have a live signal right now."
+            : "No accounts match the selected band and type filters."}
         </div>
       )}
 
-      {accountsQuery.data && accountsQuery.data.data.length > 0 && (
+      {filteredAccounts.length > 0 && (
         <div className="space-y-3">
-          {accountsQuery.data.data.map((account) => (
+          {filteredAccounts.map((account) => (
             <AccountCard key={account.companyId} account={account} />
           ))}
         </div>
       )}
+
+      <RecordSignalDialog open={recordOpen} onClose={() => setRecordOpen(false)} />
     </PageShell>
   );
 }

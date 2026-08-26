@@ -9,7 +9,7 @@ export default async function AuthCallbackPage() {
   const { userId, getToken } = await auth();
 
   if (!userId) {
-    redirect("/signin");
+    redirect("/sign-in");
   }
 
   let destination = "/onboarding";
