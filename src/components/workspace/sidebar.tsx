@@ -140,6 +140,7 @@ export const outreachNav: NavGroup[] = [
         ],
       },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
+      { href: "/dexter", label: "Dexter Orchestrator", icon: Sparkles, tourId: "nav-dexter-orchestrator" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
       {
         href: "/warmup",
@@ -170,6 +171,7 @@ export const intelligenceNav: NavGroup[] = [
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
       { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
+      { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
       {
         href: "/intelligence/email",
         label: "Email Intelligence",
@@ -197,6 +199,7 @@ export const crmNav: NavGroup[] = [
       { href: "/crm", label: "Overview", icon: LayoutDashboard, exact: true },
       { href: "/crm/deals", label: "Deals", icon: Briefcase },
       { href: "/crm/companies", label: "Companies", icon: Building2 },
+      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360" },
       { href: "/crm/contacts", label: "Contacts", icon: Users2 },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
@@ -211,6 +214,8 @@ export const automationNav: NavGroup[] = [
     label: "Automation",
     items: [
       { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/workflows", label: "Workflow Studio", icon: GitMerge, tourId: "nav-workflow-studio" },
+      { href: "/settings/automation-policy", label: "Policy Gateway", icon: ShieldCheck, tourId: "nav-automation-policy" },
     ],
   },
 ];

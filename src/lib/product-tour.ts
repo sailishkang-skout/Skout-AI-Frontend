@@ -300,6 +300,61 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "workflow-studio",
+    target: "nav-workflow-studio",
+    href: "/workflows",
+    title: "Workflow Studio",
+    body: "Watch observable async runs — start, track, and complete pipeline jobs without leaving Skout.",
+    details: [
+      "Pairs with activation rules for day-to-day automation",
+      "Use for enrich/score style runs you want to audit",
+    ],
+  },
+  {
+    id: "automation-policy",
+    target: "nav-automation-policy",
+    href: "/settings/automation-policy",
+    title: "Policy Gateway",
+    body: "Choose ask / auto / draft / approve for each automatable action so Dexter never runs uncontrolled.",
+    details: [
+      "Workspace overrides beat platform defaults",
+      "Every classification is audited under policy decisions",
+    ],
+  },
+  {
+    id: "dexter-orchestrator",
+    target: "nav-dexter-orchestrator",
+    href: "/dexter",
+    title: "Dexter Orchestrator",
+    body: "Propose a GTM plan, approve it, invoke through Policy Gateway, then record learning outcomes.",
+    details: [
+      "Chat FAB remains available for conversational Dexter",
+      "Invoke is blocked until a human approves the plan",
+    ],
+  },
+  {
+    id: "decisions",
+    target: "nav-decisions",
+    href: "/decisions",
+    title: "Decision views",
+    body: "Act on recommendations with clear options and evidence — not vanity metric dashboards.",
+    details: [
+      "Create a decision from the latest next-best-action",
+      "Decide or dismiss to keep the queue honest",
+    ],
+  },
+  {
+    id: "account-360",
+    target: "nav-account-360",
+    href: "/crm/360",
+    title: "Account & Person 360",
+    body: "One composed view of a company or contact with deals, timeline activity, and live signals.",
+    details: [
+      "Load by company UUID for Account 360",
+      "Switch to Person mode for a contact UUID",
+    ],
+  },
+  {
     id: "alert-rules",
     target: "nav-alert-rules",
     href: "/settings/alert-rules",
