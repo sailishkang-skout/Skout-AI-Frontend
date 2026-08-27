@@ -116,6 +116,7 @@ export default function NumbersMarketplacePage() {
   const canFetch = CLERK_ENABLED ? authReady : true;
   const api = useNumbersApi();
   const queryClient = useQueryClient();
+  const requestsCardRef = useRef<HTMLDivElement>(null);
 
   const [country, setCountry] = useState("US");
   const [numberType, setNumberType] = useState("local");
@@ -195,7 +196,10 @@ export default function NumbersMarketplacePage() {
         phoneNumber,
         idempotencyKey: `select:${phoneNumber}`,
       }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      requestsCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
   });
 
   const order = useMutation({
@@ -367,7 +371,7 @@ export default function NumbersMarketplacePage() {
                           disabled={create.isPending}
                           onClick={() => create.mutate(row.phoneNumber)}
                         >
-                          Request
+                          {create.isPending && create.variables === row.phoneNumber ? "Requesting…" : "Request"}
                         </Button>
                       </td>
                     </tr>
@@ -376,13 +380,16 @@ export default function NumbersMarketplacePage() {
               </table>
             </div>
           )}
+          {create.isError && !hideAuthNoise && (
+            <Alert variant="error">{formatQueryError(create.error, "Number request failed.")}</Alert>
+          )}
           {search.isSuccess && results.length === 0 && (
             <p className="text-sm text-muted-foreground">No numbers matched. Try another city or area code.</p>
           )}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card ref={requestsCardRef}>
         <CardHeader>
           <CardTitle className="text-base">Workspace requests</CardTitle>
         </CardHeader>
