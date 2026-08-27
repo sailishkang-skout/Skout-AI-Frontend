@@ -66,6 +66,10 @@ export default function Account360Page() {
       {active.isError && <Alert variant="error">{formatQueryError(active.error, "360 load failed.")}</Alert>}
 
       {data && (
+        <div className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>{mode === "account" ? "Company" : "Contact"}</CardTitle>
         <div className="space-y-4">
           {/* Main Record Header Card */}
           <Card className="border-l-4 border-l-primary">
@@ -81,6 +85,10 @@ export default function Account360Page() {
                 </span>
               </div>
             </CardHeader>
+            <CardContent className="text-sm">
+              <pre className="overflow-auto rounded bg-muted p-3 text-xs">
+                {JSON.stringify(mode === "account" ? data.company : data.contact, null, 2)}
+              </pre>
             <CardContent className="text-sm text-muted-foreground">
               {mode === "account" ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -123,16 +131,24 @@ export default function Account360Page() {
               )}
             </CardContent>
           </Card>
+          {"deals" in data && (
 
           {/* Account View: Buying Committee & Influence Map */}
           {mode === "account" && "buyingCommittee" in data && Array.isArray(data.buyingCommittee) && (
             <Card>
               <CardHeader>
+                <CardTitle>Deals ({Array.isArray(data.deals) ? data.deals.length : 0})</CardTitle>
                 <CardTitle className="text-base flex items-center justify-between">
                   <span>Buying Committee & Influence Map</span>
                   <span className="text-xs font-normal text-muted-foreground">{data.buyingCommittee.length} Stakeholders</span>
                 </CardTitle>
               </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                {Array.isArray(data.deals) && data.deals.length
+                  ? data.deals.map((d: { id?: string; name?: string }) => (
+                      <div key={String(d.id)}>{String(d.name ?? d.id)}</div>
+                    ))
+                  : "No deals"}
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.buyingCommittee.map((member: { id: string; fullName: string; title: string; role: string; email?: string }) => (
@@ -220,8 +236,12 @@ export default function Account360Page() {
           {/* Universal Chronological Timeline Feed */}
           <Card>
             <CardHeader>
+              <CardTitle>Signals / timeline</CardTitle>
               <CardTitle className="text-base">Universal Activity & Intent Timeline</CardTitle>
             </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Signals: {Array.isArray(data.signals) ? data.signals.length : 0} · Timeline:{" "}
+              {Array.isArray(data.timeline) ? data.timeline.length : 0}
             <CardContent>
               {Array.isArray(data.timeline) && data.timeline.length > 0 ? (
                 <div className="space-y-3">
