@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Play, Rocket, Save } from "lucide-react";
 import { AutomationCanvas } from "@/components/automations/automation-canvas";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,8 +12,9 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
-import type { AutomationGraph, AutomationRun } from "@/lib/automations";
+import type { AutomationGraph, AutomationRun, AutomationRunStep, AutomationVersion } from "@/lib/automations";
 import { useAutomationsApi } from "@/lib/automations";
 
 function runStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
@@ -38,7 +39,7 @@ export default function AutomationDetailPage() {
 
   const [graph, setGraph] = useState<AutomationGraph>(EMPTY_GRAPH);
   const [actionError, setActionError] = useState<string | null>(null);
-  const seededVersion = useRef<number | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const automation = useQuery({
     queryKey: ["automations", automationId],
@@ -58,15 +59,25 @@ export default function AutomationDetailPage() {
     enabled: authReady && Boolean(automationId),
   });
 
-  // Seed the canvas from the most recent version exactly once per version list load — after
-  // that, the canvas is the source of truth until the user reloads or saves.
+  // Seed the canvas exactly once, and only once the versions fetch has actually resolved —
+  // <AutomationCanvas> hands its graph prop to reactflow's own state on first mount only, so
+  // mounting it before this data arrives (which it always did — the fetch is async) permanently
+  // locked the canvas onto an empty graph. Gating the canvas's render on `hydrated` fixes that.
+  // Prefer the draft (what Simulate runs) over a published version, since it reflects
+  // in-progress edits; fall back to the latest published version if no draft was ever saved.
   useEffect(() => {
-    const versionData = versions.data?.data ?? [];
-    if (versionData.length === 0 || seededVersion.current !== null) return;
-    const latest = versionData.reduce((a, b) => (a.version >= b.version ? a : b));
-    seededVersion.current = latest.version;
-    setGraph(latest.graph);
-  }, [versions.data]);
+    if (hydrated || (!versions.isSuccess && !versions.isError)) return;
+    if (versions.isSuccess) {
+      const versionData = versions.data.data;
+      const draft = versionData.find((v) => v.status === "draft");
+      const latestPublished = versionData
+        .filter((v) => v.status === "published")
+        .reduce<AutomationVersion | null>((a, b) => (!a || b.version > a.version ? b : a), null);
+      const toShow = draft ?? latestPublished;
+      if (toShow) setGraph(toShow.graph);
+    }
+    setHydrated(true);
+  }, [versions.isSuccess, versions.isError, versions.data, hydrated]);
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["automations", automationId] });
@@ -168,7 +179,11 @@ export default function AutomationDetailPage() {
         </div>
       )}
 
-      <AutomationCanvas graph={graph} onChange={setGraph} />
+      {hydrated ? (
+        <AutomationCanvas graph={graph} onChange={setGraph} />
+      ) : (
+        <Skeleton className="h-[560px] w-full rounded-md" />
+      )}
 
       <Card>
         <CardHeader>
@@ -191,6 +206,54 @@ export default function AutomationDetailPage() {
   );
 }
 
+function formatStepPayload(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") return value;
+  try {
+    const text = JSON.stringify(value, null, 2);
+    return text === "{}" || text === "[]" ? null : text;
+  } catch {
+    return String(value);
+  }
+}
+
+function RunStepRow({ step }: { step: AutomationRunStep }) {
+  const input = formatStepPayload(step.input);
+  const output = formatStepPayload(step.output);
+
+  return (
+    <div className="rounded-md border border-border/60 bg-background p-2.5 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono font-medium">{step.nodeId}</span>
+        <span className="flex items-center gap-1.5">
+          {step.attempt > 1 && <span className="text-muted-foreground">attempt {step.attempt}</span>}
+          <Badge tone={runStatusTone(step.status)} className="capitalize">
+            {step.status}
+          </Badge>
+        </span>
+      </div>
+
+      {step.error && <p className="mt-1.5 text-red-600 dark:text-red-400">{step.error}</p>}
+
+      {input && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-muted-foreground">Input</summary>
+          <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2">{input}</pre>
+        </details>
+      )}
+
+      {output && (
+        <details className="mt-1.5" open>
+          <summary className="cursor-pointer text-muted-foreground">Output</summary>
+          <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2">{output}</pre>
+        </details>
+      )}
+
+      {!input && !output && !step.error && <p className="mt-1.5 text-muted-foreground">No output.</p>}
+    </div>
+  );
+}
+
 function RunRow({ run }: { run: AutomationRun }) {
   const api = useAutomationsApi();
   const authReady = useAuthReady();
@@ -207,7 +270,7 @@ function RunRow({ run }: { run: AutomationRun }) {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 text-left text-sm"
+        className="flex w-full items-center justify-between gap-2 text-left text-sm hover:text-foreground"
         data-testid="run-row-toggle"
       >
         <span className="flex items-center gap-2">
@@ -217,22 +280,22 @@ function RunRow({ run }: { run: AutomationRun }) {
           <span className="text-muted-foreground">{run.triggerType}</span>
           {run.isSimulation && <Badge tone="muted">simulation</Badge>}
         </span>
-        <span className="text-xs text-muted-foreground">{new Date(run.createdAt).toLocaleString()}</span>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {new Date(run.createdAt).toLocaleString()}
+          <span>{expanded ? "▲ hide steps" : "▼ show steps"}</span>
+        </span>
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-1 rounded-md bg-muted/30 p-3">
-          {detail.isLoading ? (
-            <p className="text-xs text-muted-foreground">Loading steps…</p>
+        <div className="mt-2 space-y-2">
+          {detail.isLoading && <p className="text-xs text-muted-foreground">Loading steps…</p>}
+          {detail.isError && (
+            <Alert variant="error">{formatQueryError(detail.error, "Could not load this run's steps.")}</Alert>
+          )}
+          {(detail.data?.data.steps ?? []).length === 0 && detail.isSuccess ? (
+            <p className="text-xs text-muted-foreground">No steps recorded yet — still pending.</p>
           ) : (
-            (detail.data?.data.steps ?? []).map((step) => (
-              <div key={step.id} className="flex items-center justify-between text-xs">
-                <span className="font-mono text-muted-foreground">{step.nodeId}</span>
-                <Badge tone={runStatusTone(step.status)} className="capitalize">
-                  {step.status}
-                </Badge>
-              </div>
-            ))
+            (detail.data?.data.steps ?? []).map((step) => <RunStepRow key={step.id} step={step} />)
           )}
         </div>
       )}
