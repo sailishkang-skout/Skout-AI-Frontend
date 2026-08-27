@@ -90,6 +90,12 @@ export function useAutomationsApi() {
         body: JSON.stringify(input),
       }),
 
+    update: (id: string, patch: { name?: string; description?: string }) =>
+      fetchApi<{ data: Automation }>(`/api/v1/automations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+
     saveDraftVersion: (id: string, graph: AutomationGraph) =>
       fetchApi<{ data: AutomationVersion }>(`/api/v1/automations/${id}/versions`, {
         method: "POST",
@@ -114,5 +120,8 @@ export function useAutomationsApi() {
 
     getRun: (runId: string) =>
       fetchApi<{ data: { run: AutomationRun; steps: AutomationRunStep[] } }>(`/api/v1/automations/runs/${runId}`),
+
+    retryRun: (runId: string) =>
+      fetchApi<{ data: AutomationRun }>(`/api/v1/automations/runs/${runId}/retry`, { method: "POST" }),
   };
 }

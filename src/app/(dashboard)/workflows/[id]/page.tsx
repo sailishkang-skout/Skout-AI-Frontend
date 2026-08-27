@@ -3,8 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Play, Rocket, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Pencil, Play, RotateCcw, Rocket, Save } from "lucide-react";
 import { AutomationCanvas } from "@/components/automations/automation-canvas";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -12,6 +12,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import type { AutomationGraph, AutomationRun, AutomationRunStep, AutomationVersion } from "@/lib/automations";
@@ -29,6 +30,60 @@ function runStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
 }
 
 const EMPTY_GRAPH: AutomationGraph = { nodes: [], edges: [] };
+
+function EditableTitle({ name, onSave, saving }: { name: string; onSave: (name: string) => void; saving: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(name);
+  }, [name, editing]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== name) onSave(trimmed);
+    else setDraft(name);
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") {
+            setDraft(name);
+            setEditing(false);
+          }
+        }}
+        className="h-9 max-w-md text-xl font-semibold tracking-tight sm:text-2xl"
+        data-testid="automation-name-input"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="group inline-flex items-center gap-2 text-left"
+      data-testid="automation-name-edit-trigger"
+      disabled={saving}
+    >
+      <span>{name}</span>
+      <Pencil className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
+    </button>
+  );
+}
 
 export default function AutomationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -102,6 +157,16 @@ export default function AutomationDetailPage() {
     onError: (err) => setActionError(formatQueryError(err, "Couldn't start a run.")),
   });
 
+  const rename = useMutation({
+    mutationFn: (name: string) => api.update(automationId, { name }),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["automations", automationId] });
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't rename this automation.")),
+  });
+
   const publish = useMutation({
     mutationFn: () => api.publishVersion(automationId, graph),
     onSuccess: () => {
@@ -131,7 +196,13 @@ export default function AutomationDetailPage() {
   return (
     <PageShell width="full" data-testid="page-automation-detail">
       <PageHeader
-        title={data?.name ?? "Automation"}
+        title={
+          data ? (
+            <EditableTitle name={data.name} onSave={(name) => rename.mutate(name)} saving={rename.isPending} />
+          ) : (
+            "Automation"
+          )
+        }
         description="Visual block editor — connect triggers, conditions, enrichment, AI, approvals, and actions, then publish a version to run it."
         actions={
           <>
@@ -196,7 +267,7 @@ export default function AutomationDetailPage() {
           ) : (
             <ul className="divide-y divide-border">
               {runData.map((r) => (
-                <RunRow key={r.id} run={r} />
+                <RunRow key={r.id} run={r} automationId={automationId} />
               ))}
             </ul>
           )}
@@ -254,10 +325,12 @@ function RunStepRow({ step }: { step: AutomationRunStep }) {
   );
 }
 
-function RunRow({ run }: { run: AutomationRun }) {
+function RunRow({ run, automationId }: { run: AutomationRun; automationId: string }) {
   const api = useAutomationsApi();
   const authReady = useAuthReady();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const detail = useQuery({
     queryKey: ["automations", "runs", run.id],
@@ -265,26 +338,59 @@ function RunRow({ run }: { run: AutomationRun }) {
     enabled: authReady && expanded,
   });
 
+  const retry = useMutation({
+    mutationFn: () => api.retryRun(run.id),
+    onSuccess: () => {
+      setRetryError(null);
+      queryClient.invalidateQueries({ queryKey: ["automations", automationId, "runs"] });
+      queryClient.invalidateQueries({ queryKey: ["automations", "runs", run.id] });
+    },
+    onError: (err) => setRetryError(formatQueryError(err, "Couldn't retry this run.")),
+  });
+
   return (
     <li className="py-2">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 text-left text-sm hover:text-foreground"
-        data-testid="run-row-toggle"
-      >
-        <span className="flex items-center gap-2">
+      <div className="flex w-full items-center justify-between gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-foreground"
+          data-testid="run-row-toggle"
+        >
           <Badge tone={runStatusTone(run.status)} className="capitalize">
             {run.status.replaceAll("_", " ")}
           </Badge>
           <span className="text-muted-foreground">{run.triggerType}</span>
           {run.isSimulation && <Badge tone="muted">simulation</Badge>}
-        </span>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        </button>
+        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          {run.status === "failed" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                retry.mutate();
+              }}
+              disabled={retry.isPending}
+              data-testid="run-retry"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          )}
           {new Date(run.createdAt).toLocaleString()}
-          <span>{expanded ? "▲ hide steps" : "▼ show steps"}</span>
+          <button type="button" onClick={() => setExpanded((v) => !v)} className="hover:text-foreground">
+            {expanded ? "▲ hide steps" : "▼ show steps"}
+          </button>
         </span>
-      </button>
+      </div>
+
+      {retryError && (
+        <Alert variant="error" dismissible className="mt-2">
+          {retryError}
+        </Alert>
+      )}
 
       {expanded && (
         <div className="mt-2 space-y-2">
