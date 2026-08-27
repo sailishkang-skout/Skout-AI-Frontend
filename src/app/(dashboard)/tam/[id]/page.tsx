@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { signalIcon, signalLabel } from "@/lib/signals";
 import { coverageStages, segmentDimensionLabel, useTamApi, type DrillInInput } from "@/lib/tam";
+import { MarketIntelligenceSuggestions } from "@/components/tam/market-intelligence-suggestions";
 import type { TamCoverageFunnel, TamSegmentBucket } from "@/types/api";
 
 const OVERLAY_LEGEND = ["headcount_growth", "tech_adopted", "recent_funding", "engagement_decay", "negative_sentiment"];
@@ -147,6 +148,11 @@ export default function TamDetailPage() {
           )}
 
           <CoverageFunnel coverage={data.coverage} />
+
+          <MarketIntelligenceSuggestions
+            title={`Regional Strategy & Market Intelligence — ${data.name}`}
+            description="Active regional sales policy, addressable revenue TAM, and regulatory guardrails for this market universe."
+          />
 
           <Card>
             <CardHeader>
