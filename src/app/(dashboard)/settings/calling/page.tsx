@@ -82,16 +82,19 @@ export default function CallingSettingsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Workspace status</CardTitle>
-          <Badge tone={enabled ? "success" : "muted"}>{enabled ? "Connected" : "Not configured"}</Badge>
+          <Badge tone={enabled ? "success" : "muted"}>
+            {enabled ? "Connected" : "Not configured"}
+            {config.data?.data.callerId ? ` · ${config.data.data.callerId}` : ""}
+          </Badge>
         </CardHeader>
         <CardContent>
           {!enabled && (
             <p className="text-sm text-muted-foreground">
-              Calling requires a Twilio account. Ask a workspace admin to set{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">TWILIO_ACCOUNT_SID</code>,{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">TWILIO_AUTH_TOKEN</code>, and{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">TWILIO_PHONE_NUMBER</code> in the API
-              environment. See the Phase 1 dependency doc for details.
+              Calling requires Telnyx plus a caller ID. Order a DID under{" "}
+              <a className="underline" href="/settings/numbers">
+                Phone numbers
+              </a>
+              , or set <code className="rounded bg-muted px-1 py-0.5 text-xs">TELNYX_PHONE_NUMBER</code> as a fallback.
             </p>
           )}
         </CardContent>

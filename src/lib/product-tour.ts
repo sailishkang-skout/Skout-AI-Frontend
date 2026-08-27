@@ -391,6 +391,30 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "linkedin-voice",
+    target: "nav-linkedin-voice",
+    href: "/linkedin/voice",
+    title: "LinkedIn Voice",
+    body: "Draft a voice-note script, preview it, and hand it off to your phone — LinkedIn only accepts voice messages from the mobile app, so you send it yourself.",
+    details: [
+      "Requires a 1st-degree LinkedIn connection to draft",
+      "Preview a personal or synthetic voice take before handoff",
+      "Confirm the send outcome back on this page for the timeline",
+    ],
+  },
+  {
+    id: "phone-numbers",
+    target: "nav-phone-numbers",
+    href: "/settings/numbers",
+    title: "Phone numbers",
+    body: "Search and provision phone numbers by country, type, and capability, then track each request through compliance.",
+    details: [
+      "Number requests move through a tracked provisioning status until active",
+      "Upload compliance documents here when a country requires them",
+      "The active number becomes your click-to-call caller ID",
+    ],
+  },
+  {
     id: "cro-copilot",
     target: "nav-cro-copilot",
     href: "/admin/cro",

@@ -65,6 +65,7 @@ export interface NotificationPreference {
 export interface CallConfig {
   enabled: boolean;
   agentPhoneSet: boolean;
+  callerId?: string | null;
 }
 
 export interface DialCallResult {
