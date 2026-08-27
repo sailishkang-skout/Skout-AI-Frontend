@@ -101,6 +101,19 @@ export default function AutomationDetailPage() {
     onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this automation.")),
   });
 
+  // Simulate always reflects what's on screen, not whatever was last saved — save the current
+  // canvas as the draft first, then run it, instead of relying on the user to click Save draft.
+  async function handleSimulate() {
+    try {
+      await saveDraft.mutateAsync();
+      setActionError(null);
+    } catch (err) {
+      setActionError(formatQueryError(err, "Couldn't save this draft."));
+      return;
+    }
+    run.mutate(true);
+  }
+
   const data = automation.data?.data;
   const runData = runs.data?.data ?? [];
 
@@ -122,7 +135,7 @@ export default function AutomationDetailPage() {
               <Save className="h-4 w-4" />
               Save draft
             </Button>
-            <Button variant="outline" onClick={() => run.mutate(true)} disabled={run.isPending}>
+            <Button variant="outline" onClick={handleSimulate} disabled={saveDraft.isPending || run.isPending}>
               <Play className="h-4 w-4" />
               Simulate
             </Button>
