@@ -14,14 +14,6 @@ const nextConfig = {
   basePath: "/app",
   async redirects() {
     return [
-      { source: "/signin", destination: "/sign-in", permanent: false },
-      { source: "/signin/:path*", destination: "/sign-in/:path*", permanent: false },
-      { source: "/login", destination: "/sign-in", permanent: false },
-      { source: "/login/:path*", destination: "/sign-in/:path*", permanent: false },
-      { source: "/singin", destination: "/sign-in", permanent: false },
-      { source: "/singin/:path*", destination: "/sign-in/:path*", permanent: false },
-      { source: "/sign-up", destination: "/sign-in", permanent: false },
-      { source: "/sign-up/:path*", destination: "/sign-in/:path*", permanent: false },
       // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
       // design — `basePath: false` here matches the literal "/" outside that basePath so
       // localhost:3000 alone lands on /app instead of a 404. Not applied in production, where
@@ -29,6 +21,20 @@ const nextConfig = {
       ...(process.env.NODE_ENV === "production"
         ? []
         : [{ source: "/", destination: "/app", basePath: false, permanent: false }]),
+    ];
+  },
+  async rewrites() {
+    // Rewrites (not redirects) so /app/signin serves Clerk without a 307 — avoids a proxy loop
+    // on www.skoutai.io when the marketing site maps /app/sign-in ↔ /app/signin in Location.
+    return [
+      { source: "/signin", destination: "/sign-in" },
+      { source: "/signin/:path*", destination: "/sign-in/:path*" },
+      { source: "/login", destination: "/sign-in" },
+      { source: "/login/:path*", destination: "/sign-in/:path*" },
+      { source: "/singin", destination: "/sign-in" },
+      { source: "/singin/:path*", destination: "/sign-in/:path*" },
+      { source: "/sign-up", destination: "/sign-in" },
+      { source: "/sign-up/:path*", destination: "/sign-in/:path*" },
     ];
   },
   env: {

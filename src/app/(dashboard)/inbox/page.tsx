@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Linkedin, Mail, MessageCircle, Search } from "lucide-react";
-import { AiChatBox } from "@/components/ai/ai-chat-box";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -557,23 +556,6 @@ export default function InboxPage() {
         context={contextQuery.data}
         loading={contextQuery.isLoading}
       />
-
-      {selectedThread && channel === "email" && (
-        <AiChatBox
-          title="Inbox AI (Auto / Ask)"
-          stageForReview={Boolean(selectedThread.prospectId)}
-          context={{
-            kind: "email",
-            page: "/inbox",
-            prospectId: selectedThread.prospectId ?? undefined,
-            threadId: selectedThread.id,
-            subject: selectedThread.subject ?? undefined,
-          }}
-          onApplyEmail={({ html }) => {
-            setAiDraftReply(htmlToPlain(html));
-          }}
-        />
-      )}
     </PageShell>
   );
 }

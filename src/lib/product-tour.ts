@@ -463,6 +463,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "regional-brief",
+    target: "nav-regional-brief",
+    href: "/settings/regional-brief",
+    title: "Regional Brief",
+    body: "View regional and country-level intelligence, curated market insights, and shared data on geographies that matter to your business.",
+    details: [
+      "Browse regional overviews and country-specific data",
+      "Review and approve intelligence updates for your team",
+      "Keep your regional knowledge current with shared insights",
+    ],
+  },
+  {
     id: "corpus",
     target: "nav-corpus",
     href: "/settings/corpus",

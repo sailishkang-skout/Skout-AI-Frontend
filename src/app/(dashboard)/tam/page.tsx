@@ -18,6 +18,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useTamApi } from "@/lib/tam";
+import { MarketIntelligenceSuggestions } from "@/components/tam/market-intelligence-suggestions";
 
 export default function TamListPage() {
   const authReady = useAuthReady();
@@ -94,6 +95,12 @@ export default function TamListPage() {
           ))}
         </div>
       )}
+
+      {/* Global Regional Intelligence & TAM Suggestions */}
+      <MarketIntelligenceSuggestions
+        title="Global Market Intelligence & Expansion Strategy"
+        description="Explore addressable revenue TAM, verified enterprise counts, outreach playbooks, and compliance guardrails across 250 markets."
+      />
 
       <CreateTamDialog open={createOpen} onClose={() => setCreateOpen(false)} />
     </PageShell>
