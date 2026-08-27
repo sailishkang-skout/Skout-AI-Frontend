@@ -1,77 +1,139 @@
 "use client";
 
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { GitMerge, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
-import { useDexterPlatformApi } from "@/lib/dexter-platform";
+import { useAutomationsApi } from "@/lib/automations";
 
-/** §8.14 — Workflow Studio (native run list over observable workflow_runs; n8n remains optional). */
+function automationStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
+  switch (status) {
+    case "active": return "success";
+    case "archived": return "muted";
+    default: return "warning";
+  }
+}
+
+/** §8.14 — Workflow Studio: native visual block editor (ReactFlow), replacing the n8n stopgap. */
 export default function WorkflowStudioPage() {
   const authReady = useAuthReady();
-  const api = useDexterPlatformApi();
-  const qc = useQueryClient();
-  const [name, setName] = useState("enrich-and-score");
+  const api = useAutomationsApi();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [name, setName] = useState("");
 
-  const runs = useQuery({
-    queryKey: ["workflow-runs"],
-    queryFn: api.listWorkflowRuns,
+  const automations = useQuery({
+    queryKey: ["automations"],
+    queryFn: api.list,
     enabled: authReady,
   });
 
-  const start = useMutation({
-    mutationFn: () => api.startWorkflowRun(name, [{ name: "start" }, { name: "finish" }]),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["workflow-runs"] }),
+  const create = useMutation({
+    mutationFn: () => api.create({ name: name.trim() || "Untitled automation" }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      setName("");
+      router.push(`/workflows/${res.data.id}`);
+    },
   });
 
-  const complete = useMutation({
-    mutationFn: (id: string) => api.completeWorkflowRun(id, "completed"),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["workflow-runs"] }),
-  });
+  const automationData = automations.data?.data ?? [];
 
   return (
-    <PageShell width="narrow">
+    <PageShell data-testid="page-workflows">
       <PageHeader
         title="Workflow Studio"
-        description="Observable async runs (D15). Native list over /workflows/runs — use alongside activation rules; n8n can remain for advanced graphs."
+        description="Build automations as visual blocks — triggers, conditions, enrichment, AI, approvals, and actions — with versioned publishing and per-run step tracing."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Start run</CardTitle>
+          <CardTitle>New automation</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-md" />
-          <Button onClick={() => start.mutate()} disabled={!authReady || start.isPending}>
-            Start
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Enrich and notify on new lead"
+            className="max-w-md"
+          />
+          <Button onClick={() => create.mutate()} disabled={!authReady || create.isPending}>
+            <Sparkles className="h-4 w-4" />
+            Create
           </Button>
         </CardContent>
+        {create.isError && (
+          <CardContent className="pt-0">
+            <Alert variant="error">{formatQueryError(create.error, "Couldn't create this automation.")}</Alert>
+          </CardContent>
+        )}
       </Card>
 
-      {runs.isError && <Alert variant="error">{formatQueryError(runs.error, "Could not load runs.")}</Alert>}
+      {automations.isError && (
+        <Alert variant="error" title="Something went wrong" dismissible onRetry={() => automations.refetch()}>
+          {formatQueryError(automations.error, "Could not load automations.")}
+        </Alert>
+      )}
 
-      <ul className="space-y-2">
-        {(runs.data?.data ?? []).map((r) => {
-          const id = String(r.id ?? "");
-          return (
-            <li key={id} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-              <span>
-                <span className="font-medium">{String(r.name)}</span> — {String(r.status)}
-              </span>
-              {String(r.status) === "running" || String(r.status) === "pending" ? (
-                <Button size="sm" variant="secondary" onClick={() => complete.mutate(id)}>
-                  Mark completed
-                </Button>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+      {automations.isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : automationData.length ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {automationData.map((a) => (
+            <Link
+              key={a.id}
+              href={`/workflows/${a.id}`}
+              className="rounded-xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/40"
+              data-testid="automation-card"
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate font-medium">{a.name}</p>
+                <Badge tone={automationStatusTone(a.status)} className="shrink-0 capitalize">
+                  {a.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {a.currentVersion > 0 ? `Published v${a.currentVersion}` : "No published version yet"}
+              </p>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        !automations.error && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className="rounded-full bg-muted p-4">
+                <GitMerge className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium">No automations yet</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Name your first automation above to open the visual block editor.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      )}
     </PageShell>
   );
 }
