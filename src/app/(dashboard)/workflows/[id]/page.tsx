@@ -82,15 +82,6 @@ export default function AutomationDetailPage() {
     onError: (err) => setActionError(formatQueryError(err, "Couldn't save this draft.")),
   });
 
-  const publish = useMutation({
-    mutationFn: () => api.publishVersion(automationId, graph),
-    onSuccess: () => {
-      setActionError(null);
-      invalidateAll();
-    },
-    onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this automation.")),
-  });
-
   const run = useMutation({
     mutationFn: (isSimulation: boolean) => api.run(automationId, isSimulation),
     onSuccess: () => {
@@ -98,6 +89,16 @@ export default function AutomationDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["automations", automationId, "runs"] });
     },
     onError: (err) => setActionError(formatQueryError(err, "Couldn't start a run.")),
+  });
+
+  const publish = useMutation({
+    mutationFn: () => api.publishVersion(automationId, graph),
+    onSuccess: () => {
+      setActionError(null);
+      invalidateAll();
+      run.mutate(false);
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this automation.")),
   });
 
   const data = automation.data?.data;
@@ -125,7 +126,7 @@ export default function AutomationDetailPage() {
               <Play className="h-4 w-4" />
               Simulate
             </Button>
-            <Button onClick={() => publish.mutate()} disabled={publish.isPending}>
+            <Button onClick={() => publish.mutate()} disabled={publish.isPending || run.isPending}>
               <Rocket className="h-4 w-4" />
               Publish &amp; run
             </Button>
