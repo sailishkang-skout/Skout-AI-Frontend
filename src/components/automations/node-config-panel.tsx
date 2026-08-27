@@ -14,6 +14,16 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
+/** Any text field below can reference an earlier step's output, e.g. {{n1.status}}. */
+function TemplateHint() {
+  return (
+    <p className="text-xs text-muted-foreground">
+      Reference an earlier step&apos;s output with <code className="rounded bg-muted px-1 py-0.5">{"{{nodeId.field}}"}</code> —
+      e.g. <code className="rounded bg-muted px-1 py-0.5">{"{{n1.status}}"}</code>.
+    </p>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1 text-sm">
@@ -112,6 +122,7 @@ export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
     case "action_http":
       return (
         <div className="space-y-3">
+          <TemplateHint />
           <Field label="URL">
             <Input data-testid="config-url" value={(config.url as string) ?? ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://" />
           </Field>
@@ -152,6 +163,7 @@ export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
     case "action_notification":
       return (
         <div className="space-y-3">
+          <TemplateHint />
           <Field label="Title">
             <Input data-testid="config-title" value={(config.title as string) ?? ""} onChange={(e) => set({ title: e.target.value })} />
           </Field>
@@ -171,6 +183,7 @@ export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
     case "action_crm_writeback":
       return (
         <div className="space-y-3">
+          <TemplateHint />
           <Field label="Entity type">
             <Select
               data-testid="config-entityType"
