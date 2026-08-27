@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
@@ -31,7 +31,6 @@ function SuggestField({
   onChange,
   options,
   placeholder,
-  listId,
   testId,
   hint,
 }: {
@@ -40,28 +39,66 @@ function SuggestField({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder: string;
-  listId: string;
   testId: string;
   hint?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (row) => row.value.toLowerCase().includes(q) || row.label.toLowerCase().includes(q)
+    );
+  }, [options, value]);
+
   return (
     <label className="space-y-1 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <Input
-        list={listId}
-        data-testid={testId}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete="off"
-      />
-      <datalist id={listId}>
-        {options.map((row) => (
-          <option key={`${row.value}-${row.label}`} value={row.value}>
-            {row.label}
-          </option>
-        ))}
-      </datalist>
+      <div className="relative" ref={wrapperRef}>
+        <Input
+          data-testid={testId}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+          autoComplete="off"
+        />
+        {open && filtered.length > 0 && (
+          <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-input bg-popover text-popover-foreground shadow-lg">
+            {filtered.map((row) => (
+              <button
+                key={`${row.value}-${row.label}`}
+                type="button"
+                onClick={() => {
+                  onChange(row.value);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                <span className="truncate font-medium">{row.value}</span>
+                {row.label !== row.value && (
+                  <span className="truncate text-xs text-muted-foreground">{row.label}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       {hint ? <span className="block text-[11px] text-muted-foreground">{hint}</span> : null}
     </label>
   );
@@ -250,7 +287,6 @@ export default function NumbersMarketplacePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <SuggestField
               label="Country"
-              listId="numbers-country-list"
               testId="numbers-country"
               value={country}
               onChange={onCountryChange}
@@ -269,7 +305,6 @@ export default function NumbersMarketplacePage() {
             </label>
             <SuggestField
               label="Area code"
-              listId="numbers-area-code-list"
               testId="numbers-area-code"
               value={areaCode}
               onChange={onAreaCodeChange}
@@ -279,7 +314,6 @@ export default function NumbersMarketplacePage() {
             />
             <SuggestField
               label="City"
-              listId="numbers-city-list"
               testId="numbers-city"
               value={city}
               onChange={onCityChange}
