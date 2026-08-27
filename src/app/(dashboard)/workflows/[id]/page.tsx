@@ -172,7 +172,6 @@ export default function AutomationDetailPage() {
     onSuccess: () => {
       setActionError(null);
       invalidateAll();
-      run.mutate(false);
     },
     onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this automation.")),
   });
@@ -221,9 +220,17 @@ export default function AutomationDetailPage() {
               <Play className="h-4 w-4" />
               Simulate
             </Button>
-            <Button onClick={() => publish.mutate()} disabled={publish.isPending || run.isPending}>
+            <Button variant="outline" onClick={() => publish.mutate()} disabled={publish.isPending}>
               <Rocket className="h-4 w-4" />
-              Publish &amp; run
+              Publish
+            </Button>
+            <Button
+              onClick={() => run.mutate(false)}
+              disabled={run.isPending || !data || data.currentVersion === 0}
+              title={data && data.currentVersion === 0 ? "Publish a version before running it" : undefined}
+            >
+              <Play className="h-4 w-4" />
+              Run
             </Button>
           </>
         }
