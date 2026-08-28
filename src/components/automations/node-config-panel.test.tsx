@@ -70,6 +70,25 @@ describe("NodeConfigPanel", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ method: "PATCH" }));
   });
 
+  it("lists prior nodes by their real (full) id, not the short canvas label", () => {
+    // A node labeled "action_http · 6407" on the canvas is really "n1787869206593" — "6407" is
+    // just the last 4 characters shown for compactness. Typing the short suffix into a template
+    // token silently resolves to nothing, so the panel has to show the actual id to copy.
+    render(
+      <NodeConfigPanel
+        node={node("action_http", {})}
+        onChange={vi.fn()}
+        priorNodes={[{ id: "n1787869206593", label: "trigger · 6593" }]}
+      />
+    );
+    expect(screen.getByText("n1787869206593")).toBeTruthy();
+  });
+
+  it("shows a no-earlier-steps message when nothing is connected upstream", () => {
+    render(<NodeConfigPanel node={node("action_http", {})} onChange={vi.fn()} priorNodes={[]} />);
+    expect(screen.getByText(/No earlier steps connected yet/)).toBeTruthy();
+  });
+
   it("parses JSON typed into the HTTP body field", () => {
     const onChange = vi.fn();
     render(<NodeConfigPanel node={node("action_http", {})} onChange={onChange} />);

@@ -14,13 +14,44 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-/** Any text field below can reference an earlier step's output, e.g. {{n1.status}}. */
-function TemplateHint() {
+/**
+ * Any text field below can reference an earlier step's output via {{nodeId.field}} — but nodeId
+ * has to be the real id, not the short suffix shown on the canvas node (e.g. a node labeled
+ * "action_http · 6407" is really "n1787869206593"; "6407" is just its last 4 characters for
+ * display). Listing the real ids here — with a one-click copy — is what makes that usable instead
+ * of a guessing game.
+ */
+function TemplateHint({ priorNodes }: { priorNodes: { id: string; label: string }[] }) {
   return (
-    <p className="text-xs text-muted-foreground">
-      Reference an earlier step&apos;s output with <code className="rounded bg-muted px-1 py-0.5">{"{{nodeId.field}}"}</code> —
-      e.g. <code className="rounded bg-muted px-1 py-0.5">{"{{n1.status}}"}</code>.
-    </p>
+    <div className="space-y-1.5 rounded-md border border-dashed border-border bg-muted/20 p-2.5 text-xs">
+      <p className="text-muted-foreground">
+        Reference an earlier step&apos;s output with <code className="rounded bg-muted px-1 py-0.5">{"{{nodeId.field}}"}</code> — use
+        the full id below, not the short label shown on the canvas.
+      </p>
+      {priorNodes.length === 0 ? (
+        <p className="text-muted-foreground">No earlier steps connected yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {priorNodes.map((n) => (
+            <li key={n.id} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate">
+                <code className="rounded bg-muted px-1 py-0.5">{n.id}</code> <span className="text-muted-foreground">({n.label})</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(n.id);
+                }}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                data-testid={`copy-node-id-${n.id}`}
+              >
+                Copy id
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -136,7 +167,7 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
     case "action_http":
       return (
         <div className="space-y-3">
-          <TemplateHint />
+          <TemplateHint priorNodes={priorNodes} />
           <Field label="URL">
             <Input data-testid="config-url" value={(config.url as string) ?? ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://" />
           </Field>
@@ -177,7 +208,7 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
     case "action_notification":
       return (
         <div className="space-y-3">
-          <TemplateHint />
+          <TemplateHint priorNodes={priorNodes} />
           <Field label="Title">
             <Input data-testid="config-title" value={(config.title as string) ?? ""} onChange={(e) => set({ title: e.target.value })} />
           </Field>
@@ -197,7 +228,7 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
     case "action_crm_writeback":
       return (
         <div className="space-y-3">
-          <TemplateHint />
+          <TemplateHint priorNodes={priorNodes} />
           <Field label="Entity type">
             <Select
               data-testid="config-entityType"
