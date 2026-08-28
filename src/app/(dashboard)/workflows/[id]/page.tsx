@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Pencil, Play, RotateCcw, Rocket, Save } from "lucide-react";
 import { AutomationCanvas } from "@/components/automations/automation-canvas";
 import { PageHeader } from "@/components/layout/page-header";
@@ -30,6 +30,23 @@ function runStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
 }
 
 const EMPTY_GRAPH: AutomationGraph = { nodes: [], edges: [] };
+
+/** Position doesn't affect execution — two graphs that only differ by node placement should not
+ * be flagged as "needs republish". */
+function normalizeForComparison(graph: AutomationGraph) {
+  return {
+    nodes: [...graph.nodes]
+      .map((n) => ({ id: n.id, type: n.type, config: n.config }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    edges: [...graph.edges]
+      .map((e) => ({ id: e.id, source: e.source, target: e.target, branch: e.branch }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  };
+}
+
+function graphsMatch(a: AutomationGraph, b: AutomationGraph): boolean {
+  return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
+}
 
 function EditableTitle({ name, onSave, saving }: { name: string; onSave: (name: string) => void; saving: boolean }) {
   const [editing, setEditing] = useState(false);
@@ -133,6 +150,19 @@ export default function AutomationDetailPage() {
     }
     setHydrated(true);
   }, [versions.isSuccess, versions.isError, versions.data, hydrated]);
+
+  const latestPublishedVersion = useMemo(() => {
+    const versionData = versions.data?.data ?? [];
+    return versionData
+      .filter((v) => v.status === "published")
+      .reduce<AutomationVersion | null>((a, b) => (!a || b.version > a.version ? b : a), null);
+  }, [versions.data]);
+
+  // Publish and Run are separate actions now — Run always executes the last *published* version,
+  // which can silently drift from what's on screen the moment you edit anything after publishing.
+  // This is exactly the trap that produced a condition matching in Simulate (draft) but not in a
+  // real run (stale published value) — surface it instead of letting Run act on invisible state.
+  const hasUnpublishedChanges = hydrated && latestPublishedVersion !== null && !graphsMatch(graph, latestPublishedVersion.graph);
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["automations", automationId] });
@@ -255,6 +285,14 @@ export default function AutomationDetailPage() {
           </Badge>
           <span>{data.currentVersion > 0 ? `Published v${data.currentVersion}` : "No published version yet"}</span>
         </div>
+      )}
+
+      {hasUnpublishedChanges && (
+        <Alert variant="warning">
+          The canvas has changes that aren&apos;t published yet — <strong>Run</strong> will still execute v
+          {latestPublishedVersion!.version}, not what&apos;s on screen. Publish to update it, or use Simulate to test
+          your current edits.
+        </Alert>
       )}
 
       {hydrated ? (
