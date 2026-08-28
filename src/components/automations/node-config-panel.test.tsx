@@ -28,10 +28,38 @@ describe("NodeConfigPanel", () => {
       <NodeConfigPanel
         node={node("condition", { sourceNodeId: "n0", field: "status", op: "equals", value: "active" })}
         onChange={onChange}
+        priorNodes={[{ id: "n0", label: "trigger · n0" }]}
       />
     );
     fireEvent.change(screen.getByTestId("config-value"), { target: { value: "paused" } });
     expect(onChange).toHaveBeenCalledWith({ sourceNodeId: "n0", field: "status", op: "equals", value: "paused" });
+  });
+
+  it("condition's source-node dropdown lists priorNodes and reports the selected id", () => {
+    const onChange = vi.fn();
+    render(
+      <NodeConfigPanel
+        node={node("condition", {})}
+        onChange={onChange}
+        priorNodes={[
+          { id: "n1", label: "action_http · n1" },
+          { id: "n0", label: "trigger · n0" },
+        ]}
+      />
+    );
+    const select = screen.getByTestId("config-sourceNodeId") as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(expect.arrayContaining(["n1", "n0"]));
+    fireEvent.change(select, { target: { value: "n1" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sourceNodeId: "n1" }));
+  });
+
+  it("shows a saved sourceNodeId as '(not connected)' when it's no longer an ancestor", () => {
+    render(
+      <NodeConfigPanel node={node("condition", { sourceNodeId: "n9" })} onChange={vi.fn()} priorNodes={[]} />
+    );
+    const select = screen.getByTestId("config-sourceNodeId") as HTMLSelectElement;
+    expect(select.value).toBe("n9");
+    expect(screen.getByText(/n9 \(not connected\)/)).toBeTruthy();
   });
 
   it("renders action_http's url/method/body fields", () => {

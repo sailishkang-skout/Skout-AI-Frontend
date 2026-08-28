@@ -98,13 +98,36 @@ const EDGE_DEFAULTS = {
   markerEnd: { type: MarkerType.ArrowClosed },
 } satisfies Partial<Edge>;
 
+function nodeLabel(type: AutomationNodeType, id: string): string {
+  return `${type} · ${id.slice(-4)}`;
+}
+
 function toFlowNode(node: AutomationNode, index: number): Node<FlowNodeData> {
   return {
     id: node.id,
     type: "automationNode",
     position: node.position ?? { x: 80 + index * 260, y: 80 },
-    data: { nodeType: node.type, label: `${node.type} · ${node.id.slice(-4)}` },
+    data: { nodeType: node.type, label: nodeLabel(node.type, node.id) },
   };
+}
+
+/** Every node with a path to `targetId`, nearest first — the "prior nodes" a condition can read. */
+export function getAncestorIds(targetId: string, edges: Edge[]): string[] {
+  const visited = new Set<string>();
+  const queue = [targetId];
+  const result: string[] = [];
+  let i = 0;
+  while (i < queue.length) {
+    const id = queue[i++]!;
+    for (const edge of edges) {
+      if (edge.target === id && !visited.has(edge.source)) {
+        visited.add(edge.source);
+        result.push(edge.source);
+        queue.push(edge.source);
+      }
+    }
+  }
+  return result;
 }
 
 function toFlowEdge(edge: AutomationEdge): Edge {
@@ -220,7 +243,7 @@ function AutomationCanvasInner({ graph, onChange }: AutomationCanvasProps) {
       id,
       type: "automationNode",
       position: pos,
-      data: { nodeType: type, label: `${type} · ${id.slice(-4)}` },
+      data: { nodeType: type, label: nodeLabel(type, id) },
     };
     nodeTypeById.current[id] = type;
     const nextConfigs = { ...nodeConfigs, [id]: {} };
@@ -251,7 +274,21 @@ function AutomationCanvasInner({ graph, onChange }: AutomationCanvasProps) {
         rfEdges
       );
       setRfEdges(nextEdges);
-      emitChange(rfNodes, nextEdges, nodeConfigs);
+
+      // Connecting a node into a condition is how you tell it what to evaluate — auto-fill
+      // sourceNodeId from the connection instead of making the user retype an id they just drew.
+      // Only when it's not already set, so re-wiring a second input doesn't clobber a deliberate choice.
+      let nextConfigs = nodeConfigs;
+      const targetId = connection.target;
+      if (targetId && connection.source && nodeTypeById.current[targetId] === "condition") {
+        const currentConfig = nodeConfigs[targetId] ?? {};
+        if (!currentConfig.sourceNodeId) {
+          nextConfigs = { ...nodeConfigs, [targetId]: { ...currentConfig, sourceNodeId: connection.source } };
+          setNodeConfigs(nextConfigs);
+        }
+      }
+
+      emitChange(rfNodes, nextEdges, nextConfigs);
     },
     [rfEdges, rfNodes, nodeConfigs, setRfEdges, emitChange]
   );
@@ -322,6 +359,14 @@ function AutomationCanvasInner({ graph, onChange }: AutomationCanvasProps) {
   }, [selectedKind, selectedId, rfEdges]);
 
   const selectedEdgeFromCondition = selectedEdge ? nodeTypeById.current[selectedEdge.source] === "condition" : false;
+
+  const priorNodesForSelected = useMemo(() => {
+    if (!selectedNode) return [];
+    return getAncestorIds(selectedNode.id, rfEdges).map((id) => ({
+      id,
+      label: nodeLabel(nodeTypeById.current[id] ?? "action_http", id),
+    }));
+  }, [selectedNode, rfEdges]);
 
   const drawerTitle = selectedNode
     ? ALL_NODE_TYPES.find((t) => t.type === selectedNode.type)?.label ?? selectedNode.type
@@ -399,7 +444,7 @@ function AutomationCanvasInner({ graph, onChange }: AutomationCanvasProps) {
       >
         {selectedNode && (
           <div className="space-y-4">
-            <NodeConfigPanel node={selectedNode} onChange={updateSelectedNodeConfig} />
+            <NodeConfigPanel node={selectedNode} onChange={updateSelectedNodeConfig} priorNodes={priorNodesForSelected} />
             <Button className="w-full" onClick={closeDrawer}>
               Done
             </Button>

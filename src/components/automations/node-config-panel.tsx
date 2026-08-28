@@ -36,6 +36,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export interface NodeConfigPanelProps {
   node: AutomationNode;
   onChange: (config: Record<string, unknown>) => void;
+  /** Nodes with a path into this one, nearest first — used by condition's Source node dropdown. */
+  priorNodes?: { id: string; label: string }[];
 }
 
 /**
@@ -43,7 +45,7 @@ export interface NodeConfigPanelProps {
  * handler destructures from `config` (apps/api/src/services/automation-nodes/*.node.ts) — this
  * is the one place a mismatch would silently produce an empty/undefined value at run time.
  */
-export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
+export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigPanelProps) {
   const config = node.config;
   function set(patch: Record<string, unknown>) {
     onChange({ ...config, ...patch });
@@ -70,16 +72,27 @@ export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
         </div>
       );
 
-    case "condition":
+    case "condition": {
+      const sourceNodeId = (config.sourceNodeId as string) ?? "";
+      const knownSource = priorNodes.some((n) => n.id === sourceNodeId);
       return (
         <div className="space-y-3">
-          <Field label="Source node ID">
-            <Input
+          <Field label="Source node">
+            <Select
               data-testid="config-sourceNodeId"
-              value={(config.sourceNodeId as string) ?? ""}
+              value={sourceNodeId}
               onChange={(e) => set({ sourceNodeId: e.target.value })}
-              placeholder="n1"
-            />
+            >
+              <option value="" disabled>
+                {priorNodes.length ? "Select an earlier step" : "Connect an earlier step first"}
+              </option>
+              {priorNodes.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.label}
+                </option>
+              ))}
+              {sourceNodeId && !knownSource && <option value={sourceNodeId}>{sourceNodeId} (not connected)</option>}
+            </Select>
           </Field>
           <Field label="Field">
             <Input
@@ -105,6 +118,7 @@ export function NodeConfigPanel({ node, onChange }: NodeConfigPanelProps) {
           </Field>
         </div>
       );
+    }
 
     case "delay":
       return (

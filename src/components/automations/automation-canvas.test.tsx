@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AutomationCanvas } from "./automation-canvas";
+import { AutomationCanvas, getAncestorIds } from "./automation-canvas";
 import type { AutomationGraph } from "@/lib/automations";
+import type { Edge } from "reactflow";
 
 afterEach(cleanup);
 
@@ -108,5 +109,35 @@ describe("AutomationCanvas", () => {
     const a = lastCall.nodes.find((n) => n.id === "a")!;
     const b = lastCall.nodes.find((n) => n.id === "b")!;
     expect(a.position!.x).toBeLessThan(b.position!.x);
+  });
+});
+
+// Simulating a real ReactFlow handle-drag connect gesture is unreliable in jsdom (its connection
+// logic depends on real getBoundingClientRect measurements jsdom returns as all-zeros) — see the
+// AutomationCanvas suite above for the same limitation on drag/drop. Testing the ancestor
+// computation directly covers the logic actually feeding the condition dropdown and auto-fill.
+describe("getAncestorIds", () => {
+  function edge(id: string, source: string, target: string): Edge {
+    return { id, source, target };
+  }
+
+  it("returns the direct predecessor for a simple chain", () => {
+    expect(getAncestorIds("b", [edge("e1", "a", "b")])).toEqual(["a"]);
+  });
+
+  it("returns all transitive ancestors, not just the direct predecessor", () => {
+    const edges = [edge("e1", "a", "b"), edge("e2", "b", "c")];
+    expect(getAncestorIds("c", edges)).toEqual(expect.arrayContaining(["a", "b"]));
+  });
+
+  it("returns an empty list for a node with no incoming edges", () => {
+    expect(getAncestorIds("a", [edge("e1", "a", "b")])).toEqual([]);
+  });
+
+  it("does not loop forever on a cycle", () => {
+    const edges = [edge("e1", "a", "b"), edge("e2", "b", "a")];
+    // Terminates (the point of this test) rather than the exact contents — in a cycle, "a" is
+    // legitimately reachable as its own ancestor through the loop.
+    expect(getAncestorIds("a", edges)).toEqual(expect.arrayContaining(["b"]));
   });
 });
