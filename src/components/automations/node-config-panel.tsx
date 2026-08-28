@@ -213,11 +213,20 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
             <Input data-testid="config-entityId" value={(config.entityId as string) ?? ""} onChange={(e) => set({ entityId: e.target.value })} />
           </Field>
           <Field label="Activity type">
-            <Input
+            {/* Matches ActivityType in src/types/crm.ts exactly — the CRM timeline only has an
+                icon/label for these five, and the DB column enforces nothing, so anything else
+                silently falls back to an unstyled entry there. */}
+            <Select
               data-testid="config-activityType"
-              value={(config.activityType as string) ?? "workflow_action"}
+              value={(config.activityType as string) ?? "note"}
               onChange={(e) => set({ activityType: e.target.value })}
-            />
+            >
+              <option value="note">Note</option>
+              <option value="call">Call</option>
+              <option value="email">Email</option>
+              <option value="meeting">Meeting</option>
+              <option value="stage_change">Stage change</option>
+            </Select>
           </Field>
           <Field label="Subject (optional)">
             <Input data-testid="config-subject" value={(config.subject as string) ?? ""} onChange={(e) => set({ subject: e.target.value })} />
