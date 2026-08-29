@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, StickyNote } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,12 @@ export function ActivityTimeline({ entityType, entityId }: { entityType: CrmEnti
       ) : (
         <ul className="space-y-3">
           {rows.map((activity) => {
-            const Icon = ACTIVITY_TYPE_ICON[activity.activityType];
+            // activities.activity_type has no DB-level enum/check constraint — any writer (an
+            // automation's CRM-writeback node, for one) can insert a value outside the CRM's own
+            // closed ActivityType union. Falling back here instead of indexing blind keeps one
+            // unrecognized row from taking down the whole timeline's render.
+            const Icon = ACTIVITY_TYPE_ICON[activity.activityType] ?? StickyNote;
+            const label = ACTIVITY_TYPE_LABEL[activity.activityType] ?? activity.activityType;
             const call = activity.activityType === "call" && activity.body ? parseCallBody(activity.body) : null;
             return (
               <li key={activity.id} className="flex gap-3">
@@ -162,7 +167,7 @@ export function ActivityTimeline({ entityType, entityId }: { entityType: CrmEnti
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                    <p className="text-sm font-medium">{activity.subject || ACTIVITY_TYPE_LABEL[activity.activityType]}</p>
+                    <p className="text-sm font-medium">{activity.subject || label}</p>
                     <span className="text-xs text-muted-foreground">{formatDateTime(activity.occurredAt)}</span>
                   </div>
                   {call ? (
