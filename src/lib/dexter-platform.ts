@@ -2,6 +2,31 @@ import { useApiFetch } from "./api-client";
 
 export type AutomationMode = "ask" | "auto" | "draft" | "approve";
 
+export type LinkedinVoiceEligibility = {
+  eligible: boolean;
+  status: "accepted" | "pending" | "unknown";
+  reason?: string;
+  prospectName: string;
+  linkedinUrl?: string | null;
+  location?: string | null;
+};
+
+export type LinkedinVoiceHandoff = {
+  id: string;
+  handoffToken: string;
+  status: string;
+  evidenceId?: string | null;
+  voiceChoice: string;
+  syntheticProfile: string | null;
+  prospectName?: string | null;
+  linkedinUrl?: string | null;
+  expiresAt?: string | null;
+  mobileUrl: string;
+  note: string;
+  scriptText?: string;
+  prospectId?: string;
+};
+
 export function useDexterPlatformApi() {
   const fetchApi = useApiFetch();
   return {
@@ -83,5 +108,82 @@ export function useDexterPlatformApi() {
 
     getPerson360: (contactId: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/person-360/${contactId}`),
+
+    getLinkedinVoiceEligibility: (prospectId: string, linkedinUrl?: string) => {
+      const params = new URLSearchParams({ prospectId });
+      if (linkedinUrl) params.set("linkedinUrl", linkedinUrl);
+      return fetchApi<{ data: LinkedinVoiceEligibility }>(
+        `/api/v1/linkedin/voice/eligibility?${params.toString()}`
+      );
+    },
+
+    draftLinkedinVoiceScript: (params: {
+      prospectId: string;
+      goal?: string;
+      tone?: string;
+      customNotes?: string;
+      language?: string;
+    }) =>
+      fetchApi<{
+        data: {
+          scriptText: string;
+          regionalBriefPreview: string;
+          estimatedDurationSeconds: number;
+          language: string;
+          evidence: { unverified: boolean; location: string; tone: string; citations: string[] };
+          prospect: {
+            id: string;
+            name: string;
+            title?: string;
+            company?: string;
+            linkedinUrl?: string | null;
+          };
+        };
+      }>("/api/v1/linkedin/voice/draft-script", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    synthesizeVoiceAudio: (params: { scriptText: string; voice?: string }) =>
+      fetchApi<{
+        data: {
+          audioBase64: string;
+          mimeType: string;
+          voice: string;
+          durationEstimateSeconds: number;
+          previewOnly: boolean;
+        };
+      }>("/api/v1/linkedin/voice/synthesize", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    listLinkedinVoiceHandoffs: () =>
+      fetchApi<{ data: Array<Record<string, unknown>> }>("/api/v1/linkedin/voice/handoffs"),
+
+    getLinkedinVoiceHandoff: (token: string) =>
+      fetchApi<{ data: LinkedinVoiceHandoff }>(`/api/v1/linkedin/voice/handoffs/${encodeURIComponent(token)}`),
+
+    createLinkedinVoiceHandoff: (params: {
+      prospectId: string;
+      scriptText: string;
+      voiceChoice?: string;
+      regionalBriefPreview?: string;
+      language?: string;
+      linkedinUrl?: string;
+    }) =>
+      fetchApi<{ data: LinkedinVoiceHandoff }>("/api/v1/linkedin/voice/handoff", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+
+    confirmLinkedinVoiceSent: (handoffToken: string, outcomeNote?: string) =>
+      fetchApi<{ data: { id: string; status: string; confirmedAt: string | null } }>(
+        "/api/v1/linkedin/voice/confirm-sent",
+        {
+          method: "POST",
+          body: JSON.stringify({ handoffToken, outcomeNote }),
+        }
+      ),
   };
 }
