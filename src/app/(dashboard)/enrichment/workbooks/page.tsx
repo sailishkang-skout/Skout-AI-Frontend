@@ -73,8 +73,8 @@ export default function WorkbooksPage() {
   return (
     <PageShell width="narrow">
       <PageHeader
-        title="Enrichment Workbooks"
-        description="Configure ordered provider waterfall sequences with credit budgets, quality thresholds, and pausable execution runs."
+        title="Enrichment Workbook"
+        description="Run multi-provider enrichment waterfalls with credit budgets, quality thresholds and pausable execution."
         actions={
           <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" />
@@ -83,7 +83,6 @@ export default function WorkbooksPage() {
         }
       />
 
-      {/* Analytics Summary Stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="p-4 bg-card/60">
           <div className="flex items-center gap-3">

@@ -182,11 +182,10 @@ export default function SequenceDetailPage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Sequences
+          Sequence Studio
         </Link>
       </div>
 
-      {/* ── Loading skeleton ──────────────────────────────── */}
       {detail.isLoading && (
         <div className="space-y-4">
           <Skeleton className="h-28 w-full rounded-xl" />

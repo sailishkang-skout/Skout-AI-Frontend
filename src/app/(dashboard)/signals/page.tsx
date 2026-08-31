@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -89,7 +90,6 @@ function SignalRow({ signal }: { signal: Signal }) {
 
 function AccountCard({ account }: { account: AccountSignalSummary }) {
   const router = useRouter();
-  const [activated, setActivated] = useState(false);
   const { stackScore } = account;
   const visibleSignals = [...account.signals].sort(
     (a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
@@ -100,7 +100,12 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{account.companyName ?? account.companyId}</p>
+            <Link
+              href={`/crm/360?mode=account&id=${encodeURIComponent(account.companyId)}`}
+              className="truncate text-sm font-semibold hover:underline"
+            >
+              {account.companyName ?? account.companyId}
+            </Link>
             <p className="text-xs text-muted-foreground">
               {stackScore.distinctSignalTypes} distinct signal{stackScore.distinctSignalTypes === 1 ? "" : "s"}
               {stackScore.reachableDecisionMaker ? " · reachable decision-maker" : ""}
@@ -118,23 +123,21 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
           ))}
         </ul>
 
-        {/* Action Triggers */}
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/50 text-xs">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-2 text-xs">
           <Button
             size="sm"
-            variant={activated ? "outline" : "default"}
-            className="h-7 text-xs gap-1"
-            onClick={() => setActivated(!activated)}
+            className="h-7 gap-1 text-xs"
+            onClick={() => router.push("/sequences")}
           >
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            {activated ? "Activated" : "Activate Outbound"}
+            Activate outbound
           </Button>
 
           <Button
             size="sm"
             variant="outline"
             className="h-7 text-xs gap-1"
-            onClick={() => router.push(`/prospects/lists`)}
+            onClick={() => router.push("/lists")}
           >
             <ListPlus className="h-3.5 w-3.5" />
             Add to List
@@ -144,7 +147,7 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
             size="sm"
             variant="outline"
             className="h-7 text-xs gap-1"
-            onClick={() => router.push(`/outreach/sequences`)}
+            onClick={() => router.push("/sequences")}
           >
             <Send className="h-3.5 w-3.5" />
             Enroll Sequence
@@ -196,7 +199,7 @@ export default function SignalCenterPage() {
     <PageShell>
       <PageHeader
         title="Signal Center"
-        description="Every account with a live signal, ranked by strength — multiple corroborated signals plus a reachable decision-maker score higher than one weak trigger."
+        description="Fresh, sourced signals ranked by strength — activate hot accounts into lists or sequences."
         actions={
           <Button onClick={() => setRecordOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" />
@@ -205,7 +208,6 @@ export default function SignalCenterPage() {
         }
       />
 
-      {/* Filter Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Band:</span>

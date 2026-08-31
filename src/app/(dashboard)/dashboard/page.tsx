@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Coins, List, Search, Users, Zap } from "lucide-react";
 import { DemoBanner } from "@/components/layout/demo-banner";
+import { DashboardCommandCenter } from "@/components/dashboard/dashboard-command-center";
 import { SetupChecklistCard } from "@/components/dashboard/setup-checklist-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -31,11 +32,11 @@ export default function DashboardPage() {
   return (
     <PageShell data-testid="page-dashboard">
       <PageHeader
-        title="Dashboard"
+        title="Home"
         description={
           data
-            ? `Welcome back — ${data.workspaceName}`
-            : "Your workspace at a glance."
+            ? `${data.workspaceName} — KPIs, priorities and live GTM activity.`
+            : "Your revenue command center."
         }
       />
 
@@ -94,6 +95,8 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {!summary.isLoading && data && <DashboardCommandCenter summary={data} />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

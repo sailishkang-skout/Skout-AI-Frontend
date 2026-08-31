@@ -1,23 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
+import { NextBestActionCard } from "@/components/crm/next-best-action-card";
+import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
+import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
+import type { Signal } from "@/types/api";
 
 /** §8.4 — Account / Person 360 compose view. */
 export default function Account360Page() {
   const authReady = useAuthReady();
   const api = useDexterPlatformApi();
-  const [mode, setMode] = useState<"account" | "person">("account");
-  const [id, setId] = useState("");
-  const [lookupId, setLookupId] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get("mode") === "person" ? "person" : "account";
+  const initialId = searchParams.get("id") ?? "";
+  const [mode, setMode] = useState<"account" | "person">(initialMode);
+  const [lookupId, setLookupId] = useState<string | null>(initialId || null);
+
+  useEffect(() => {
+    const nextMode = searchParams.get("mode") === "person" ? "person" : "account";
+    const nextId = searchParams.get("id");
+    setMode(nextMode);
+    setLookupId(nextId);
+  }, [searchParams]);
+
+  function loadRecord(id: string, nextMode: "account" | "person" = mode) {
+    setLookupId(id);
+    const params = new URLSearchParams({ mode: nextMode, id });
+    router.replace(`/crm/360?${params.toString()}`);
+  }
+
+  function switchMode(nextMode: "account" | "person") {
+    setMode(nextMode);
+    setLookupId(null);
+    router.replace(`/crm/360?mode=${nextMode}`);
+  }
 
   const account = useQuery({
     queryKey: ["account-360", lookupId],
@@ -34,32 +61,46 @@ export default function Account360Page() {
   const active = mode === "account" ? account : person;
   const data = active.data?.data;
 
+  const signals = useMemo(() => {
+    if (!data || !("signals" in data) || !Array.isArray(data.signals)) return [] as Signal[];
+    return data.signals as Signal[];
+  }, [data]);
+
+  const nbaTarget = useMemo(() => {
+    if (!lookupId || !data) return null;
+    if (mode === "person") return { entityType: "contact" as const, entityId: lookupId };
+    const deals = "deals" in data && Array.isArray(data.deals) ? data.deals : [];
+    const firstDeal = deals[0] as { id?: string } | undefined;
+    if (firstDeal?.id) return { entityType: "deal" as const, entityId: String(firstDeal.id) };
+    const committee =
+      "buyingCommittee" in data && Array.isArray(data.buyingCommittee) ? data.buyingCommittee : [];
+    const firstContact = committee[0] as { id?: string } | undefined;
+    if (firstContact?.id) return { entityType: "contact" as const, entityId: String(firstContact.id) };
+    return null;
+  }, [data, lookupId, mode]);
+
   return (
     <PageShell width="narrow">
       <PageHeader
-        title="Account & Person 360"
-        description="Unified read of company/contact, deals, timeline, and signals — one graph, many views."
+        title={mode === "account" ? "Account 360" : "Person 360"}
+        description={
+          mode === "account"
+            ? "Buying committee, signals, deals and universal timeline for one account."
+            : "Professional facts, inferred context, signals and next action for one person."
+        }
       />
 
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-2 pt-6">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex gap-2">
-            <Button variant={mode === "account" ? "default" : "secondary"} onClick={() => setMode("account")}>
+            <Button variant={mode === "account" ? "default" : "secondary"} onClick={() => switchMode("account")}>
               Account
             </Button>
-            <Button variant={mode === "person" ? "default" : "secondary"} onClick={() => setMode("person")}>
+            <Button variant={mode === "person" ? "default" : "secondary"} onClick={() => switchMode("person")}>
               Person
             </Button>
           </div>
-          <Input
-            className="max-w-md"
-            placeholder={mode === "account" ? "Company UUID" : "Contact UUID"}
-            value={id}
-            onChange={(e) => setId(e.target.value)}
-          />
-          <Button onClick={() => setLookupId(id.trim())} disabled={!id.trim()}>
-            Load
-          </Button>
+          <Crm360RecordPicker mode={mode} onSelect={(id) => loadRecord(id, mode)} />
         </CardContent>
       </Card>
 
@@ -67,6 +108,10 @@ export default function Account360Page() {
 
       {data && (
         <div className="space-y-4">
+          {nbaTarget && (
+            <NextBestActionCard entityType={nbaTarget.entityType} entityId={nbaTarget.entityId} />
+          )}
+
           {/* Main Record Header Card */}
           <Card className="border-l-4 border-l-primary">
             <CardHeader className="pb-2">
@@ -195,6 +240,48 @@ export default function Account360Page() {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {signals.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>Live Signals</span>
+                  <span className="text-xs font-normal text-muted-foreground">{signals.length} on record</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="divide-y divide-border">
+                  {signals.map((signal) => {
+                    const confidencePct = signal.confidence != null ? Math.round(signal.confidence * 100) : null;
+                    return (
+                      <li key={signal.id} className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs">
+                          {signalIcon(signal.signalType)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-sm font-medium">{signalLabel(signal.signalType)}</span>
+                            <span className="text-xs text-muted-foreground">· {timeAgoShort(signal.observedAt ?? signal.detectedAt)}</span>
+                            {confidencePct != null && (
+                              <Badge tone="default" className="text-[10px]">
+                                {confidencePct}% confidence
+                              </Badge>
+                            )}
+                            {signal.source && (
+                              <Badge tone="muted" className="text-[10px]">
+                                {signal.source}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{signalReasonText(signal)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
           )}
 
           {/* Deals Section */}

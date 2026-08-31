@@ -49,8 +49,8 @@ export default function SequencesPage() {
   return (
     <PageShell data-testid="page-sequences">
       <PageHeader
-        title="Sequences"
-        description="Build outbound cadences — manually, from a template (A/B), or with Dexter AI. Track open, click, and reply performance. Before scaling email sends, check Email Warm-up readiness for connected mailboxes."
+        title="Sequence Studio"
+        description="Design multichannel A/B/C cadences with conditions, fallbacks and performance analytics."
         actions={
           <>
             <GuideLink slug="sequences-ai" label="Sequences guide" />

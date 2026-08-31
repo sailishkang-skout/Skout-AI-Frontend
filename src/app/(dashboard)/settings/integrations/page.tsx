@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Check, Copy, Download, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import { Calendar, Check, Copy, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Plug, Trash2 } from "lucide-react";
+import { ApolloSequenceImporter } from "@/components/import/apollo-sequence-importer";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DemoBanner } from "@/components/layout/demo-banner";
@@ -63,82 +64,6 @@ function GoogleCalendarCard() {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function ApolloSequenceImporter() {
-  const api = useIntegrationsApi();
-  const queryClient = useQueryClient();
-  const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
-
-  const sequences = useQuery({
-    queryKey: ["integrations", "apollo", "sequences"],
-    queryFn: api.listApolloSequences,
-  });
-
-  const importOne = useMutation({
-    mutationFn: (id: string) => api.importApolloSequence(id),
-    onSuccess: (res, id) => {
-      setImportedIds((prev) => new Set(prev).add(id));
-      queryClient.invalidateQueries({ queryKey: ["sequences"] });
-      return res;
-    },
-  });
-
-  return (
-    <div className="space-y-3 border-t border-border pt-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Import sequences from Apollo</h3>
-        <Button size="sm" variant="outline" disabled={sequences.isFetching} onClick={() => sequences.refetch()}>
-          {sequences.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          {sequences.data ? "Refresh" : "Browse sequences"}
-        </Button>
-      </div>
-
-      {sequences.isError && (
-        <Alert variant="error">{formatQueryError(sequences.error, "Could not load Apollo sequences.")}</Alert>
-      )}
-      {importOne.isError && (
-        <Alert variant="error">{formatQueryError(importOne.error, "Could not import this sequence.")}</Alert>
-      )}
-
-      {sequences.data && (
-        sequences.data.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No email sequences found in this Apollo account.</p>
-        ) : (
-          <div className="divide-y rounded-md border border-border">
-            {sequences.data.data.map((seq) => {
-              const imported = importedIds.has(seq.id);
-              return (
-                <div key={seq.id} className="flex items-center justify-between gap-3 p-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{seq.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {seq.numSteps} step{seq.numSteps === 1 ? "" : "s"} · {seq.active ? "active" : "inactive"} in Apollo
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={imported || (importOne.isPending && importOne.variables === seq.id)}
-                    onClick={() => importOne.mutate(seq.id)}
-                  >
-                    {importOne.isPending && importOne.variables === seq.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : null}
-                    {imported ? "Imported" : "Import as draft"}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
-      <p className="text-xs text-muted-foreground">
-        Imported sequences land as drafts in Sequences — review steps before activating. Non-email steps
-        (calls, LinkedIn, etc.) import as manual task steps when Apollo&apos;s step type can&apos;t be mapped directly.
-      </p>
-    </div>
   );
 }
 

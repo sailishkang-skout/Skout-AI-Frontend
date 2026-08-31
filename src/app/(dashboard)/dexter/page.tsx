@@ -18,6 +18,10 @@ export default function DexterOrchestratorPage() {
   const qc = useQueryClient();
   const [brief, setBrief] = useState("Enroll high-fit SaaS VPs in a Mode C cadence");
   const [planId, setPlanId] = useState<string | null>(null);
+  const [planPreview, setPlanPreview] = useState<{
+    hypothesis?: string;
+    steps?: Array<{ id: string; status: string; mode?: string }>;
+  } | null>(null);
   const [last, setLast] = useState<string>("");
 
   const decisions = useQuery({
@@ -29,8 +33,13 @@ export default function DexterOrchestratorPage() {
   const propose = useMutation({
     mutationFn: () => api.proposePlan(brief),
     onSuccess: (res) => {
-      const id = String((res.data.plan as { id?: string }).id ?? "");
+      const plan = res.data.plan as {
+        id?: string;
+        proposal?: { hypothesis?: string; steps?: Array<{ id: string; status: string; mode?: string }> };
+      };
+      const id = String(plan.id ?? "");
       setPlanId(id || null);
+      setPlanPreview(plan.proposal ?? null);
       setLast(`Proposed plan ${id} (policy ${(res.data.policy as { mode?: string }).mode})`);
       qc.invalidateQueries({ queryKey: ["policy-decisions"] });
     },
@@ -57,8 +66,8 @@ export default function DexterOrchestratorPage() {
   return (
     <PageShell width="narrow">
       <PageHeader
-        title="Dexter Orchestrator"
-        description="Propose a GTM plan, classify through Policy Gateway, approve, invoke, then attribute learning. Chat FAB remains for conversational Dexter."
+        title="Dexter AI SDR"
+        description="Propose a GTM plan, review scope, approve through policy, then execute and capture learning."
       />
 
       {(propose.isError || approve.isError || invoke.isError) && (
@@ -91,6 +100,25 @@ export default function DexterOrchestratorPage() {
           {planId && <p className="text-sm text-muted-foreground">Active plan: {planId}</p>}
         </CardContent>
       </Card>
+
+      {planPreview && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Plan preview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {planPreview.hypothesis && <p className="text-muted-foreground">{planPreview.hypothesis}</p>}
+            <ul className="space-y-2">
+              {(planPreview.steps ?? []).map((step) => (
+                <li key={step.id} className="flex items-center justify-between rounded border px-3 py-2">
+                  <span className="font-medium">{step.id.replaceAll("_", " ")}</span>
+                  <span className="text-xs capitalize text-muted-foreground">{step.status.replaceAll("_", " ")}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

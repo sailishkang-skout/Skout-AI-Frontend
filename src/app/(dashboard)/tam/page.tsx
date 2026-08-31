@@ -34,8 +34,8 @@ export default function TamListPage() {
   return (
     <PageShell data-testid="page-tam">
       <PageHeader
-        title="Total addressable market"
-        description="Named, re-computable account universes from your ICP. Each TAM tracks its size, segment breakdown, and a coverage funnel — how far your workspace has worked it."
+        title="TAM Builder"
+        description="Define your market from ICP or custom filters, estimate coverage and drill into segments with transparent scoring."
         actions={
           <>
             <GuideLink slug="tam" label="TAM guide" compact />

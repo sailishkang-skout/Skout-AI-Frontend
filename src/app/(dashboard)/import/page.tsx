@@ -103,7 +103,7 @@ export default function ImportProspectsPage() {
     <PageShell width="narrow">
       <PageHeader
         title="Import prospects"
-        description="Upload CSV, Excel, PDF, PNG, or SVG. SVG is read as text; scans use OCR."
+        description="Upload a file, or migrate contacts and lists from HubSpot or Apollo.io into a Skout list for review."
         actions={<GuideLink slug="import-prospects" label="Import guide" />}
       />
 
