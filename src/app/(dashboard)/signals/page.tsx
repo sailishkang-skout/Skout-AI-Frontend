@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ListPlus, Plus, Send } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -90,10 +90,31 @@ function SignalRow({ signal }: { signal: Signal }) {
 
 function AccountCard({ account }: { account: AccountSignalSummary }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const signalsApi = useSignalsApi();
   const { stackScore } = account;
   const visibleSignals = [...account.signals].sort(
     (a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
   );
+
+  const alreadyActivated = account.signals.some(
+    (s) => s.source === "signal_center" && s.activationPaths?.includes("activate")
+  );
+
+  const activateMutation = useMutation({
+    mutationFn: () =>
+      signalsApi.recordSignal({
+        entityId: account.companyId,
+        entityType: "company",
+        signalType: "manual_outbound_activation",
+        reason: "Activated for outbound push from Signal Center",
+        source: "signal_center",
+        activationPaths: ["activate"],
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ACCOUNT_SIGNALS_QUERY_KEY });
+    },
+  });
 
   return (
     <Card>
@@ -124,13 +145,20 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
         </ul>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-2 text-xs">
+          {activateMutation.error && (
+            <span className="text-[11px] text-destructive">
+              {formatQueryError(activateMutation.error, "Could not activate.")}
+            </span>
+          )}
           <Button
             size="sm"
+            variant={alreadyActivated ? "outline" : "default"}
             className="h-7 gap-1 text-xs"
-            onClick={() => router.push("/sequences")}
+            disabled={alreadyActivated || activateMutation.isPending}
+            onClick={() => activateMutation.mutate()}
           >
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            Activate outbound
+            {alreadyActivated ? "Activated" : activateMutation.isPending ? "Activating…" : "Activate outbound"}
           </Button>
 
           <Button
