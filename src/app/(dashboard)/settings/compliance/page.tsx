@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useComplianceApi, type DsarRow } from "@/lib/compliance";
@@ -78,7 +79,9 @@ export default function ComplianceCenterPage() {
               </div>
             )}
             <Input placeholder="Search email…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {add.isError && <Alert variant="error">{formatQueryError(add.error)}</Alert>}
+            {add.isError && (
+              <Alert variant="error">{formatQueryError(add.error, "Could not add suppression.")}</Alert>
+            )}
             {suppressions.isLoading ? (
               <Skeleton className="h-32 w-full" />
             ) : (
@@ -198,7 +201,9 @@ function DsarPanel() {
           Submit DSAR
         </Button>
       </div>
-      {create.isError && <Alert variant="error">{formatQueryError(create.error)}</Alert>}
+      {create.isError && (
+        <Alert variant="error">{formatQueryError(create.error, "Could not submit DSAR.")}</Alert>
+      )}
       <div className="max-h-64 space-y-2 overflow-y-auto">
         {(dsar.data?.data ?? []).map((row) => (
           <div key={row.id} className="rounded-md border p-3 text-sm">

@@ -109,7 +109,9 @@ export default function CompetitiveWinLossPage() {
           ))}
         </div>
       )}
-      {addDeal.isError && <Alert variant="error">{formatQueryError(addDeal.error)}</Alert>}
+      {addDeal.isError && (
+        <Alert variant="error">{formatQueryError(addDeal.error, "Could not save competitive deal.")}</Alert>
+      )}
     </PageShell>
   );
 }

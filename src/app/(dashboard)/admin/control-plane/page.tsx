@@ -60,13 +60,15 @@ export default function EnterpriseControlPlanePage() {
         title="Enterprise Control Plane"
         description="Security, integration health, audit trail, Dexter governance, and journey visibility in one place."
         actions={
-          <Button variant="outline" asChild>
-            <Link href="/dexter">Dexter Command Center</Link>
-          </Button>
+          <Link href="/dexter" className={buttonVariants({ variant: "outline" })}>
+            Dexter Command Center
+          </Link>
         }
       />
 
-      {plane.isError && <Alert variant="error">{formatQueryError(plane.error)}</Alert>}
+      {plane.isError && (
+        <Alert variant="error">{formatQueryError(plane.error, "Could not load control plane.")}</Alert>
+      )}
 
       {plane.isLoading || !summary ? (
         <Skeleton className="h-48 w-full" />
@@ -96,9 +98,12 @@ export default function EnterpriseControlPlanePage() {
                     </Badge>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" asChild className="mt-2">
-                  <Link href="/settings/integrations">Manage integrations</Link>
-                </Button>
+                <Link
+                  href="/settings/integrations"
+                  className={buttonVariants({ variant: "outline", size: "sm", className: "mt-2" })}
+                >
+                  Manage integrations
+                </Link>
               </CardContent>
             </Card>
 

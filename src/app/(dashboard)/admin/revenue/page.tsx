@@ -6,7 +6,7 @@ import { BarChart3, Kanban, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
@@ -54,17 +54,19 @@ export default function RevenueIntelligencePage() {
         description="Forecast drivers, pipeline health, and GTM learning — unified entry point."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link href="/admin/cro">CRO Copilot</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/admin/reporting">Reporting</Link>
-            </Button>
+            <Link href="/admin/cro" className={buttonVariants({ variant: "outline" })}>
+              CRO Copilot
+            </Link>
+            <Link href="/admin/reporting" className={buttonVariants({ variant: "outline" })}>
+              Reporting
+            </Link>
           </>
         }
       />
 
-      {cro.isError && <Alert variant="error">{formatQueryError(cro.error)}</Alert>}
+      {cro.isError && (
+        <Alert variant="error">{formatQueryError(cro.error, "Could not load revenue summary.")}</Alert>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cro.isLoading ? (
@@ -113,9 +115,9 @@ export default function RevenueIntelligencePage() {
             <CardDescription>Pipeline KPIs and rep activity from CRO Copilot data.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link href="/admin/cro">Open CRO Copilot</Link>
-            </Button>
+            <Link href="/admin/cro" className={buttonVariants()}>
+              Open CRO Copilot
+            </Link>
           </CardContent>
         </Card>
         <Card>
@@ -127,9 +129,9 @@ export default function RevenueIntelligencePage() {
             <CardDescription>Model, manager adjustment, and rep commit with board pack export.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link href="/admin/reporting">Open reporting</Link>
-            </Button>
+            <Link href="/admin/reporting" className={buttonVariants()}>
+              Open reporting
+            </Link>
           </CardContent>
         </Card>
         <Card>
@@ -141,9 +143,9 @@ export default function RevenueIntelligencePage() {
             <CardDescription>Deal intelligence, buying committee, and next actions embedded in CRM.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link href="/crm/intelligence">Open CRM Intelligence</Link>
-            </Button>
+            <Link href="/crm/intelligence" className={buttonVariants()}>
+              Open CRM Intelligence
+            </Link>
           </CardContent>
         </Card>
       </div>

@@ -109,7 +109,9 @@ export default function IncidentsPage() {
           )}
         </div>
       )}
-      {create.isError && <Alert variant="error">{formatQueryError(create.error)}</Alert>}
+      {create.isError && (
+        <Alert variant="error">{formatQueryError(create.error, "Could not create incident.")}</Alert>
+      )}
     </PageShell>
   );
 }

@@ -37,7 +37,9 @@ export default function ModelPerformancePage() {
         description="Precision, calibration, override rate, and downstream outcome metrics for AI models in this workspace."
       />
 
-      {report.isError && <Alert variant="error">{formatQueryError(report.error)}</Alert>}
+      {report.isError && (
+        <Alert variant="error">{formatQueryError(report.error, "Could not load model performance report.")}</Alert>
+      )}
 
       {report.isLoading ? (
         <Skeleton className="h-64 w-full" />

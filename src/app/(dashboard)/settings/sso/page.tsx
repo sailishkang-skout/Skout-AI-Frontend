@@ -130,7 +130,9 @@ export default function SsoSettingsPage() {
             </Button>
           </div>
           {(save.isError || activate.isError) && (
-            <Alert variant="error">{formatQueryError(save.error ?? activate.error)}</Alert>
+            <Alert variant="error">
+              {formatQueryError(save.error ?? activate.error, "Could not update SSO configuration.")}
+            </Alert>
           )}
         </CardContent>
       </Card>
