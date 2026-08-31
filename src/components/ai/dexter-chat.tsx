@@ -22,6 +22,7 @@ import {
   type ChatContext,
   type ChatExportArtifact,
   type ChatMode,
+  type ToolActionPreview,
 } from "@/lib/ai-chat";
 import { executeDexterAction } from "@/lib/dexter-actions";
 import {
@@ -50,6 +51,8 @@ interface ChatTurn {
   failed?: boolean;
   actionDone?: boolean;
   actionMessage?: string;
+  toolPreview?: ToolActionPreview | null;
+  toolPreviewDone?: boolean;
 }
 
 const DEXTER_SUGGESTIONS = [
@@ -224,6 +227,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         draftId: res.draftId,
         segregated: res.segregated,
         exports: res.exports,
+        toolPreview: res.toolPreview ?? null,
       };
       setTurns((prev) => [...prev, assistantTurn]);
       // Auto-run safe actions in voice mode (navigate + non-confirm ui_action).
@@ -253,6 +257,26 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       ]);
       speakReply("Sorry, I couldn't process that.");
       scrollToBottom();
+    },
+  });
+
+  const confirmTool = useMutation({
+    mutationFn: (preview: ToolActionPreview) =>
+      api.executeTool(preview.toolName, preview.args),
+    onSuccess: (res, preview) => {
+      void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      setTurns((prev) =>
+        prev.map((t) =>
+          t.toolPreview?.toolName === preview.toolName && !t.toolPreviewDone
+            ? {
+                ...t,
+                toolPreviewDone: true,
+                sequenceId: res.sequenceId ?? t.sequenceId,
+                actionMessage: res.applied ? "Action confirmed and executed." : "Action completed.",
+              }
+            : t
+        )
+      );
     },
   });
 
@@ -574,6 +598,31 @@ function submitText(text: string) {
                     {t.actionMessage && (
                       <p className="text-[11px] text-muted-foreground">{t.actionMessage}</p>
                     )}
+                  </div>
+                )}
+
+                {t.toolPreview && !t.toolPreviewDone && (
+                  <div className="mt-2 space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
+                    <p className="font-semibold text-foreground">Review before executing</p>
+                    <p className="text-muted-foreground">{t.toolPreview.scope}</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground">
+                      {t.toolPreview.assumptions.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                    {t.toolPreview.externalSideEffects.map((fx) => (
+                      <p key={fx} className="text-muted-foreground">
+                        • {fx}
+                      </p>
+                    ))}
+                    <Button
+                      size="sm"
+                      className="h-7 bg-emerald-600 hover:bg-emerald-500"
+                      disabled={confirmTool.isPending}
+                      onClick={() => confirmTool.mutate(t.toolPreview!)}
+                    >
+                      Confirm and run
+                    </Button>
                   </div>
                 )}
 

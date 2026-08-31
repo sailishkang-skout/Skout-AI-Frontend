@@ -103,6 +103,30 @@ export function useDexterPlatformApi() {
         body: JSON.stringify({ learning }),
       }),
 
+    getCommandCenter: () =>
+      fetchApi<{
+        data: {
+          summary: {
+            pendingPlanApprovals: number;
+            approvedPlans: number;
+            invokedPlans: number;
+            openDecisions: number;
+            policyBlocks: number;
+          };
+          plans: Array<Record<string, unknown>>;
+          pendingApprovals: Array<Record<string, unknown>>;
+          policyBlocks: Array<Record<string, unknown>>;
+          policies: { policies: Array<Record<string, unknown>>; defaults: Array<Record<string, unknown>> };
+          openDecisions: Array<Record<string, unknown>>;
+          recentPolicyDecisions: Array<Record<string, unknown>>;
+        };
+      }>("/api/v1/dexter/command-center"),
+
+    listPlans: (status?: string) =>
+      fetchApi<{ data: Array<Record<string, unknown>> }>(
+        status ? `/api/v1/dexter/plans?status=${encodeURIComponent(status)}` : "/api/v1/dexter/plans"
+      ),
+
     getAccount360: (companyId: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/account-360/${companyId}`),
 

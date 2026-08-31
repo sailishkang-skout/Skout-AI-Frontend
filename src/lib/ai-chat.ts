@@ -69,9 +69,20 @@ export interface ChatResponse {
   sequenceId?: string;
   draftId?: string;
   exports?: ChatExportArtifact[];
+  toolPreview?: ToolActionPreview | null;
   mode?: ChatMode;
   /** True when Ask mode queued the email into AI Review. */
   segregated?: boolean;
+}
+
+export interface ToolActionPreview {
+  toolName: string;
+  scope: string;
+  assumptions: string[];
+  affectedRecordCount: number;
+  creditCost: number;
+  externalSideEffects: string[];
+  args: Record<string, unknown>;
 }
 
 export type ChatMode = "auto" | "ask";
@@ -115,6 +126,15 @@ export function useAiChatApi() {
         method: "POST",
         body: JSON.stringify(input),
       }),
+
+    executeTool: (toolName: string, args: Record<string, unknown>) =>
+      fetchApi<{ result: Record<string, unknown>; sequenceId?: string; applied: boolean }>(
+        "/api/v1/ai/execute-tool",
+        {
+          method: "POST",
+          body: JSON.stringify({ toolName, args }),
+        }
+      ),
 
     createFromSteps: (input: { name: string; steps: GeneratedStep[] }) =>
       fetchApi<SequenceDetail>("/api/v1/sequences/from-steps", {
