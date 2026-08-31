@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, CheckSquare, Flame, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
@@ -48,9 +48,9 @@ export function DashboardCommandCenter({ summary }: { summary?: DashboardSummary
             <CardTitle className="text-base">Priority decisions</CardTitle>
             <CardDescription>Recommendations waiting for your review.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/decisions">View all</Link>
-          </Button>
+          <Link href="/decisions" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            View all
+          </Link>
         </CardHeader>
         <CardContent>
           {decisions.isLoading ? (
