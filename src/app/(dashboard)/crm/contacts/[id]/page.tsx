@@ -15,6 +15,7 @@ import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
 import { CallButton } from "@/components/crm/call-button";
 import { FieldSourceBadge } from "@/components/crm/field-source-badge";
+import { CallCopilotPanel } from "@/components/crm/call-copilot-panel";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { ContactFormSheet } from "@/components/crm/contact-form-sheet";
 import { DealFormSheet } from "@/components/crm/deal-form-sheet";
@@ -157,7 +158,9 @@ export default function ContactDetailPage() {
         </CardContent>
       </Card>
 
-      <NextBestActionCard entityType="contact" entityId={id} />
+      <NextBestActionCard entityType="contact" entityId={data.id} />
+
+      <CallCopilotPanel phone={data.phone} contactId={data.id} title="Calling workspace copilot" />
 
       {company.data && (
         <Card>

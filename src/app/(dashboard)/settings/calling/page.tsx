@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { useCallsApi } from "@/lib/calls";
+import { CallCopilotPanel } from "@/components/crm/call-copilot-panel";
 
 interface MeData {
   phone?: string | null;
@@ -144,6 +145,10 @@ export default function CallingSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <CallCopilotPanel title="Live calling copilot" />
+      </div>
     </PageShell>
   );
 }

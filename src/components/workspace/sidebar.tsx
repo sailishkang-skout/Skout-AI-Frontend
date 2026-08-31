@@ -7,6 +7,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Activity,
+  AlertTriangle,
   BadgeCheck,
   BarChart3,
   Bell,
@@ -43,6 +45,7 @@ import {
   Settings,
   Sparkles,
   Target,
+  Trophy,
   Upload,
   UserPlus,
   Users,
@@ -173,6 +176,11 @@ export const intelligenceNav: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
+      { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive" },
+      { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
+      { href: "/admin/revenue", label: "Revenue Intelligence", icon: BarChart3, tourId: "nav-revenue-intelligence" },
+      { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane" },
+      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance" },
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
       { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
       { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
@@ -233,6 +241,8 @@ export const settingsNav: NavGroup[] = [
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
       { href: "/settings/regional-brief", label: "Regional Brief", icon: Globe, tourId: "nav-regional-brief" },
+      { href: "/settings/compliance", label: "Compliance center", icon: ShieldCheck, tourId: "nav-compliance" },
+      { href: "/settings/sso", label: "SSO & SCIM", icon: ShieldCheck, tourId: "nav-sso" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
       { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
       { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },

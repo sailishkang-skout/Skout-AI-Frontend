@@ -929,6 +929,9 @@ export interface DashboardSummary {
   listCount: number;
   totalProspectsInLists: number;
   icpConfigured: boolean;
+  searchesThisWeek: number;
+  enrichedThisWeek: number;
+  exportsThisWeek: number;
   recentJobs: Array<{
     id: string;
     prospectId: string;

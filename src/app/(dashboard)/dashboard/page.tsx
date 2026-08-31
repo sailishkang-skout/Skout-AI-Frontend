@@ -60,7 +60,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summary.isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 7 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="flex items-center gap-3 pt-6">
                 <Skeleton className="h-10 w-10 rounded-lg" />
@@ -91,6 +91,24 @@ export default function DashboardPage() {
               label="Recent jobs"
               value={data?.recentJobs.length ?? "—"}
               href="/enrichment"
+            />
+            <StatCard
+              icon={Search}
+              label="Searches this week"
+              value={data?.searchesThisWeek ?? "—"}
+              href="/prospects/search"
+            />
+            <StatCard
+              icon={Zap}
+              label="Enriched this week"
+              value={data?.enrichedThisWeek ?? "—"}
+              href="/enrichment"
+            />
+            <StatCard
+              icon={List}
+              label="Exports this week"
+              value={data?.exportsThisWeek ?? "—"}
+              href="/lists"
             />
           </>
         )}

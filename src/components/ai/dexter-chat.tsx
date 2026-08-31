@@ -36,6 +36,10 @@ import {
 } from "@/lib/dexter-speech";
 import { createClientLogger } from "@/lib/logger";
 import { sanitizeHtml, stripExportLinks } from "@/components/ai/ai-chat-box";
+import { ToolActionPreviewPanel } from "@/components/vision/tool-action-preview-panel";
+import { VisionEnterpriseControlStrip } from "@/components/vision/enterprise-control-strip";
+import { VisionIntelligenceStrip } from "@/components/vision/intelligence-strip";
+import { VISION_SCREENS } from "@/lib/vision-screens";
 
 const log = createClientLogger("dexter");
 
@@ -521,8 +525,11 @@ function submitText(text: string) {
         </div>
       </div>
 
-      <div className="border-b border-border bg-emerald-50/50 px-4 py-1.5 text-[11px] text-muted-foreground dark:bg-emerald-950/20">
-        Tap the mic to talk. Dexter sends when you tap again, or after a 10s pause.
+      <div className="border-b border-border bg-emerald-50/50 px-3 py-2 dark:bg-emerald-950/20">
+        <VisionIntelligenceStrip config={VISION_SCREENS["17.2"]} compact />
+        <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+          Tap the mic to talk. Dexter sends when you tap again, or after a 10s pause.
+        </p>
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -602,28 +609,12 @@ function submitText(text: string) {
                 )}
 
                 {t.toolPreview && !t.toolPreviewDone && (
-                  <div className="mt-2 space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
-                    <p className="font-semibold text-foreground">Review before executing</p>
-                    <p className="text-muted-foreground">{t.toolPreview.scope}</p>
-                    <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground">
-                      {t.toolPreview.assumptions.map((a) => (
-                        <li key={a}>{a}</li>
-                      ))}
-                    </ul>
-                    {t.toolPreview.externalSideEffects.map((fx) => (
-                      <p key={fx} className="text-muted-foreground">
-                        • {fx}
-                      </p>
-                    ))}
-                    <Button
-                      size="sm"
-                      className="h-7 bg-emerald-600 hover:bg-emerald-500"
-                      disabled={confirmTool.isPending}
-                      onClick={() => confirmTool.mutate(t.toolPreview!)}
-                    >
-                      Confirm and run
-                    </Button>
-                  </div>
+                  <ToolActionPreviewPanel
+                    preview={t.toolPreview}
+                    compact
+                    confirming={confirmTool.isPending}
+                    onConfirm={() => confirmTool.mutate(t.toolPreview!)}
+                  />
                 )}
 
                 {t.action?.type === "email" && (
@@ -727,6 +718,10 @@ function submitText(text: string) {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="border-t border-border px-2 py-2">
+        <VisionEnterpriseControlStrip compact />
       </div>
 
       <div className="border-t border-border bg-background p-3">
