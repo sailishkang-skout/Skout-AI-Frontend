@@ -39,6 +39,12 @@ describe("getCrmApiBase", () => {
     expect(getCrmApiBase()).toBe(process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3002");
   });
 
+  it("uses the dedicated CRM service URL when configured", () => {
+    expect(getCrmApiBase()).toBe(
+      process.env.NEXT_PUBLIC_CRM_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3002"
+    );
+  });
+
   it("downgrades to relative/same-origin when the page is https but the configured URL is http (mixed content)", () => {
     Object.defineProperty(window, "location", {
       value: { ...originalLocation, protocol: "https:" },
