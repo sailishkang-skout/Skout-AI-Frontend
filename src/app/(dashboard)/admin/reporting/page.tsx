@@ -208,6 +208,39 @@ function ForecastPanel({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border p-3">
+          <p className="text-sm font-medium">Forecast uncertainty</p>
+          {forecast.uncertainty ? (
+            <>
+              <p className="mt-1 text-lg font-semibold">
+                {money(forecast.uncertainty.lowerBound, forecast.currency)} - {money(forecast.uncertainty.upperBound, forecast.currency)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                +/- {(forecast.uncertainty.percentage * 100).toFixed(1)}% based on {forecast.uncertainty.sampleSize} historical {forecast.uncertainty.sampleSize === 1 ? "period" : "periods"}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">Not enough historical periods to calculate variance.</p>
+          )}
+        </div>
+        <div className="rounded-lg border p-3">
+          <p className="text-sm font-medium">Data gaps</p>
+          {forecast.dataGaps.length > 0 ? (
+            <ul className="mt-2 space-y-2 text-sm">
+              {forecast.dataGaps.map((gap) => (
+                <li key={gap.dealId}>
+                  <span className="font-medium">{gap.dealName}</span>
+                  <span className="block text-xs text-muted-foreground">Missing {gap.missingFields.join(", ")}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">No open deals are missing forecast fields.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 rounded-lg border p-3">
           <p className="text-sm font-medium">Set manager adjustment</p>
           <Input type="number" placeholder="Amount" value={managerAmount} onChange={(e) => setManagerAmount(e.target.value)} />

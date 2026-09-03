@@ -1477,6 +1477,19 @@ export interface RevenueForecast {
   repCommittedReason: string | null;
   repCommittedBy: string | null;
   repGapToModel: number | null;
+  uncertainty: {
+    percentage: number;
+    amount: number;
+    lowerBound: number;
+    upperBound: number;
+    sampleSize: number;
+    periods: string[];
+  } | null;
+  dataGaps: Array<{
+    dealId: string;
+    dealName: string;
+    missingFields: Array<"amount" | "closeDate" | "stage">;
+  }>;
   createdAt: string;
   updatedAt: string;
 }

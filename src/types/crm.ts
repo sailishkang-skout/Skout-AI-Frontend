@@ -36,6 +36,7 @@ export interface Company {
   location: string | null;
   ownerId: string | null;
   status: CompanyStatus;
+  contractEndDate: string | null;
   sourceProspectCompanyId: string | null;
   fieldSources: FieldSourcesMap;
   createdAt: string;
@@ -51,6 +52,7 @@ export interface CompanyInput {
   location?: string;
   ownerId?: string;
   status?: CompanyStatus;
+  contractEndDate?: string;
 }
 
 export type CompanyPatch = Partial<CompanyInput>;
@@ -383,6 +385,24 @@ export interface StaleDealSummary {
   amount: number | null;
   currency: string;
   daysSinceUpdate: number;
+}
+
+export interface MissingStakeholderEvidence {
+  role: string;
+  contactId: string;
+  contactName: string;
+  ruleTriggered: string;
+  computedAt: string;
+}
+
+export interface MissingStakeholderDealSummary {
+  id: string;
+  name: string;
+  amount: number | null;
+  currency: string;
+  companyId: string;
+  companyName: string;
+  evidence: MissingStakeholderEvidence[];
 }
 
 export interface RepActivitySummary {

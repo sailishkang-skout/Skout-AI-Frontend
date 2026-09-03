@@ -1,5 +1,5 @@
 import { useCrmServiceFetch } from "../crm-api-client";
-import type { CroSummary, DashboardOverview, StaleDealSummary, SwitchingCost } from "@/types/crm";
+import type { CroSummary, DashboardOverview, StaleDealSummary, SwitchingCost, MissingStakeholderDealSummary } from "@/types/crm";
 
 export function useCrmDashboardApi() {
   const fetchApi = useCrmServiceFetch();
@@ -16,6 +16,12 @@ export function useCrmDashboardApi() {
     getStaleDeals: () =>
       fetchApi<{ workspaceId: string; staleDeals: StaleDealSummary[]; generatedAt: string }>(
         "/api/v1/dashboard/stale-deals"
+      ),
+
+    /** Open to every workspace member — powers CRM Intelligence missing stakeholder detection. */
+    getMissingStakeholderDeals: () =>
+      fetchApi<{ workspaceId: string; missingStakeholderDeals: MissingStakeholderDealSummary[]; generatedAt: string }>(
+        "/api/v1/dashboard/missing-stakeholder-deals"
       ),
   };
 }

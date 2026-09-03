@@ -31,21 +31,29 @@ export default function CrmIntelligencePage() {
     enabled: authReady,
   });
 
-  const deals = staleDeals.data?.staleDeals ?? [];
+  const missingStakeholderDeals = useQuery({
+    queryKey: ["crm", "dashboard", "missing-stakeholder-deals"],
+    queryFn: dashboardApi.getMissingStakeholderDeals,
+    enabled: authReady,
+  });
+
+  const staleDealsList = staleDeals.data?.staleDeals ?? [];
+  const missingStakeholderDealsList = missingStakeholderDeals.data?.missingStakeholderDeals ?? [];
+  const totalNeedsAttention = staleDealsList.length + missingStakeholderDealsList.length;
 
   return (
     <PageShell width="full" data-testid="page-crm-intelligence">
       <PageHeader title="CRM Intelligence" description="Your pipeline, with AI-flagged deals that need attention." />
 
-      {staleDeals.isError && (
-        <Alert variant="error" onRetry={() => staleDeals.refetch()}>
-          {formatQueryError(staleDeals.error, "Could not load CRM intelligence.")}
+      {(staleDeals.isError || missingStakeholderDeals.isError) && (
+        <Alert variant="error" onRetry={() => { staleDeals.refetch(); missingStakeholderDeals.refetch(); }}>
+          {formatQueryError(staleDeals.error || missingStakeholderDeals.error, "Could not load CRM intelligence.")}
         </Alert>
       )}
 
-      {staleDeals.isLoading ? (
+      {staleDeals.isLoading || missingStakeholderDeals.isLoading ? (
         <Skeleton className="h-14 w-full rounded-lg" />
-      ) : deals.length > 0 ? (
+      ) : totalNeedsAttention > 0 ? (
         <Card>
           <button
             type="button"
@@ -55,14 +63,15 @@ export default function CrmIntelligencePage() {
             <span className="flex items-center gap-2 text-sm font-semibold">
               <Sparkles className="h-4 w-4 text-primary" />
               Needs attention
-              <Badge tone="warning">{deals.length}</Badge>
+              <Badge tone="warning">{totalNeedsAttention}</Badge>
             </span>
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", insightsOpen && "rotate-180")} />
           </button>
           {insightsOpen && (
             <CardContent className="space-y-4 pt-0">
-              {deals.map((deal) => (
-                <div key={deal.id} className="space-y-2">
+              {/* Stale deals */}
+              {staleDealsList.map((deal) => (
+                <div key={`stale-${deal.id}`} className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
                     <div className="min-w-0">
                       <Link href={`/crm/deals/${deal.id}`} className="font-medium hover:underline">
@@ -73,6 +82,29 @@ export default function CrmIntelligencePage() {
                     <Badge tone="warning">
                       <AlertTriangle className="mr-1 h-3 w-3" />
                       {deal.daysSinceUpdate}d untouched
+                    </Badge>
+                  </div>
+                  <NextBestActionCard entityType="deal" entityId={deal.id} />
+                </div>
+              ))}
+              {/* Missing stakeholder deals */}
+              {missingStakeholderDealsList.map((deal) => (
+                <div key={`missing-${deal.id}`} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="min-w-0">
+                      <Link href={`/crm/deals/${deal.id}`} className="font-medium hover:underline">
+                        {deal.name}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {formatMoney(deal.amount, deal.currency)} • {deal.companyName}
+                      </p>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Missing stakeholders: {deal.evidence.map(e => `${e.role} (${e.contactName})`).join(", ")}
+                      </div>
+                    </div>
+                    <Badge tone="danger">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      Missing stakeholder
                     </Badge>
                   </div>
                   <NextBestActionCard entityType="deal" entityId={deal.id} />
