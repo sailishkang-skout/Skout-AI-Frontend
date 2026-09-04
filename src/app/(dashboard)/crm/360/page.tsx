@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AccountEvidencePanel } from "@/components/crm/account-evidence-panel";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -168,6 +169,9 @@ export default function Account360Page() {
               )}
             </CardContent>
           </Card>
+
+          {/* Account View: Why This Account — evidence-ledger backing for this account's facts/score */}
+          {mode === "account" && lookupId && <AccountEvidencePanel companyId={lookupId} />}
 
           {/* Account View: Buying Committee & Influence Map */}
           {mode === "account" && "buyingCommittee" in data && Array.isArray(data.buyingCommittee) && (

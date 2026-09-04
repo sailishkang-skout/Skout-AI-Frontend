@@ -1,4 +1,5 @@
 import { useApiFetch } from "./api-client";
+import type { AccountEvidenceGroup } from "@/types/api";
 
 export type AutomationMode = "ask" | "auto" | "draft" | "approve";
 
@@ -132,6 +133,12 @@ export function useDexterPlatformApi() {
 
     getPerson360: (contactId: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/person-360/${contactId}`),
+
+    /** §8.2 SS-05 — "why this account" evidence panel. */
+    getAccountEvidence: (companyId: string) =>
+      fetchApi<{ data: { companyId: string; evidence: AccountEvidenceGroup[] } }>(
+        `/api/v1/account-360/${companyId}/evidence`
+      ),
 
     getLinkedinVoiceEligibility: (prospectId: string, linkedinUrl?: string) => {
       const params = new URLSearchParams({ prospectId });
