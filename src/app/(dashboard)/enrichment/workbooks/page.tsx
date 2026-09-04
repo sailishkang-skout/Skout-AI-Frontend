@@ -8,6 +8,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Coins,
+  Columns3,
   Database,
   Layers,
   Loader2,
@@ -17,6 +18,9 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  Table2,
+  Trash2,
+  Wand2,
   Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -31,7 +35,16 @@ import { Select } from "@/components/ui/select";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { WORKBOOKS_QUERY_KEY, workbookRunsQueryKey, useWorkbooksApi } from "@/lib/workbooks";
-import type { EnrichmentWorkbook, WorkbookField, WorkbookRun, WorkbookRunMode, WorkbookRunStatus } from "@/types/api";
+import { workbookColumnsQueryKey, workbookRunRowsQueryKey, useWorkbookColumnsApi } from "@/lib/workbook-columns";
+import type {
+  EnrichmentWorkbook,
+  WorkbookColumn,
+  WorkbookColumnType,
+  WorkbookField,
+  WorkbookRun,
+  WorkbookRunMode,
+  WorkbookRunStatus,
+} from "@/types/api";
 
 const FIELD_LABEL: Record<WorkbookField, string> = {
   company: "Company Data",
@@ -52,6 +65,7 @@ const RUN_STATUS_TONE: Record<WorkbookRunStatus, "success" | "warning" | "muted"
   running: "warning",
   paused: "muted",
   completed: "success",
+  partial: "warning",
   failed: "danger",
 };
 
@@ -60,6 +74,7 @@ export default function WorkbooksPage() {
   const workbooksApi = useWorkbooksApi();
   const [createOpen, setCreateOpen] = useState(false);
   const [runsFor, setRunsFor] = useState<EnrichmentWorkbook | null>(null);
+  const [columnsFor, setColumnsFor] = useState<EnrichmentWorkbook | null>(null);
 
   const workbooks = useQuery({
     queryKey: WORKBOOKS_QUERY_KEY,
@@ -171,6 +186,10 @@ export default function WorkbooksPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setColumnsFor(wb)} className="gap-1 text-xs">
+                        <Columns3 className="h-3.5 w-3.5" />
+                        Columns
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => setRunsFor(wb)} className="gap-1 text-xs">
                         <Play className="h-3.5 w-3.5" />
                         Execution Runs
@@ -226,6 +245,7 @@ export default function WorkbooksPage() {
 
       <CreateWorkbookDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       {runsFor && <WorkbookRunsDialog workbook={runsFor} onClose={() => setRunsFor(null)} />}
+      {columnsFor && <WorkbookColumnsDialog workbook={columnsFor} onClose={() => setColumnsFor(null)} />}
     </PageShell>
   );
 }
@@ -330,6 +350,216 @@ function CreateWorkbookDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
+/** ADI-12 (§8.3) — the 4 fixed fields plus identity fields already on every snapshot, available
+ * as `{{key}}` references before any flexible column exists. Mirrors FIXED_TEMPLATE_KEYS in
+ * apps/api/src/services/workbook-column.service.ts. */
+const FIXED_TEMPLATE_KEYS = ["company", "email", "phone", "email_status", "fullName", "title", "companyDomain"];
+
+function WorkbookColumnsDialog({ workbook, onClose }: { workbook: EnrichmentWorkbook; onClose: () => void }) {
+  const columnsApi = useWorkbookColumnsApi();
+  const queryClient = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+
+  const columns = useQuery({
+    queryKey: workbookColumnsQueryKey(workbook.id),
+    queryFn: () => columnsApi.list(workbook.id),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: workbookColumnsQueryKey(workbook.id) });
+  const remove = useMutation({
+    mutationFn: (columnId: string) => columnsApi.remove(workbook.id, columnId),
+    onSuccess: invalidate,
+  });
+
+  return (
+    <Dialog open onClose={onClose} title={`Flexible Columns — ${workbook.name}`}>
+      <div className="space-y-4 pt-1">
+        {remove.isError && <Alert variant="error">{formatQueryError(remove.error, "Could not delete column.")}</Alert>}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Derived fields and AI research columns, computed after the fixed waterfall on every run.
+          </p>
+          <Button size="sm" onClick={() => setAddOpen(true)} className="shrink-0 gap-1 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            Add Column
+          </Button>
+        </div>
+
+        {columns.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading columns…</p>
+        ) : (columns.data?.data.length ?? 0) === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+            No flexible columns yet. Add a derived field or an AI research column.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {columns.data!.data.map((col) => (
+              <div
+                key={col.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-xs">{col.label}</span>
+                    <Badge tone="muted" className="text-[10px] font-mono">
+                      {col.key}
+                    </Badge>
+                    <Badge tone={col.columnType === "ai_research" ? "warning" : "muted"} className="gap-1 text-[10px]">
+                      {col.columnType === "ai_research" ? <Wand2 className="h-3 w-3" /> : <Columns3 className="h-3 w-3" />}
+                      {col.columnType === "ai_research" ? "AI Research" : "Derived"}
+                    </Badge>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground font-mono">
+                    {"template" in col.config ? col.config.template : col.config.promptTemplate}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => remove.mutate(col.id)}
+                  disabled={remove.isPending}
+                  className="h-7 shrink-0 gap-1 text-xs text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {addOpen && (
+        <AddColumnDialog
+          workbook={workbook}
+          existingKeys={[...FIXED_TEMPLATE_KEYS, ...(columns.data?.data.map((c) => c.key) ?? [])]}
+          onClose={() => setAddOpen(false)}
+          onAdded={invalidate}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function AddColumnDialog({
+  workbook,
+  existingKeys,
+  onClose,
+  onAdded,
+}: {
+  workbook: EnrichmentWorkbook;
+  existingKeys: string[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const columnsApi = useWorkbookColumnsApi();
+  const [key, setKey] = useState("");
+  const [label, setLabel] = useState("");
+  const [columnType, setColumnType] = useState<WorkbookColumnType>("derived");
+  const [template, setTemplate] = useState("");
+
+  const create = useMutation({
+    mutationFn: () =>
+      columnsApi.create(workbook.id, {
+        key: key.trim(),
+        label: label.trim(),
+        columnType,
+        ...(columnType === "derived" ? { template } : { promptTemplate: template }),
+      }),
+    onSuccess: () => {
+      onAdded();
+      onClose();
+    },
+  });
+
+  const canCreate = !!key.trim() && !!label.trim() && !!template.trim() && !create.isPending;
+
+  return (
+    <Dialog open onClose={onClose} title="Add Flexible Column">
+      <div className="space-y-4 pt-1">
+        {create.isError && <Alert variant="error">{formatQueryError(create.error, "Could not create column.")}</Alert>}
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Column Type</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setColumnType("derived")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                columnType === "derived"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              Derived Field
+            </button>
+            <button
+              type="button"
+              onClick={() => setColumnType("ai_research")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                columnType === "ai_research"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              AI Research
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="colKey" className="text-xs font-medium text-muted-foreground">
+              Key
+            </label>
+            <Input
+              id="colKey"
+              value={key}
+              onChange={(e) => setKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+              placeholder="e.g. company_summary"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="colLabel" className="text-xs font-medium text-muted-foreground">
+              Label
+            </label>
+            <Input id="colLabel" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Company Summary" />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="colTemplate" className="text-xs font-medium text-muted-foreground">
+            {columnType === "derived" ? "Template" : "Research Prompt"}
+          </label>
+          <textarea
+            id="colTemplate"
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            rows={3}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            placeholder={
+              columnType === "derived"
+                ? "{{company}} — {{title}}"
+                : "What does {{company}} do, and who are its main competitors?"
+            }
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Reference another column with <code className="font-mono">{"{{key}}"}</code>. Available: {existingKeys.join(", ")}.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!canCreate}>
+            {create.isPending ? "Adding..." : "Add Column"}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkbook; onClose: () => void }) {
   const workbooksApi = useWorkbooksApi();
   const enrichmentApi = useEnrichmentApi();
@@ -361,6 +591,7 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
     mutationFn: (runId: string) => workbooksApi.rerunFailed(workbook.id, runId),
     onSuccess: invalidateRuns,
   });
+  const [viewGridFor, setViewGridFor] = useState<WorkbookRun | null>(null);
 
   return (
     <Dialog open onClose={onClose} title={`Execution Runs — ${workbook.name}`}>
@@ -404,6 +635,7 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
                 onPause={() => pause.mutate(run.id)}
                 onResume={() => resume.mutate(run.id)}
                 onRerunFailed={() => rerunFailed.mutate(run.id)}
+                onViewGrid={() => setViewGridFor(run)}
                 busy={pause.isPending || resume.isPending || rerunFailed.isPending}
               />
             ))}
@@ -419,6 +651,9 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
           listLists={enrichmentApi.listLists}
         />
       )}
+      {viewGridFor && (
+        <RunGridDialog workbook={workbook} run={viewGridFor} onClose={() => setViewGridFor(null)} />
+      )}
     </Dialog>
   );
 }
@@ -428,12 +663,14 @@ function RunRow({
   onPause,
   onResume,
   onRerunFailed,
+  onViewGrid,
   busy,
 }: {
   run: WorkbookRun;
   onPause: () => void;
   onResume: () => void;
   onRerunFailed: () => void;
+  onViewGrid: () => void;
   busy: boolean;
 }) {
   const progress = run.totalRows > 0 ? Math.round((run.processedRows / run.totalRows) * 100) : 0;
@@ -462,10 +699,16 @@ function RunRow({
               Resume
             </Button>
           )}
-          {(run.status === "completed" || run.status === "failed") && run.failedRows > 0 && (
+          {(run.status === "completed" || run.status === "partial" || run.status === "failed") && run.failedRows > 0 && (
             <Button variant="outline" size="sm" onClick={onRerunFailed} disabled={busy} className="h-7 text-xs gap-1">
               <RotateCcw className="h-3.5 w-3.5" />
               Rerun {run.failedRows} Failed
+            </Button>
+          )}
+          {run.processedRows > 0 && (
+            <Button variant="outline" size="sm" onClick={onViewGrid} className="h-7 text-xs gap-1">
+              <Table2 className="h-3.5 w-3.5" />
+              View Grid
             </Button>
           )}
         </div>
@@ -482,6 +725,113 @@ function RunRow({
       </p>
       {run.errorMessage && <p className="text-xs text-destructive">{run.errorMessage}</p>}
     </div>
+  );
+}
+
+/** ADI-12 (§8.3) — the spreadsheet-like grid: one row per target prospect, the fixed fields this
+ * workbook enriches (from the current activation snapshot) plus every flexible column's computed
+ * cell for this run. Polls while the run is still active, same interval as the runs list. */
+function RunGridDialog({
+  workbook,
+  run,
+  onClose,
+}: {
+  workbook: EnrichmentWorkbook;
+  run: WorkbookRun;
+  onClose: () => void;
+}) {
+  const columnsApi = useWorkbookColumnsApi();
+
+  const columns = useQuery({
+    queryKey: workbookColumnsQueryKey(workbook.id),
+    queryFn: () => columnsApi.list(workbook.id),
+  });
+
+  const rows = useQuery({
+    queryKey: workbookRunRowsQueryKey(workbook.id, run.id),
+    queryFn: () => columnsApi.getRunRows(workbook.id, run.id),
+    refetchInterval: run.status === "running" || run.status === "queued" ? 3000 : false,
+  });
+
+  const flexColumns = columns.data?.data ?? [];
+
+  return (
+    <Dialog open onClose={onClose} title={`Run Grid — ${workbook.name}`} className="max-w-5xl">
+      <div className="space-y-3 pt-1">
+        <p className="text-xs text-muted-foreground">
+          {run.processedRows}/{run.totalRows} rows processed · {run.succeededRows} succeeded · {run.failedRows} failed
+        </p>
+
+        {rows.isError && <Alert variant="error">{formatQueryError(rows.error, "Could not load run rows.")}</Alert>}
+
+        {rows.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading rows…</p>
+        ) : (rows.data?.data.length ?? 0) === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+            No rows to show yet.
+          </div>
+        ) : (
+          <div className="max-h-[28rem] overflow-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 border-b border-border bg-muted/60 backdrop-blur-sm">
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">Name</th>
+                  {workbook.fields.includes("company") && <th className="px-3 py-2 font-medium">Company</th>}
+                  {workbook.fields.includes("email") && <th className="px-3 py-2 font-medium">Email</th>}
+                  {workbook.fields.includes("phone") && <th className="px-3 py-2 font-medium">Phone</th>}
+                  {flexColumns.map((col) => (
+                    <th key={col.id} className="px-3 py-2 font-medium whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        {col.columnType === "ai_research" ? (
+                          <Wand2 className="h-3 w-3" />
+                        ) : (
+                          <Columns3 className="h-3 w-3" />
+                        )}
+                        {col.label}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.data!.data.map((row) => (
+                  <tr key={row.prospectId} className="hover:bg-muted/20">
+                    <td className="px-3 py-2 text-xs">{row.fullName ?? row.prospectId}</td>
+                    {workbook.fields.includes("company") && (
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {row.companyName ?? row.companyDomain ?? "—"}
+                      </td>
+                    )}
+                    {workbook.fields.includes("email") && (
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{row.email ?? "—"}</td>
+                    )}
+                    {workbook.fields.includes("phone") && (
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{row.phone ?? "—"}</td>
+                    )}
+                    {flexColumns.map((col) => {
+                      const cell = row.columns[col.key];
+                      return (
+                        <td key={col.id} className="max-w-xs px-3 py-2 text-xs">
+                          {!cell || cell.status === "pending" ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : cell.status === "failed" ? (
+                            <span className="text-destructive" title={cell.error ?? undefined}>
+                              Failed
+                            </span>
+                          ) : (
+                            <span className="line-clamp-2">{cell.value}</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }
 

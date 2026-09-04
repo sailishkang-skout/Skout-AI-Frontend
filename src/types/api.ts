@@ -1428,7 +1428,7 @@ export interface ImportProviderContact {
 export type WorkbookStatus = "draft" | "active";
 export type WorkbookField = "company" | "email" | "validation" | "phone";
 export type WorkbookRunMode = "sample" | "selected" | "changed_rows" | "scheduled";
-export type WorkbookRunStatus = "queued" | "running" | "paused" | "completed" | "failed";
+export type WorkbookRunStatus = "queued" | "running" | "paused" | "completed" | "partial" | "failed";
 
 export interface EnrichmentWorkbook {
   id: string;
@@ -1464,6 +1464,42 @@ export interface WorkbookRun {
   startedAt: string | null;
   pausedAt: string | null;
   completedAt: string | null;
+}
+
+// ADI-12 (§8.3) — flexible workbook columns (derived + ai_research), layered on top of the
+// fixed 4-field waterfall above. See docs/superpowers/specs/2026-09-05-workbook-flexible-columns-design.md.
+export type WorkbookColumnType = "derived" | "ai_research";
+
+export interface WorkbookColumn {
+  id: string;
+  workspaceId: string;
+  workbookId: string;
+  key: string;
+  label: string;
+  columnType: WorkbookColumnType;
+  config: { template: string } | { promptTemplate: string };
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkbookColumnCellStatus = "pending" | "succeeded" | "failed";
+
+export interface WorkbookColumnCell {
+  status: WorkbookColumnCellStatus;
+  value: string | null;
+  error: string | null;
+}
+
+export interface WorkbookRunRow {
+  prospectId: string;
+  fullName: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  columns: Record<string, WorkbookColumnCell>;
 }
 
 // R8.15 — forecasting split (model/manager/commit) and scheduled reporting.
