@@ -1340,33 +1340,6 @@ export interface AccountSignalSummary {
   signals: Signal[];
 }
 
-/** §8.2 SS-05 — evidence-ledger tiers. Mirrors apps/api/src/services/evidence.service.ts
- * (classifyConfidence/classifyFreshness) so the panel can style by tier without re-deriving
- * the thresholds client-side. */
-export type EvidenceConfidenceTier = "high" | "medium" | "low";
-export type EvidenceFreshnessStatus = "fresh" | "expiring_soon" | "expired" | "no_expiry";
-
-export interface AccountEvidenceItem {
-  id: string;
-  attribute: string;
-  value: unknown;
-  source: string;
-  observedAt: string;
-  confidence: number;
-  confidenceTier: EvidenceConfidenceTier;
-  freshnessExpiresAt: string | null;
-  freshnessStatus: EvidenceFreshnessStatus;
-  method: string | null;
-  authority: string | null;
-  corroborationCount: number;
-}
-
-/** One fact (e.g. "industry"), newest evidence first — entries[0] is "current belief". */
-export interface AccountEvidenceGroup {
-  attribute: string;
-  entries: AccountEvidenceItem[];
-}
-
 /** R17.3 — signal-triggered SDR alerts. Mirrors apps/api/src/services/alert-rule.service.ts. */
 export interface AlertRule {
   id: string;
