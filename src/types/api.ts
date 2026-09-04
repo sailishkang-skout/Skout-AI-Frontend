@@ -85,6 +85,10 @@ export interface ProspectSummary {
   companyName?: string;
   recordType?: "person" | "company";
   employeeCount?: number;
+  /** §8.2 SS-04 — fit (ICP/firmographic match) and timing (signal-stacking score) shown as
+   * distinct values. `icpScore`/`intentScore` below are kept for backward compatibility. */
+  fitScore?: number;
+  timingScore?: number;
   icpScore?: number;
   intentScore?: number;
   painPoints?: string[];
