@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type BadgeTone = "default" | "success" | "warning" | "danger" | "info" | "muted";
+export type BadgeTone = "default" | "success" | "warning" | "danger" | "info" | "muted";
 
 const tones: Record<BadgeTone, string> = {
   default: "bg-primary/10 text-primary dark:bg-primary/20",
