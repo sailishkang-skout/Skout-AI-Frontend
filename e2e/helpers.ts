@@ -5,8 +5,11 @@ export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
+  // Next.js has basePath: "/app" configured, so we need to prepend it if not already present
+  const fullPath = path.startsWith("/app") ? path : `/app${path}`;
+  
   // Navigate to the page and wait for network to be idle (all resources loaded)
-  await page.goto(path, { 
+  await page.goto(fullPath, { 
     waitUntil: "networkidle",
     timeout: 45_000
   });
@@ -17,8 +20,13 @@ export async function gotoAppPage(page: Page, path: string, testId: string) {
     throw new Error(`Page loaded but showed error state: "${await errorElement.textContent()}"`);
   }
   
-  // Now wait for our page test ID with extended timeout
-  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 45_000 });
+  // Add screenshot for debugging if element not found
+  try {
+    await expect(page.getByTestId(testId)).toBeVisible({ timeout: 45_000 });
+  } catch (e) {
+    await page.screenshot({ path: `test-failure-${testId}.png`, fullPage: true });
+    throw e;
+  }
 }
 
 /** Wait for a successful API mutation before asserting UI updates. */
