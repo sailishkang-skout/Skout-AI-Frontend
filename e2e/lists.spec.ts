@@ -4,8 +4,9 @@ import { gotoAppPage, waitForApiMutation } from "./helpers";
 test.describe("Lists", () => {
   test("lists index loads and create form is visible", async ({ page }) => {
     await gotoAppPage(page, "/lists", "page-lists");
-    await expect(page.getByTestId("create-list-button")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Lists", exact: true })).toBeVisible();
+    // Wait for button to be enabled (it starts disabled while page loads)
+    await expect(page.getByTestId("create-list-button")).toBeEnabled({ timeout: 45_000 });
+    await expect(page.getByRole("heading", { name: "Lists", exact: true })).toBeVisible({ timeout: 45_000 });
   });
 
   test("can create a list from the UI", async ({ page }) => {

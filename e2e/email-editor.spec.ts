@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gotoAppPage } from "./helpers";
 
 const TOKENS = [
   "{{firstName}}",
@@ -8,10 +9,8 @@ const TOKENS = [
   "{{unsubscribeUrl}}",
 ];
 
-async function gotoPage(page: Page, path: string, testId: string) {
-  await page.goto(path);
-  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
-}
+// Use shared fixed helper instead of local function
+const gotoPage = gotoAppPage;
 
 async function waitForPost(page: Page, urlFragment: string, action: () => Promise<void>) {
   const res = page.waitForResponse(
