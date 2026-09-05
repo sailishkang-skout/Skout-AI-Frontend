@@ -32,8 +32,6 @@ const nextConfig = {
       { source: "/signin/:path*", destination: "/sign-in/:path*" },
       { source: "/login", destination: "/sign-in" },
       { source: "/login/:path*", destination: "/sign-in/:path*" },
-      { source: "/singin", destination: "/sign-in" },
-      { source: "/singin/:path*", destination: "/sign-in/:path*" },
       { source: "/sign-up", destination: "/sign-in" },
       { source: "/sign-up/:path*", destination: "/sign-in/:path*" },
     ];
