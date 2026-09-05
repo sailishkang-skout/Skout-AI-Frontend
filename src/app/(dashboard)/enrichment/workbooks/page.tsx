@@ -3,6 +3,7 @@
 /** R8.3 — enrichment workbooks: ordered-provider waterfall config + pausable/resumable runs. */
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -378,6 +379,21 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
               <CheckCircle2 className="h-3.5 w-3.5" />
               Activate Production
             </Button>
+          </Alert>
+        )}
+
+        {workbook.status === "active" && workbook.resultListId && (
+          <Alert variant="default" className="flex items-center justify-between">
+            <span className="text-xs">
+              Active — successfully enriched rows are kept in a linked results list.
+            </span>
+            <Link
+              href={`/lists/${workbook.resultListId}`}
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-emerald-600 hover:bg-accent dark:text-emerald-400"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+              View Results List
+            </Link>
           </Alert>
         )}
 

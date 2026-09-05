@@ -1439,6 +1439,8 @@ export interface EnrichmentWorkbook {
   budgetCreditsPerRun: number | null;
   status: WorkbookStatus;
   activatedAt: string | null;
+  /** Static list activation materializes this workbook's result rows into (ADI-13). Null until activated. */
+  resultListId: string | null;
   createdAt: string;
   updatedAt: string;
 }
