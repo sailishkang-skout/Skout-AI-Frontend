@@ -5,11 +5,9 @@ export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
-  // Next.js has basePath: "/app" configured, so we need to prepend it if not already present
-  const fullPath = path.startsWith("/app") ? path : `/app${path}`;
-  
-  // Navigate to the page and wait for network to be idle (all resources loaded)
-  await page.goto(fullPath, { 
+  // CI sets PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000/app, so we just pass the relative path
+  // Playwright automatically combines baseURL from playwright.config.ts with the path
+  await page.goto(path, { 
     waitUntil: "networkidle",
     timeout: 45_000
   });
