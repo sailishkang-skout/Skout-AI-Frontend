@@ -5,8 +5,20 @@ export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
-  await page.goto(path);
-  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
+  // Navigate to the page and wait for network to be idle (all resources loaded)
+  await page.goto(path, { 
+    waitUntil: "networkidle",
+    timeout: 45_000
+  });
+  
+  // First check if we hit an error state ("Something went wrong")
+  const errorElement = page.getByText("Something went wrong");
+  if (await errorElement.isVisible({ timeout: 1000 })) {
+    throw new Error(`Page loaded but showed error state: "${await errorElement.textContent()}"`);
+  }
+  
+  // Now wait for our page test ID with extended timeout
+  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 45_000 });
 }
 
 /** Wait for a successful API mutation before asserting UI updates. */

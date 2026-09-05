@@ -12,6 +12,7 @@ const nextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",
   reactStrictMode: true,
   basePath: "/app",
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   async redirects() {
     return [
       // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
