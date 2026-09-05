@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, Sparkles, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { EmailVerifyBadge } from "@/components/prospects/email-verify-badge";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -75,6 +75,22 @@ const DIMENSION_LABELS: Record<string, string> = {
 
 const DIMENSION_ORDER = ["industry", "seniority", "geography", "company_size", "title", "signals"];
 
+interface EvidenceRow {
+  id: string;
+  workspaceId: string;
+  entityType: string;
+  entityId: string;
+  attribute: string;
+  value: Record<string, unknown>;
+  source: string;
+  observedAt: string;
+  retrievedAt: string;
+  confidence: number;
+  freshnessExpiresAt: string;
+  method: string;
+  resolutionRuleOrModelVersion: string | null;
+}
+
 function DimensionRow({ name, dim }: { name: string; dim: DimensionScore }) {
   const label = DIMENSION_LABELS[name] ?? name.replace(/_/g, " ");
   const pct = Math.max(0, Math.min(100, dim.score));
@@ -125,6 +141,8 @@ function IcpScoreCard({
   dimensions,
   isPending,
   onRescore,
+  entityId,
+  entityType,
 }: {
   score: number;
   band: string | null;
@@ -135,6 +153,8 @@ function IcpScoreCard({
   dimensions?: Record<string, DimensionScore>;
   isPending: boolean;
   onRescore: () => void;
+  entityId?: string | null;
+  entityType?: "prospect" | "company";
 }) {
   const colors = scoreBandColor(score);
   const orderedDims = dimensions
@@ -143,6 +163,74 @@ function IcpScoreCard({
         ...Object.entries(dimensions).filter(([k]) => !DIMENSION_ORDER.includes(k)),
       ]
     : [];
+
+  // Add expandable state for evidence panel
+  const [showEvidence, setShowEvidence] = useState(false);
+  const api = useApiFetch();
+  const authReady = useAuthReady();
+
+  // Fetch evidence from the ledger
+  const { data: evidenceData, isLoading: evidenceLoading, error: evidenceError } = useQuery<{ data: EvidenceRow[] }>({
+    queryKey: ["evidence", entityType, entityId, "icpScore"],
+    queryFn: async () => {
+      if (!entityType || !entityId) throw new Error("Missing entity information");
+      return api<{ data: EvidenceRow[] }>(
+        `/api/v1/evidence?entityType=${encodeURIComponent(entityType)}&entityId=${encodeURIComponent(entityId)}&attribute=icpScore`
+      );
+    },
+    enabled: authReady && Boolean(entityId) && showEvidence,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const evidence = evidenceData?.data || [];
+  const hasWarnings = evidence.some(item => {
+    const { hasWarnings } = getEvidenceStatus(item);
+    return hasWarnings;
+  });
+
+  // Helper to check evidence status with date validation
+  const getEvidenceStatus = (item: EvidenceRow) => {
+    const now = new Date();
+    let isExpiringSoon = false;
+    try {
+      const expiresAt = new Date(item.freshnessExpiresAt);
+      if (!isNaN(expiresAt.getTime())) {
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+        isExpiringSoon = timeUntilExpiry < 24 * 60 * 60 * 1000; // Within 24 hours
+      }
+    } catch {
+      // If date parsing fails, don't mark as expiring soon
+      isExpiringSoon = false;
+    }
+    const isLowConfidence = item.confidence < 0.7;
+    return { isExpiringSoon, isLowConfidence, hasWarnings: isExpiringSoon || isLowConfidence };
+  };
+
+  // Format dates for display with fallback
+  const formatDate = (dateStr: string | undefined | null) => {
+    if (!dateStr) return "Unknown date";
+    try {
+      return new Date(dateStr).toLocaleString();
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  // Get status badge styling
+  const getStatusClasses = (item: EvidenceRow) => {
+    const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+    if (isExpiringSoon || isLowConfidence) {
+      return {
+        badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+        border: "border-amber-200 dark:border-amber-800",
+      };
+    }
+    return {
+      badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+      border: "border-emerald-200 dark:border-emerald-800",
+    };
+  };
 
   return (
     <div className={`rounded-xl border p-4 ${colors.bg} ${colors.border}`}>
@@ -208,6 +296,108 @@ function IcpScoreCard({
               <DimensionRow key={key} name={key} dim={dim} />
             ))}
           </dl>
+        </div>
+      )}
+
+      {/* Evidence panel - Why this account */}
+      {entityId && (
+        <div className="mt-3 border-t border-current/10 pt-3">
+          <button
+            onClick={() => setShowEvidence(!showEvidence)}
+            className="flex w-full items-center justify-between gap-2 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Why this score? (evidence ledger)
+              </p>
+              {hasWarnings && !showEvidence && (
+                <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" title="Evidence has warnings" />
+              )}
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${showEvidence ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {showEvidence && (
+            <div className="mt-2 space-y-3">
+              {evidenceLoading ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-border p-3 animate-pulse">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <div className="h-5 w-20 rounded-full bg-muted" />
+                      <div className="h-4 w-24 rounded bg-muted" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-3 w-48 rounded bg-muted" />
+                      <div className="h-3 w-40 rounded bg-muted" />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border p-3 animate-pulse">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <div className="h-5 w-20 rounded-full bg-muted" />
+                      <div className="h-4 w-24 rounded bg-muted" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-3 w-48 rounded bg-muted" />
+                      <div className="h-3 w-40 rounded bg-muted" />
+                    </div>
+                  </div>
+                </div>
+              ) : evidenceError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    Failed to load evidence. Please try again.
+                  </p>
+                  <button
+                    onClick={() => setShowEvidence(false)}
+                    className="mt-2 text-xs underline text-red-500 hover:text-red-700"
+                  >
+                    Close and retry
+                  </button>
+                </div>
+              ) : evidence.length === 0 ? (
+                <p className="py-2 text-sm text-muted-foreground">No evidence records found for this score.</p>
+              ) : (
+                evidence.map((item) => {
+                  const statusClasses = getStatusClasses(item);
+                  const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-lg border p-3 ${statusClasses.border} transition-all hover:shadow-sm`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge className={statusClasses.badge}>
+                          {item.source.replace(/_/g, " ")}
+                        </Badge>
+                        <span className="text-xs font-medium">
+                          Confidence: {Math.round(item.confidence * 100)}%
+                        </span>
+                        {isLowConfidence && (
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            ⚠️ Low confidence
+                          </span>
+                        )}
+                        {isExpiringSoon && (
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            ⏰ Expiring soon
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p>📅 Observed: {formatDate(item.observedAt)}</p>
+                        <p>⏱️ Expires: {formatDate(item.freshnessExpiresAt)}</p>
+                        {item.resolutionRuleOrModelVersion && (
+                          <p>🤖 Model version: {item.resolutionRuleOrModelVersion}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -358,6 +548,8 @@ export function ProspectDetailSheet({
             dimensions={resolvedDimensions}
             isPending={scoreMutation.isPending}
             onRescore={() => scoreMutation.mutate()}
+            entityId={overlayEntityId}
+            entityType={overlayEntityType}
           />
         ) : (
           <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">

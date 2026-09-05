@@ -5,8 +5,26 @@ export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
-  await page.goto(path);
-  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
+  // CI sets PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000/app, so we just pass the relative path
+  // Playwright automatically combines baseURL from playwright.config.ts with the path
+  await page.goto(path, { 
+    waitUntil: "networkidle",
+    timeout: 45_000
+  });
+  
+  // First check if we hit an error state ("Something went wrong")
+  const errorElement = page.getByText("Something went wrong");
+  if (await errorElement.isVisible({ timeout: 1000 })) {
+    throw new Error(`Page loaded but showed error state: "${await errorElement.textContent()}"`);
+  }
+  
+  // Add screenshot for debugging if element not found
+  try {
+    await expect(page.getByTestId(testId)).toBeVisible({ timeout: 45_000 });
+  } catch (e) {
+    await page.screenshot({ path: `test-failure-${testId}.png`, fullPage: true });
+    throw e;
+  }
 }
 
 /** Wait for a successful API mutation before asserting UI updates. */

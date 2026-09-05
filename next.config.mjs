@@ -12,6 +12,7 @@ const nextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",
   reactStrictMode: true,
   basePath: "/app",
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   async redirects() {
     return [
       // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
@@ -31,8 +32,6 @@ const nextConfig = {
       { source: "/signin/:path*", destination: "/sign-in/:path*" },
       { source: "/login", destination: "/sign-in" },
       { source: "/login/:path*", destination: "/sign-in/:path*" },
-      { source: "/singin", destination: "/sign-in" },
-      { source: "/singin/:path*", destination: "/sign-in/:path*" },
       { source: "/sign-up", destination: "/sign-in" },
       { source: "/sign-up/:path*", destination: "/sign-in/:path*" },
     ];
