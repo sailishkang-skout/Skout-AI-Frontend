@@ -1081,6 +1081,34 @@ export interface HubSpotImportResponse {
   source: string;
 }
 
+/** ADI-18 (§8.12) — mirrors CrmSyncCheckpointStatus in crm-sync-state.service.ts. */
+export interface CrmSyncCheckpointStatus {
+  entityType: string;
+  lastRunStatus: string | null;
+  lastRunStartedAt: string | null;
+  lastRunCompletedAt: string | null;
+  lastError: string | null;
+}
+
+/** ADI-18 (§8.12) — mirrors CrmOutboundWriteStatus in crm-sync-state.service.ts. */
+export interface CrmOutboundWriteStatus {
+  id: string;
+  entityType: string;
+  entityId: string;
+  status: string;
+  isConflict: boolean;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** ADI-18 (§8.12) — mirrors CrmSyncStatus in crm-sync-state.service.ts. */
+export interface CrmSyncStatus {
+  connected: boolean;
+  checkpoints: CrmSyncCheckpointStatus[];
+  recentOutboundWrites: CrmOutboundWriteStatus[];
+}
+
 export interface ManualProspectInput {
   // Contact
   fullName: string;
