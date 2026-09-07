@@ -409,9 +409,17 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
-  const [navRegroupEnabled, setNavRegroupEnabled] = useState(false);
+  // ADI-14 (§4) — the regrouped 8-module nav is the default now; the query param, localStorage,
+  // and env var all become an opt-*out* escape hatch instead of opt-in, kept for one release
+  // cycle before removal. NEXT_PUBLIC_NAV_REGROUP_ENABLED="false" is a deployment-wide kill
+  // switch (e.g. staging), independent of any per-browser localStorage override.
+  const [navRegroupEnabled, setNavRegroupEnabled] = useState(true);
 
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_NAV_REGROUP_ENABLED === "false") {
+      setNavRegroupEnabled(false);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const paramVal = params.get("nav-regroup");
     if (paramVal === "true") {
@@ -422,9 +430,7 @@ export function SidebarPanel({
       setNavRegroupEnabled(false);
     } else {
       const localVal = localStorage.getItem("nav-regroup-enabled");
-      setNavRegroupEnabled(
-        localVal === "true" || process.env.NEXT_PUBLIC_NAV_REGROUP_ENABLED === "true"
-      );
+      setNavRegroupEnabled(localVal !== "false");
     }
   }, []);
 
