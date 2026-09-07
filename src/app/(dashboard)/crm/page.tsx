@@ -34,6 +34,12 @@ export default function CrmDashboardPage() {
     enabled: authReady,
   });
 
+  const pipelineVelocity = useQuery({
+    queryKey: ["crm", "dashboard", "pipeline-velocity"],
+    queryFn: dashboardApi.getPipelineVelocity,
+    enabled: authReady,
+  });
+
   return (
     <PageShell data-testid="page-crm-dashboard">
       <PageHeader
@@ -51,10 +57,10 @@ export default function CrmDashboardPage() {
       {/* Visual Revenue Hub */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <PipelineVelocityChart />
+          <PipelineVelocityChart series={pipelineVelocity.data?.series} isLoading={pipelineVelocity.isLoading} />
         </div>
         <div className="lg:col-span-1">
-          <DealDistributionDonut />
+          <DealDistributionDonut stages={overview.data?.stages} isLoading={overview.isLoading} />
         </div>
       </div>
 

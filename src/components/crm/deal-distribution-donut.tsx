@@ -2,66 +2,98 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { DashboardOverview } from "@/types/crm";
 
-const mockData = [
-  { name: "Discovery", value: 140000, color: "hsl(var(--muted-foreground))" },
-  { name: "Demo Completed", value: 210000, color: "hsl(var(--chart-1, 210 100% 50%))" },
-  { name: "Proposal Sent", value: 380000, color: "hsl(var(--chart-2, 280 100% 50%))" },
-  { name: "Negotiation", value: 120000, color: "hsl(var(--chart-3, 340 100% 50%))" },
-  { name: "Closed Won", value: 450000, color: "hsl(var(--primary))" },
+const STAGE_COLORS = [
+  "hsl(var(--muted-foreground))",
+  "hsl(var(--chart-1, 210 100% 50%))",
+  "hsl(var(--chart-2, 280 100% 50%))",
+  "hsl(var(--chart-3, 340 100% 50%))",
+  "hsl(var(--primary))",
 ];
 
-export function DealDistributionDonut() {
+function formatTotal(value: number, currency: string): string {
+  if (value >= 1_000_000) return `${currency} ${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${currency} ${(value / 1_000).toFixed(0)}k`;
+  return `${currency} ${value.toFixed(0)}`;
+}
+
+export function DealDistributionDonut({
+  stages,
+  isLoading,
+}: {
+  stages?: DashboardOverview["stages"];
+  isLoading?: boolean;
+}) {
+  // Stage value is per-currency (never summed across currencies — a $50k deal and a ₹50k deal
+  // aren't the same 50k); this chart shows whichever currency each stage's deals are actually in,
+  // which in practice is one currency per workspace.
+  const chartData = (stages ?? [])
+    .map((stage) => ({
+      name: stage.name,
+      value: stage.valueByCurrency[0]?.value ?? 0,
+      currency: stage.valueByCurrency[0]?.currency ?? "USD",
+      count: stage.count,
+    }))
+    .filter((s) => s.value > 0);
+
+  const totalValue = chartData.reduce((sum, s) => sum + s.value, 0);
+  const totalCurrency = chartData[0]?.currency ?? "USD";
+
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Pipeline Distribution</CardTitle>
-        <CardDescription>Value by deal stage</CardDescription>
+        <CardDescription>Open value by deal stage</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center min-h-[300px]">
-        <div className="h-[250px] w-full relative">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="flex flex-col">
-                          <span className="text-[0.70rem] uppercase text-muted-foreground">
-                            {payload[0].name}
-                          </span>
-                          <span className="font-bold">
-                            ${(payload[0].value as number).toLocaleString()}
-                          </span>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : chartData.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No open deals yet.</p>
+        ) : (
+          <div className="h-[250px] w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const p = payload[0].payload as (typeof chartData)[number];
+                      return (
+                        <div className="rounded-lg border bg-background p-2 shadow-sm">
+                          <div className="flex flex-col">
+                            <span className="text-[0.70rem] uppercase text-muted-foreground">{p.name}</span>
+                            <span className="font-bold">{formatTotal(p.value, p.currency)}</span>
+                            <span className="text-[0.65rem] text-muted-foreground">{p.count} deals</span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Pie
-                data={mockData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-                stroke="none"
-              >
-                {mockData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-xl font-bold tabular-nums">$1.3M</span>
-            <span className="text-xs text-muted-foreground">Total Open</span>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={entry.name} fill={STAGE_COLORS[index % STAGE_COLORS.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-xl font-bold tabular-nums">{formatTotal(totalValue, totalCurrency)}</span>
+              <span className="text-xs text-muted-foreground">Total Open</span>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
