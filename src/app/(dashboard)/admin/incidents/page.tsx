@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Radar } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -15,6 +15,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useIncidentsApi } from "@/lib/incidents";
 import { useWorkspaceRole } from "@/lib/workspace-role";
+
+/** ADI-17 (§11.3) — the only sources a human ever picks from "Report incident" above; anything
+ * else means a scheduled anomaly-detection job created it (bounce-rate spike today, signal-volume
+ * drift/quota pacing/etc. per the vision doc's §11.3 list once those jobs exist) — generic on
+ * `source`, not hardcoded to any one category, so new anomaly jobs pick this up automatically. */
+const MANUAL_INCIDENT_SOURCES = new Set(["manual", "integration", "provider"]);
+function isAutoDetectedSource(source: string): boolean {
+  return !MANUAL_INCIDENT_SOURCES.has(source);
+}
 
 /** §11.3 / §17.18 — Incident management UI. */
 export default function IncidentsPage() {
@@ -85,6 +94,12 @@ export default function IncidentsPage() {
                   <div className="flex items-center gap-2">
                     <Badge tone={inc.status === "resolved" ? "success" : "warning"}>{inc.status}</Badge>
                     <Badge tone="muted">{inc.severity}</Badge>
+                    {isAutoDetectedSource(inc.source) && (
+                      <Badge tone="info" className="gap-1">
+                        <Radar className="h-3 w-3" />
+                        Auto-detected
+                      </Badge>
+                    )}
                     <span className="font-medium">{inc.title}</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{inc.source} · {inc.detectedAt}</p>
