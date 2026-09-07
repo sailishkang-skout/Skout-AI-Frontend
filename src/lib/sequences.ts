@@ -22,6 +22,15 @@ import type {
   SequenceVersionSummary,
 } from "@/types/api";
 
+export interface SequencePerformancePoint {
+  date: string;
+  sent: number;
+  opens: number;
+  replies: number;
+  openRate: number;
+  replyRate: number;
+}
+
 interface ListEnvelope<T> {
   workspaceId: string;
   data: T[];
@@ -166,6 +175,11 @@ export function useSequencesApi() {
 
     getAnalytics: (sequenceId: string) =>
       fetchApi<SequenceAnalytics>(`/api/v1/sequences/${sequenceId}/analytics`),
+
+    /** GTM revamp — Global Sequence Performance chart: real open/reply rate across every
+     * sequence in the workspace, bucketed per day. */
+    getPerformance: () =>
+      fetchApi<{ workspaceId: string; data: SequencePerformancePoint[] }>("/api/v1/sequences/performance"),
 
     listEnrollments: (sequenceId: string) =>
       fetchApi<ListEnvelope<SequenceEnrollment>>(`/api/v1/sequences/${sequenceId}/enrollments`),

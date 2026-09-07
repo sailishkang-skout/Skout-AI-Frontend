@@ -2,27 +2,21 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { EnrichmentEfficiencyPoint } from "@/lib/enrichment";
 
-// Simulated 7-day enrichment success data
-const generateData = () => {
-  const data = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const spent = Math.floor(Math.random() * 500) + 100;
-    const found = Math.floor(spent * (Math.random() * 0.4 + 0.4)); // 40-80% success rate
-    data.push({
-      date: date.toLocaleDateString("en-US", { weekday: "short" }),
-      spent: spent,
-      found: found,
-    });
-  }
-  return data;
-};
+interface EnrichmentSuccessChartProps {
+  data?: EnrichmentEfficiencyPoint[];
+  isLoading?: boolean;
+}
 
-const mockData = generateData();
+export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessChartProps) {
+  const chartData = (data ?? []).map((point) => ({
+    date: new Date(point.date).toLocaleDateString("en-US", { weekday: "short" }),
+    spent: point.spent,
+    found: point.found,
+  }));
+  const hasActivity = chartData.some((d) => d.spent > 0 || d.found > 0);
 
-export function EnrichmentSuccessChart() {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
@@ -31,8 +25,15 @@ export function EnrichmentSuccessChart() {
       </CardHeader>
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+          ) : !hasActivity ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No enrichment activity in the last 7 days.
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={mockData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
               <XAxis 
                 dataKey="date" 
@@ -82,6 +83,7 @@ export function EnrichmentSuccessChart() {
               />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </CardContent>
     </Card>

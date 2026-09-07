@@ -13,6 +13,13 @@ interface ListAccountSignalsEnvelope {
   total: number;
 }
 
+export interface SignalDensityResult {
+  byType: { signalType: string; count: number }[];
+  totalThisPeriod: number;
+  totalPreviousPeriod: number;
+  changePct: number | null;
+}
+
 export const ACCOUNT_SIGNALS_QUERY_KEY = ["signals", "accounts"] as const;
 
 /** R11.1/R11.2/R11.3/8.5 — unified signal timeline + Signal Center account ranking.
@@ -34,6 +41,8 @@ export function useSignalsApi() {
       const qs = params.toString();
       return fetchApi<ListAccountSignalsEnvelope>(`/api/v1/signals/accounts${qs ? `?${qs}` : ""}`);
     },
+    /** GTM revamp — Signal Density chart + the week-over-week volume comparison next to it. */
+    getDensity: () => fetchApi<SignalDensityResult>("/api/v1/signals/density"),
     /** 8.5 — Record a custom intent signal for an entity (company/prospect). */
     recordSignal: (payload: {
       entityId: string;

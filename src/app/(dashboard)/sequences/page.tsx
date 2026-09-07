@@ -39,6 +39,12 @@ export default function SequencesPage() {
     enabled: authReady,
   });
 
+  const performance = useQuery({
+    queryKey: ["sequences", "performance"],
+    queryFn: sequencesApi.getPerformance,
+    enabled: authReady,
+  });
+
   const sequenceData = sequences.data?.data ?? [];
   const experimentData = experiments.data?.data ?? [];
 
@@ -78,7 +84,7 @@ export default function SequencesPage() {
       />
 
       <div className="mb-6">
-        <SequencePerformanceChart />
+        <SequencePerformanceChart data={performance.data?.data} isLoading={performance.isLoading} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

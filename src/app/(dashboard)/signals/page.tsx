@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ListPlus, Plus, Send } from "lucide-react";
+import { CheckCircle2, ListPlus, Minus, Plus, Send, TrendingDown, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { RecordSignalDialog } from "@/components/signals/record-signal-dialog";
@@ -24,6 +24,7 @@ import {
   timeAgoShort,
   useSignalsApi,
 } from "@/lib/signals";
+import { SignalDensityChart } from "@/components/signals/signal-density-chart";
 import type { AccountSignalSummary, Signal, SignalStackBand } from "@/types/api";
 
 const BAND_TONE: Record<SignalStackBand, BadgeProps["tone"]> = {
@@ -186,8 +187,6 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
   );
 }
 
-import { SignalDensityChart } from "@/components/signals/signal-density-chart";
-
 export default function SignalCenterPage() {
   const authReady = useAuthReady();
   const signalsApi = useSignalsApi();
@@ -198,6 +197,12 @@ export default function SignalCenterPage() {
   const accountsQuery = useQuery({
     queryKey: ACCOUNT_SIGNALS_QUERY_KEY,
     queryFn: () => signalsApi.listAccounts({ limit: 100 }),
+    enabled: authReady,
+  });
+
+  const densityQuery = useQuery({
+    queryKey: ["signals", "density"],
+    queryFn: () => signalsApi.getDensity(),
     enabled: authReady,
   });
 
@@ -240,16 +245,63 @@ export default function SignalCenterPage() {
 
       <div className="grid gap-6 lg:grid-cols-3 mb-6">
         <div className="lg:col-span-1">
-          <SignalDensityChart />
+          <SignalDensityChart data={densityQuery.data?.byType} isLoading={densityQuery.isLoading} />
         </div>
         <div className="lg:col-span-2">
-          {/* We'll leave room here for a future trend chart or signal feed summary */}
           <Card className="flex h-full flex-col items-center justify-center border-dashed bg-transparent p-6 text-center text-muted-foreground">
-            <div className="rounded-full bg-muted p-3">
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 text-sm font-semibold text-foreground">Pipeline Health Strong</h3>
-            <p className="mt-1 text-sm">Signal volume is up 24% this week. Focus on Hot accounts below.</p>
+            {(() => {
+              const changePct = densityQuery.data?.changePct ?? null;
+              const total = densityQuery.data?.totalThisPeriod ?? 0;
+              if (densityQuery.isLoading) {
+                return <p className="text-sm">Loading signal trend…</p>;
+              }
+              if (total === 0) {
+                return (
+                  <>
+                    <div className="rounded-full bg-muted p-3">
+                      <Minus className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-sm font-semibold text-foreground">No Signals Yet</h3>
+                    <p className="mt-1 text-sm">No signals detected in the last 7 days.</p>
+                  </>
+                );
+              }
+              if (changePct === null) {
+                return (
+                  <>
+                    <div className="rounded-full bg-muted p-3">
+                      <CheckCircle2 className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-sm font-semibold text-foreground">Signal Activity</h3>
+                    <p className="mt-1 text-sm">
+                      {total} signal{total === 1 ? "" : "s"} detected this week. Focus on Hot accounts below.
+                    </p>
+                  </>
+                );
+              }
+              const isUp = changePct > 0;
+              const isFlat = changePct === 0;
+              return (
+                <>
+                  <div className="rounded-full bg-muted p-3">
+                    {isFlat ? (
+                      <Minus className="h-6 w-6" />
+                    ) : isUp ? (
+                      <TrendingUp className="h-6 w-6" />
+                    ) : (
+                      <TrendingDown className="h-6 w-6" />
+                    )}
+                  </div>
+                  <h3 className="mt-4 text-sm font-semibold text-foreground">
+                    {isFlat ? "Signal Volume Steady" : isUp ? "Signal Volume Rising" : "Signal Volume Declining"}
+                  </h3>
+                  <p className="mt-1 text-sm">
+                    Signal volume is {isFlat ? "flat" : `${isUp ? "up" : "down"} ${Math.abs(Math.round(changePct))}%`} this
+                    week. Focus on Hot accounts below.
+                  </p>
+                </>
+              );
+            })()}
           </Card>
         </div>
       </div>

@@ -81,6 +81,12 @@ export default function EnrichmentPage() {
     staleTime: 0,
   });
 
+  const efficiency = useQuery({
+    queryKey: ["enrichment", "efficiency"],
+    queryFn: enrichmentApi.getEfficiency,
+    enabled: authReady,
+  });
+
   const jobs = useQuery({
     queryKey: JOBS_QUERY_KEY,
     queryFn: enrichmentApi.listJobs,
@@ -209,7 +215,7 @@ export default function EnrichmentPage() {
       <DemoBanner />
 
       <div className="mb-8">
-        <EnrichmentSuccessChart />
+        <EnrichmentSuccessChart data={efficiency.data?.data} isLoading={efficiency.isLoading} />
       </div>
 
       <div className="grid gap-8 lg:grid-cols-5">

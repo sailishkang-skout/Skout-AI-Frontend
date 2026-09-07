@@ -2,30 +2,21 @@
 
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { SequencePerformancePoint } from "@/lib/sequences";
 
-// Simulated historical conversion data
-const generateData = () => {
-  const data = [];
-  let openRate = 45;
-  let replyRate = 12;
-  for (let i = 14; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      openRate: openRate,
-      replyRate: replyRate,
-    });
-    // Add random walk
-    openRate = Math.max(20, Math.min(80, openRate + (Math.floor(Math.random() * 7) - 3)));
-    replyRate = Math.max(2, Math.min(30, replyRate + (Math.floor(Math.random() * 3) - 1)));
-  }
-  return data;
-};
+interface SequencePerformanceChartProps {
+  data?: SequencePerformancePoint[];
+  isLoading?: boolean;
+}
 
-const mockData = generateData();
+export function SequencePerformanceChart({ data, isLoading }: SequencePerformanceChartProps) {
+  const chartData = (data ?? []).map((point) => ({
+    date: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    openRate: point.openRate,
+    replyRate: point.replyRate,
+  }));
+  const hasSends = (data ?? []).some((point) => point.sent > 0);
 
-export function SequencePerformanceChart() {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
@@ -34,8 +25,15 @@ export function SequencePerformanceChart() {
       </CardHeader>
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+          ) : !hasSends ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No emails sent in the last 14 days.
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mockData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
               <XAxis 
                 dataKey="date" 
@@ -90,6 +88,7 @@ export function SequencePerformanceChart() {
               />
             </LineChart>
           </ResponsiveContainer>
+          )}
         </div>
       </CardContent>
     </Card>
