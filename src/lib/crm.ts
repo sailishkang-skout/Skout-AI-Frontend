@@ -3,6 +3,7 @@ import { WORKSPACE_ID } from "./enrichment";
 import type {
   CrmConnectionsResponse,
   CrmExportJob,
+  CrmSyncStatus,
   HubSpotConnectResponse,
   HubSpotImportResponse,
   HubSpotListsResponse,
@@ -28,6 +29,9 @@ export function useCrmApi() {
 
     listHubSpotLists: () =>
       fetchApi<HubSpotListsResponse>("/api/v1/crm/hubspot/lists", { workspaceId: WORKSPACE_ID }),
+
+    getSyncStatus: () =>
+      fetchApi<{ data: CrmSyncStatus }>("/api/v1/crm/hubspot/sync-status", { workspaceId: WORKSPACE_ID }),
 
     importFromHubSpot: (body: {
       source: "all" | "list";
