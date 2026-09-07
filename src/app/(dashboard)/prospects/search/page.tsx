@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
@@ -63,6 +63,7 @@ export default function ProspectSearchPage() {
 
   const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const deepLinkProspectId = searchParams.get("prospectId");
 
   // R17.3 — notification "alert links directly to the account/signal detail" deep link: open
@@ -298,6 +299,28 @@ export default function ProspectSearchPage() {
     },
   });
 
+  // ADI-15 (§4, §10.1) — "Enrich" carries the selection into a workbook run instead of
+  // landing on an empty one. A workbook run always targets a list (there's no workbook-run
+  // path that accepts raw prospectIds without one), so this adds the selection to the chosen
+  // list first, then hands the same list + prospectIds to the Workbooks page as a prefill.
+  const enrichSelected = useMutation({
+    mutationFn: async () => {
+      const prospectIds = Array.from(selected);
+      await enrichmentApi.addToList(addListId, prospectIds);
+      return prospectIds;
+    },
+    onSuccess: (prospectIds) => {
+      setAddError(null);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      router.push(`/enrichment/workbooks?listId=${addListId}&prospectIds=${prospectIds.join(",")}`);
+    },
+    onError: (err) => {
+      setAddedMsg(null);
+      setAddError(formatQueryError(err, "Couldn't prepare these prospects for enrichment."));
+    },
+  });
+
   return (
     <PageShell data-testid="page-prospect-search">
       <PageHeader
@@ -384,6 +407,20 @@ export default function ProspectSearchPage() {
                 <UserPlus className="h-4 w-4" />
               )}
               Add to list
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!addListId || enrichSelected.isPending}
+              onClick={() => enrichSelected.mutate()}
+              className="w-full sm:w-auto"
+            >
+              {enrichSelected.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Enrich
             </Button>
             {addedMsg && (
               <span className="flex items-center gap-1 text-sm text-green-700 dark:text-green-400">

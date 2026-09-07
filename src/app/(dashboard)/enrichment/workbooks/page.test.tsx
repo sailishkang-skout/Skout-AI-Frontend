@@ -4,15 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkbooksPage from "./page";
 import type { EnrichmentWorkbook, WorkbookColumn, WorkbookRun, WorkbookRunRow } from "@/types/api";
 
+const mockSearchParams = vi.fn(() => new URLSearchParams());
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => mockSearchParams(),
+}));
+
 const mockList = vi.fn();
 const mockListRuns = vi.fn();
+const mockListMembers = vi.fn();
 vi.mock("@/lib/workbooks", () => ({
   WORKBOOKS_QUERY_KEY: ["workbooks"],
   workbookRunsQueryKey: (id: string) => ["workbooks", id, "runs"],
   useWorkbooksApi: () => ({
     list: mockList,
     listRuns: mockListRuns,
-    listMembers: vi.fn(),
+    listMembers: mockListMembers,
     get: vi.fn(),
     getRun: vi.fn(),
     activate: vi.fn(),
@@ -39,8 +45,9 @@ vi.mock("@/lib/workbook-columns", () => ({
   }),
 }));
 
+const mockListLists = vi.fn();
 vi.mock("@/lib/enrichment", () => ({
-  useEnrichmentApi: () => ({ listLists: vi.fn() }),
+  useEnrichmentApi: () => ({ listLists: mockListLists }),
 }));
 
 const DRAFT_WORKBOOK: EnrichmentWorkbook = {
@@ -125,6 +132,7 @@ function renderPage() {
 describe("WorkbooksPage — flexible columns (ADI-12)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.mockReturnValue(new URLSearchParams());
     mockList.mockResolvedValue({ data: [ACTIVE_WORKBOOK], total: 1 });
     mockListRuns.mockResolvedValue({ data: [RUN], total: 1 });
     mockColumnsList.mockResolvedValue({ data: [COLUMN], total: 1 });
@@ -217,6 +225,7 @@ describe("WorkbooksPage — flexible columns (ADI-12)", () => {
 describe("WorkbooksPage — activation results list (ADI-13)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.mockReturnValue(new URLSearchParams());
     mockListRuns.mockResolvedValue(NO_RUNS);
   });
 
@@ -242,5 +251,50 @@ describe("WorkbooksPage — activation results list (ADI-13)", () => {
 
     const link = await screen.findByRole("link", { name: /view results list/i });
     expect(link.getAttribute("href")).toBe("/lists/list-1");
+  });
+});
+
+describe("WorkbooksPage — Discover-to-workbook prefill (ADI-15)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListRuns.mockResolvedValue(NO_RUNS);
+    mockColumnsList.mockResolvedValue({ data: [], total: 0 });
+    mockGetRunRows.mockResolvedValue({ data: [], total: 0 });
+    mockListLists.mockResolvedValue({ data: [{ id: "list-1", name: "Discover selection" }] });
+    mockListMembers.mockResolvedValue([]);
+  });
+
+  afterEach(() => cleanup());
+
+  it("auto-opens Start Run pre-filled with the carried list + rows when exactly one workbook exists", async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams("listId=list-1&prospectIds=p1,p2"));
+    mockList.mockResolvedValue({ data: [ACTIVE_WORKBOOK], total: 1 });
+    renderPage();
+
+    await screen.findByText("Start Workbook Run");
+    const [targetListSelect, modeSelect] = screen.getAllByRole("combobox") as HTMLSelectElement[];
+    expect(targetListSelect.value).toBe("list-1");
+    expect(modeSelect.value).toBe("selected");
+  });
+
+  it("shows a banner instead of auto-opening when more than one workbook exists", async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams("listId=list-1&prospectIds=p1,p2"));
+    mockList.mockResolvedValue({
+      data: [ACTIVE_WORKBOOK, { ...ACTIVE_WORKBOOK, id: "wb-2", name: "Second Workbook" }],
+      total: 2,
+    });
+    renderPage();
+
+    await screen.findByText(/2 prospects from discover/i);
+    expect(screen.queryByText("Start Workbook Run")).toBeNull();
+  });
+
+  it("does not show the prefill banner or auto-open when no prefill params are present", async () => {
+    mockList.mockResolvedValue({ data: [ACTIVE_WORKBOOK], total: 1 });
+    renderPage();
+
+    await screen.findByText("Test Workbook");
+    expect(screen.queryByText(/prospects from discover/i)).toBeNull();
+    expect(screen.queryByText("Start Workbook Run")).toBeNull();
   });
 });
