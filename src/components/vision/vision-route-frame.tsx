@@ -25,6 +25,7 @@ export function VisionRouteFrame({ children }: { children: React.ReactNode }) {
       config={config}
       entityType={entity.entityType}
       entityId={entity.entityId}
+      hideFooter
     >
       {children}
     </VisionConceptFrame>
