@@ -341,9 +341,12 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
                     <p className="text-xs font-medium leading-tight text-orange-900 dark:text-orange-200">
                       Step 1 open rate ({Math.round(steps[0].openRate)}%) is below average.
                     </p>
-                    <button className="text-[11px] font-semibold text-orange-600 hover:underline dark:text-orange-400">
-                      Improve Subject Line with AI ✨
-                    </button>
+                    <Link
+                      href={`/sequences/${sequence.id}`}
+                      className="text-[11px] font-semibold text-orange-600 hover:underline dark:text-orange-400"
+                    >
+                      Edit Subject Line →
+                    </Link>
                   </div>
                 </div>
               </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
+import { useEnrichmentApi } from "@/lib/enrichment";
 import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 
@@ -79,6 +81,61 @@ export default function Account360Page() {
     return null;
   }, [data, lookupId, mode]);
 
+  // The account/person's own resolvable prospect id — a company has no prospectId of its own,
+  // so "Enrich Account" and "Add to Sequence" act on its first known buying-committee contact.
+  const targetProspectId = useMemo(() => {
+    if (mode === "person") return lookupId;
+    if (!data) return null;
+    const committee = "buyingCommittee" in data && Array.isArray(data.buyingCommittee) ? data.buyingCommittee : [];
+    const firstContact = committee[0] as { id?: string } | undefined;
+    return firstContact?.id ? String(firstContact.id) : null;
+  }, [data, lookupId, mode]);
+
+  const companyDomain = useMemo(() => {
+    if (mode !== "account" || !data) return null;
+    return (data as unknown as { company?: { domain?: string } }).company?.domain ?? null;
+  }, [data, mode]);
+
+  const recordLabel =
+    mode === "account"
+      ? ((data as unknown as { company?: { name?: string } })?.company?.name ?? "this account")
+      : ((data as unknown as { professionalFacts?: { fullName?: string } })?.professionalFacts?.fullName ?? "this person");
+
+  const enrichmentApi = useEnrichmentApi();
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  /**
+   * A workbook run always targets a static list (there's no "enrich one ad-hoc prospect"
+   * endpoint), and sequence enrollment likewise reads a list's real "Run sequence" action on
+   * the Lists page — so both "Enrich" and "Add to Sequence" here create a small single-purpose
+   * list for the resolved contact and hand off to the page that already does the real work,
+   * rather than guessing at a bespoke single-record flow.
+   */
+  const createSingleProspectList = useMutation({
+    mutationFn: async (destination: "list" | "workbooks") => {
+      if (!targetProspectId) throw new Error("no_resolvable_contact");
+      const list = await enrichmentApi.createList(`${recordLabel} — ${new Date().toISOString().slice(0, 10)}`);
+      await enrichmentApi.addToList(list.id, [targetProspectId]);
+      return { listId: list.id, destination };
+    },
+    onSuccess: ({ listId, destination }) => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      // "Add to Sequence" lands where the real "Run sequence" action already lives; "Enrich"
+      // lands on Workbooks, where the new list (now with a real prospect count) is selectable
+      // from the Target List dropdown.
+      router.push(destination === "list" ? `/lists/${listId}` : "/enrichment/workbooks");
+    },
+    onError: (err) => {
+      setActionError(
+        err instanceof Error && err.message === "no_resolvable_contact"
+          ? "No known contact for this account yet — add a buying-committee contact first."
+          : "Something went wrong. Please try again."
+      );
+    },
+  });
+
   return (
     <PageShell width="narrow">
       <PageHeader
@@ -129,25 +186,52 @@ export default function Account360Page() {
                 <div className="flex items-center gap-2">
                   {mode === "account" ? (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/prospects/search?companyId=${lookupId}`)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!companyDomain}
+                        title={companyDomain ? undefined : "No known domain for this account yet"}
+                        onClick={() => router.push(`/prospects/search?companyDomain=${encodeURIComponent(companyDomain!)}`)}
+                      >
                         Find Contacts
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/enrichment/new?type=account&id=${lookupId}`)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!targetProspectId || createSingleProspectList.isPending}
+                        onClick={() => createSingleProspectList.mutate("workbooks")}
+                      >
+                        {createSingleProspectList.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                         Enrich Account
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/sequences/add?prospectId=${lookupId}`)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!targetProspectId || createSingleProspectList.isPending}
+                        onClick={() => createSingleProspectList.mutate("list")}
+                      >
+                        {createSingleProspectList.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                         Add to Sequence
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/enrichment/new?type=person&id=${lookupId}`)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!targetProspectId || createSingleProspectList.isPending}
+                        onClick={() => createSingleProspectList.mutate("workbooks")}
+                      >
+                        {createSingleProspectList.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                         Enrich Person
                       </Button>
                     </>
                   )}
                 </div>
               </div>
+              {actionError && (
+                <p className="mt-2 text-xs text-destructive">{actionError}</p>
+              )}
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {mode === "account" ? (
