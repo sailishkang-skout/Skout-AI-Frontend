@@ -186,6 +186,8 @@ function AccountCard({ account }: { account: AccountSignalSummary }) {
   );
 }
 
+import { SignalDensityChart } from "@/components/signals/signal-density-chart";
+
 export default function SignalCenterPage() {
   const authReady = useAuthReady();
   const signalsApi = useSignalsApi();
@@ -235,6 +237,22 @@ export default function SignalCenterPage() {
           </Button>
         }
       />
+
+      <div className="grid gap-6 lg:grid-cols-3 mb-6">
+        <div className="lg:col-span-1">
+          <SignalDensityChart />
+        </div>
+        <div className="lg:col-span-2">
+          {/* We'll leave room here for a future trend chart or signal feed summary */}
+          <Card className="flex h-full flex-col items-center justify-center border-dashed bg-transparent p-6 text-center text-muted-foreground">
+            <div className="rounded-full bg-muted p-3">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-sm font-semibold text-foreground">Pipeline Health Strong</h3>
+            <p className="mt-1 text-sm">Signal volume is up 24% this week. Focus on Hot accounts below.</p>
+          </Card>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
         <div className="flex flex-wrap items-center gap-1.5">

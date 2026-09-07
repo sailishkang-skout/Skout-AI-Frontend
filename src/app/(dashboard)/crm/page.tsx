@@ -14,6 +14,9 @@ import { useCrmDashboardApi } from "@/lib/crm/dashboard";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { ACTIVITY_TYPE_ICON, ACTIVITY_TYPE_LABEL, formatDateTime, formatMoneyByCurrency } from "@/lib/crm-display";
 
+import { PipelineVelocityChart } from "@/components/crm/pipeline-velocity-chart";
+import { DealDistributionDonut } from "@/components/crm/deal-distribution-donut";
+
 function taskStatSub(dueToday: number, overdue: number): string | undefined {
   const parts: string[] = [];
   if (dueToday > 0) parts.push(`${dueToday} due today`);
@@ -45,7 +48,18 @@ export default function CrmDashboardPage() {
         </Alert>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Visual Revenue Hub */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <PipelineVelocityChart />
+        </div>
+        <div className="lg:col-span-1">
+          <DealDistributionDonut />
+        </div>
+      </div>
+
+      {/* Stat Grid */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {overview.isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
@@ -101,7 +115,11 @@ export default function CrmDashboardPage() {
                 return (
                   <li key={activity.id} className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
-                      <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      {Icon ? (
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      ) : (
+                        <div className="h-3.5 w-3.5 rounded-full bg-muted-foreground/30" aria-hidden />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-2">

@@ -113,17 +113,40 @@ export default function Account360Page() {
           )}
 
           {/* Main Record Header Card */}
-          <Card className="border-l-4 border-l-primary">
+          <Card className="border-l-4 border-l-primary relative">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">
-                  {mode === "account"
-                    ? ((data as unknown as { company?: { name?: string } }).company?.name ?? "Account Profile")
-                    : ((data as unknown as { professionalFacts?: { fullName?: string } }).professionalFacts?.fullName ?? "Person Profile")}
-                </CardTitle>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary capitalize">
-                  {mode} 360 View
-                </span>
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-xl">
+                    {mode === "account"
+                      ? ((data as unknown as { company?: { name?: string } }).company?.name ?? "Account Profile")
+                      : ((data as unknown as { professionalFacts?: { fullName?: string } }).professionalFacts?.fullName ?? "Person Profile")}
+                  </CardTitle>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary capitalize">
+                    {mode} 360 View
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {mode === "account" ? (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/prospects/search?companyId=${lookupId}`)}>
+                        Find Contacts
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/enrichment/new?type=account&id=${lookupId}`)}>
+                        Enrich Account
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/sequences/add?prospectId=${lookupId}`)}>
+                        Add to Sequence
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => router.push(`/enrichment/new?type=person&id=${lookupId}`)}>
+                        Enrich Person
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">

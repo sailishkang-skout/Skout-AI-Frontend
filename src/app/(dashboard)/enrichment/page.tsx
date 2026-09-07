@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { EnrichmentSuccessChart } from "@/components/enrichment/enrichment-success-chart";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -206,6 +207,10 @@ export default function EnrichmentPage() {
       />
 
       <DemoBanner />
+
+      <div className="mb-8">
+        <EnrichmentSuccessChart />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-5">
         <Card className="lg:col-span-3">

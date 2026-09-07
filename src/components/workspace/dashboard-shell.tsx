@@ -11,6 +11,7 @@ import {
   useProductTourOptional,
 } from "@/components/onboarding/product-tour-provider";
 import { cn } from "@/lib/utils";
+import { CommandPalette } from "@/components/layout/command-palette";
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,6 +83,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <WorkspaceAiChat />
+      <CommandPalette />
     </div>
   );
 }
