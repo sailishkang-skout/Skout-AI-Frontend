@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
+import { SignalActionRail } from "@/components/crm/signal-action-rail";
 import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -79,6 +80,17 @@ export default function Account360Page() {
     return null;
   }, [data, lookupId, mode]);
 
+  // Enrollment needs a resolvable prospect id — a deal id (nbaTarget's own priority) doesn't
+  // work for sequence enrollment, so this is computed independently of nbaTarget.
+  const enrollProspectId = useMemo(() => {
+    if (mode === "person") return lookupId;
+    if (!data) return null;
+    const committee =
+      "buyingCommittee" in data && Array.isArray(data.buyingCommittee) ? data.buyingCommittee : [];
+    const firstContact = committee[0] as { id?: string } | undefined;
+    return firstContact?.id ? String(firstContact.id) : null;
+  }, [data, lookupId, mode]);
+
   return (
     <PageShell width="narrow">
       <PageHeader
@@ -111,6 +123,7 @@ export default function Account360Page() {
           {nbaTarget && (
             <NextBestActionCard entityType={nbaTarget.entityType} entityId={nbaTarget.entityId} />
           )}
+          <SignalActionRail signals={signals} enrollProspectId={enrollProspectId} />
 
           {/* Main Record Header Card */}
           <Card className="border-l-4 border-l-primary">
