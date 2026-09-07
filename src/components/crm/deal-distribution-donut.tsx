@@ -53,7 +53,7 @@ export function DealDistributionDonut({
           <p className="text-sm text-muted-foreground">No open deals yet.</p>
         ) : (
           <div className="h-[250px] w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <PieChart>
                 <Tooltip
                   content={({ active, payload }) => {

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { EnrichmentSuccessChart } from "@/components/enrichment/enrichment-success-chart";
@@ -20,7 +20,6 @@ import { ApiError, useAuthReady } from "@/lib/api-client";
 import {
   useEnrichmentApi,
   syncCreditsAfterEnrich,
-  CREDITS_QUERY_KEY,
   JOBS_QUERY_KEY,
   refreshCredits,
   createOptimisticJobId,
@@ -33,6 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { cn } from "@/lib/utils";
 import type { EnrichField, EnrichmentJob, FieldResult } from "@/types/api";
+
+const JOBS_PAGE_SIZE = 8;
 
 const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
   { id: "company", label: "Firmographics" },
@@ -56,6 +57,7 @@ export default function EnrichmentPage() {
   const [fields, setFields] = useState<EnrichField[]>(["company", "email", "validation"]);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobsPage, setJobsPage] = useState(1);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
@@ -73,13 +75,6 @@ export default function EnrichmentPage() {
     setSelectedJobId(null);
     router.replace("/enrichment", { scroll: false });
   };
-
-  const credits = useQuery({
-    queryKey: CREDITS_QUERY_KEY,
-    queryFn: enrichmentApi.getCredits,
-    enabled: authReady,
-    staleTime: 0,
-  });
 
   const efficiency = useQuery({
     queryKey: ["enrichment", "efficiency"],
@@ -104,6 +99,12 @@ export default function EnrichmentPage() {
 
   const jobList = jobs.data?.data ?? [];
   const selectedJob = jobList.find((j) => j.id === selectedJobId);
+  const jobsTotalPages = Math.max(1, Math.ceil(jobList.length / JOBS_PAGE_SIZE));
+  const jobsPageClamped = Math.min(jobsPage, jobsTotalPages);
+  const pagedJobs = jobList.slice(
+    (jobsPageClamped - 1) * JOBS_PAGE_SIZE,
+    jobsPageClamped * JOBS_PAGE_SIZE
+  );
 
   const enrich = useMutation({
     mutationFn: () =>
@@ -194,22 +195,7 @@ export default function EnrichmentPage() {
       <PageHeader
         title="Enrichment"
         description="Find and verify emails, firmographics, and score-gated phone numbers on demand."
-        actions={
-          <>
-          <GuideLink slug="enrichment" label="Enrichment guide" compact />
-          <Card className="w-full min-w-[140px] sm:w-auto">
-            <CardContent className="flex items-center gap-3 p-3 sm:p-4">
-              <Coins className="h-7 w-7 shrink-0 text-amber-500" aria-hidden />
-              <div>
-                <p className="text-xs text-muted-foreground">Credits</p>
-                <p className="text-xl font-semibold tabular-nums sm:text-2xl">
-                  {credits.isLoading ? "—" : (credits.data?.balance ?? "—")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          </>
-        }
+        actions={<GuideLink slug="enrichment" label="Enrichment guide" compact />}
       />
 
       <DemoBanner />
@@ -367,26 +353,57 @@ export default function EnrichmentPage() {
                 ))}
               </ul>
             ) : jobList.length ? (
-              <ul className="divide-y">
-                {jobList.map((job) => (
-                  <JobListItem
-                    key={job.id}
-                    job={job}
-                    selected={selectedJobId === job.id}
-                    onSelect={() => openJob(job.id)}
-                    onRetry={
-                      job.status === "failed"
-                        ? () => {
-                            if (redirectToIcpSetup("/enrichment")) return;
-                            if (!requireCredits(1)) return;
-                            retryJob.mutate(job);
-                          }
-                        : undefined
-                    }
-                    retrying={retryJob.isPending && retryJob.variables?.id === job.id}
-                  />
-                ))}
-              </ul>
+              <>
+                <ul className="divide-y">
+                  {pagedJobs.map((job) => (
+                    <JobListItem
+                      key={job.id}
+                      job={job}
+                      selected={selectedJobId === job.id}
+                      onSelect={() => openJob(job.id)}
+                      onRetry={
+                        job.status === "failed"
+                          ? () => {
+                              if (redirectToIcpSetup("/enrichment")) return;
+                              if (!requireCredits(1)) return;
+                              retryJob.mutate(job);
+                            }
+                          : undefined
+                      }
+                      retrying={retryJob.isPending && retryJob.variables?.id === job.id}
+                    />
+                  ))}
+                </ul>
+                {jobList.length > JOBS_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      Page {jobsPageClamped} of {jobsTotalPages}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                        disabled={jobsPageClamped === 1}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJobsPage((p) => Math.min(jobsTotalPages, p + 1))}
+                        disabled={jobsPageClamped >= jobsTotalPages}
+                        aria-label="Next page"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               authReady &&
               !jobs.error && (

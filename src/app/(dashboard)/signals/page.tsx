@@ -217,6 +217,16 @@ export default function SignalCenterPage() {
     return Array.from(types);
   }, [accountsQuery.data]);
 
+  const latestSignals = useMemo(() => {
+    if (!accountsQuery.data) return [];
+    const flattened = accountsQuery.data.data.flatMap((acc) =>
+      acc.signals.map((sig) => ({ signal: sig, companyName: acc.companyName, companyId: acc.companyId, band: acc.stackScore.band }))
+    );
+    return flattened
+      .sort((a, b) => new Date(b.signal.detectedAt).getTime() - new Date(a.signal.detectedAt).getTime())
+      .slice(0, 8);
+  }, [accountsQuery.data]);
+
   const filteredAccounts = useMemo(() => {
     if (!accountsQuery.data) return [];
     return accountsQuery.data.data.filter((acc) => {
@@ -247,61 +257,99 @@ export default function SignalCenterPage() {
         <div className="lg:col-span-1">
           <SignalDensityChart data={densityQuery.data?.byType} isLoading={densityQuery.isLoading} />
         </div>
-        <div className="lg:col-span-2">
-          <Card className="flex h-full flex-col items-center justify-center border-dashed bg-transparent p-6 text-center text-muted-foreground">
-            {(() => {
-              const changePct = densityQuery.data?.changePct ?? null;
-              const total = densityQuery.data?.totalThisPeriod ?? 0;
-              if (densityQuery.isLoading) {
-                return <p className="text-sm">Loading signal trend…</p>;
-              }
-              if (total === 0) {
-                return (
-                  <>
-                    <div className="rounded-full bg-muted p-3">
-                      <Minus className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold text-foreground">No Signals Yet</h3>
-                    <p className="mt-1 text-sm">No signals detected in the last 7 days.</p>
-                  </>
-                );
-              }
-              if (changePct === null) {
-                return (
-                  <>
-                    <div className="rounded-full bg-muted p-3">
-                      <CheckCircle2 className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold text-foreground">Signal Activity</h3>
-                    <p className="mt-1 text-sm">
-                      {total} signal{total === 1 ? "" : "s"} detected this week. Focus on Hot accounts below.
-                    </p>
-                  </>
-                );
-              }
-              const isUp = changePct > 0;
-              const isFlat = changePct === 0;
+        <div className="lg:col-span-2 flex flex-col gap-3">
+          {(() => {
+            const changePct = densityQuery.data?.changePct ?? null;
+            const total = densityQuery.data?.totalThisPeriod ?? 0;
+
+            if (densityQuery.isLoading) {
               return (
-                <>
-                  <div className="rounded-full bg-muted p-3">
-                    {isFlat ? (
-                      <Minus className="h-6 w-6" />
-                    ) : isUp ? (
-                      <TrendingUp className="h-6 w-6" />
-                    ) : (
-                      <TrendingDown className="h-6 w-6" />
-                    )}
-                  </div>
-                  <h3 className="mt-4 text-sm font-semibold text-foreground">
-                    {isFlat ? "Signal Volume Steady" : isUp ? "Signal Volume Rising" : "Signal Volume Declining"}
-                  </h3>
-                  <p className="mt-1 text-sm">
-                    Signal volume is {isFlat ? "flat" : `${isUp ? "up" : "down"} ${Math.abs(Math.round(changePct))}%`} this
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+                  Loading signal trend…
+                </div>
+              );
+            }
+            if (total === 0) {
+              return (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                  <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">No signals detected in the last 7 days.</p>
+                </div>
+              );
+            }
+            if (changePct === null) {
+              return (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                  <p className="text-sm">
+                    <span className="font-medium">{total}</span> signal{total === 1 ? "" : "s"} detected this
                     week. Focus on Hot accounts below.
                   </p>
-                </>
+                </div>
               );
-            })()}
+            }
+            const isUp = changePct > 0;
+            const isFlat = changePct === 0;
+            return (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                {isFlat ? (
+                  <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : isUp ? (
+                  <TrendingUp className="h-4 w-4 shrink-0 text-emerald-500" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 shrink-0 text-amber-500" />
+                )}
+                <p className="text-sm">
+                  Signal volume is{" "}
+                  <span className="font-medium">
+                    {isFlat ? "flat" : `${isUp ? "up" : "down"} ${Math.abs(Math.round(changePct))}%`}
+                  </span>{" "}
+                  this week.
+                </p>
+              </div>
+            );
+          })()}
+
+          <Card className="flex-1">
+            <CardContent className="pt-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Latest Signals</h3>
+                <span className="text-xs text-muted-foreground">Most recent first</span>
+              </div>
+              {accountsQuery.isLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-10 animate-pulse rounded-md bg-muted/40" />
+                  ))}
+                </div>
+              ) : latestSignals.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">No signals yet.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {latestSignals.map(({ signal, companyName, companyId, band }) => (
+                    <li key={signal.id}>
+                      <Link
+                        href={`/crm/360?mode=account&id=${encodeURIComponent(companyId)}`}
+                        className="flex items-center gap-3 py-2 text-sm hover:bg-muted/40 rounded-md px-1.5 -mx-1.5"
+                      >
+                        <span className="text-base leading-none" aria-hidden>
+                          {signalIcon(signal.signalType)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{companyName ?? "Unknown company"}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {signalLabel(signal.signalType)} · {timeAgoShort(signal.detectedAt)}
+                          </span>
+                        </span>
+                        <Badge tone={BAND_TONE[band]} className="shrink-0">
+                          {BAND_LABEL[band]}
+                        </Badge>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>

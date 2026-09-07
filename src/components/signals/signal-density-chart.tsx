@@ -29,7 +29,7 @@ export function SignalDensityChart({ data, isLoading }: SignalDensityChartProps)
               No signals detected in the last 7 days.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <RadarChart cx="50%" cy="50%" outerRadius="75%" data={chartData}>
                 <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
                 <PolarAngleAxis
