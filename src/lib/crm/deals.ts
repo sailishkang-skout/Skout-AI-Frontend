@@ -19,6 +19,9 @@ export function useDealsApi() {
 
     getSummary: () => fetchApi<DealsSummary>("/api/v1/deals/summary"),
 
+    /** GTM revamp — GTM Funnel chart's "opportunities" stage: deals created in the last 30 days. */
+    getCreatedCount: () => fetchApi<{ workspaceId: string; count: number }>("/api/v1/deals/created-count"),
+
     create: (input: DealInput) =>
       fetchApi<Deal>("/api/v1/deals", { method: "POST", body: JSON.stringify(input) }),
 

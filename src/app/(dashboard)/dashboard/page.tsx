@@ -11,7 +11,9 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuthReady } from "@/lib/api-client";
-import { DASHBOARD_SUMMARY_KEY, useDashboardApi } from "@/lib/dashboard";
+import { DASHBOARD_FUNNEL_KEY, DASHBOARD_SUMMARY_KEY, useDashboardApi } from "@/lib/dashboard";
+import { useDealsApi } from "@/lib/crm/deals";
+import { useMeetingsApi } from "@/lib/crm/meetings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GtmFunnel } from "@/components/dashboard/gtm-funnel";
 import { AiInsightsFeed } from "@/components/dashboard/ai-insights-feed";
@@ -20,6 +22,8 @@ import { DashboardActivityFeed } from "@/components/dashboard/dashboard-activity
 export default function DashboardPage() {
   const authReady = useAuthReady();
   const dashboardApi = useDashboardApi();
+  const dealsApi = useDealsApi();
+  const meetingsApi = useMeetingsApi();
 
   const summary = useQuery({
     queryKey: DASHBOARD_SUMMARY_KEY,
@@ -28,7 +32,50 @@ export default function DashboardPage() {
     staleTime: 30_000,
   });
 
+  const funnel = useQuery({
+    queryKey: DASHBOARD_FUNNEL_KEY,
+    queryFn: async () => (await dashboardApi.getFunnel()).data,
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+
+  // apps/api has no server-to-server path into apps/crm's tables (§7.1), so the funnel's final
+  // two stages and the "Pipeline Ops" KPI are composed client-side from CRM's own endpoints.
+  const dealsCreated = useQuery({
+    queryKey: ["dashboard", "deals-created-count"],
+    queryFn: () => dealsApi.getCreatedCount(),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+
+  const dealsSummary = useQuery({
+    queryKey: ["dashboard", "deals-summary"],
+    queryFn: () => dealsApi.getSummary(),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+
+  const meetingsBooked = useQuery({
+    queryKey: ["dashboard", "meetings-booked-count"],
+    queryFn: () => meetingsApi.getBookedCount(),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+
   const data = summary.data;
+
+  const funnelLoading = funnel.isLoading || dealsCreated.isLoading || meetingsBooked.isLoading;
+  const funnelData =
+    funnel.data && dealsCreated.data && meetingsBooked.data
+      ? {
+          discovered: funnel.data.discovered,
+          enriched: funnel.data.enriched,
+          inSequence: funnel.data.inSequence,
+          replied: funnel.data.replied,
+          meetings: meetingsBooked.data.count,
+          opportunities: dealsCreated.data.count,
+        }
+      : undefined;
 
   return (
     <PageShell data-testid="page-dashboard" width="wide">
@@ -78,15 +125,25 @@ export default function DashboardPage() {
             <StatCard icon={Coins} label="Credits remaining" value={data?.credits?.toLocaleString() ?? "—"} href="/settings/workspace" />
             <StatCard icon={Users} label="Total Prospects" value={data?.totalProspectsInLists?.toLocaleString() ?? "—"} href="/lists" />
             <StatCard icon={Zap} label="Enriched (7d)" value={data?.enrichedThisWeek?.toLocaleString() ?? "—"} href="/enrichment" />
-            <StatCard icon={Mail} label="Active in Sequence" value="—" href="/sequences" />
-            <StatCard icon={Briefcase} label="Pipeline Ops" value="—" href="/crm/deals" />
+            <StatCard
+              icon={Mail}
+              label="Active in Sequence"
+              value={funnel.data?.activeInSequence?.toLocaleString() ?? "—"}
+              href="/sequences"
+            />
+            <StatCard
+              icon={Briefcase}
+              label="Pipeline Ops"
+              value={dealsSummary.data?.openDeals?.toLocaleString() ?? "—"}
+              href="/crm/deals"
+            />
           </>
         )}
       </div>
 
       {/* Visual Funnel */}
       <div className="mt-6">
-        <GtmFunnel data={undefined} isLoading={summary.isLoading} />
+        <GtmFunnel data={funnelData} isLoading={funnelLoading} />
       </div>
 
       {/* Main Grid: CommandCenter (Decisions/Signals) + AI Insights + Activity */}
