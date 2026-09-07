@@ -1,11 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SidebarPanel, TopBar } from "@/components/workspace/sidebar";
 import { IcpEnforcement } from "@/components/layout/icp-enforcement";
 import { WorkspaceAiChat } from "@/components/ai/workspace-ai-chat";
-import { VisionRouteFrame } from "@/components/vision/vision-route-frame";
 import {
   ProductTourProvider,
   useProductTourOptional,
@@ -77,9 +76,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             "flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
           )}
         >
-          <Suspense fallback={children}>
-            <VisionRouteFrame>{children}</VisionRouteFrame>
-          </Suspense>
+          {children}
         </main>
       </div>
       <WorkspaceAiChat />
