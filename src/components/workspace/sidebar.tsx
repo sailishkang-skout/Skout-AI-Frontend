@@ -260,14 +260,14 @@ function NavLink({
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-300",
         active
-          ? "bg-primary text-primary-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
+          ? "bg-primary text-primary-foreground animate-in fade-in duration-300"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
       <Icon
         className={cn(
-          "h-4 w-4 shrink-0 transition-transform duration-300",
-          active && "motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:spin-in-6 motion-safe:duration-300"
+          "h-4 w-4 shrink-0",
+          active && "animate-in zoom-in-50 spin-in-12 duration-500"
         )}
         aria-hidden
       />
@@ -311,8 +311,8 @@ function NavLinkGroup({
       >
         <item.icon
           className={cn(
-            "h-4 w-4 shrink-0 transition-transform duration-300",
-            childActive && "motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300"
+            "h-4 w-4 shrink-0",
+            childActive && "animate-in zoom-in-50 spin-in-12 duration-500"
           )}
           aria-hidden
         />
