@@ -37,6 +37,11 @@ const isProtectedRoute = createRouteMatcher([
   // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
   // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
   "/admin/cro(.*)",
+  "/admin/control-plane(.*)",
+  // Found missing while full-testing SP-11/SP-12: these rendered the dashboard shell for
+  // signed-out visitors (client-side gates only fail the API calls, they never redirect).
+  "/dexter(.*)",
+  "/decisions(.*)",
 ]);
 
 const useClerkMiddleware =

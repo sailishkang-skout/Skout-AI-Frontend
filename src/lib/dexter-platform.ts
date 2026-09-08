@@ -30,6 +30,12 @@ export type LinkedinVoiceHandoff = {
 /** §7.3 SP-11 — Event-spine types including core Dexter lifecycle events and GTM milestones.
  * Filter dropdown options for the event timeline. */
 export const DEXTER_EVENT_SPINE_TYPES = [
+  "dexter.plan.approved",
+  "dexter.plan.blocked",
+  "dexter.action.executed",
+  "dexter.plan.proposed",
+  "dexter.plan.invoked",
+  "dexter.plan.learned",
   "icp.approved",
   "tam.approved",
   "regional_brief.approved",
@@ -70,6 +76,37 @@ export type SkoutEventLogEntry = {
   data: Record<string, unknown>;
   occurredAt: string;
   createdAt: string;
+};
+
+export type DexterPlanDecision = "pending" | "accepted" | "rejected";
+
+export type DexterWorkspaceEvaluationSummary = {
+  acceptedCount: number;
+  rejectedCount: number;
+  pendingCount: number;
+  /** null when no plan has been decided yet (nothing to rate). */
+  acceptedRate: number | null;
+};
+
+export type DexterPlan = {
+  id: string;
+  brief: string;
+  status: string;
+  policyMode?: string;
+  proposal?: {
+    hypothesis?: string;
+    scope?: string;
+    steps?: Array<{ id: string; status: string; label?: string }>;
+    [key: string]: unknown;
+  };
+  createdAt?: string;
+  approvedAt?: string | null;
+  invokedAt?: string | null;
+  rejectedAt?: string | null;
+  decision: DexterPlanDecision;
+  replyRate: number | null;
+  meetingRate: number | null;
+  [key: string]: unknown;
 };
 
 export function useDexterPlatformApi() {
@@ -137,6 +174,12 @@ export function useDexterPlatformApi() {
     approvePlan: (id: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/dexter/plans/${id}/approve`, { method: "POST" }),
 
+    rejectPlan: (id: string, reason?: string) =>
+      fetchApi<{ data: Record<string, unknown> }>(`/api/v1/dexter/plans/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }),
+
     invokePlan: (id: string) =>
       fetchApi<{ data: { plan: Record<string, unknown> } }>(`/api/v1/dexter/plans/${id}/invoke`, {
         method: "POST",
@@ -157,8 +200,9 @@ export function useDexterPlatformApi() {
             invokedPlans: number;
             openDecisions: number;
             policyBlocks: number;
+            evaluation?: DexterWorkspaceEvaluationSummary;
           };
-          plans: Array<Record<string, unknown>>;
+          plans: DexterPlan[];
           pendingApprovals: Array<Record<string, unknown>>;
           policyBlocks: Array<Record<string, unknown>>;
           policies: { policies: Array<Record<string, unknown>>; defaults: Array<Record<string, unknown>> };

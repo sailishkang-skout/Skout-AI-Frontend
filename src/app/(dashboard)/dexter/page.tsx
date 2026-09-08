@@ -78,6 +78,18 @@ const PRESET_BRIEFS = [
   },
 ];
 
+/** §7.3 SP-12 — Evaluation Loop metrics are fractions (0-1) or null when nothing to rate yet. */
+function formatRate(rate: number | null | undefined): string {
+  if (rate === null || rate === undefined) return "—";
+  return `${Math.round(rate * 100)}%`;
+}
+
+function decisionBadgeTone(decision: string): "success" | "danger" | "muted" {
+  if (decision === "accepted") return "success";
+  if (decision === "rejected") return "danger";
+  return "muted";
+}
+
 function getEventTypeConfig(type: string) {
   switch (type) {
     case "dexter.plan.approved":
@@ -392,6 +404,33 @@ export default function DexterOrchestratorPage() {
         )}
       </div>
 
+      {/* Evaluation Loop summary (§7.3 SP-12) — accepted-vs-overridden only; pipeline/revenue
+          attribution and regional-calibration/drift aren't computed yet, so nothing here fakes
+          those. */}
+      {summary?.evaluation && (
+        <div
+          className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border/80 bg-card px-4 py-3 text-sm"
+          data-testid="dexter-evaluation-summary"
+        >
+          <span className="flex items-center gap-1.5 font-medium text-foreground">
+            <TrendingUp className="h-3.5 w-3.5 text-cyan-500" />
+            Evaluation Loop
+          </span>
+          <span className="text-muted-foreground">
+            Accepted <span className="font-semibold text-emerald-600 dark:text-emerald-400">{summary.evaluation.acceptedCount}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Rejected <span className="font-semibold text-destructive">{summary.evaluation.rejectedCount}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Pending <span className="font-semibold text-foreground">{summary.evaluation.pendingCount}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Accept rate <span className="font-semibold text-foreground">{formatRate(summary.evaluation.acceptedRate)}</span>
+          </span>
+        </div>
+      )}
+
       {/* Main Studio Grid: AI Mission Directive & Autonomy Modes */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Mission Directive Composer (7 cols) */}
@@ -599,12 +638,32 @@ export default function DexterOrchestratorPage() {
                       <Target className="h-4 w-4 text-indigo-500" />
                       Plan Blueprint
                     </span>
-                    {planPreview.scope && (
-                      <Badge tone="default" className="text-[10px] uppercase font-mono">
-                        Scope: {planPreview.scope}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {planPreview.scope && (
+                        <Badge tone="default" className="text-[10px] uppercase font-mono">
+                          Scope: {planPreview.scope}
+                        </Badge>
+                      )}
+                      {selectedPlan && (
+                        <Badge tone={decisionBadgeTone(selectedPlan.decision)} className="text-[10px] uppercase font-mono">
+                          {selectedPlan.decision}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+
+                  {/* §7.3 SP-12 — reply/meeting rate are cheap event counts off the plan's
+                      linked sequence; null (not 0) means no sequence is linked yet. */}
+                  {selectedPlan && (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-border/40 pb-2 text-xs text-muted-foreground" data-testid="dexter-plan-evaluation-metrics">
+                      <span>
+                        Reply rate <span className="font-semibold text-foreground">{formatRate(selectedPlan.replyRate)}</span>
+                      </span>
+                      <span>
+                        Meeting rate <span className="font-semibold text-foreground">{formatRate(selectedPlan.meetingRate)}</span>
+                      </span>
+                    </div>
+                  )}
 
                   {planPreview.hypothesis && (
                     <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 border-indigo-500 pl-3">
@@ -919,7 +978,7 @@ export default function DexterOrchestratorPage() {
               ))}
             </div>
           ) : (
-            <div className="relative" data-testid="dexter-event-feed">
+            <div className="relative max-h-[460px] overflow-y-auto custom-scrollbar pr-1" data-testid="dexter-event-feed">
               {/* Event Feed List */}
               <ul className="space-y-2.5">
                 {(events.data?.data ?? []).map((event) => {
