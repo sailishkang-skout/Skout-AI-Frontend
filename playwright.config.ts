@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000/app";
-const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3001";
-const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://localhost:3002";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000/app";
+const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:3001";
+const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1:3002";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -20,7 +20,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: {
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
+          ],
+        },
+      },
     },
   ],
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
