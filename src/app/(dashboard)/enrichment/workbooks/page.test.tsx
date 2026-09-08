@@ -272,9 +272,11 @@ describe("WorkbooksPage — Discover-to-workbook prefill (ADI-15)", () => {
     renderPage();
 
     await screen.findByText("Start Workbook Run");
-    const [targetListSelect, modeSelect] = screen.getAllByRole("combobox") as HTMLSelectElement[];
-    expect(targetListSelect.value).toBe("list-1");
-    expect(modeSelect.value).toBe("selected");
+    await waitFor(() => {
+      const [targetListSelect, modeSelect] = screen.getAllByRole("combobox") as HTMLSelectElement[];
+      expect(targetListSelect.value).toBe("list-1");
+      expect(modeSelect.value).toBe("selected");
+    });
   });
 
   it("shows a banner instead of auto-opening when more than one workbook exists", async () => {
@@ -290,11 +292,14 @@ describe("WorkbooksPage — Discover-to-workbook prefill (ADI-15)", () => {
   });
 
   it("does not show the prefill banner or auto-open when no prefill params are present", async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams());
     mockList.mockResolvedValue({ data: [ACTIVE_WORKBOOK], total: 1 });
     renderPage();
 
     await screen.findByText("Test Workbook");
     expect(screen.queryByText(/prospects from discover/i)).toBeNull();
+    // Small wait to ensure dialog doesn't open
+    await new Promise(r => setTimeout(r, 100));
     expect(screen.queryByText("Start Workbook Run")).toBeNull();
   });
 });

@@ -532,7 +532,19 @@ export default function ProspectSearchPage() {
                           <ExternalLink className="h-4 w-4" />
                           Details
                         </Button>
-                        {score != null ? (
+                        {/* SS-11: Render fit and timing scores if available, else single composite score */}
+                        {p.fitScore != null && p.timingScore != null ? (
+                          <div className="flex gap-2 justify-center sm:self-center">
+                            <div className="flex flex-col items-center">
+                              <ScorePill score={p.fitScore} className="justify-center" />
+                              <span className="text-[10px] text-muted-foreground mt-0.5">ICP Match</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <ScorePill score={p.timingScore} className="justify-center" />
+                              <span className="text-[10px] text-muted-foreground mt-0.5">Signal Timing</span>
+                            </div>
+                          </div>
+                        ) : score != null ? (
                           <ScorePill
                             score={score}
                             className="justify-center sm:self-center"
