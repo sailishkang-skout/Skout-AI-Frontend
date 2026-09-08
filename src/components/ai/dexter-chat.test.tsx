@@ -152,6 +152,41 @@ describe("DexterChat — §8.13 SP-13 tool response rendering", () => {
     expect(screen.getByRole("button", { name: /Open Enrichment Run/ })).toBeTruthy();
   });
 
+  it("lets a user switch personas and passes the selection through to the chat call (§8.13 SP-14)", async () => {
+    mockChat.mockResolvedValue({ reply: "Sure.", action: { type: "none" }, applied: false });
+
+    renderChat();
+    fireEvent.click(screen.getByTestId("dexter-fab"));
+
+    const select = screen.getByTestId("dexter-persona-select") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    // All 4 personas are selectable.
+    expect(screen.getByRole("option", { name: "Sales" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "CRM Data" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Meeting/Call" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "GTM Strategy" })).toBeTruthy();
+
+    fireEvent.change(select, { target: { value: "crm_data" } });
+    expect(select.value).toBe("crm_data");
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "who owns acme corp" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Dexter" }));
+
+    await waitFor(() => screen.getByText("Sure."));
+    expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ persona: "crm_data" }));
+  });
+
+  it("defaults to no persona (general assistant) when the user never switches", async () => {
+    mockChat.mockResolvedValue({ reply: "Sure.", action: { type: "none" }, applied: false });
+
+    renderChat();
+    await openPanelAndSend("hi");
+
+    await waitFor(() => screen.getByText("Sure."));
+    expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ persona: undefined }));
+  });
+
   it("surfaces draft_content's confirmed result instead of discarding it", async () => {
     const preview: ToolActionPreview = {
       toolName: "draft_content",

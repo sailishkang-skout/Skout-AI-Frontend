@@ -18,10 +18,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   useAiChatApi,
+  COPILOT_PERSONA_OPTIONS,
   type ChatAction,
   type ChatContext,
   type ChatExportArtifact,
   type ChatMode,
+  type CopilotPersona,
   type ScoreBreakdown,
   type ToolActionPreview,
 } from "@/lib/ai-chat";
@@ -131,6 +133,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
+  const [persona, setPersona] = useState<CopilotPersona | undefined>(undefined);
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [listening, setListening] = useState(false);
@@ -259,6 +262,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         messages,
         mode,
         agent: "dexter",
+        persona,
         context,
       });
     },
@@ -601,6 +605,26 @@ function submitText(text: string) {
             <X className="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <label htmlFor="dexter-persona-select" className="text-[11px] font-medium text-muted-foreground">
+          Persona
+        </label>
+        <select
+          id="dexter-persona-select"
+          data-testid="dexter-persona-select"
+          value={persona ?? ""}
+          onChange={(e) => setPersona((e.target.value || undefined) as CopilotPersona | undefined)}
+          className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+        >
+          <option value="">General (no persona)</option>
+          {COPILOT_PERSONA_OPTIONS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="border-b border-border bg-emerald-50/50 px-3 py-2 dark:bg-emerald-950/20">

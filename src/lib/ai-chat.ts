@@ -117,8 +117,34 @@ export interface ToolActionPreview {
 }
 
 export type ChatMode = "auto" | "ask";
-/** "cro" = R19.2 admin-only CRO Copilot persona. */
+/** "cro" = R19.2 admin-only exec rollup agent — a different axis from CopilotPersona below (see
+ * ai-copilot-personas.service.ts's doc comment): `agent` governs real security/behavioral
+ * differences, `persona` only adds a role-specific framing (and, for some personas, a narrower
+ * tool subset) on top of whichever agent is active. */
 export type ChatAgent = "skout" | "dexter" | "cro";
+
+/** §8.13 SP-14 — mirrors COPILOT_PERSONAS verbatim (backend ai-copilot-personas.service.ts). */
+export const COPILOT_PERSONAS = ["sales", "crm_data", "meeting_call", "gtm_strategy"] as const;
+export type CopilotPersona = (typeof COPILOT_PERSONAS)[number];
+
+export interface CopilotPersonaOption {
+  id: CopilotPersona;
+  label: string;
+  description: string;
+}
+
+/** Labels/descriptions duplicated from the backend registry (not itself importable into a
+ * browser bundle) — kept in sync manually; the backend is the source of truth for behavior. */
+export const COPILOT_PERSONA_OPTIONS: CopilotPersonaOption[] = [
+  { id: "sales", label: "Sales", description: "Finds accounts, builds lists, drafts outreach, and launches sequences." },
+  {
+    id: "crm_data",
+    label: "CRM Data",
+    description: "Looks up and explains prospect, thread, and list data — read-only, no outreach actions.",
+  },
+  { id: "meeting_call", label: "Meeting/Call", description: "Meeting and call follow-up assistant." },
+  { id: "gtm_strategy", label: "GTM Strategy", description: "GTM planning and performance-summary assistant." },
+];
 
 export interface ChatContext {
   subject?: string;
@@ -151,6 +177,7 @@ export function useAiChatApi() {
       mode: ChatMode;
       stageForReview?: boolean;
       agent?: ChatAgent;
+      persona?: CopilotPersona;
       context?: ChatContext;
     }) =>
       fetchApi<ChatResponse>("/api/v1/ai/chat", {
