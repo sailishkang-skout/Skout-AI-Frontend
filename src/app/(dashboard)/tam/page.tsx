@@ -52,7 +52,19 @@ export default function TamListPage() {
       )}
 
       {tams.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-5 w-1/2 rounded bg-muted" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="h-7 w-1/3 rounded bg-muted" />
+                <div className="h-4 w-2/3 rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : (tams.data?.data.length ?? 0) === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
           <Target className="h-8 w-8 text-muted-foreground" />

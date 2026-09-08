@@ -16,6 +16,9 @@ export function useMeetingsApi() {
   return {
     getBotConfig: () => fetchApi<{ enabled: boolean }>("/api/v1/meetings/bot-config"),
 
+    /** GTM revamp — GTM Funnel chart's "meetings" stage: meetings booked in the last 30 days. */
+    getBookedCount: () => fetchApi<{ workspaceId: string; count: number }>("/api/v1/meetings/booked-count"),
+
     list: (params?: {
       limit?: number;
       offset?: number;

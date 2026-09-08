@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Check, Clock, ExternalLink, History, Loader2, Pencil, Play, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
+import { EnrollInSequencePanel } from "@/components/lists/enroll-in-sequence-panel";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
@@ -66,6 +67,7 @@ export default function SmartListsPage() {
     demo?: boolean;
   } | null>(null);
   const [activatedListId, setActivatedListId] = useState<string | null>(null);
+  const [showEnrollPanel, setShowEnrollPanel] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -107,6 +109,7 @@ export default function SmartListsPage() {
       setRunError(null);
       setActivateError(null);
       setActivatedListId(null);
+      setShowEnrollPanel(false);
       setAddMode("new");
       setSelectedListId("");
       setActivationListName(`${data.list.name} — ${new Date().toISOString().slice(0, 10)}`);
@@ -130,6 +133,7 @@ export default function SmartListsPage() {
     onSuccess: (data) => {
       setActivateError(null);
       setActivatedListId(data.list.id);
+      setShowEnrollPanel(false);
       setAddMode("new");
       setSelectedListId("");
       setLastRun({
@@ -385,12 +389,30 @@ export default function SmartListsPage() {
 
             {activatedListId && (
               <Alert variant="success">
-                <span className="font-medium">{lastRun.total.toLocaleString()} prospects</span> added to list.{" "}
-                <Link href={`/lists/${activatedListId}`} className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
-                  Open list
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span className="font-medium">{lastRun.total.toLocaleString()} prospects</span> added to list.{" "}
+                    <Link href={`/lists/${activatedListId}`} className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                      Open list
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </span>
+                  {!showEnrollPanel && (
+                    <Button size="sm" variant="outline" onClick={() => setShowEnrollPanel(true)}>
+                      <Play className="h-4 w-4" />
+                      Start sequence
+                    </Button>
+                  )}
+                </div>
               </Alert>
+            )}
+
+            {activatedListId && showEnrollPanel && (
+              <EnrollInSequencePanel
+                listId={activatedListId}
+                onCancel={() => setShowEnrollPanel(false)}
+                onEnrolled={() => setShowEnrollPanel(false)}
+              />
             )}
           </CardContent>
         </Card>

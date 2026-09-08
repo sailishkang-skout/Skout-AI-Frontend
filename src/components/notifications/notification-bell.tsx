@@ -2,10 +2,11 @@
 
 /** R17.1 — notification center bell + feed dropdown, shown in the dashboard TopBar. */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthReady } from "@/lib/api-client";
 import { useNotificationsApi } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,9 @@ export function NotificationBell() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const lastSeenIdRef = useRef<string | null>(null);
 
   const unread = useQuery({
     queryKey: ["notifications", "unread-count"],
@@ -34,11 +38,32 @@ export function NotificationBell() {
     refetchInterval: 30_000,
   });
 
+  // Polls continuously (not just while the dropdown is open) so a genuinely new notification
+  // can surface as a toast the moment it lands, not only after the user happens to click the bell.
   const feed = useQuery({
     queryKey: ["notifications", "feed"],
     queryFn: () => notificationsApi.list({ limit: 20 }),
-    enabled: authReady && open,
+    enabled: authReady,
+    refetchInterval: 30_000,
   });
+
+  useEffect(() => {
+    const newest = feed.data?.data[0];
+    if (!newest) return;
+    // First load after mount just establishes the baseline — nothing to announce yet.
+    if (lastSeenIdRef.current === null) {
+      lastSeenIdRef.current = newest.id;
+      return;
+    }
+    if (newest.id === lastSeenIdRef.current) return;
+    lastSeenIdRef.current = newest.id;
+    if (!openRef.current) {
+      toast(newest.title, {
+        description: newest.body || undefined,
+        action: { label: "View", onClick: () => setOpen(true) },
+      });
+    }
+  }, [feed.data]);
 
   const markRead = useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),

@@ -109,30 +109,46 @@ export type NavGroup = {
 export const homeNav: NavGroup[] = [
   {
     label: "Home",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3, tourId: "nav-dashboard" }],
+    items: [{ href: "/dashboard", label: "Command Center", icon: LayoutDashboard, tourId: "nav-dashboard" }],
   },
 ];
 
-export const discoverNav: NavGroup[] = [
+export const pipelineNav: NavGroup[] = [
   {
-    label: "Discover",
+    label: "Pipeline",
     items: [
-      { href: "/prospects/search", label: "Prospect search", icon: Search, tourId: "nav-prospect-search" },
-      { href: "/tam", label: "Market (TAM)", icon: Radar, tourId: "nav-tam" },
-      { href: "/settings/icp", label: "ICP", icon: Target, tourId: "nav-icp-settings" },
-      { href: "/lists", label: "Lists", icon: List, tourId: "nav-lists" },
-      { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
-      { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
-      { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
-      { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
-      { href: "/enrichment/workbooks", label: "Enrichment workbooks", icon: Sparkles, tourId: "nav-workbooks" },
+      { href: "/crm", label: "CRM Overview", icon: BarChart3, exact: true },
+      { href: "/crm/deals", label: "Deals", icon: Briefcase },
+      { href: "/crm/companies", label: "Accounts", icon: Building2 },
+      { href: "/crm/contacts", label: "Contacts", icon: Users2 },
+      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360" },
+      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
+      { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
+      { href: "/crm/calendar", label: "Calendar", icon: Calendar },
+      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge" },
     ],
   },
 ];
 
-export const outreachNav: NavGroup[] = [
+export const prospectsNav: NavGroup[] = [
   {
-    label: "Outreach",
+    label: "Prospects",
+    items: [
+      { href: "/prospects/search", label: "Search & Discover", icon: Search, tourId: "nav-prospect-search" },
+      { href: "/tam", label: "Market (TAM)", icon: Radar, tourId: "nav-tam" },
+      { href: "/lists", label: "Lists & Smart Lists", icon: List, tourId: "nav-lists" },
+      { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
+      { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
+      { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
+      { href: "/enrichment/workbooks", label: "Workbooks", icon: Sparkles, tourId: "nav-workbooks" },
+      { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
+    ],
+  },
+];
+
+export const engageNav: NavGroup[] = [
+  {
+    label: "Engage",
     items: [
       { href: "/sequences", label: "Sequences", icon: Mail, tourId: "nav-sequences" },
       {
@@ -146,9 +162,7 @@ export const outreachNav: NavGroup[] = [
         ],
       },
       { href: "/settings/calling", label: "Calling", icon: Phone, tourId: "nav-calling" },
-      { href: "/settings/numbers", label: "Phone numbers", icon: Hash, tourId: "nav-phone-numbers" },
       { href: "/linkedin/voice", label: "LinkedIn Voice", icon: Mic, tourId: "nav-linkedin-voice" },
-      { href: "/dexter", label: "Dexter Orchestrator", icon: Sparkles, tourId: "nav-dexter-orchestrator" },
       { href: "/deliverability", label: "Deliverability", icon: Target, tourId: "nav-deliverability" },
       {
         href: "/warmup",
@@ -172,19 +186,25 @@ export const outreachNav: NavGroup[] = [
   },
 ];
 
+export const workflowsNav: NavGroup[] = [
+  {
+    label: "Workflows",
+    items: [
+      { href: "/dexter", label: "Dexter Orchestrator", icon: Sparkles, tourId: "nav-dexter-orchestrator" },
+      { href: "/workflows", label: "Workflow Studio", icon: GitMerge, tourId: "nav-workflow-studio" },
+      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
+      { href: "/settings/automation-policy", label: "Policy Gateway", icon: ShieldCheck, tourId: "nav-automation-policy" },
+    ],
+  },
+];
+
 export const intelligenceNav: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
-      { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive" },
-      { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
-      { href: "/admin/revenue", label: "Revenue Intelligence", icon: BarChart3, tourId: "nav-revenue-intelligence" },
-      { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane" },
-      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance" },
-      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
-      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
       { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
-      { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
+      { href: "/admin/revenue", label: "Revenue Intelligence", icon: BarChart3, tourId: "nav-revenue-intelligence" },
+      { href: "/crm/intelligence", label: "CRM Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
       {
         href: "/intelligence/email",
         label: "Email Intelligence",
@@ -198,65 +218,37 @@ export const intelligenceNav: NavGroup[] = [
           { href: "/intelligence/email/warmup", label: "Warm-up", icon: Zap },
         ],
       },
-      { href: "/crm/intelligence", label: "CRM Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
+      { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive" },
+      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
+      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
+      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance" },
+      { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane" },
+      { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
+      { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
       { href: "/ai/review", label: "AI Review", icon: Sparkles, tourId: "nav-ai-review" },
-      { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
-    ],
-  },
-];
-
-export const crmNav: NavGroup[] = [
-  {
-    label: "CRM",
-    items: [
-      { href: "/crm", label: "Overview", icon: LayoutDashboard, exact: true },
-      { href: "/crm/deals", label: "Deals", icon: Briefcase },
-      { href: "/crm/companies", label: "Companies", icon: Building2 },
-      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360" },
-      { href: "/crm/contacts", label: "Contacts", icon: Users2 },
-      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
-      { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
-      { href: "/crm/calendar", label: "Calendar", icon: Calendar },
-      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge" },
-    ],
-  },
-];
-
-export const automationNav: NavGroup[] = [
-  {
-    label: "Automation",
-    items: [
-      { href: "/settings/automation-rules", label: "Automation rules", icon: Sparkles, tourId: "nav-automation-rules" },
-      { href: "/workflows", label: "Workflow Studio", icon: GitMerge, tourId: "nav-workflow-studio" },
-      { href: "/settings/automation-policy", label: "Policy Gateway", icon: ShieldCheck, tourId: "nav-automation-policy" },
     ],
   },
 ];
 
 export const settingsNav: NavGroup[] = [
   {
-    label: "Settings",
+    label: "Settings & Help",
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
+      { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },
+      { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
+      { href: "/settings/icp", label: "ICP Settings", icon: Target, tourId: "nav-icp-settings" },
       { href: "/settings/crm", label: "CRM sync", icon: Settings, tourId: "nav-crm" },
       { href: "/settings/integrations", label: "Integrations", icon: Zap, tourId: "nav-integrations" },
       { href: "/settings/regional-brief", label: "Regional Brief", icon: Globe, tourId: "nav-regional-brief" },
+      { href: "/settings/numbers", label: "Phone numbers", icon: Hash, tourId: "nav-phone-numbers" },
       { href: "/settings/compliance", label: "Compliance center", icon: ShieldCheck, tourId: "nav-compliance" },
       { href: "/settings/sso", label: "SSO & SCIM", icon: ShieldCheck, tourId: "nav-sso" },
+      { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
-      { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
-      { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },
       // Not in the new spec's visible groups — kept here rather than dropped from the nav
       // entirely, since it's a real working page with no other listed home for it.
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
-    ],
-  },
-];
-
-export const helpNav: NavGroup[] = [
-  {
-    label: "Help",
-    items: [
       { href: "/guides", label: "Setup guides", icon: BookOpen, tourId: "nav-guides" },
       { href: "/onboarding", label: "Setup wizard", icon: Crosshair, tourId: "nav-icp-wizard" },
     ],
@@ -310,13 +302,19 @@ function NavLink({
       onClick={onNavigate}
       data-tour={tourId}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-300",
         active
-          ? "bg-primary text-primary-foreground"
+          ? "bg-primary text-primary-foreground animate-in fade-in duration-300"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <Icon
+        className={cn(
+          "h-4 w-4 shrink-0",
+          active && "animate-in zoom-in-50 spin-in-12 duration-500"
+        )}
+        aria-hidden
+      />
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -355,7 +353,13 @@ function NavLinkGroup({
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
       >
-        <item.icon className="h-4 w-4 shrink-0" aria-hidden />
+        <item.icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            childActive && "animate-in zoom-in-50 spin-in-12 duration-500"
+          )}
+          aria-hidden
+        />
         <span className="flex-1 truncate text-left">{item.label}</span>
         <ChevronRight
           className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-90")}
@@ -409,79 +413,15 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
-  const [navRegroupEnabled, setNavRegroupEnabled] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paramVal = params.get("nav-regroup");
-    if (paramVal === "true") {
-      localStorage.setItem("nav-regroup-enabled", "true");
-      setNavRegroupEnabled(true);
-    } else if (paramVal === "false") {
-      localStorage.setItem("nav-regroup-enabled", "false");
-      setNavRegroupEnabled(false);
-    } else {
-      const localVal = localStorage.getItem("nav-regroup-enabled");
-      setNavRegroupEnabled(
-        localVal === "true" || process.env.NEXT_PUBLIC_NAV_REGROUP_ENABLED === "true"
-      );
-    }
-  }, []);
-
-  const displayGroups = navRegroupEnabled
-    ? [
-        ...homeNav,
-        ...discoverNav,
-        ...outreachNav,
-        {
-          label: "Intelligence",
-          items: intelligenceNav[0].items.filter(
-            (item) => item.href !== "/crm/intelligence"
-          ),
-        },
-        {
-          label: "CRM Intelligence",
-          items: [
-            ...crmNav[0].items.slice(0, 7),
-            {
-              href: "/crm/intelligence",
-              label: "CRM Intelligence",
-              icon: Kanban,
-              tourId: "nav-deal-intelligence",
-            },
-            ...crmNav[0].items.slice(7),
-          ],
-        },
-        ...automationNav,
-        {
-          label: "Analytics",
-          items: [
-            {
-              href: "/analytics",
-              label: "Analytics",
-              icon: BarChart3,
-              tourId: "nav-analytics",
-            },
-          ],
-        },
-        {
-          label: "Settings",
-          items: [
-            ...settingsNav[0].items.filter((item) => item.href !== "/analytics"),
-            ...helpNav[0].items,
-          ],
-        },
-      ]
-    : [
-        ...homeNav,
-        ...discoverNav,
-        ...outreachNav,
-        ...intelligenceNav,
-        ...crmNav,
-        ...automationNav,
-        ...settingsNav,
-        ...helpNav,
-      ];
+  const displayGroups = [
+    ...homeNav,
+    ...pipelineNav,
+    ...prospectsNav,
+    ...engageNav,
+    ...workflowsNav,
+    ...intelligenceNav,
+    ...settingsNav,
+  ];
 
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>

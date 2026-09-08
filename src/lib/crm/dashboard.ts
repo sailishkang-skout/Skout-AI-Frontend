@@ -1,10 +1,21 @@
 import { useCrmServiceFetch } from "../crm-api-client";
-import type { CroSummary, DashboardOverview, StaleDealSummary, SwitchingCost, MissingStakeholderDealSummary } from "@/types/crm";
+import type {
+  CroSummary,
+  DashboardOverview,
+  PipelineVelocityPoint,
+  StaleDealSummary,
+  SwitchingCost,
+  MissingStakeholderDealSummary,
+} from "@/types/crm";
 
 export function useCrmDashboardApi() {
   const fetchApi = useCrmServiceFetch();
   return {
     getOverview: () => fetchApi<DashboardOverview>("/api/v1/dashboard/overview"),
+
+    /** GTM revamp — Pipeline Velocity chart. Open to every workspace member. */
+    getPipelineVelocity: () =>
+      fetchApi<{ workspaceId: string; series: PipelineVelocityPoint[] }>("/api/v1/dashboard/pipeline-velocity"),
 
     /** R14.3 — owner/admin only. */
     getSwitchingCost: () => fetchApi<SwitchingCost>("/api/v1/dashboard/switching-cost"),

@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Loader2,
@@ -68,6 +68,50 @@ const DEXTER_SUGGESTIONS = [
   "Take me to sequences",
 ];
 
+/**
+ * §4 / §8.13 — models the command bar as the way to jump across modules mid-task, not just a
+ * generic chat box. Suggestions are keyed off the same page-aware ChatContext the caller
+ * already builds (see workspace-ai-chat.tsx) — no new backend capability, just concrete,
+ * clickable examples of cross-module requests instead of a blank "ask me anything."
+ */
+export function getContextSuggestions(context?: ChatContext): string[] {
+  const page = context?.page ?? "";
+  if (page.startsWith("/prospects/search")) {
+    return [
+      "Find VP Sales at Series B SaaS companies",
+      "Add my selected prospects to a list",
+      "Enrich my selected prospects in a workbook",
+    ];
+  }
+  if (page.startsWith("/smart-lists")) {
+    return [
+      "Create a smart list for companies with recent hiring signals",
+      "Enroll this smart list's activated list in a sequence",
+      "Show me smart lists that haven't refreshed recently",
+    ];
+  }
+  if (page.startsWith("/crm/360")) {
+    return [
+      "What's the next best action for this account?",
+      "Enroll this account's decision maker in a sequence",
+      "Summarize this account's recent activity",
+    ];
+  }
+  if (context?.listId) {
+    return [
+      "Enroll this list in a sequence",
+      "Show me who in this list hasn't been contacted yet",
+    ];
+  }
+  if (context?.sequenceId) {
+    return [
+      "Enroll a list into this sequence",
+      "How is this sequence performing?",
+    ];
+  }
+  return DEXTER_SUGGESTIONS;
+}
+
 interface DexterChatProps {
   context?: ChatContext;
   /** Shift left when another FAB (Sequences/Inbox chat) shares the corner. */
@@ -88,6 +132,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const [interim, setInterim] = useState("");
   const [micSupported] = useState(() => isSpeechRecognitionSupported());
   const [ttsSupported] = useState(() => isSpeechSynthesisSupported());
+  const contextSuggestions = useMemo(() => getContextSuggestions(context), [context]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speakCancelRef = useRef<(() => void) | null>(null);
@@ -543,7 +588,7 @@ function submitText(text: string) {
               help you get things done in Skout.
             </p>
             <div className="flex w-full flex-col gap-1.5">
-              {DEXTER_SUGGESTIONS.map((s) => (
+              {contextSuggestions.map((s) => (
                 <button
                   key={s}
                   type="button"

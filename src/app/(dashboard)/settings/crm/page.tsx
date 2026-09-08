@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, Download, ExternalLink, Loader2, Plug, Unplug } from "lucide-react";
+import { Check, Download, ExternalLink, Loader2, Plug, RefreshCw, Unplug } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,6 +17,29 @@ import { Input } from "@/components/ui/input";
 import { ApiError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
 import { useEnrichmentApi } from "@/lib/enrichment";
+import { timeAgoShort } from "@/lib/signals";
+import type { CrmOutboundWriteStatus, CrmSyncCheckpointStatus } from "@/types/api";
+
+const CHECKPOINT_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "muted" | "info"> = {
+  succeeded: "success",
+  running: "info",
+  failed: "danger",
+};
+
+function checkpointStatusLabel(checkpoint: CrmSyncCheckpointStatus): string {
+  if (!checkpoint.lastRunStatus) return "never run";
+  return checkpoint.lastRunStatus;
+}
+
+/** ADI-18 (§8.12) — the one case a user genuinely needs to know about: their edit didn't reach
+ * HubSpot because HubSpot's own value had changed more recently (the reverse manual-wins rule),
+ * distinct from a real provider failure. */
+function outboundWriteStatusLabel(write: CrmOutboundWriteStatus): { label: string; tone: "success" | "warning" | "danger" | "muted" } {
+  if (write.isConflict) return { label: "Skipped — HubSpot value newer", tone: "warning" };
+  if (write.status === "succeeded") return { label: "Pushed", tone: "success" };
+  if (write.status === "failed") return { label: "Failed", tone: "danger" };
+  return { label: write.status, tone: "muted" };
+}
 
 function CrmSettingsContent() {
   const searchParams = useSearchParams();
@@ -53,6 +76,15 @@ function CrmSettingsContent() {
     queryKey: ["lists"],
     queryFn: enrichmentApi.listLists,
     enabled: authReady && hubspotConnected,
+  });
+
+  // ADI-18 (§8.12) — sync runs on a schedule server-side; poll so a user watching this page
+  // sees checkpoint/push-back status update without a manual refresh.
+  const syncStatus = useQuery({
+    queryKey: ["crm", "hubspot", "sync-status"],
+    queryFn: crmApi.getSyncStatus,
+    enabled: authReady && hubspotConnected,
+    refetchInterval: 15_000,
   });
 
   useEffect(() => {
@@ -215,6 +247,64 @@ function CrmSettingsContent() {
           )}
         </CardContent>
       </Card>
+
+      {hubspotConnected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <RefreshCw className="h-4 w-4" />
+              Sync status
+            </CardTitle>
+            <CardDescription>
+              Incremental pulls from HubSpot and push-backs of Skout-native edits, both on a schedule.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {syncStatus.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading sync status…</p>
+            ) : (syncStatus.data?.data.checkpoints.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">No sync has run yet for this connection.</p>
+            ) : (
+              <div className="space-y-2">
+                {syncStatus.data!.data.checkpoints.map((checkpoint) => (
+                  <div key={checkpoint.entityType} className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge tone={CHECKPOINT_STATUS_TONE[checkpoint.lastRunStatus ?? ""] ?? "muted"}>
+                      {checkpointStatusLabel(checkpoint)}
+                    </Badge>
+                    <span className="font-medium capitalize">{checkpoint.entityType}</span>
+                    {checkpoint.lastRunCompletedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        · last synced {timeAgoShort(checkpoint.lastRunCompletedAt)}
+                      </span>
+                    )}
+                    {checkpoint.lastRunStatus === "failed" && checkpoint.lastError && (
+                      <span className="text-xs text-destructive">— {checkpoint.lastError}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(syncStatus.data?.data.recentOutboundWrites.length ?? 0) > 0 && (
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-sm font-medium">Recent push-back writes</p>
+                <ul className="space-y-1.5">
+                  {syncStatus.data!.data.recentOutboundWrites.map((write) => {
+                    const { label, tone } = outboundWriteStatusLabel(write);
+                    return (
+                      <li key={write.id} className="flex flex-wrap items-center gap-2 text-xs">
+                        <Badge tone={tone}>{label}</Badge>
+                        <span className="capitalize text-muted-foreground">{write.entityType}</span>
+                        <span className="text-muted-foreground">· {timeAgoShort(write.updatedAt)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {hubspotConnected && (
         <Card>

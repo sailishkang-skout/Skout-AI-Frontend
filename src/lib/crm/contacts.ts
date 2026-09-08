@@ -17,11 +17,12 @@ export interface ContactAutoFillResult {
 export function useContactsApi() {
   const fetchApi = useCrmServiceFetch();
   return {
-    list: (params?: { limit?: number; offset?: number; companyId?: string }) => {
+    list: (params?: { limit?: number; offset?: number; companyId?: string; search?: string }) => {
       const query = new URLSearchParams();
       if (params?.limit !== undefined) query.set("limit", String(params.limit));
       if (params?.offset !== undefined) query.set("offset", String(params.offset));
       if (params?.companyId) query.set("companyId", params.companyId);
+      if (params?.search) query.set("search", params.search);
       const qs = query.toString();
       return fetchApi<CrmListEnvelope<Contact>>(`/api/v1/contacts${qs ? `?${qs}` : ""}`);
     },

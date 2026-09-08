@@ -16,6 +16,12 @@ import type {
   ScoreResult,
 } from "@/types/api";
 
+export interface EnrichmentEfficiencyPoint {
+  date: string;
+  spent: number;
+  found: number;
+}
+
 export const CREDITS_QUERY_KEY = ["enrichment", "credits"] as const;
 export const JOBS_QUERY_KEY = ["enrichment", "jobs"] as const;
 export const WORKSPACE_CURRENT_QUERY_KEY = ["workspace-current"] as const;
@@ -189,6 +195,12 @@ export function useEnrichmentApi() {
   return {
     getCredits: () =>
       fetchApi<CreditsResponse>("/api/v1/enrichment/credits", { workspaceId: WORKSPACE_ID }),
+
+    /** GTM revamp — Enrichment Efficiency chart: real daily credits-spent vs. valid-emails-found. */
+    getEfficiency: () =>
+      fetchApi<{ workspaceId: string; data: EnrichmentEfficiencyPoint[] }>("/api/v1/enrichment/efficiency", {
+        workspaceId: WORKSPACE_ID,
+      }),
 
     listJobs: () =>
       fetchApi<ListEnvelope<EnrichmentJob>>("/api/v1/enrichment/jobs", {

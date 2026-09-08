@@ -18,6 +18,7 @@ import { useAuthReady } from "@/lib/api-client";
 import { sequenceStatusTone, useSequencesApi } from "@/lib/sequences";
 import { formatJobTime } from "@/lib/enrichment-display";
 import type { Sequence, SequenceMode, SequenceStepMetrics, SequenceStepType } from "@/types/api";
+import { SequencePerformanceChart } from "@/components/sequences/sequence-performance-chart";
 
 export default function SequencesPage() {
   const queryClient = useQueryClient();
@@ -35,6 +36,12 @@ export default function SequencesPage() {
   const experiments = useQuery({
     queryKey: ["sequence-experiments"],
     queryFn: sequencesApi.listExperiments,
+    enabled: authReady,
+  });
+
+  const performance = useQuery({
+    queryKey: ["sequences", "performance"],
+    queryFn: sequencesApi.getPerformance,
     enabled: authReady,
   });
 
@@ -75,6 +82,10 @@ export default function SequencesPage() {
         onClose={() => setCreateOpen(false)}
         initialPath={createPath}
       />
+
+      <div className="mb-6">
+        <SequencePerformanceChart data={performance.data?.data} isLoading={performance.isLoading} />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StartCard
@@ -324,6 +335,26 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
                     <StepMetricsRow step={step} />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Embedded AI Insight */}
+            {steps.length > 0 && steps[0].openRate > 0 && steps[0].openRate < 35 && (
+              <div className="rounded-md border border-orange-200 bg-orange-50/50 p-2 dark:border-orange-900/50 dark:bg-orange-900/20">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="mt-0.5 h-3.5 w-3.5 text-orange-500" />
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium leading-tight text-orange-900 dark:text-orange-200">
+                      Step 1 open rate ({Math.round(steps[0].openRate)}%) is below average.
+                    </p>
+                    <Link
+                      href={`/sequences/${sequence.id}`}
+                      className="text-[11px] font-semibold text-orange-600 hover:underline dark:text-orange-400"
+                    >
+                      Edit Subject Line →
+                    </Link>
+                  </div>
+                </div>
               </div>
             )}
           </>
