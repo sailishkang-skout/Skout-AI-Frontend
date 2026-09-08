@@ -49,6 +49,7 @@ export default function EnrichmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFromUrl = searchParams.get("job");
+  const dateFromUrl = searchParams.get("date");
   const [domain, setDomain] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
@@ -58,7 +59,7 @@ export default function EnrichmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobsPage, setJobsPage] = useState(1);
-  const [jobsDateFilter, setJobsDateFilter] = useState<string | null>(null);
+  const [jobsDateFilter, setJobsDateFilter] = useState<string | null>(dateFromUrl);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
@@ -66,6 +67,14 @@ export default function EnrichmentPage() {
   useEffect(() => {
     if (jobFromUrl) setSelectedJobId(jobFromUrl);
   }, [jobFromUrl]);
+
+  useEffect(() => {
+    if (dateFromUrl) {
+      document.getElementById("recent-jobs-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // Only run once on mount for a deep-linked date — not on every dateFromUrl identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openJob = (jobId: string) => {
     setSelectedJobId(jobId);

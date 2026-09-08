@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   BarChart3,
@@ -31,6 +32,7 @@ import {
   useAnalyticsApi,
 } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
+import { DailyBarChart } from "@/components/analytics/daily-bar-chart";
 
 const PERIODS = [
   { value: 7, label: "7 days" },
@@ -38,14 +40,10 @@ const PERIODS = [
   { value: 90, label: "90 days" },
 ] as const;
 
-function formatShortDate(iso: string) {
-  const d = new Date(iso + "T12:00:00");
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 export default function AnalyticsPage() {
   const authReady = useAuthReady();
   const analyticsApi = useAnalyticsApi();
+  const router = useRouter();
   const [days, setDays] = useState(30);
 
   const report = useQuery({
@@ -55,14 +53,6 @@ export default function AnalyticsPage() {
   });
 
   const data = report.data;
-  const maxDailySpend = useMemo(
-    () => Math.max(1, ...(data?.credits.daily.map((d) => d.spent) ?? [1])),
-    [data?.credits.daily]
-  );
-  const maxDailyJobs = useMemo(
-    () => Math.max(1, ...(data?.enrichment.daily.map((d) => d.jobs) ?? [1])),
-    [data?.enrichment.daily]
-  );
   const maxActionCredits = useMemo(
     () => Math.max(1, ...(data?.credits.byAction.map((a) => a.credits) ?? [1])),
     [data?.credits.byAction]
@@ -166,13 +156,12 @@ export default function AnalyticsPage() {
                 <CardDescription>Credits spent per day over the selected period.</CardDescription>
               </CardHeader>
               <CardContent>
-                <BarChart
-                  items={data.credits.daily.map((d) => ({
-                    label: formatShortDate(d.date),
-                    value: d.spent,
-                    max: maxDailySpend,
-                  }))}
+                <DailyBarChart
+                  data={data.credits.daily.map((d) => ({ date: d.date, value: d.spent }))}
+                  isLoading={report.isFetching}
                   emptyLabel="No credit activity in this period"
+                  valueLabel="credits"
+                  color="hsl(var(--chart-3, 340 100% 50%))"
                 />
               </CardContent>
             </Card>
@@ -183,18 +172,19 @@ export default function AnalyticsPage() {
                   <BarChart3 className="h-4 w-4" />
                   Daily enrichment volume
                 </CardTitle>
-                <CardDescription>Jobs queued per day (completed shown in tooltip).</CardDescription>
+                <CardDescription>Jobs queued per day — click a day to view its jobs.</CardDescription>
               </CardHeader>
               <CardContent>
-                <BarChart
-                  items={data.enrichment.daily.map((d) => ({
-                    label: formatShortDate(d.date),
+                <DailyBarChart
+                  data={data.enrichment.daily.map((d) => ({
+                    date: d.date,
                     value: d.jobs,
-                    max: maxDailyJobs,
                     hint: d.completed > 0 ? `${d.completed} completed` : undefined,
                   }))}
+                  isLoading={report.isFetching}
                   emptyLabel="No enrichment jobs in this period"
-                  colorClass="bg-primary/70"
+                  valueLabel="jobs"
+                  onDayClick={(isoDate) => router.push(`/enrichment?date=${isoDate}`)}
                 />
               </CardContent>
             </Card>
@@ -395,43 +385,3 @@ function StatusRow({
   );
 }
 
-function BarChart({
-  items,
-  emptyLabel,
-  colorClass = "bg-amber-500/80",
-}: {
-  items: Array<{ label: string; value: number; max: number; hint?: string }>;
-  emptyLabel: string;
-  colorClass?: string;
-}) {
-  const hasData = items.some((i) => i.value > 0);
-  if (!hasData) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">{emptyLabel}</p>;
-  }
-
-  const showLabels = items.length <= 14;
-
-  return (
-    <div className="flex h-40 items-end gap-1 sm:gap-1.5">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1"
-          title={item.hint ? `${item.value} jobs · ${item.hint}` : `${item.value}`}
-        >
-          <div className="relative flex w-full justify-center">
-            <div
-              className={cn("w-full max-w-[2rem] rounded-t-sm transition-all", colorClass)}
-              style={{
-                height: `${Math.max(4, (item.value / item.max) * 128)}px`,
-              }}
-            />
-          </div>
-          {showLabels && (
-            <span className="truncate text-[10px] text-muted-foreground">{item.label}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
