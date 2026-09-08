@@ -28,7 +28,10 @@ export default defineConfig({
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
             "--disable-gpu",
-            "--single-process",
+            // --single-process trades stability for a smaller footprint — fine for a single
+            // local run on a memory-constrained machine, but it crashed Chromium mid-suite in
+            // CI (plenty of RAM there, and fullyParallel launches more than one context).
+            ...(process.env.CI ? [] : ["--single-process"]),
           ],
         },
       },
