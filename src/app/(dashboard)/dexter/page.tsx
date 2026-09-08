@@ -933,11 +933,11 @@ export default function DexterOrchestratorPage() {
                 </div>
                 <CardTitle className="text-lg">Event spine</CardTitle>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  §7.3 Live
+                  Live
                 </span>
               </div>
               <CardDescription className="text-xs">
-                Reverse-chronological feed of this workspace&apos;s Dexter events (vision §7.3) — trace a run
+                Reverse-chronological feed of this workspace&apos;s Dexter events — trace a run
                 end to end via its correlation ID.
               </CardDescription>
             </div>
