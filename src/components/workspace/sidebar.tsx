@@ -109,7 +109,7 @@ export type NavGroup = {
 export const homeNav: NavGroup[] = [
   {
     label: "Home",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: BarChart3, tourId: "nav-dashboard" }],
+    items: [{ href: "/dashboard", label: "Command Center", icon: LayoutDashboard, tourId: "nav-dashboard" }],
   },
 ];
 
@@ -310,13 +310,19 @@ function NavLink({
       onClick={onNavigate}
       data-tour={tourId}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-300",
         active
-          ? "bg-primary text-primary-foreground"
+          ? "bg-primary text-primary-foreground animate-in fade-in duration-300"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <Icon
+        className={cn(
+          "h-4 w-4 shrink-0",
+          active && "animate-in zoom-in-50 spin-in-12 duration-500"
+        )}
+        aria-hidden
+      />
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -355,7 +361,13 @@ function NavLinkGroup({
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
       >
-        <item.icon className="h-4 w-4 shrink-0" aria-hidden />
+        <item.icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            childActive && "animate-in zoom-in-50 spin-in-12 duration-500"
+          )}
+          aria-hidden
+        />
         <span className="flex-1 truncate text-left">{item.label}</span>
         <ChevronRight
           className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-90")}

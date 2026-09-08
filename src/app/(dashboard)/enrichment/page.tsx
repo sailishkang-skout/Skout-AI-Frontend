@@ -3,9 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircle2, ChevronRight, Coins, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Mail, Phone, RefreshCw, Zap } from "lucide-react";
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
+import { EnrichmentSuccessChart } from "@/components/enrichment/enrichment-success-chart";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,7 +20,6 @@ import { ApiError, useAuthReady } from "@/lib/api-client";
 import {
   useEnrichmentApi,
   syncCreditsAfterEnrich,
-  CREDITS_QUERY_KEY,
   JOBS_QUERY_KEY,
   refreshCredits,
   createOptimisticJobId,
@@ -32,6 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRedirectToIcpSetup } from "@/lib/icp";
 import { cn } from "@/lib/utils";
 import type { EnrichField, EnrichmentJob, FieldResult } from "@/types/api";
+
+const JOBS_PAGE_SIZE = 8;
 
 const ALL_FIELDS: { id: EnrichField; label: string; hint?: string }[] = [
   { id: "company", label: "Firmographics" },
@@ -47,6 +49,7 @@ export default function EnrichmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFromUrl = searchParams.get("job");
+  const dateFromUrl = searchParams.get("date");
   const [domain, setDomain] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
@@ -55,6 +58,8 @@ export default function EnrichmentPage() {
   const [fields, setFields] = useState<EnrichField[]>(["company", "email", "validation"]);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsDateFilter, setJobsDateFilter] = useState<string | null>(dateFromUrl);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
@@ -62,6 +67,14 @@ export default function EnrichmentPage() {
   useEffect(() => {
     if (jobFromUrl) setSelectedJobId(jobFromUrl);
   }, [jobFromUrl]);
+
+  useEffect(() => {
+    if (dateFromUrl) {
+      document.getElementById("recent-jobs-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // Only run once on mount for a deep-linked date — not on every dateFromUrl identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openJob = (jobId: string) => {
     setSelectedJobId(jobId);
@@ -73,11 +86,10 @@ export default function EnrichmentPage() {
     router.replace("/enrichment", { scroll: false });
   };
 
-  const credits = useQuery({
-    queryKey: CREDITS_QUERY_KEY,
-    queryFn: enrichmentApi.getCredits,
+  const efficiency = useQuery({
+    queryKey: ["enrichment", "efficiency"],
+    queryFn: enrichmentApi.getEfficiency,
     enabled: authReady,
-    staleTime: 0,
   });
 
   const jobs = useQuery({
@@ -97,6 +109,24 @@ export default function EnrichmentPage() {
 
   const jobList = jobs.data?.data ?? [];
   const selectedJob = jobList.find((j) => j.id === selectedJobId);
+  // Best-effort match against the Enrichment Efficiency chart's per-day buckets — both sides
+  // bucket by local calendar day, but the frontend and backend aren't guaranteed to share a
+  // timezone, so this is a close approximation rather than a guaranteed-exact match.
+  const filteredJobList = jobsDateFilter
+    ? jobList.filter((j) => new Date(j.queuedAt).toLocaleDateString("en-CA") === jobsDateFilter)
+    : jobList;
+  const jobsTotalPages = Math.max(1, Math.ceil(filteredJobList.length / JOBS_PAGE_SIZE));
+  const jobsPageClamped = Math.min(jobsPage, jobsTotalPages);
+  const pagedJobs = filteredJobList.slice(
+    (jobsPageClamped - 1) * JOBS_PAGE_SIZE,
+    jobsPageClamped * JOBS_PAGE_SIZE
+  );
+
+  const jumpToDay = (isoDate: string) => {
+    setJobsDateFilter(isoDate);
+    setJobsPage(1);
+    document.getElementById("recent-jobs-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const enrich = useMutation({
     mutationFn: () =>
@@ -187,25 +217,14 @@ export default function EnrichmentPage() {
       <PageHeader
         title="Enrichment"
         description="Find and verify emails, firmographics, and score-gated phone numbers on demand."
-        actions={
-          <>
-          <GuideLink slug="enrichment" label="Enrichment guide" compact />
-          <Card className="w-full min-w-[140px] sm:w-auto">
-            <CardContent className="flex items-center gap-3 p-3 sm:p-4">
-              <Coins className="h-7 w-7 shrink-0 text-amber-500" aria-hidden />
-              <div>
-                <p className="text-xs text-muted-foreground">Credits</p>
-                <p className="text-xl font-semibold tabular-nums sm:text-2xl">
-                  {credits.isLoading ? "—" : (credits.data?.balance ?? "—")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          </>
-        }
+        actions={<GuideLink slug="enrichment" label="Enrichment guide" compact />}
       />
 
       <DemoBanner />
+
+      <div className="mb-8">
+        <EnrichmentSuccessChart data={efficiency.data?.data} isLoading={efficiency.isLoading} onDayClick={jumpToDay} />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-5">
         <Card className="lg:col-span-3">
@@ -327,10 +346,25 @@ export default function EnrichmentPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2" id="recent-jobs-card">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base sm:text-lg">Recent jobs</CardTitle>
-            <CardDescription>Click a job for full details.</CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-base sm:text-lg">Recent jobs</CardTitle>
+                <CardDescription>Click a job for full details.</CardDescription>
+              </div>
+              {jobsDateFilter && (
+                <button
+                  type="button"
+                  onClick={() => { setJobsDateFilter(null); setJobsPage(1); }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-950"
+                >
+                  {new Date(jobsDateFilter).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  <span aria-hidden>×</span>
+                  <span className="sr-only">Clear date filter</span>
+                </button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {authReady && jobs.error && (
@@ -355,32 +389,74 @@ export default function EnrichmentPage() {
                   </li>
                 ))}
               </ul>
-            ) : jobList.length ? (
-              <ul className="divide-y">
-                {jobList.map((job) => (
-                  <JobListItem
-                    key={job.id}
-                    job={job}
-                    selected={selectedJobId === job.id}
-                    onSelect={() => openJob(job.id)}
-                    onRetry={
-                      job.status === "failed"
-                        ? () => {
-                            if (redirectToIcpSetup("/enrichment")) return;
-                            if (!requireCredits(1)) return;
-                            retryJob.mutate(job);
-                          }
-                        : undefined
-                    }
-                    retrying={retryJob.isPending && retryJob.variables?.id === job.id}
-                  />
-                ))}
-              </ul>
-            ) : (
+            ) : !jobList.length ? (
               authReady &&
               !jobs.error && (
                 <p className="py-8 text-center text-sm text-muted-foreground">No jobs yet.</p>
               )
+            ) : filteredJobList.length ? (
+              <>
+                <ul className="divide-y">
+                  {pagedJobs.map((job) => (
+                    <JobListItem
+                      key={job.id}
+                      job={job}
+                      selected={selectedJobId === job.id}
+                      onSelect={() => openJob(job.id)}
+                      onRetry={
+                        job.status === "failed"
+                          ? () => {
+                              if (redirectToIcpSetup("/enrichment")) return;
+                              if (!requireCredits(1)) return;
+                              retryJob.mutate(job);
+                            }
+                          : undefined
+                      }
+                      retrying={retryJob.isPending && retryJob.variables?.id === job.id}
+                    />
+                  ))}
+                </ul>
+                {filteredJobList.length > JOBS_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      Page {jobsPageClamped} of {jobsTotalPages}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                        disabled={jobsPageClamped === 1}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJobsPage((p) => Math.min(jobsTotalPages, p + 1))}
+                        disabled={jobsPageClamped >= jobsTotalPages}
+                        aria-label="Next page"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No jobs on that day.{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => { setJobsDateFilter(null); setJobsPage(1); }}
+                >
+                  Clear filter
+                </button>
+              </p>
             )}
           </CardContent>
         </Card>

@@ -65,6 +65,15 @@ export default function ProspectSearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const deepLinkProspectId = searchParams.get("prospectId");
+  const deepLinkCompanyDomain = searchParams.get("companyDomain");
+
+  // Account 360's "Find Contacts" action deep-links here with the account's domain — seed the
+  // existing companyDomain filter once on mount rather than requiring the user to re-enter it.
+  useEffect(() => {
+    if (!deepLinkCompanyDomain) return;
+    setAppliedFilters((curr) => ({ ...curr, companyDomain: deepLinkCompanyDomain }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkCompanyDomain]);
 
   // R17.3 — notification "alert links directly to the account/signal detail" deep link: open
   // the detail sheet for a prospect that isn't necessarily in the current search results.

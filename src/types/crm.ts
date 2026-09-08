@@ -357,11 +357,20 @@ export interface DashboardOverview {
   contacts: number;
   openDeals: number;
   valueByCurrency: CurrencyValue[];
+  /** GTM revamp — Deal Distribution Donut. */
+  stages: { stageId: string; name: string; count: number; valueByCurrency: CurrencyValue[] }[];
   openTasks: number;
   overdueTasks: number;
   dueTodayTasks: number;
   upcomingMeetings: number;
   recentActivities: Activity[];
+}
+
+/** GTM revamp — Pipeline Velocity chart. "New pipeline created per day" — see
+ * DealsService.pipelineVelocity in apps/crm for why this isn't a historical open-value snapshot. */
+export interface PipelineVelocityPoint {
+  date: string;
+  value: number;
 }
 
 /** R14.3 — internal "switching cost" moat metric. Owner/admin only. */

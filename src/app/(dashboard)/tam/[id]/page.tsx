@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { signalIcon, signalLabel } from "@/lib/signals";
-import { coverageStages, segmentDimensionLabel, useTamApi, type DrillInInput } from "@/lib/tam";
+import { segmentDimensionLabel, useTamApi, type DrillInInput } from "@/lib/tam";
+import { CoverageFunnelChart } from "@/components/tam/coverage-funnel-chart";
 import { MarketIntelligenceSuggestions } from "@/components/tam/market-intelligence-suggestions";
 import type { TamCoverageFunnel, TamSegmentBucket } from "@/types/api";
 
@@ -73,7 +74,18 @@ export default function TamDetailPage() {
       )}
 
       {tam.isLoading || !data ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="space-y-4">
+          <div className="h-7 w-1/3 animate-pulse rounded bg-muted" />
+          <Card className="animate-pulse">
+            <CardHeader>
+              <div className="h-5 w-1/4 rounded bg-muted" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="h-4 w-full rounded bg-muted" />
+              <div className="h-32 w-full rounded bg-muted" />
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
           <PageHeader
@@ -147,7 +159,7 @@ export default function TamDetailPage() {
             </Card>
           )}
 
-          <CoverageFunnel coverage={data.coverage} />
+          <CoverageFunnel coverage={data.coverage} isRecomputing={recompute.isPending} />
 
           <MarketIntelligenceSuggestions
             title={`Regional Strategy & Market Intelligence — ${data.name}`}
@@ -175,18 +187,23 @@ export default function TamDetailPage() {
               {(data.segmentBreakdown?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground">No segments — the corpus returned no matches for this filter.</p>
               ) : (
-                Object.entries(segmentsByDimension).map(([dimension, buckets]) => (
+                Object.entries(segmentsByDimension).map(([dimension, buckets]) => {
+                  const sorted = buckets.slice().sort((a, b) => b.count - a.count);
+                  const maxCount = Math.max(1, ...sorted.map((b) => b.count));
+                  return (
                   <div key={dimension} className="space-y-1.5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {segmentDimensionLabel(dimension as TamSegmentBucket["dimension"])}
                     </p>
                     <div className="divide-y rounded-md border">
-                      {buckets
-                        .slice()
-                        .sort((a, b) => b.count - a.count)
-                        .map((seg) => (
-                          <div key={`${seg.dimension}-${seg.value}`} className="flex items-center justify-between gap-3 px-3 py-2">
-                            <div className="flex items-center gap-2">
+                      {sorted.map((seg) => (
+                          <div key={`${seg.dimension}-${seg.value}`} className="relative flex items-center justify-between gap-3 px-3 py-2">
+                            <div
+                              className="absolute inset-y-0 left-0 bg-primary/10 transition-all duration-500"
+                              style={{ width: `${(seg.count / maxCount) * 100}%` }}
+                              aria-hidden
+                            />
+                            <div className="relative flex items-center gap-2">
                               {showSignals && (
                                 <span className="inline-flex gap-0.5 text-xs" aria-hidden title="Signal overlay on — badges appear on the drilled list">
                                   {OVERLAY_LEGEND.slice(0, 3).map((t) => (
@@ -200,6 +217,7 @@ export default function TamDetailPage() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="relative"
                               disabled={drillIn.isPending}
                               onClick={() =>
                                 drillIn.mutate({
@@ -215,7 +233,8 @@ export default function TamDetailPage() {
                         ))}
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>
@@ -225,35 +244,17 @@ export default function TamDetailPage() {
   );
 }
 
-function CoverageFunnel({ coverage }: { coverage: TamCoverageFunnel }) {
-  const stages = coverageStages();
-  const denom = Math.max(coverage.total, 1);
+function CoverageFunnel({ coverage, isRecomputing }: { coverage: TamCoverageFunnel; isRecomputing: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Coverage funnel</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
+      <CardContent>
+        <p className="mb-2 text-xs text-muted-foreground">
           Of {coverage.total.toLocaleString()} accounts in this TAM, how far your workspace has worked them.
         </p>
-        {stages.map((stage) => {
-          const value = coverage[stage.key];
-          const pct = Math.round((value / denom) * 100);
-          return (
-            <div key={stage.key} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span>{stage.label}</span>
-                <span className="text-muted-foreground">
-                  {value.toLocaleString()} <span className="text-xs">({pct}%)</span>
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          );
-        })}
+        <CoverageFunnelChart coverage={coverage} isLoading={isRecomputing} />
       </CardContent>
     </Card>
   );

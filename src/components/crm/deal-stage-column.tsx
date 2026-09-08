@@ -23,6 +23,10 @@ export function DealStageColumn({
   className,
   /** "row" renders a full-width, wrapping strip (used for closed won/lost, always visible at the bottom of the board). */
   layout = "column",
+  id,
+  /** Drill-down target from e.g. the Pipeline Distribution donut (?stageId=...) — briefly rings
+   * this column so the user can see exactly where they landed. */
+  highlighted,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -31,6 +35,8 @@ export function DealStageColumn({
   onAddDeal: () => void;
   className?: string;
   layout?: "column" | "row";
+  id?: string;
+  highlighted?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stageId: stage.id } });
   const isRow = layout === "row";
@@ -73,7 +79,14 @@ export function DealStageColumn({
 
   if (isRow) {
     return (
-      <div className={cn("flex w-full flex-col gap-2", className)}>
+      <div
+        id={id}
+        className={cn(
+          "flex w-full flex-col gap-2 rounded-lg transition-shadow",
+          highlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background animate-in fade-in duration-700",
+          className
+        )}
+      >
         {header}
         <div
           ref={setNodeRef}
@@ -97,7 +110,14 @@ export function DealStageColumn({
   }
 
   return (
-    <div className={cn("flex min-w-[240px] shrink-0 flex-col gap-2", className)}>
+    <div
+      id={id}
+      className={cn(
+        "flex min-w-[240px] shrink-0 flex-col gap-2 rounded-lg transition-shadow",
+        highlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background animate-in fade-in duration-700",
+        className
+      )}
+    >
       {header}
 
       <div
