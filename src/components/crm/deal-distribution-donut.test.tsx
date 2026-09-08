@@ -1,7 +1,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DealDistributionDonut } from "./deal-distribution-donut";
 import type { DashboardOverview } from "@/types/crm";
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 const STAGES: DashboardOverview["stages"] = [
   { stageId: "s1", name: "Discovery", count: 2, valueByCurrency: [{ currency: "USD", value: 140000 }] },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
@@ -31,6 +32,9 @@ export function DealsBoard() {
   const [quickCreateStageId, setQuickCreateStageId] = useState<string | null>(null);
   const [showCreatePipeline, setShowCreatePipeline] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+
+  // Drill-down target from the Pipeline Distribution donut on the CRM overview page.
+  const highlightStageId = useSearchParams()?.get("stageId") ?? null;
 
   const pipelines = useQuery({
     queryKey: ["crm", "pipelines"],
@@ -79,6 +83,13 @@ export function DealsBoard() {
   );
   const openStages = useMemo(() => stages.filter((s) => !s.isClosedWon && !s.isClosedLost), [stages]);
   const closedStages = useMemo(() => stages.filter((s) => s.isClosedWon || s.isClosedLost), [stages]);
+
+  useEffect(() => {
+    if (!highlightStageId || stages.length === 0) return;
+    document
+      .getElementById(`deal-stage-${highlightStageId}`)
+      ?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [highlightStageId, stages.length]);
 
   const dealsByStage = useMemo(() => {
     const map = new Map<string, Deal[]>();
@@ -203,6 +214,8 @@ export function DealsBoard() {
           {openStages.map((stage) => (
             <DealStageColumn
               key={stage.id}
+              id={`deal-stage-${stage.id}`}
+              highlighted={stage.id === highlightStageId}
               stage={stage}
               deals={dealsByStage.get(stage.id) ?? []}
               companiesById={companiesById}
@@ -220,6 +233,8 @@ export function DealsBoard() {
               {closedStages.map((stage) => (
                 <DealStageColumn
                   key={stage.id}
+                  id={`deal-stage-${stage.id}`}
+                  highlighted={stage.id === highlightStageId}
                   stage={stage}
                   deals={dealsByStage.get(stage.id) ?? []}
                   companiesById={companiesById}

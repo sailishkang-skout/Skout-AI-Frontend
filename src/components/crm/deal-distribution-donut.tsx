@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardOverview } from "@/types/crm";
@@ -25,11 +26,14 @@ export function DealDistributionDonut({
   stages?: DashboardOverview["stages"];
   isLoading?: boolean;
 }) {
+  const router = useRouter();
+
   // Stage value is per-currency (never summed across currencies — a $50k deal and a ₹50k deal
   // aren't the same 50k); this chart shows whichever currency each stage's deals are actually in,
   // which in practice is one currency per workspace.
   const chartData = (stages ?? [])
     .map((stage) => ({
+      stageId: stage.stageId,
       name: stage.name,
       value: stage.valueByCurrency[0]?.value ?? 0,
       currency: stage.valueByCurrency[0]?.currency ?? "USD",
@@ -64,7 +68,7 @@ export function DealDistributionDonut({
                           <div className="flex flex-col">
                             <span className="text-[0.70rem] uppercase text-muted-foreground">{p.name}</span>
                             <span className="font-bold">{formatTotal(p.value, p.currency)}</span>
-                            <span className="text-[0.65rem] text-muted-foreground">{p.count} deals</span>
+                            <span className="text-[0.65rem] text-muted-foreground">{p.count} deals · click to view</span>
                           </div>
                         </div>
                       );
@@ -81,9 +85,17 @@ export function DealDistributionDonut({
                   paddingAngle={5}
                   dataKey="value"
                   stroke="none"
+                  onClick={(entry) => {
+                    const point = (entry as unknown as { payload: (typeof chartData)[number] }).payload;
+                    router.push(`/crm/deals?stageId=${point.stageId}`);
+                  }}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={entry.name} fill={STAGE_COLORS[index % STAGE_COLORS.length]} />
+                    <Cell
+                      key={entry.name}
+                      fill={STAGE_COLORS[index % STAGE_COLORS.length]}
+                      className="cursor-pointer"
+                    />
                   ))}
                 </Pie>
               </PieChart>
