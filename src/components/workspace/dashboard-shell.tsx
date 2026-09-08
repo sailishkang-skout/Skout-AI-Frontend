@@ -9,6 +9,7 @@ import {
   ProductTourProvider,
   useProductTourOptional,
 } from "@/components/onboarding/product-tour-provider";
+import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/layout/command-palette";
 
@@ -81,6 +82,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       </div>
       <WorkspaceAiChat />
       <CommandPalette />
+      <Toaster theme="system" position="top-right" richColors closeButton />
     </div>
   );
 }
