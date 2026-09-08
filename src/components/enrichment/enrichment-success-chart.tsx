@@ -49,11 +49,6 @@ export function EnrichmentSuccessChart({ data, isLoading, onDayClick }: Enrichme
             <BarChart
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              onClick={(state) => {
-                const index = typeof state?.activeIndex === "number" ? state.activeIndex : undefined;
-                const point = index !== undefined ? chartData[index] : undefined;
-                if (point) onDayClick?.(point.isoDate);
-              }}
               className={onDayClick ? "cursor-pointer" : undefined}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
@@ -98,11 +93,21 @@ export function EnrichmentSuccessChart({ data, isLoading, onDayClick }: Enrichme
                 fill="hsl(var(--muted-foreground))"
                 radius={[4, 4, 0, 0]}
                 opacity={0.5}
+                onClick={(data) => {
+                  const point = (data as { payload: (typeof chartData)[number] }).payload;
+                  if (point) onDayClick?.(point.isoDate);
+                }}
+                style={onDayClick ? { cursor: "pointer" } : undefined}
               />
               <Bar
                 dataKey="found"
                 fill="hsl(var(--primary))"
                 radius={[4, 4, 0, 0]}
+                onClick={(data) => {
+                  const point = (data as { payload: (typeof chartData)[number] }).payload;
+                  if (point) onDayClick?.(point.isoDate);
+                }}
+                style={onDayClick ? { cursor: "pointer" } : undefined}
               />
             </BarChart>
           </ResponsiveContainer>

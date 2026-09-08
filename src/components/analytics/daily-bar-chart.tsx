@@ -46,11 +46,6 @@ export function DailyBarChart({
           <BarChart
             data={chartData}
             margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
-            onClick={(state) => {
-              const index = typeof state?.activeIndex === "number" ? state.activeIndex : undefined;
-              const point = index !== undefined ? chartData[index] : undefined;
-              if (point) onDayClick?.(point.isoDate);
-            }}
             className={onDayClick ? "cursor-pointer" : undefined}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
@@ -82,7 +77,16 @@ export function DailyBarChart({
                 return null;
               }}
             />
-            <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
+            <Bar
+              dataKey="value"
+              fill={color}
+              radius={[4, 4, 0, 0]}
+              onClick={(data) => {
+                const point = (data as { payload: (typeof chartData)[number] }).payload;
+                if (point) onDayClick?.(point.isoDate);
+              }}
+              style={onDayClick ? { cursor: "pointer" } : undefined}
+            />
           </BarChart>
         </ResponsiveContainer>
       )}
