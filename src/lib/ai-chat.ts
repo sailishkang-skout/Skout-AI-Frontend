@@ -70,9 +70,40 @@ export interface ChatResponse {
   draftId?: string;
   exports?: ChatExportArtifact[];
   toolPreview?: ToolActionPreview | null;
+  /** §8.13 SP-13 — set when this turn called the read-only explain_score tool; the backend
+   * captures its structured result so the UI can render a real breakdown card instead of only
+   * the model's prose summary of it. */
+  scoreBreakdown?: ScoreBreakdown;
   mode?: ChatMode;
   /** True when Ask mode queued the email into AI Review. */
   segregated?: boolean;
+}
+
+/** Mirrors explain_score's tool-response shape verbatim (backend ai-workspace-tools.service.ts). */
+export interface ScoreBreakdown {
+  prospectId: string;
+  icp: {
+    score: number;
+    band: string;
+    version: string | null;
+    source: "llm" | "heuristic";
+    dimensions: Record<string, { score: number; matched: boolean; explanation: string }>;
+    reasoning: string;
+  };
+  signalStack: {
+    score: number;
+    band: string;
+    distinctSignalTypes: number;
+    reachableDecisionMaker: boolean;
+    contributingSignals: Array<{
+      id: string;
+      signalType: string;
+      confidence: number;
+      detectedAt: string;
+      weight: number;
+    }>;
+    weights: Record<string, unknown>;
+  };
 }
 
 export interface ToolActionPreview {

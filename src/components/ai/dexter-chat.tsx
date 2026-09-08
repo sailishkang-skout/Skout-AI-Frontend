@@ -22,8 +22,10 @@ import {
   type ChatContext,
   type ChatExportArtifact,
   type ChatMode,
+  type ScoreBreakdown,
   type ToolActionPreview,
 } from "@/lib/ai-chat";
+import { ScoreBreakdownCard } from "@/components/ai/score-breakdown-card";
 import { executeDexterAction } from "@/lib/dexter-actions";
 import {
   createSpeechRecognition,
@@ -57,6 +59,11 @@ interface ChatTurn {
   actionMessage?: string;
   toolPreview?: ToolActionPreview | null;
   toolPreviewDone?: boolean;
+  scoreBreakdown?: ScoreBreakdown;
+  /** §8.13 SP-13 — surfaced from start_enrichment_run's confirmed result. */
+  enrichmentRun?: { runId: string; status: string; totalRows: number; path: string; message: string };
+  /** §8.13 SP-13 — surfaced from draft_content's confirmed result. */
+  draftInfo?: { draftId: string; subject: string; status: string; path: string; message: string };
 }
 
 const DEXTER_SUGGESTIONS = [
@@ -277,6 +284,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
         segregated: res.segregated,
         exports: res.exports,
         toolPreview: res.toolPreview ?? null,
+        scoreBreakdown: res.scoreBreakdown,
       };
       setTurns((prev) => [...prev, assistantTurn]);
       // Auto-run safe actions in voice mode (navigate + non-confirm ui_action).
@@ -314,6 +322,13 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
       api.executeTool(preview.toolName, preview.args),
     onSuccess: (res, preview) => {
       void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      // §8.13 SP-13 — /ai/execute-tool's `result` carries each tool's full raw output (runId,
+      // draftId, path, message, ...), not just the sequenceId this used to only read. Surface
+      // the two mutating tools that don't create a sequence, so their confirmation actually
+      // shows what happened instead of the generic "Action completed." string.
+      const result = res.result;
+      const isEnrichmentRun = preview.toolName === "start_enrichment_run" && result?.success;
+      const isDraftContent = preview.toolName === "draft_content" && result?.success;
       setTurns((prev) =>
         prev.map((t) =>
           t.toolPreview?.toolName === preview.toolName && !t.toolPreviewDone
@@ -322,6 +337,24 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
                 toolPreviewDone: true,
                 sequenceId: res.sequenceId ?? t.sequenceId,
                 actionMessage: res.applied ? "Action confirmed and executed." : "Action completed.",
+                enrichmentRun: isEnrichmentRun
+                  ? {
+                      runId: String(result.runId ?? ""),
+                      status: String(result.status ?? ""),
+                      totalRows: Number(result.totalRows ?? 0),
+                      path: String(result.path ?? ""),
+                      message: String(result.message ?? ""),
+                    }
+                  : t.enrichmentRun,
+                draftInfo: isDraftContent
+                  ? {
+                      draftId: String(result.draftId ?? ""),
+                      subject: String(result.subject ?? ""),
+                      status: String(result.status ?? ""),
+                      path: String(result.path ?? ""),
+                      message: String(result.message ?? ""),
+                    }
+                  : t.draftInfo,
               }
             : t
         )
@@ -660,6 +693,38 @@ function submitText(text: string) {
                     confirming={confirmTool.isPending}
                     onConfirm={() => confirmTool.mutate(t.toolPreview!)}
                   />
+                )}
+
+                {t.scoreBreakdown && <ScoreBreakdownCard breakdown={t.scoreBreakdown} />}
+
+                {t.enrichmentRun && (
+                  <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-background p-2.5">
+                    <p className="text-xs font-medium text-foreground">{t.enrichmentRun.message}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      onClick={() => router.push(t.enrichmentRun!.path)}
+                    >
+                      <ArrowRight className="mr-1 h-3.5 w-3.5" />
+                      Open Enrichment Run
+                    </Button>
+                  </div>
+                )}
+
+                {t.draftInfo && (
+                  <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-background p-2.5">
+                    <p className="text-xs font-medium text-foreground">{t.draftInfo.message}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      onClick={() => router.push(t.draftInfo!.path)}
+                    >
+                      <ArrowRight className="mr-1 h-3.5 w-3.5" />
+                      Open AI Review
+                    </Button>
+                  </div>
                 )}
 
                 {t.action?.type === "email" && (
