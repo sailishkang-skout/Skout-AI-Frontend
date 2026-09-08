@@ -253,11 +253,11 @@ export default function SignalCenterPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3 mb-6">
-        <div className="lg:col-span-1">
+      <div className="grid gap-6 lg:grid-cols-5 mb-6">
+        <div className="lg:col-span-2">
           <SignalDensityChart data={densityQuery.data?.byType} isLoading={densityQuery.isLoading} />
         </div>
-        <div className="lg:col-span-2 flex flex-col gap-3">
+        <div className="lg:col-span-3 flex flex-col gap-3">
           {(() => {
             const changePct = densityQuery.data?.changePct ?? null;
             const total = densityQuery.data?.totalThisPeriod ?? 0;

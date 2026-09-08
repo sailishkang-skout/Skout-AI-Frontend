@@ -30,7 +30,7 @@ export function SignalDensityChart({ data, isLoading }: SignalDensityChartProps)
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <RadarChart cx="50%" cy="50%" outerRadius="75%" data={chartData}>
+              <RadarChart cx="50%" cy="50%" outerRadius="62%" data={chartData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                 <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
                 <PolarAngleAxis
                   dataKey="subject"
