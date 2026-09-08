@@ -16,11 +16,12 @@ export interface CompanyAutoFillResult {
 export function useCompaniesApi() {
   const fetchApi = useCrmServiceFetch();
   return {
-    list: (params?: { limit?: number; offset?: number; ownerId?: string }) => {
+    list: (params?: { limit?: number; offset?: number; ownerId?: string; search?: string }) => {
       const query = new URLSearchParams();
       if (params?.limit !== undefined) query.set("limit", String(params.limit));
       if (params?.offset !== undefined) query.set("offset", String(params.offset));
       if (params?.ownerId) query.set("ownerId", params.ownerId);
+      if (params?.search) query.set("search", params.search);
       const qs = query.toString();
       return fetchApi<CrmListEnvelope<Company>>(`/api/v1/companies${qs ? `?${qs}` : ""}`);
     },
