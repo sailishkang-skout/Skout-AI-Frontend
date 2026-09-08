@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
-import { formatQueryError, useAuthReady } from "@/lib/api-client";
+import { ApiError, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useComplianceApi, type DsarRow } from "@/lib/compliance";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 
@@ -90,6 +90,12 @@ export default function ComplianceCenterPage() {
       qc.invalidateQueries({ queryKey: ["suppressions"] });
     },
     onError: (err) => {
+      // A 404 here means the row is already gone (e.g. a double-click fired two deletes) —
+      // the end state the user wanted is already true, so this isn't a real failure.
+      if (err instanceof ApiError && err.status === 404) {
+        qc.invalidateQueries({ queryKey: ["suppressions"] });
+        return;
+      }
       toast.error(formatQueryError(err, "Could not remove suppression"), "Removal Failed");
     },
   });
@@ -201,6 +207,7 @@ export default function ComplianceCenterPage() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500"
+                                disabled={remove.isPending && remove.variables === row.id}
                                 onClick={() => remove.mutate(row.id)}
                                 title="Remove suppression"
                               >
