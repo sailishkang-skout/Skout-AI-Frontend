@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft, Building2, ExternalLink, Loader2, MailCheck, Pencil, Play, Target, Trash2, X, Zap } from "lucide-react";
+import { EnrollInSequencePanel } from "@/components/lists/enroll-in-sequence-panel";
 import { ListExportMenu } from "@/components/lists/list-export-menu";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { ScoreBadge } from "@/components/scoring/score-badge";
@@ -55,7 +56,6 @@ export default function ListDetailPage() {
   const sequencesApi = useSequencesApi();
 
   const [showRunSequenceModal, setShowRunSequenceModal] = useState(false);
-  const [selectedSeqId, setSelectedSeqId] = useState("");
   const [showMemberSeqPicker, setShowMemberSeqPicker] = useState(false);
   const [memberSeqId, setMemberSeqId] = useState("");
   const [memberEnrollSuccess, setMemberEnrollSuccess] = useState<string | null>(null);
@@ -102,17 +102,7 @@ export default function ListDetailPage() {
   const allSequences = useQuery({
     queryKey: ["sequences"],
     queryFn: () => sequencesApi.list(),
-    enabled: authReady && (showRunSequenceModal || showMemberSeqPicker),
-  });
-
-  const runSequence = useMutation({
-    mutationFn: (seqId: string) => sequencesApi.enroll(seqId, { listId }),
-    onSuccess: () => {
-      setShowRunSequenceModal(false);
-      setSelectedSeqId("");
-      queryClient.invalidateQueries({ queryKey: ["lists", listId, "sequences"] });
-      queryClient.invalidateQueries({ queryKey: ["sequences", selectedSeqId, "lists"] });
-    },
+    enabled: authReady && showMemberSeqPicker,
   });
 
   const runSequenceOnMembers = useMutation({
@@ -468,7 +458,7 @@ export default function ListDetailPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => { setShowRunSequenceModal((v) => !v); setSelectedSeqId(""); }}
+            onClick={() => setShowRunSequenceModal((v) => !v)}
           >
             <Play className="h-4 w-4" />
             Run sequence
@@ -642,60 +632,11 @@ export default function ListDetailPage() {
       )}
 
       {showRunSequenceModal && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Enroll this list in a sequence</CardTitle>
-            <CardDescription>Select an active sequence to run on all prospects in this list.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <Select
-                value={selectedSeqId}
-                onChange={(e) => setSelectedSeqId(e.target.value)}
-                className="max-w-sm"
-              >
-                <option value="">— choose a sequence —</option>
-                {(allSequences.data?.data ?? [])
-                  .filter((s) => s.status === "active")
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-              </Select>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={!selectedSeqId || runSequence.isPending}
-                  onClick={() => runSequence.mutate(selectedSeqId)}
-                >
-                  {runSequence.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                  Enroll
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => { setShowRunSequenceModal(false); setSelectedSeqId(""); }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-            {allSequences.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading sequences…</p>
-            )}
-            {!allSequences.isLoading && (allSequences.data?.data ?? []).filter((s) => s.status === "active").length === 0 && (
-              <p className="text-sm text-muted-foreground">No active sequences found. Activate a sequence first.</p>
-            )}
-            {runSequence.isError && (
-              <p className="text-sm text-destructive">
-                {runSequence.error instanceof Error ? runSequence.error.message : "Could not enroll this list. Please try again."}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <EnrollInSequencePanel
+          listId={listId}
+          onCancel={() => setShowRunSequenceModal(false)}
+          onEnrolled={() => setShowRunSequenceModal(false)}
+        />
       )}
 
       <Card>

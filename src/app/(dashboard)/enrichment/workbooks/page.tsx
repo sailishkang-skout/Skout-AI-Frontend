@@ -2,8 +2,9 @@
 
 /** R8.3 — enrichment workbooks: ordered-provider waterfall config + pausable/resumable runs. */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -73,15 +74,36 @@ const RUN_STATUS_TONE: Record<WorkbookRunStatus, "success" | "warning" | "muted"
 export default function WorkbooksPage() {
   const authReady = useAuthReady();
   const workbooksApi = useWorkbooksApi();
+  const searchParams = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [runsFor, setRunsFor] = useState<EnrichmentWorkbook | null>(null);
   const [columnsFor, setColumnsFor] = useState<EnrichmentWorkbook | null>(null);
+
+  // ADI-15 (§4, §10.1) — carries a Discover selection forward: ?listId=&prospectIds=a,b,c
+  // means "these rows are already in this list, pre-fill the next workbook run with them"
+  // instead of landing on an empty workbook the user has to re-populate.
+  const [prefill] = useState(() => {
+    const listId = searchParams.get("listId");
+    const prospectIdsParam = searchParams.get("prospectIds");
+    if (!listId || !prospectIdsParam) return null;
+    const prospectIds = prospectIdsParam.split(",").filter(Boolean);
+    return prospectIds.length > 0 ? { listId, prospectIds } : null;
+  });
+  const [prefillAutoOpened, setPrefillAutoOpened] = useState(false);
 
   const workbooks = useQuery({
     queryKey: WORKBOOKS_QUERY_KEY,
     queryFn: workbooksApi.list,
     enabled: authReady,
   });
+
+  useEffect(() => {
+    if (!prefill || prefillAutoOpened || !workbooks.data) return;
+    if (workbooks.data.data.length === 1) {
+      setRunsFor(workbooks.data.data[0]!);
+    }
+    setPrefillAutoOpened(true);
+  }, [prefill, prefillAutoOpened, workbooks.data]);
 
   const activeCount = workbooks.data?.data.filter((w) => w.status === "active").length ?? 0;
   const totalCount = workbooks.data?.data.length ?? 0;
@@ -139,6 +161,15 @@ export default function WorkbooksPage() {
 
       {workbooks.isError && (
         <Alert variant="error">{formatQueryError(workbooks.error, "Could not load workbooks.")}</Alert>
+      )}
+
+      {prefill && (workbooks.data?.data.length ?? 0) !== 1 && (
+        <Alert variant="default">
+          {prefill.prospectIds.length} prospect{prefill.prospectIds.length === 1 ? "" : "s"} from Discover{" "}
+          {(workbooks.data?.data.length ?? 0) === 0
+            ? "are ready — create a workbook, then Start Run to enrich them."
+            : "are ready — open a workbook's Execution Runs and Start Run to enrich them."}
+        </Alert>
       )}
 
       {/* Main Workbooks Grid */}
@@ -245,7 +276,9 @@ export default function WorkbooksPage() {
       </div>
 
       <CreateWorkbookDialog open={createOpen} onClose={() => setCreateOpen(false)} />
-      {runsFor && <WorkbookRunsDialog workbook={runsFor} onClose={() => setRunsFor(null)} />}
+      {runsFor && (
+        <WorkbookRunsDialog workbook={runsFor} onClose={() => setRunsFor(null)} prefill={prefill} />
+      )}
       {columnsFor && <WorkbookColumnsDialog workbook={columnsFor} onClose={() => setColumnsFor(null)} />}
     </PageShell>
   );
@@ -561,11 +594,19 @@ function AddColumnDialog({
   );
 }
 
-function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkbook; onClose: () => void }) {
+function WorkbookRunsDialog({
+  workbook,
+  onClose,
+  prefill,
+}: {
+  workbook: EnrichmentWorkbook;
+  onClose: () => void;
+  prefill?: { listId: string; prospectIds: string[] } | null;
+}) {
   const workbooksApi = useWorkbooksApi();
   const enrichmentApi = useEnrichmentApi();
   const queryClient = useQueryClient();
-  const [startOpen, setStartOpen] = useState(false);
+  const [startOpen, setStartOpen] = useState(() => Boolean(prefill));
 
   const runs = useQuery({
     queryKey: workbookRunsQueryKey(workbook.id),
@@ -665,6 +706,7 @@ function WorkbookRunsDialog({ workbook, onClose }: { workbook: EnrichmentWorkboo
           onClose={() => setStartOpen(false)}
           onStarted={invalidateRuns}
           listLists={enrichmentApi.listLists}
+          prefill={prefill}
         />
       )}
       {viewGridFor && (
@@ -856,16 +898,20 @@ function StartRunDialog({
   onClose,
   onStarted,
   listLists,
+  prefill,
 }: {
   workbook: EnrichmentWorkbook;
   onClose: () => void;
   onStarted: () => void;
   listLists: () => Promise<{ data: Array<{ id: string; name: string }> }>;
+  /** ADI-15 — a Discover selection carried forward: pre-fills the target list and pre-checks
+   * exactly those rows in "Selected rows only" mode instead of an empty picker. */
+  prefill?: { listId: string; prospectIds: string[] } | null;
 }) {
   const workbooksApi = useWorkbooksApi();
-  const [listId, setListId] = useState("");
-  const [mode, setMode] = useState<WorkbookRunMode>("sample");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [listId, setListId] = useState(() => prefill?.listId ?? "");
+  const [mode, setMode] = useState<WorkbookRunMode>(() => (prefill ? "selected" : "sample"));
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => prefill?.prospectIds ?? []);
 
   const lists = useQuery({ queryKey: ["lists", "for-workbook-run"], queryFn: listLists });
 

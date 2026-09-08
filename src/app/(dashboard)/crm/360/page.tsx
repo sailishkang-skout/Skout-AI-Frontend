@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
+import { SignalActionRail } from "@/components/crm/signal-action-rail";
 import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -82,7 +83,9 @@ export default function Account360Page() {
   }, [data, lookupId, mode]);
 
   // The account/person's own resolvable prospect id — a company has no prospectId of its own,
-  // so "Enrich Account" and "Add to Sequence" act on its first known buying-committee contact.
+  // so "Enrich Account", "Add to Sequence", and the signal action rail's enroll action all act
+  // on its first known buying-committee contact. A deal id (nbaTarget's own priority) doesn't
+  // work for sequence enrollment, so this is computed independently of nbaTarget.
   const targetProspectId = useMemo(() => {
     if (mode === "person") return lookupId;
     if (!data) return null;
@@ -168,6 +171,7 @@ export default function Account360Page() {
           {nbaTarget && (
             <NextBestActionCard entityType={nbaTarget.entityType} entityId={nbaTarget.entityId} />
           )}
+          <SignalActionRail signals={signals} enrollProspectId={targetProspectId} />
 
           {/* Main Record Header Card */}
           <Card className="border-l-4 border-l-primary relative">

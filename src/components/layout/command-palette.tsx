@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { Building2, Loader2, Search, User, DollarSign } from "lucide-react";
-import { homeNav, pipelineNav, prospectsNav, engageNav, workflowsNav, intelligenceNav, settingsNav } from "@/components/workspace/sidebar";
+import { homeNav, discoverNav, outreachNav, intelligenceNav, crmNav, automationNav, settingsNav, helpNav } from "@/components/workspace/sidebar";
 import { useAuthReady } from "@/lib/api-client";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useContactsApi } from "@/lib/crm/contacts";
@@ -71,12 +71,13 @@ export function CommandPalette() {
 
   const displayGroups = [
     ...homeNav,
-    ...pipelineNav,
-    ...prospectsNav,
-    ...engageNav,
-    ...workflowsNav,
+    ...discoverNav,
+    ...outreachNav,
     ...intelligenceNav,
+    ...crmNav,
+    ...automationNav,
     ...settingsNav,
+    ...helpNav,
   ];
 
   if (!open) return null;

@@ -1,12 +1,13 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   homeNav,
-  pipelineNav,
-  prospectsNav,
-  engageNav,
-  workflowsNav,
+  discoverNav,
+  outreachNav,
   intelligenceNav,
+  crmNav,
+  automationNav,
   settingsNav,
+  helpNav,
 } from "@/components/workspace/sidebar";
 import {
   loadTourState,
@@ -34,12 +35,13 @@ describe("product-tour", () => {
   it("covers every sidebar nav target plus AI chat", () => {
     const navTourIds = [
       ...homeNav,
-      ...pipelineNav,
-      ...prospectsNav,
-      ...engageNav,
-      ...workflowsNav,
+      ...discoverNav,
+      ...outreachNav,
       ...intelligenceNav,
+      ...crmNav,
+      ...automationNav,
       ...settingsNav,
+      ...helpNav,
     ]
       .flatMap((g) => g.items)
       .map((i) => i.tourId)
