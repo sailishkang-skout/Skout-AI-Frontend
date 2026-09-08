@@ -257,6 +257,10 @@ describe("WorkbooksPage — activation results list (ADI-13)", () => {
 describe("WorkbooksPage — Discover-to-workbook prefill (ADI-15)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // vi.clearAllMocks() clears call history, not mockReturnValue overrides — without this,
+    // a prior test's mockSearchParams.mockReturnValue(...) leaks into later tests and makes
+    // this describe block's tests order-dependent.
+    mockSearchParams.mockReturnValue(new URLSearchParams());
     mockListRuns.mockResolvedValue(NO_RUNS);
     mockColumnsList.mockResolvedValue({ data: [], total: 0 });
     mockGetRunRows.mockResolvedValue({ data: [], total: 0 });
