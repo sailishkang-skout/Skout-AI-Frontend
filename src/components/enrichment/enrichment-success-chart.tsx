@@ -17,12 +17,21 @@ export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessCha
     found: point.found,
   }));
   const hasActivity = chartData.some((d) => d.spent > 0 || d.found > 0);
+  const totalSpent = (data ?? []).reduce((sum, p) => sum + p.spent, 0);
+  const totalFound = (data ?? []).reduce((sum, p) => sum + p.found, 0);
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Enrichment Efficiency</CardTitle>
         <CardDescription>Credits spent vs valid emails found (Last 7 Days)</CardDescription>
+        {hasActivity && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{totalFound}</span> valid email
+            {totalFound === 1 ? "" : "s"} found from <span className="font-medium text-foreground">{totalSpent}</span>{" "}
+            credit{totalSpent === 1 ? "" : "s"} spent this week.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">

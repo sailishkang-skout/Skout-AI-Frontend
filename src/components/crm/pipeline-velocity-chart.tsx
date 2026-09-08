@@ -19,12 +19,19 @@ export function PipelineVelocityChart({
     value: point.value,
   }));
   const hasData = chartData.some((d) => d.value > 0);
+  const totalValue = (series ?? []).reduce((sum, p) => sum + p.value, 0);
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Pipeline Velocity</CardTitle>
         <CardDescription>New pipeline created per day, USD (30 days)</CardDescription>
+        {hasData && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{formatCurrency(totalValue)}</span> in new pipeline
+            created over the last 30 days.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex-1">
         {isLoading ? (

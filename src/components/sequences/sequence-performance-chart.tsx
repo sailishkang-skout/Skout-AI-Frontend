@@ -17,12 +17,24 @@ export function SequencePerformanceChart({ data, isLoading }: SequencePerformanc
     replyRate: point.replyRate,
   }));
   const hasSends = (data ?? []).some((point) => point.sent > 0);
+  const totalSent = (data ?? []).reduce((sum, p) => sum + p.sent, 0);
+  const totalOpens = (data ?? []).reduce((sum, p) => sum + p.opens, 0);
+  const totalReplies = (data ?? []).reduce((sum, p) => sum + p.replies, 0);
+  const overallOpenRate = totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0;
+  const overallReplyRate = totalSent > 0 ? Math.round((totalReplies / totalSent) * 100) : 0;
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Global Sequence Performance</CardTitle>
         <CardDescription>Aggregate open and reply rates over the last 14 days</CardDescription>
+        {hasSends && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{overallOpenRate}%</span> open rate,{" "}
+            <span className="font-medium text-foreground">{overallReplyRate}%</span> reply rate across{" "}
+            {totalSent} email{totalSent === 1 ? "" : "s"} sent.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">
