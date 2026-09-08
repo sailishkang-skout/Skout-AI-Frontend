@@ -8,11 +8,14 @@ import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 interface EnrichmentSuccessChartProps {
   data?: EnrichmentEfficiencyPoint[];
   isLoading?: boolean;
+  /** Called with a bucket's ISO date (YYYY-MM-DD) when the user clicks that day's bars. */
+  onDayClick?: (isoDate: string) => void;
 }
 
-export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessChartProps) {
+export function EnrichmentSuccessChart({ data, isLoading, onDayClick }: EnrichmentSuccessChartProps) {
   const chartData = (data ?? []).map((point) => ({
     date: new Date(point.date).toLocaleDateString("en-US", { weekday: "short" }),
+    isoDate: point.date,
     spent: point.spent,
     found: point.found,
   }));
@@ -43,7 +46,16 @@ export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessCha
             </div>
           ) : (
           <ResponsiveContainer width="100%" height="100%" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              onClick={(state) => {
+                const index = typeof state?.activeIndex === "number" ? state.activeIndex : undefined;
+                const point = index !== undefined ? chartData[index] : undefined;
+                if (point) onDayClick?.(point.isoDate);
+              }}
+              className={onDayClick ? "cursor-pointer" : undefined}
+            >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
               <XAxis 
                 dataKey="date" 
@@ -74,6 +86,7 @@ export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessCha
                             </span>
                           </div>
                         ))}
+                        {onDayClick && <span className="text-[0.65rem] text-muted-foreground">Click to view jobs</span>}
                       </div>
                     );
                   }

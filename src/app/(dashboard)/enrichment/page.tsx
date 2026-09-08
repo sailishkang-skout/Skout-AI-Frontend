@@ -58,6 +58,7 @@ export default function EnrichmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobsPage, setJobsPage] = useState(1);
+  const [jobsDateFilter, setJobsDateFilter] = useState<string | null>(null);
   const { configured, isLoading: icpLoading, redirectToIcpSetup } = useRedirectToIcpSetup();
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
@@ -99,12 +100,24 @@ export default function EnrichmentPage() {
 
   const jobList = jobs.data?.data ?? [];
   const selectedJob = jobList.find((j) => j.id === selectedJobId);
-  const jobsTotalPages = Math.max(1, Math.ceil(jobList.length / JOBS_PAGE_SIZE));
+  // Best-effort match against the Enrichment Efficiency chart's per-day buckets — both sides
+  // bucket by local calendar day, but the frontend and backend aren't guaranteed to share a
+  // timezone, so this is a close approximation rather than a guaranteed-exact match.
+  const filteredJobList = jobsDateFilter
+    ? jobList.filter((j) => new Date(j.queuedAt).toLocaleDateString("en-CA") === jobsDateFilter)
+    : jobList;
+  const jobsTotalPages = Math.max(1, Math.ceil(filteredJobList.length / JOBS_PAGE_SIZE));
   const jobsPageClamped = Math.min(jobsPage, jobsTotalPages);
-  const pagedJobs = jobList.slice(
+  const pagedJobs = filteredJobList.slice(
     (jobsPageClamped - 1) * JOBS_PAGE_SIZE,
     jobsPageClamped * JOBS_PAGE_SIZE
   );
+
+  const jumpToDay = (isoDate: string) => {
+    setJobsDateFilter(isoDate);
+    setJobsPage(1);
+    document.getElementById("recent-jobs-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const enrich = useMutation({
     mutationFn: () =>
@@ -201,7 +214,7 @@ export default function EnrichmentPage() {
       <DemoBanner />
 
       <div className="mb-8">
-        <EnrichmentSuccessChart data={efficiency.data?.data} isLoading={efficiency.isLoading} />
+        <EnrichmentSuccessChart data={efficiency.data?.data} isLoading={efficiency.isLoading} onDayClick={jumpToDay} />
       </div>
 
       <div className="grid gap-8 lg:grid-cols-5">
@@ -324,10 +337,25 @@ export default function EnrichmentPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2" id="recent-jobs-card">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base sm:text-lg">Recent jobs</CardTitle>
-            <CardDescription>Click a job for full details.</CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-base sm:text-lg">Recent jobs</CardTitle>
+                <CardDescription>Click a job for full details.</CardDescription>
+              </div>
+              {jobsDateFilter && (
+                <button
+                  type="button"
+                  onClick={() => { setJobsDateFilter(null); setJobsPage(1); }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-950"
+                >
+                  {new Date(jobsDateFilter).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  <span aria-hidden>×</span>
+                  <span className="sr-only">Clear date filter</span>
+                </button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {authReady && jobs.error && (
@@ -352,7 +380,12 @@ export default function EnrichmentPage() {
                   </li>
                 ))}
               </ul>
-            ) : jobList.length ? (
+            ) : !jobList.length ? (
+              authReady &&
+              !jobs.error && (
+                <p className="py-8 text-center text-sm text-muted-foreground">No jobs yet.</p>
+              )
+            ) : filteredJobList.length ? (
               <>
                 <ul className="divide-y">
                   {pagedJobs.map((job) => (
@@ -374,7 +407,7 @@ export default function EnrichmentPage() {
                     />
                   ))}
                 </ul>
-                {jobList.length > JOBS_PAGE_SIZE && (
+                {filteredJobList.length > JOBS_PAGE_SIZE && (
                   <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
                     <p className="text-xs text-muted-foreground">
                       Page {jobsPageClamped} of {jobsTotalPages}
@@ -405,10 +438,16 @@ export default function EnrichmentPage() {
                 )}
               </>
             ) : (
-              authReady &&
-              !jobs.error && (
-                <p className="py-8 text-center text-sm text-muted-foreground">No jobs yet.</p>
-              )
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No jobs on that day.{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => { setJobsDateFilter(null); setJobsPage(1); }}
+                >
+                  Clear filter
+                </button>
+              </p>
             )}
           </CardContent>
         </Card>
