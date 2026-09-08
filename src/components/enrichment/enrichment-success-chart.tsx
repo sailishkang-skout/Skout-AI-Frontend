@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EnrichmentEfficiencyPoint } from "@/lib/enrichment";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 interface EnrichmentSuccessChartProps {
   data?: EnrichmentEfficiencyPoint[];
@@ -26,7 +27,7 @@ export function EnrichmentSuccessChart({ data, isLoading }: EnrichmentSuccessCha
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+            <ChartSkeleton />
           ) : !hasActivity ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No enrichment activity in the last 7 days.

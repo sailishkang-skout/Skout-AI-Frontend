@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 interface GtmFunnelProps {
   data?: {
@@ -37,8 +38,9 @@ export function GtmFunnel({ data, isLoading }: GtmFunnelProps) {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
-            Loading funnel data...
+          <div className="h-[240px]">
+            <ChartSkeleton />
+            <span className="sr-only">Loading funnel data...</span>
           </div>
         ) : !data || chartData.every((d) => d.count === 0) ? (
           <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">

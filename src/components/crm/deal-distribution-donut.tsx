@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardOverview } from "@/types/crm";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 const STAGE_COLORS = [
   "hsl(var(--muted-foreground))",
@@ -52,7 +53,9 @@ export function DealDistributionDonut({
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center min-h-[300px]">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <div className="h-[250px] w-full">
+            <ChartSkeleton />
+          </div>
         ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No open deals yet.</p>
         ) : (

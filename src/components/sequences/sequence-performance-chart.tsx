@@ -3,6 +3,7 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SequencePerformancePoint } from "@/lib/sequences";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 interface SequencePerformanceChartProps {
   data?: SequencePerformancePoint[];
@@ -26,7 +27,7 @@ export function SequencePerformanceChart({ data, isLoading }: SequencePerformanc
       <CardContent className="flex-1">
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+            <ChartSkeleton />
           ) : !hasSends ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No emails sent in the last 14 days.

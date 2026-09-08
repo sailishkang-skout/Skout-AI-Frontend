@@ -3,6 +3,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PipelineVelocityPoint } from "@/types/crm";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 const formatCurrency = (value: number) => `$${(value / 1000).toFixed(0)}k`;
 
@@ -27,7 +28,9 @@ export function PipelineVelocityChart({
       </CardHeader>
       <CardContent className="flex-1">
         {isLoading ? (
-          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">Loading…</div>
+          <div className="h-[300px]">
+            <ChartSkeleton />
+          </div>
         ) : !hasData ? (
           <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
             No new deals created in the last 30 days.

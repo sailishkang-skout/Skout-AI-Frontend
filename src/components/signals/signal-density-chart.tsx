@@ -4,6 +4,7 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Responsi
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signalLabel } from "@/lib/signals";
 import type { SignalDensityResult } from "@/lib/signals";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
 
 interface SignalDensityChartProps {
   data?: SignalDensityResult["byType"];
@@ -23,7 +24,7 @@ export function SignalDensityChart({ data, isLoading }: SignalDensityChartProps)
       <CardContent className="flex-1 flex items-center justify-center">
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+            <ChartSkeleton />
           ) : chartData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No signals detected in the last 7 days.
