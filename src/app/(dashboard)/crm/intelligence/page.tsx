@@ -37,21 +37,51 @@ export default function CrmIntelligencePage() {
     enabled: authReady,
   });
 
+  const disengagementFlags = useQuery({
+    queryKey: ["crm", "dashboard", "disengagement-flags"],
+    queryFn: dashboardApi.getDisengagementFlags,
+    enabled: authReady,
+  });
+
+  const renewalRiskFlags = useQuery({
+    queryKey: ["crm", "dashboard", "renewal-risk-flags"],
+    queryFn: dashboardApi.getRenewalRiskFlags,
+    enabled: authReady,
+  });
+
+  const expansionSignalFlags = useQuery({
+    queryKey: ["crm", "dashboard", "expansion-signal-flags"],
+    queryFn: dashboardApi.getExpansionSignalFlags,
+    enabled: authReady,
+  });
+
   const staleDealsList = staleDeals.data?.staleDeals ?? [];
   const missingStakeholderDealsList = missingStakeholderDeals.data?.missingStakeholderDeals ?? [];
-  const totalNeedsAttention = staleDealsList.length + missingStakeholderDealsList.length;
+  const disengagementList = disengagementFlags.data?.disengagementFlags ?? [];
+  const renewalRiskList = renewalRiskFlags.data?.renewalRiskFlags ?? [];
+  const expansionList = expansionSignalFlags.data?.expansionSignalFlags ?? [];
+  const totalNeedsAttention = staleDealsList.length + missingStakeholderDealsList.length + disengagementList.length + renewalRiskList.length + expansionList.length;
 
   return (
     <PageShell width="full" data-testid="page-crm-intelligence">
       <PageHeader title="CRM Intelligence" description="Your pipeline, with AI-flagged deals that need attention." />
 
-      {(staleDeals.isError || missingStakeholderDeals.isError) && (
-        <Alert variant="error" onRetry={() => { staleDeals.refetch(); missingStakeholderDeals.refetch(); }}>
-          {formatQueryError(staleDeals.error || missingStakeholderDeals.error, "Could not load CRM intelligence.")}
+      {(staleDeals.isError || missingStakeholderDeals.isError || disengagementFlags.isError || renewalRiskFlags.isError || expansionSignalFlags.isError) && (
+        <Alert variant="error" onRetry={() => { 
+          staleDeals.refetch(); 
+          missingStakeholderDeals.refetch();
+          disengagementFlags.refetch();
+          renewalRiskFlags.refetch();
+          expansionSignalFlags.refetch();
+        }}>
+          {formatQueryError(
+            staleDeals.error || missingStakeholderDeals.error || disengagementFlags.error || renewalRiskFlags.error || expansionSignalFlags.error, 
+            "Could not load CRM intelligence."
+          )}
         </Alert>
       )}
 
-      {staleDeals.isLoading || missingStakeholderDeals.isLoading ? (
+      {staleDeals.isLoading || missingStakeholderDeals.isLoading || disengagementFlags.isLoading || renewalRiskFlags.isLoading || expansionSignalFlags.isLoading ? (
         <Skeleton className="h-14 w-full rounded-lg" />
       ) : totalNeedsAttention > 0 ? (
         <Card>
@@ -108,6 +138,69 @@ export default function CrmIntelligencePage() {
                     </Badge>
                   </div>
                   <NextBestActionCard entityType="deal" entityId={deal.id} />
+                </div>
+              ))}
+              {/* Disengagement flags */}
+              {disengagementList.map((flag) => (
+                <div key={`disengagement-${flag.id}`} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="min-w-0">
+                      <Link href={`/crm/companies/${flag.companyId}`} className="font-medium hover:underline">
+                        {flag.companyName}
+                      </Link>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        No activity for {flag.daysSinceActivity} days • Computed: {new Date(flag.computedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge tone="warning">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      Disengagement risk
+                    </Badge>
+                  </div>
+                  <NextBestActionCard entityType="company" entityId={flag.companyId} />
+                </div>
+              ))}
+              {/* Renewal risk flags */}
+              {renewalRiskList.map((flag) => (
+                <div key={`renewal-${flag.id}`} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="min-w-0">
+                      <Link href={`/crm/deals/${flag.dealId}`} className="font-medium hover:underline">
+                        {flag.dealName}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {formatMoney(flag.amount, flag.currency)} • {flag.companyName}
+                      </p>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Contract ends in {flag.daysUntilExpiry} days • Computed: {new Date(flag.computedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge tone="danger">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      Renewal risk
+                    </Badge>
+                  </div>
+                  <NextBestActionCard entityType="deal" entityId={flag.dealId} />
+                </div>
+              ))}
+              {/* Expansion signal flags */}
+              {expansionList.map((flag) => (
+                <div key={`expansion-${flag.id}`} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="min-w-0">
+                      <Link href={`/crm/companies/${flag.companyId}`} className="font-medium hover:underline">
+                        {flag.companyName}
+                      </Link>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {flag.signalType.replace(/_/g, " ")} detected • Detected: {new Date(flag.detectedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge tone="success">
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      Expansion opportunity
+                    </Badge>
+                  </div>
+                  <NextBestActionCard entityType="company" entityId={flag.companyId} />
                 </div>
               ))}
             </CardContent>
