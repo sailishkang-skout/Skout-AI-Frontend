@@ -1,8 +1,19 @@
 "use client";
 
 import type { AutomationNode, AutomationNodeType } from "@/lib/automations";
+import type { EnrichField } from "@/types/api";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+
+/** Mirrors src/app/(dashboard)/enrichment/page.tsx's ALL_FIELDS — same field set, same
+ * toggle-chip pattern, so action_enrichment's config matches what a human enrichment run
+ * already looks like instead of inventing a second UI for the same choice. */
+const ENRICH_FIELDS: { id: EnrichField; label: string }[] = [
+  { id: "company", label: "Firmographics" },
+  { id: "email", label: "Email finder" },
+  { id: "validation", label: "Email verify" },
+  { id: "phone", label: "Phone" },
+];
 
 /** Text areas aren't a shared UI component here — a plain textarea matching Input's look. */
 function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -277,6 +288,151 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
         </div>
       );
 
+    case "action_ai": {
+      // Config: { prospectId, prompt } — matches action-ai.node.ts's destructuring exactly,
+      // both required (handler 422s otherwise).
+      return (
+        <div className="space-y-3">
+          <TemplateHint priorNodes={priorNodes} />
+          <Field label="Prospect ID">
+            <Input
+              data-testid="config-ai-prospectId"
+              value={(config.prospectId as string) ?? ""}
+              onChange={(e) => set({ prospectId: e.target.value })}
+            />
+          </Field>
+          <Field label="Prompt">
+            <TextArea
+              data-testid="config-ai-prompt"
+              value={(config.prompt as string) ?? ""}
+              onChange={(e) => set({ prompt: e.target.value })}
+              placeholder="e.g. Draft a follow-up email referencing their recent funding round"
+            />
+          </Field>
+        </div>
+      );
+    }
+
+    case "action_enrichment": {
+      // Config: { companyDomain, fields?, fullName?, title?, email?, linkedinUrl?, prospectId? }
+      // — companyDomain is the only field the handler requires; the rest is a Partial<ProspectSnapshot>
+      // passed straight through to enrichProspect, same as the manual enrichment-run UI's inputs.
+      const fields = (config.fields as EnrichField[] | undefined) ?? [];
+      const toggleField = (id: EnrichField) =>
+        set({ fields: fields.includes(id) ? fields.filter((f) => f !== id) : [...fields, id] });
+      return (
+        <div className="space-y-3">
+          <Field label="Company domain">
+            <Input
+              data-testid="config-companyDomain"
+              value={(config.companyDomain as string) ?? ""}
+              onChange={(e) => set({ companyDomain: e.target.value })}
+              placeholder="acme.com"
+            />
+          </Field>
+          <div className="space-y-1.5">
+            <span className="text-sm text-muted-foreground">Fields to enrich</span>
+            <div className="flex flex-wrap gap-1.5">
+              {ENRICH_FIELDS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  data-testid={`config-enrich-field-${f.id}`}
+                  onClick={() => toggleField(f.id)}
+                  className={
+                    fields.includes(f.id)
+                      ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs text-primary"
+                      : "rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+                  }
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Field label="Prospect ID (optional)">
+            <Input
+              data-testid="config-enrich-prospectId"
+              value={(config.prospectId as string) ?? ""}
+              onChange={(e) => set({ prospectId: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="Full name (optional)">
+            <Input
+              data-testid="config-fullName"
+              value={(config.fullName as string) ?? ""}
+              onChange={(e) => set({ fullName: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="Title (optional)">
+            <Input
+              data-testid="config-enrich-title"
+              value={(config.title as string) ?? ""}
+              onChange={(e) => set({ title: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="Email (optional)">
+            <Input
+              data-testid="config-enrich-email"
+              value={(config.email as string) ?? ""}
+              onChange={(e) => set({ email: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="LinkedIn URL (optional)">
+            <Input
+              data-testid="config-linkedinUrl"
+              value={(config.linkedinUrl as string) ?? ""}
+              onChange={(e) => set({ linkedinUrl: e.target.value || undefined })}
+            />
+          </Field>
+        </div>
+      );
+    }
+
+    case "action_crm_sync": {
+      // Config: { entityType: "contact"|"deal", entityId, patch } — deliberately narrower than
+      // action_crm_writeback's entityType (no "company"): crmSyncOwnedPatch only defines owned
+      // fields for contact/deal (packages/shared/src/crm-sync-fields.ts), and this is the
+      // "push-back" mechanism ADI-18's settings/crm status page already names — same term, same
+      // conflict rule (a local edit is dropped if HubSpot's value changed more recently).
+      return (
+        <div className="space-y-3">
+          <TemplateHint priorNodes={priorNodes} />
+          <Field label="Entity type">
+            <Select
+              data-testid="config-sync-entityType"
+              value={(config.entityType as string) ?? "contact"}
+              onChange={(e) => set({ entityType: e.target.value })}
+            >
+              <option value="contact">Contact</option>
+              <option value="deal">Deal</option>
+            </Select>
+          </Field>
+          <Field label="Entity ID">
+            <Input
+              data-testid="config-sync-entityId"
+              value={(config.entityId as string) ?? ""}
+              onChange={(e) => set({ entityId: e.target.value })}
+            />
+          </Field>
+          <Field label="Patch (JSON)">
+            <TextArea
+              data-testid="config-patch"
+              value={typeof config.patch === "string" ? config.patch : config.patch ? JSON.stringify(config.patch) : ""}
+              onChange={(e) => {
+                try {
+                  set({ patch: JSON.parse(e.target.value) });
+                } catch {
+                  set({ patch: e.target.value });
+                }
+              }}
+              placeholder='{"firstName": "Ada"} — contact allows firstName/lastName/email/phone/title, deal allows name/amount. Pushed to HubSpot; unrecognized keys are dropped, not errored.'
+            />
+          </Field>
+        </div>
+      );
+    }
+
     case "approval":
       return (
         <div className="space-y-3">
@@ -307,5 +463,8 @@ export const ALL_NODE_TYPES: { type: AutomationNodeType; label: string }[] = [
   { type: "action_notification", label: "Notification" },
   { type: "action_crm_writeback", label: "CRM writeback" },
   { type: "action_sequence_enroll", label: "Enroll in sequence" },
+  { type: "action_ai", label: "AI draft" },
+  { type: "action_enrichment", label: "Enrichment" },
+  { type: "action_crm_sync", label: "CRM push-back" },
   { type: "approval", label: "Approval" },
 ];

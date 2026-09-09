@@ -138,7 +138,7 @@ export const VISION_SCREENS: Record<VisionScreenId, VisionScreenConfig> = {
     primaryDecision: {
       title: "Approve the proposed plan",
       description: "Propose, approve, invoke, and learn from Dexter orchestration runs.",
-      href: "/dexter",
+      href: "/dexter#dexter-plan-section",
       cta: "Manage plans",
     },
     policyActionKey: "dexter.plan",

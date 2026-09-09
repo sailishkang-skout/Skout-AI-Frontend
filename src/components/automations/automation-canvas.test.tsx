@@ -50,6 +50,23 @@ describe("AutomationCanvas", () => {
     expect(lastCall.nodes[0].type).toBe("delay");
   });
 
+  // §8.14 SP-15 — the 3 new node types must be placeable from the same palette as the
+  // original 8, with no separate registration step (ALL_NODE_TYPES drives the palette
+  // directly, per node-config-panel.tsx).
+  it.each(["action_ai", "action_enrichment", "action_crm_sync"] as const)(
+    "clicking the %s palette block adds a node of that type",
+    (nodeType) => {
+      const onChange = vi.fn();
+      render(<AutomationCanvas graph={emptyGraph()} onChange={onChange} />);
+
+      fireEvent.click(screen.getByTestId(`palette-${nodeType}`));
+
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as AutomationGraph;
+      expect(lastCall.nodes).toHaveLength(1);
+      expect(lastCall.nodes[0].type).toBe(nodeType);
+    }
+  );
+
   it("dragging a palette block onto the canvas drops a node of that type", () => {
     const onChange = vi.fn();
     render(<AutomationCanvas graph={emptyGraph()} onChange={onChange} />);

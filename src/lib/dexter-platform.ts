@@ -27,6 +27,88 @@ export type LinkedinVoiceHandoff = {
   prospectId?: string;
 };
 
+/** §7.3 SP-11 — Event-spine types including core Dexter lifecycle events and GTM milestones.
+ * Filter dropdown options for the event timeline. */
+export const DEXTER_EVENT_SPINE_TYPES = [
+  "dexter.plan.approved",
+  "dexter.plan.blocked",
+  "dexter.action.executed",
+  "dexter.plan.proposed",
+  "dexter.plan.invoked",
+  "dexter.plan.learned",
+  "icp.approved",
+  "tam.approved",
+  "regional_brief.approved",
+  "signal.detected",
+  "enrichment.completed",
+  "sequence.approved",
+  "touchpoint.completed",
+  "reply.classified",
+  "meeting.completed",
+  "opportunity.updated",
+] as const;
+
+export const DEXTER_EVENT_TYPE_LABELS: Record<string, string> = {
+  "dexter.plan.approved": "Dexter: Plan Approved",
+  "dexter.plan.blocked": "Dexter: Plan Blocked (Policy)",
+  "dexter.action.executed": "Dexter: Action Executed",
+  "dexter.plan.proposed": "Dexter: Plan Proposed",
+  "dexter.plan.invoked": "Dexter: Plan Invoked",
+  "dexter.plan.learned": "Dexter: Learning Recorded",
+  "icp.approved": "ICP: Definition Approved",
+  "tam.approved": "TAM: Scope Approved",
+  "regional_brief.approved": "Regional: Brief Approved",
+  "signal.detected": "Signal: Intent Detected",
+  "enrichment.completed": "Enrichment: Completed",
+  "sequence.approved": "Sequence: Cadence Approved",
+  "touchpoint.completed": "Outreach: Touchpoint Completed",
+  "reply.classified": "Inbox: Reply Classified",
+  "meeting.completed": "Meeting: Completed",
+  "opportunity.updated": "Deal: Opportunity Updated",
+};
+
+export type SkoutEventLogEntry = {
+  id: string;
+  workspaceId: string;
+  type: string;
+  aggregateId: string;
+  correlationId: string;
+  data: Record<string, unknown>;
+  occurredAt: string;
+  createdAt: string;
+};
+
+export type DexterPlanDecision = "pending" | "accepted" | "rejected";
+
+export type DexterWorkspaceEvaluationSummary = {
+  acceptedCount: number;
+  rejectedCount: number;
+  pendingCount: number;
+  /** null when no plan has been decided yet (nothing to rate). */
+  acceptedRate: number | null;
+};
+
+export type DexterPlan = {
+  id: string;
+  brief: string;
+  status: string;
+  policyMode?: string;
+  proposal?: {
+    hypothesis?: string;
+    scope?: string;
+    steps?: Array<{ id: string; status: string; label?: string }>;
+    [key: string]: unknown;
+  };
+  createdAt?: string;
+  approvedAt?: string | null;
+  invokedAt?: string | null;
+  rejectedAt?: string | null;
+  decision: DexterPlanDecision;
+  replyRate: number | null;
+  meetingRate: number | null;
+  [key: string]: unknown;
+};
+
 export function useDexterPlatformApi() {
   const fetchApi = useApiFetch();
   return {
@@ -92,6 +174,12 @@ export function useDexterPlatformApi() {
     approvePlan: (id: string) =>
       fetchApi<{ data: Record<string, unknown> }>(`/api/v1/dexter/plans/${id}/approve`, { method: "POST" }),
 
+    rejectPlan: (id: string, reason?: string) =>
+      fetchApi<{ data: Record<string, unknown> }>(`/api/v1/dexter/plans/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }),
+
     invokePlan: (id: string) =>
       fetchApi<{ data: { plan: Record<string, unknown> } }>(`/api/v1/dexter/plans/${id}/invoke`, {
         method: "POST",
@@ -112,8 +200,9 @@ export function useDexterPlatformApi() {
             invokedPlans: number;
             openDecisions: number;
             policyBlocks: number;
+            evaluation?: DexterWorkspaceEvaluationSummary;
           };
-          plans: Array<Record<string, unknown>>;
+          plans: DexterPlan[];
           pendingApprovals: Array<Record<string, unknown>>;
           policyBlocks: Array<Record<string, unknown>>;
           policies: { policies: Array<Record<string, unknown>>; defaults: Array<Record<string, unknown>> };
@@ -209,5 +298,17 @@ export function useDexterPlatformApi() {
           body: JSON.stringify({ handoffToken, outcomeNote }),
         }
       ),
+
+    // §7.3 SP-11 — reverse-chronological event-spine feed for the Dexter command center.
+    listEvents: (params: { type?: string; before?: string; limit?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.type) query.set("type", params.type);
+      if (params.before) query.set("before", params.before);
+      if (params.limit) query.set("limit", String(params.limit));
+      const qs = query.toString();
+      return fetchApi<{ data: SkoutEventLogEntry[]; total: number }>(
+        `/api/v1/dexter/events${qs ? `?${qs}` : ""}`
+      );
+    },
   };
 }

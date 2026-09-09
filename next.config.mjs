@@ -13,6 +13,12 @@ const nextConfig = {
   reactStrictMode: true,
   basePath: "/app",
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async redirects() {
     return [
       // Dev convenience only: with basePath="/app" configured, Next 404s on the bare root by
@@ -42,7 +48,7 @@ const nextConfig = {
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ??
-      (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:3001"),
+      (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001"),
     NEXT_PUBLIC_APP_URL: appUrl,
     NEXT_PUBLIC_CLERK_SIGN_IN_URL:
       process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,

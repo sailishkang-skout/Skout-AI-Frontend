@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Clock, Loader2, PauseCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Loader2, PauseCircle } from "lucide-react";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,16 +46,16 @@ export function VisionSystemStatePanel({
   const blockedRuns = runs.filter((r) => String(r.status) === "awaiting_approval" || String(r.status) === "pending");
   const failedRuns = runs.filter((r) => String(r.status) === "failed");
 
-  const items: Array<{ label: string; tone: "info" | "warning" | "danger" | "muted"; icon: typeof Loader2 }> = [];
+  const items: Array<{ label: string; tone: "info" | "warning" | "danger" | "success" | "muted"; icon: typeof Loader2 }> = [];
   if (summary.isLoading) {
-    items.push({ label: "Loading system state…", tone: "muted", icon: Loader2 });
+    items.push({ label: "Checking system telemetry…", tone: "muted", icon: Loader2 });
   } else {
-    if (running.length) items.push({ label: `${running.length} job(s) running`, tone: "info", icon: Loader2 });
+    if (running.length) items.push({ label: `${running.length} background job(s) running`, tone: "info", icon: Loader2 });
     if (failed.length) items.push({ label: `${failed.length} enrichment failure(s)`, tone: "danger", icon: AlertTriangle });
     if (blockedRuns.length)
       items.push({ label: `${blockedRuns.length} workflow(s) awaiting approval`, tone: "warning", icon: PauseCircle });
     if (failedRuns.length) items.push({ label: `${failedRuns.length} workflow run failure(s)`, tone: "danger", icon: AlertTriangle });
-    if (!items.length) items.push({ label: "All systems nominal", tone: "muted", icon: Clock });
+    if (!items.length) items.push({ label: "All systems operational (0 incidents)", tone: "success", icon: CheckCircle2 });
   }
 
   const body = (
@@ -64,7 +64,19 @@ export function VisionSystemStatePanel({
         const Icon = item.icon;
         return (
           <li key={item.label} className="flex items-center gap-2 text-sm">
-            <Icon className={`h-4 w-4 shrink-0 ${item.tone === "info" ? "animate-spin text-blue-600" : "text-muted-foreground"}`} />
+            <Icon
+              className={`h-4 w-4 shrink-0 ${
+                item.tone === "info"
+                  ? "animate-spin text-blue-600"
+                  : item.tone === "success"
+                  ? "text-emerald-500"
+                  : item.tone === "danger"
+                  ? "text-destructive"
+                  : item.tone === "warning"
+                  ? "text-amber-500"
+                  : "text-muted-foreground"
+              }`}
+            />
             <Badge tone={item.tone}>{item.label}</Badge>
           </li>
         );

@@ -20,7 +20,7 @@ export function useWorkspaceRole() {
   const apiFetch = useApiFetch();
   const authReady = useAuthReady();
 
-  const { data } = useQuery<MeResponse>({
+  const { data, isLoading } = useQuery<MeResponse>({
     queryKey: ["me"],
     queryFn: () => apiFetch("/api/v1/me"),
     enabled: authReady,
@@ -30,7 +30,7 @@ export function useWorkspaceRole() {
   const role = data?.role;
   const canDelete = role === "owner" || role === "admin";
 
-  return { role, canDelete, userId: data?.userId };
+  return { role, canDelete, userId: data?.userId, isLoading };
 }
 
 /** True if a CRM delete/mutation was rejected because the user's role isn't owner/admin. */

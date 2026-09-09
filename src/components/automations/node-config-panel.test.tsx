@@ -127,4 +127,48 @@ describe("NodeConfigPanel", () => {
     render(<NodeConfigPanel node={node("trigger", {})} onChange={onChange} />);
     expect((screen.getByTestId("config-triggerType") as HTMLSelectElement).value).toBe("manual");
   });
+
+  // §8.14 SP-15 — field names below must exactly match what each backend node handler
+  // destructures from config (apps/api/src/services/automation-nodes/*.node.ts), per this
+  // file's own top-of-component comment. A mismatch here is a silent undefined at run time,
+  // not a compile error, so each field name is asserted explicitly rather than just "renders".
+  it("renders action_ai's prospectId/prompt fields, matching action-ai.node.ts's { prospectId, prompt }", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("action_ai", { prospectId: "p-1", prompt: "Draft a follow-up" })} onChange={onChange} />);
+    expect((screen.getByTestId("config-ai-prospectId") as HTMLInputElement).value).toBe("p-1");
+    fireEvent.change(screen.getByTestId("config-ai-prompt"), { target: { value: "New prompt" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ prospectId: "p-1", prompt: "New prompt" }));
+  });
+
+  it("renders action_enrichment's companyDomain field and the field-toggle chips, matching action-enrichment.node.ts's { companyDomain, fields }", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("action_enrichment", { companyDomain: "acme.com", fields: ["company"] })} onChange={onChange} />);
+    expect((screen.getByTestId("config-companyDomain") as HTMLInputElement).value).toBe("acme.com");
+    fireEvent.click(screen.getByTestId("config-enrich-field-email"));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fields: ["company", "email"] }));
+  });
+
+  it("toggling an already-selected enrichment field removes it instead of duplicating", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("action_enrichment", { fields: ["company", "email"] })} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("config-enrich-field-email"));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fields: ["company"] }));
+  });
+
+  it("renders action_crm_sync's entityType/entityId/patch fields, matching action-crm-sync.node.ts's { entityType, entityId, patch } — contact/deal only, not company", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("action_crm_sync", { entityType: "deal", entityId: "d-1" })} onChange={onChange} />);
+    const select = screen.getByTestId("config-sync-entityType") as HTMLSelectElement;
+    expect(select.value).toBe("deal");
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(["contact", "deal"]);
+    fireEvent.change(screen.getByTestId("config-sync-entityId"), { target: { value: "d-2" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ entityId: "d-2" }));
+  });
+
+  it("parses JSON typed into the CRM push-back patch field", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("action_crm_sync", {})} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("config-patch"), { target: { value: '{"firstName":"Ada"}' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ patch: { firstName: "Ada" } }));
+  });
 });

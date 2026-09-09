@@ -5,16 +5,32 @@ export const crmApiURL = process.env.PLAYWRIGHT_CRM_API_URL ?? "http://127.0.0.1
 
 /** Wait for a dashboard page shell and its primary data load. */
 export async function gotoAppPage(page: Page, path: string, testId: string) {
-  // CI sets PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000/app, so we just pass the relative path
-  // Playwright automatically combines baseURL from playwright.config.ts with the path
-  await page.goto(path, { 
-    waitUntil: "networkidle",
+  // Pre-seed localStorage to dismiss product tour so modal never blocks testing
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem(
+        "skout.productTour.v2",
+        JSON.stringify({ welcomeSeen: true, dismissed: true, completed: true })
+      );
+    } catch {}
+  });
+
+  // Next.js uses basePath="/app", so ensure path routes under /app
+  const target = path.startsWith("/app") ? path : `/app${path.startsWith("/") ? path : `/${path}`}`;
+  await page.goto(target, { 
+    waitUntil: "domcontentloaded",
     timeout: 45_000
   });
+
+  // If tour modal appears, dismiss it immediately
+  const skipBtn = page.getByRole("button", { name: /Skip for now/i });
+  if (await skipBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await skipBtn.click().catch(() => {});
+  }
   
   // First check if we hit an error state ("Something went wrong")
   const errorElement = page.getByText("Something went wrong");
-  if (await errorElement.isVisible({ timeout: 1000 })) {
+  if (await errorElement.isVisible({ timeout: 1000 }).catch(() => false)) {
     throw new Error(`Page loaded but showed error state: "${await errorElement.textContent()}"`);
   }
   

@@ -15,6 +15,14 @@ vi.mock("@/lib/dexter-platform", () => ({
   }),
 }));
 
+vi.mock("@/lib/crm/contacts", () => ({
+  useContactsApi: () => ({ list: vi.fn().mockResolvedValue({ data: [] }) }),
+}));
+
+vi.mock("@/lib/crm/deals", () => ({
+  useDealsApi: () => ({ list: vi.fn().mockResolvedValue({ data: [] }) }),
+}));
+
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -24,10 +32,10 @@ function renderPage() {
   );
 }
 
-describe("DecisionsPage — visual hierarchy for open vs resolved decisions", () => {
+describe("DecisionsPage — tabbed queue with KPI counts", () => {
   afterEach(() => cleanup());
 
-  it("shows the real per-decision options as buttons instead of a generic Decide/Dismiss pair", async () => {
+  it("renders a decision with its title, recommendation, and Decide/Dismiss actions", async () => {
     mockListDecisions.mockResolvedValue({
       data: [
         {
@@ -36,13 +44,9 @@ describe("DecisionsPage — visual hierarchy for open vs resolved decisions", ()
           kind: "next_best_action",
           status: "open",
           recommendation: "No reply in 5 days.",
-          options: [
-            { id: "act", label: "Send follow-up email", primary: true },
-            { id: "wait", label: "Wait" },
-            { id: "dismiss", label: "Dismiss" },
-          ],
+          options: [],
           evidenceIds: [],
-          expectedOutcome: { actionType: "send_email" },
+          expectedOutcome: null,
           entityType: "contact",
           entityId: "c1",
           createdAt: new Date().toISOString(),
@@ -54,13 +58,12 @@ describe("DecisionsPage — visual hierarchy for open vs resolved decisions", ()
     renderPage();
 
     await screen.findByText("Follow up with Jane");
-    screen.getByRole("button", { name: "Send follow-up email" });
-    screen.getByRole("button", { name: "Wait" });
+    screen.getByText("No reply in 5 days.");
+    screen.getByRole("button", { name: "Decide" });
     screen.getByRole("button", { name: "Dismiss" });
-    screen.getByText(/suggested: send email/i);
   });
 
-  it("groups decided/dismissed decisions into a collapsed Resolved section", async () => {
+  it("switching to the Decided tab shows resolved decisions instead of open ones", async () => {
     mockListDecisions.mockResolvedValue({
       data: [
         {
@@ -99,7 +102,8 @@ describe("DecisionsPage — visual hierarchy for open vs resolved decisions", ()
     await screen.findByText("Open one");
     expect(screen.queryByText("Already decided")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /resolved \(1\)/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^decided/i }));
     await waitFor(() => screen.getByText("Already decided"));
+    expect(screen.queryByText("Open one")).toBeNull();
   });
 });

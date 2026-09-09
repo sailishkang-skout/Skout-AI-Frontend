@@ -4,40 +4,62 @@ import { NextResponse, NextRequest } from "next/server";
 import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
 import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
 
-const isPublicRoute = createRouteMatcher([
-  "/sign-in(.*)",
-  "/signin(.*)",
-  "/singin(.*)",
-  "/login(.*)",
-  "/sign-up(.*)",
-  "/auth/callback",
-  "/",
-]);
+/**
+ * next.config.mjs sets basePath: "/app" — Next does NOT strip that prefix from
+ * request.nextUrl.pathname inside middleware, so every pattern below must carry it too.
+ * CRITICAL BUG found while full-testing SP-11/SP-12: without this prefix, `isProtectedRoute`
+ * silently matched nothing for the whole app (pathname was always "/app/..." against patterns
+ * starting "/dashboard", "/settings", etc.), so `auth().protect()` never actually ran anywhere —
+ * every dashboard route was reachable by a signed-out visitor at the middleware layer. Confirmed
+ * via a fresh, cookie-less browser context hitting /app/settings/compliance directly and landing
+ * on the page instead of being redirected to sign-in.
+ */
+const BASE_PATH = "/app";
+const withBasePath = (paths: string[]) => paths.map((p) => `${BASE_PATH}${p}`);
+
+const isPublicRoute = createRouteMatcher(
+  withBasePath([
+    "/sign-in(.*)",
+    "/signin(.*)",
+    "/singin(.*)",
+    "/login(.*)",
+    "/sign-up(.*)",
+    "/auth/callback",
+    "",
+  ])
+);
 
 /** Only protect known app routes — unknown paths fall through to Next.js 404. */
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/prospects(.*)",
-  "/lists(.*)",
-  "/smart-lists(.*)",
-  "/enrichment(.*)",
-  "/analytics(.*)",
-  "/settings(.*)",
-  "/onboarding(.*)",
-  "/sequences(.*)",
-  "/inbox(.*)",
-  "/deliverability(.*)",
-  "/warmup(.*)",
-  "/ai(.*)",
-  // Pre-existing gap found while adding /intelligence below: CRM pages (companies, contacts,
-  // deals, tasks, meetings, calendar) were never in this list, so Clerk never protected them.
-  "/crm(.*)",
-  "/intelligence(.*)",
-  "/signals(.*)",
-  // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
-  // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
-  "/admin/cro(.*)",
-]);
+const isProtectedRoute = createRouteMatcher(
+  withBasePath([
+    "/dashboard(.*)",
+    "/prospects(.*)",
+    "/lists(.*)",
+    "/smart-lists(.*)",
+    "/enrichment(.*)",
+    "/analytics(.*)",
+    "/settings(.*)",
+    "/onboarding(.*)",
+    "/sequences(.*)",
+    "/inbox(.*)",
+    "/deliverability(.*)",
+    "/warmup(.*)",
+    "/ai(.*)",
+    // Pre-existing gap found while adding /intelligence below: CRM pages (companies, contacts,
+    // deals, tasks, meetings, calendar) were never in this list, so Clerk never protected them.
+    "/crm(.*)",
+    "/intelligence(.*)",
+    "/signals(.*)",
+    // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
+    // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
+    "/admin/cro(.*)",
+    "/admin/control-plane(.*)",
+    // Found missing while full-testing SP-11/SP-12: these rendered the dashboard shell for
+    // signed-out visitors (client-side gates only fail the API calls, they never redirect).
+    "/dexter(.*)",
+    "/decisions(.*)",
+  ])
+);
 
 const useClerkMiddleware =
   process.env.E2E_AUTH_BYPASS !== "true" &&
