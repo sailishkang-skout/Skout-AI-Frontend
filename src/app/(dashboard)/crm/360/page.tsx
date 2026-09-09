@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 import { NextBestActionCard } from "@/components/crm/next-best-action-card";
 import { SignalActionRail } from "@/components/crm/signal-action-rail";
 import { Crm360RecordPicker } from "@/components/crm/crm-360-record-picker";
@@ -13,11 +13,29 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatQueryError, useAuthReady } from "@/lib/api-client";
+import { formatQueryError, useAuthReady, useApiFetch } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
+import type { RegionalBriefFieldCategory, ResolvedBriefEntry } from "@/lib/regional-brief";
+
+// Evidence ledger interface from existing implementation
+interface EvidenceRow {
+  id: string;
+  workspaceId: string;
+  entityType: string;
+  entityId: string;
+  attribute: string;
+  value: Record<string, unknown>;
+  source: string;
+  observedAt: string;
+  retrievedAt: string;
+  confidence: number;
+  freshnessExpiresAt: string;
+  method: string;
+  resolutionRuleOrModelVersion: string | null;
+}
 
 /** §8.4 — Account / Person 360 compose view. */
 export default function Account360Page() {
@@ -104,9 +122,72 @@ export default function Account360Page() {
       ? ((data as unknown as { company?: { name?: string } })?.company?.name ?? "this account")
       : ((data as unknown as { professionalFacts?: { fullName?: string } })?.professionalFacts?.fullName ?? "this person");
 
+  // SS-12: Evidence ledger helper functions
+  const getEvidenceStatus = (item: EvidenceRow) => {
+    const now = new Date();
+    let isExpiringSoon = false;
+    try {
+      const expiresAt = new Date(item.freshnessExpiresAt);
+      if (!isNaN(expiresAt.getTime())) {
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+        isExpiringSoon = timeUntilExpiry < 24 * 60 * 60 * 1000; // Within 24 hours
+      }
+    } catch {
+      isExpiringSoon = false;
+    }
+    const isLowConfidence = item.confidence < 0.7;
+    return { isExpiringSoon, isLowConfidence, hasWarnings: isExpiringSoon || isLowConfidence };
+  };
+
+  const formatDate = (dateStr: string | undefined | null) => {
+    if (!dateStr) return "Unknown date";
+    try {
+      return new Date(dateStr).toLocaleString();
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  const getStatusClasses = (item: EvidenceRow) => {
+    const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+    if (isExpiringSoon || isLowConfidence) {
+      return {
+        badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+        border: "border-amber-200 dark:border-amber-800",
+      };
+    }
+    return {
+      badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+      border: "border-emerald-200 dark:border-emerald-800",
+    };
+  };
+
+  // SS-12: Regional brief category labels
+  const REGIONAL_CATEGORY_LABELS: Record<RegionalBriefFieldCategory, string> = {
+    market_economics: "Market Economics",
+    business_practice: "Business Practice & Etiquette",
+    channel_policy: "Channel & Outreach Policy",
+    telecom_requirements: "Telecom & Calling Requirements",
+    data_compliance: "Data Compliance & Privacy",
+    explainability: "Explainability & AI Policy",
+  };
+
   const enrichmentApi = useEnrichmentApi();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
+
+  const toggleEvidence = (attribute: string) => {
+    const newExpanded = new Set(expandedEvidence);
+    if (newExpanded.has(attribute)) {
+      newExpanded.delete(attribute);
+    } else {
+      newExpanded.add(attribute);
+    }
+    setExpandedEvidence(newExpanded);
+  };
+
+  const apiFetch = useApiFetch();
 
   /**
    * A workbook run always targets a static list (there's no "enrich one ad-hoc prospect"
@@ -239,22 +320,86 @@ export default function Account360Page() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {mode === "account" ? (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Domain</p>
-                    <p>{(data as unknown as { company?: { domain?: string } }).company?.domain ?? "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Industry</p>
-                    <p>{(data as unknown as { company?: { industry?: string } }).company?.industry ?? "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Employees</p>
-                    <p>{(data as unknown as { company?: { employeeCount?: number } }).company?.employeeCount ?? "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Location</p>
-                    <p>{(data as unknown as { company?: { country?: string } }).company?.country ?? "N/A"}</p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {(() => {
+                      // Create a reusable EvidencePanel component inline
+                      const EvidencePanel = ({ attribute, label, value, companyId }: { attribute: string; label: string; value?: string | number; companyId?: string }) => {
+                        const isExpanded = expandedEvidence.has(attribute);
+                        const { data: evidenceData } = useQuery<{ data: EvidenceRow[] }>({
+                          queryKey: ["evidence", "company", companyId, attribute],
+                          queryFn: async () => {
+                            if (!companyId) throw new Error("Missing company ID");
+                            return apiFetch<{ data: EvidenceRow[] }>(
+                              `/api/v1/evidence?entityType=company&entityId=${encodeURIComponent(companyId)}&attribute=${encodeURIComponent(attribute)}`
+                            );
+                          },
+                          enabled: authReady && Boolean(companyId) && isExpanded,
+                          staleTime: 30_000,
+                          retry: 1,
+                        });
+
+                        const evidence = evidenceData?.data || [];
+                        const hasWarnings = evidence.some(item => getEvidenceStatus(item).hasWarnings);
+
+                        return (
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <p className="text-xs font-semibold text-foreground">{label}</p>
+                              {hasWarnings && (
+                                <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" title="Evidence has warnings" />
+                              )}
+                              {evidence.length > 0 && (
+                                <button
+                                  onClick={() => toggleEvidence(attribute)}
+                                  className="ml-1 text-muted-foreground hover:text-foreground"
+                                >
+                                  <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+                              )}
+                            </div>
+                            <p>{value ?? "N/A"}</p>
+                            {isExpanded && evidence.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {evidence.map((item) => {
+                                  const statusClasses = getStatusClasses(item);
+                                  const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      className={`rounded-lg border p-2 text-xs ${statusClasses.border}`}
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                                        <Badge className={statusClasses.badge}>
+                                          {item.source.replace(/_/g, " ")}
+                                        </Badge>
+                                        <span>Confidence: {Math.round(item.confidence * 100)}%</span>
+                                      </div>
+                                      <p className="text-muted-foreground">
+                                        {isExpiringSoon && "⚠️ Expiring soon · "}
+                                        {isLowConfidence && "⚠️ Low confidence · "}
+                                        Fresh until: {formatDate(item.freshnessExpiresAt)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      };
+
+                      const companyId = lookupId;
+                      const company = (data as unknown as { company?: { domain?: string; industry?: string; employeeCount?: number; country?: string } }).company;
+                      return (
+                        <>
+                          <EvidencePanel attribute="domain" label="Domain" value={company?.domain} companyId={companyId || undefined} />
+                          <EvidencePanel attribute="industry" label="Industry" value={company?.industry} companyId={companyId || undefined} />
+                          <EvidencePanel attribute="employeeCount" label="Employees" value={company?.employeeCount} companyId={companyId || undefined} />
+                          <EvidencePanel attribute="country" label="Location" value={company?.country} companyId={companyId || undefined} />
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -307,6 +452,54 @@ export default function Account360Page() {
               </CardContent>
             </Card>
           )}
+
+          {/* SS-12: Regional Intelligence Section */}
+          {mode === "account" && (() => {
+            const country = (data as unknown as { company?: { country?: string } }).company?.country;
+            const regionalIntel = (data as unknown as { regionalIntel?: ResolvedBriefEntry[] }).regionalIntel;
+            if (!country || !regionalIntel || !Array.isArray(regionalIntel) || regionalIntel.length === 0) return null;
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>Regional Intelligence for {country}</span>
+                    <span className="text-xs font-normal text-muted-foreground">{regionalIntel.length} insights</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {regionalIntel.map((intel, index) => (
+                      <div key={index} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {REGIONAL_CATEGORY_LABELS[intel.fieldCategory] || intel.fieldCategory}
+                          </p>
+                          <Badge className={`text-[10px] ${intel.confidence >= 0.7 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}>
+                            {Math.round(intel.confidence * 100)}% confidence
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium">{intel.content.summary}</p>
+                        {intel.content.details.length > 0 && (
+                          <ul className="text-xs text-muted-foreground space-y-1">
+                            {intel.content.details.map((detail, i) => (
+                              <li key={i}>• {detail}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+                          <span>Source: {intel.source}</span>
+                          <span>·</span>
+                          <span>Effective: {new Date(intel.effectiveDate).toLocaleDateString()}</span>
+                          {intel.isStale && <span className="text-amber-600">· ⚠️ Stale</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Person View: Professional Facts vs Inferred Context */}
           {mode === "person" && "professionalFacts" in data && (

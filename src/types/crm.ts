@@ -414,6 +414,40 @@ export interface MissingStakeholderDealSummary {
   evidence: MissingStakeholderEvidence[];
 }
 
+export interface DisengagementFlag {
+  id: string;
+  companyId: string;
+  companyName: string;
+  daysSinceActivity: number;
+  lastActivityAt: string | null;
+  rule: string;
+  computedAt: string;
+}
+
+export interface RenewalRiskFlag {
+  id: string;
+  dealId: string;
+  dealName: string;
+  companyId: string;
+  companyName: string;
+  contractEndDate: string;
+  daysUntilExpiry: number;
+  rule: string;
+  computedAt: string;
+  amount: number | null;
+  currency: string;
+}
+
+export interface ExpansionSignalFlag {
+  id: string;
+  companyId: string;
+  companyName: string;
+  signalType: string;
+  detectedAt: string;
+  rule: string;
+  computedAt: string;
+}
+
 export interface RepActivitySummary {
   userId: string | null;
   name: string;

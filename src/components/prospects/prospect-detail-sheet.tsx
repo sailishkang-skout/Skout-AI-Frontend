@@ -238,7 +238,7 @@ function IcpScoreCard({
         <div className="flex items-center gap-3">
           <ScoreBadge score={score} reasoning={reasoning} />
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">ICP Score</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground" title="ICP/Firmographic match - how well this prospect matches your ideal customer profile">Fit Score</p>
             {band && (
               <p className={`text-sm font-bold ${colors.text}`}>{band} fit</p>
             )}
@@ -275,7 +275,7 @@ function IcpScoreCard({
         <div className="mt-3 flex flex-wrap gap-2 border-t border-current/10 pt-3">
           {intentScore != null && (
             <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-              Intent <span className="font-bold">{intentScore}</span>
+              Timing <span className="font-bold" title="Signal-stacking score - how recent and relevant the buying signals are for this prospect">{intentScore}</span>
             </span>
           )}
           {outreachReadiness && (
@@ -488,10 +488,11 @@ export function ProspectDetailSheet({
   const emailStatus =
     enrichedEmailStatus ?? (member?.snapshot as { emailStatus?: string })?.emailStatus;
 
-  // Resolve the best available score: prop passed from parent → cached mutation result → inline from detail
-  const resolvedScore = score?.score ?? scoreResult?.icpScore ?? d.icpScore;
+  // SS-11: Resolve fit/timing scores with backward compatibility for old icpScore/intentScore
+  const resolvedFitScore = score?.score ?? scoreResult?.icpScore ?? d.fitScore ?? d.icpScore;
+  const resolvedTimingScore = scoreResult?.intentScore ?? d.timingScore ?? d.intentScore;
   const resolvedReasoning = score?.reasoning ?? scoreResult?.reasoning ?? null;
-  const resolvedBand = resolvedScore != null ? scoreBandLabel(resolvedScore) : null;
+  const resolvedBand = resolvedFitScore != null ? scoreBandLabel(resolvedFitScore) : null;
   const resolvedSource = scoreResult?.source;
   const resolvedDimensions = scoreResult?.dimensions;
   // Pain points: prefer real-time mutation result, then fall back to stored detail
@@ -537,12 +538,12 @@ export function ProspectDetailSheet({
         )}
 
         {/* ICP Score card */}
-        {resolvedScore != null ? (
+        {resolvedFitScore != null ? (
           <IcpScoreCard
-            score={resolvedScore}
+            score={resolvedFitScore}
             band={resolvedBand}
             reasoning={resolvedReasoning}
-            intentScore={d.intentScore}
+            intentScore={resolvedTimingScore}
             outreachReadiness={d.outreachReadiness}
             source={resolvedSource}
             dimensions={resolvedDimensions}
@@ -554,8 +555,8 @@ export function ProspectDetailSheet({
         ) : (
           <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">
             <div>
-              <p className="text-sm font-medium">ICP Score</p>
-              <p className="text-xs text-muted-foreground">Not scored yet</p>
+              <p className="text-sm font-medium">Fit Score</p>
+                <p className="text-xs text-muted-foreground">Not scored yet</p>
             </div>
             <Button
               size="sm"

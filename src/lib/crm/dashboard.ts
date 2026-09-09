@@ -6,6 +6,9 @@ import type {
   StaleDealSummary,
   SwitchingCost,
   MissingStakeholderDealSummary,
+  DisengagementFlag,
+  RenewalRiskFlag,
+  ExpansionSignalFlag
 } from "@/types/crm";
 
 export function useCrmDashboardApi() {
@@ -33,6 +36,24 @@ export function useCrmDashboardApi() {
     getMissingStakeholderDeals: () =>
       fetchApi<{ workspaceId: string; missingStakeholderDeals: MissingStakeholderDealSummary[]; generatedAt: string }>(
         "/api/v1/dashboard/missing-stakeholder-deals"
+      ),
+
+    /** Open to every workspace member — powers CRM Intelligence disengagement flags. */
+    getDisengagementFlags: () =>
+      fetchApi<{ workspaceId: string; disengagementFlags: DisengagementFlag[]; generatedAt: string }>(
+        "/api/v1/dashboard/disengagement-flags"
+      ),
+
+    /** Open to every workspace member — powers CRM Intelligence renewal risk flags. */
+    getRenewalRiskFlags: () =>
+      fetchApi<{ workspaceId: string; renewalRiskFlags: RenewalRiskFlag[]; generatedAt: string }>(
+        "/api/v1/dashboard/renewal-risk-flags"
+      ),
+
+    /** Open to every workspace member — powers CRM Intelligence expansion signal flags. */
+    getExpansionSignalFlags: () =>
+      fetchApi<{ workspaceId: string; expansionSignalFlags: ExpansionSignalFlag[]; generatedAt: string }>(
+        "/api/v1/dashboard/expansion-signal-flags"
       ),
   };
 }
