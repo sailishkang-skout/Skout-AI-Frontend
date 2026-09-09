@@ -9,6 +9,9 @@ export type AutomationNodeType =
   | "action_notification"
   | "action_crm_writeback"
   | "action_sequence_enroll"
+  | "action_ai"
+  | "action_enrichment"
+  | "action_crm_sync"
   | "approval";
 
 export interface AutomationNode {
