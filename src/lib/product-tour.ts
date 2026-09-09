@@ -451,6 +451,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "gtm-learning",
+    target: "nav-gtm-learning",
+    href: "/admin/gtm-learning",
+    title: "GTM-learning report",
+    body: "What actually drives qualified pipeline and revenue, sliced by channel, signal type, and ICP priority — not just touchpoint counts.",
+    details: [
+      "Dedupes by enrollment before summing, so a multi-touch sequence isn't double-counted",
+      "Switch slices to see which channel or signal correlates with real pipeline",
+      "Refresh runs the aggregation on-demand instead of waiting for the next scheduled sweep",
+    ],
+  },
+  {
     id: "competitive",
     target: "nav-competitive",
     href: "/admin/competitive",
