@@ -106,7 +106,7 @@ function getEventTypeConfig(type: string) {
       return { icon: Sparkles, bg: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20" };
     case "dexter.plan.invoked":
       return { icon: Play, bg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20" };
-    case "dexter.plan.learned":
+    case "dexter.learning.approved":
       return { icon: TrendingUp, bg: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20" };
     case "icp.approved":
       return { icon: Target, bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" };

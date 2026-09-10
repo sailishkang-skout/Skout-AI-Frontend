@@ -29,6 +29,7 @@ test.describe("Dexter event spine timeline", () => {
     await expect(filter).toBeVisible();
     await expect(filter.locator("option")).toHaveCount(17); // "All event types" + 16 Dexter/GTM spine types
     await expect(filter.locator('option[value="icp.approved"]')).toHaveCount(1);
+    await expect(filter.locator('option[value="dexter.plan.invoked"]')).toHaveCount(1);
     await expect(filter.locator('option[value="opportunity.updated"]')).toHaveCount(1);
 
     // Either real rows or the explicit empty state — never a silent blank panel.
@@ -51,6 +52,7 @@ test.describe("Dexter event spine timeline", () => {
 
     const filter = page.getByTestId("dexter-event-type-filter");
     await expect(filter).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("dexter-event-feed")).toContainText("No events found");
     await filter.selectOption("meeting.completed");
     await expect(filter).toHaveValue("meeting.completed");
     await expect(page.getByTestId("dexter-event-feed")).toBeVisible();
@@ -61,6 +63,7 @@ test.describe("Dexter event spine timeline", () => {
     await gotoAppPage(page, "/dexter", "page-dexter");
     const filter = page.getByTestId("dexter-event-type-filter");
     await expect(filter).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("dexter-event-feed")).toContainText("No events found");
 
     await filter.selectOption("signal.detected");
     await expect(filter).toHaveValue("signal.detected");
