@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:install": "npx playwright install chromium",
     "prepare": "husky"
   },
   "dependencies": {
@@ -24,6 +27,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
