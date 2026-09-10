@@ -1255,7 +1255,7 @@ export default function OnboardingPage() {
               title="How much should Skout act on its own?"
               subtitle="Changeable anytime later under Settings."
             />
-            <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               {AUTONOMY_MODES.map((m) => (
                 <OptionCard
                   key={m.id}
