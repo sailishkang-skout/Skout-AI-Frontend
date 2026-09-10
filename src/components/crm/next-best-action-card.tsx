@@ -30,7 +30,7 @@ const ACTION_TONE: Record<ActionType, "info" | "success" | "warning" | "muted"> 
   task: "warning",
 };
 
-export function NextBestActionCard({ entityType, entityId }: { entityType: "contact" | "deal"; entityId: string }) {
+export function NextBestActionCard({ entityType, entityId }: { entityType: "contact" | "deal" | "company"; entityId: string }) {
   const apiFetch = useApiFetch();
   const authReady = useAuthReady();
   const sequencesApi = useSequencesApi();
