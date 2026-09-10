@@ -90,6 +90,10 @@ function decisionBadgeTone(decision: string): "success" | "danger" | "muted" {
   return "muted";
 }
 
+function decisionLabel(decision: string): string {
+  return decision === "rejected" ? "overridden" : decision;
+}
+
 function getEventTypeConfig(type: string) {
   switch (type) {
     case "dexter.plan.approved":
@@ -430,6 +434,55 @@ export default function DexterOrchestratorPage() {
           </span>
         </div>
       )}
+
+      {/* SP-12 — show evaluation metrics for every plan, not only the plan selected in the
+          composer above. Pipeline and revenue attribution are intentionally not represented
+          because the backend does not compute them yet. */}
+      <Card className="border-border/80 shadow-sm" data-testid="dexter-plan-evaluation-table">
+        <CardHeader className="border-b border-border/50 bg-muted/20 pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-cyan-500" />
+            Plan evaluation
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Decision outcomes and observed reply and meeting rates for each Dexter plan.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {(center.data?.data.plans ?? []).length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-left text-xs text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Plan</th>
+                    <th className="pb-2 pr-4 font-medium">Decision</th>
+                    <th className="pb-2 pr-4 font-medium">Reply rate</th>
+                    <th className="pb-2 font-medium">Meeting rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(center.data?.data.plans ?? []).map((plan) => (
+                    <tr key={plan.id} className="border-b border-border/40 last:border-0">
+                      <td className="max-w-[360px] truncate py-3 pr-4 font-medium text-foreground">
+                        {plan.brief || `Plan ${plan.id.slice(0, 8)}`}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <Badge tone={decisionBadgeTone(plan.decision)} className="text-[10px] uppercase font-mono">
+                          {decisionLabel(plan.decision)}
+                        </Badge>
+                      </td>
+                      <td className="py-3 pr-4 font-semibold text-foreground">{formatRate(plan.replyRate)}</td>
+                      <td className="py-3 font-semibold text-foreground">{formatRate(plan.meetingRate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">No Dexter plans to evaluate yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Main Studio Grid: AI Mission Directive & Autonomy Modes */}
       <div className="grid gap-6 lg:grid-cols-12">

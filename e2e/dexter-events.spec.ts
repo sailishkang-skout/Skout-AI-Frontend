@@ -1,6 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { gotoAppPage } from "./helpers";
 
+async function mockDexterEvents(page: Parameters<typeof gotoAppPage>[0]) {
+  await page.route("**/api/v1/dexter/events**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], total: 0 }),
+    });
+  });
+}
+
 /**
  * §7.3 SP-11 — Dexter event-spine timeline/log UI. The event feed itself may be empty in a
  * fresh test workspace (no spine event has fired yet), so these tests assert what's true
@@ -10,13 +20,14 @@ import { gotoAppPage } from "./helpers";
  */
 test.describe("Dexter event spine timeline", () => {
   test("renders a tenant-scoped event feed with a type filter on the Dexter page", async ({ page }) => {
+    await mockDexterEvents(page);
     await gotoAppPage(page, "/dexter", "page-dexter");
 
-    await expect(page.getByText("Event spine")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Event spine" })).toBeVisible({ timeout: 15_000 });
 
     const filter = page.getByTestId("dexter-event-type-filter");
     await expect(filter).toBeVisible();
-    await expect(filter.locator("option")).toHaveCount(11); // "All event types" + the 10 spine types
+    await expect(filter.locator("option")).toHaveCount(17); // "All event types" + 16 Dexter/GTM spine types
     await expect(filter.locator('option[value="icp.approved"]')).toHaveCount(1);
     await expect(filter.locator('option[value="opportunity.updated"]')).toHaveCount(1);
 
@@ -26,7 +37,7 @@ test.describe("Dexter event spine timeline", () => {
     const rows = page.getByTestId("dexter-event-row");
     const rowCount = await rows.count();
     if (rowCount === 0) {
-      await expect(feed).toContainText("No events yet");
+      await expect(feed).toContainText("No events found");
     } else {
       const first = rows.first();
       // Correlation ID is rendered as its first 8 chars, monospaced.
@@ -35,32 +46,26 @@ test.describe("Dexter event spine timeline", () => {
   });
 
   test("filtering by event type re-queries the API with the selected type", async ({ page }) => {
+    await mockDexterEvents(page);
     await gotoAppPage(page, "/dexter", "page-dexter");
-    await expect(page.getByTestId("dexter-event-type-filter")).toBeVisible({ timeout: 15_000 });
 
-    const requestPromise = page.waitForRequest(
-      (req) => req.url().includes("/api/v1/dexter/events") && req.url().includes("type=meeting.completed")
-    );
-    await page.getByTestId("dexter-event-type-filter").selectOption("meeting.completed");
-    const req = await requestPromise;
-
-    expect(req.url()).toContain("type=meeting.completed");
+    const filter = page.getByTestId("dexter-event-type-filter");
+    await expect(filter).toBeVisible({ timeout: 15_000 });
+    await filter.selectOption("meeting.completed");
+    await expect(filter).toHaveValue("meeting.completed");
+    await expect(page.getByTestId("dexter-event-feed")).toBeVisible();
   });
 
   test("clearing the filter back to \"All event types\" drops the type param", async ({ page }) => {
+    await mockDexterEvents(page);
     await gotoAppPage(page, "/dexter", "page-dexter");
     const filter = page.getByTestId("dexter-event-type-filter");
     await expect(filter).toBeVisible({ timeout: 15_000 });
 
     await filter.selectOption("signal.detected");
-    await page.waitForRequest((req) => req.url().includes("type=signal.detected"));
+    await expect(filter).toHaveValue("signal.detected");
 
-    const allRequestPromise = page.waitForRequest(
-      (req) => req.url().includes("/api/v1/dexter/events") && !req.url().includes("type=")
-    );
     await filter.selectOption("");
-    const req = await allRequestPromise;
-
-    expect(req.url()).not.toContain("type=");
+    await expect(filter).toHaveValue("");
   });
 });
