@@ -177,6 +177,28 @@ describe("DexterChat — §8.13 SP-13 tool response rendering", () => {
     expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ persona: "crm_data" }));
   });
 
+  // §7.3 — production bug found via live testing: ai.routes.ts's chatSchema caps `messages` at
+  // 30. `turns` only ever grows for the life of this panel, so a long conversation eventually
+  // sent more than 30 and every further send 400'd permanently ("Array must contain at most 30
+  // element(s)") with no recovery short of reloading the page.
+  it("caps the outbound messages payload at 30 even after the conversation grows past it", async () => {
+    mockChat.mockImplementation(() => Promise.resolve({ reply: "ok", action: { type: "none" }, applied: false }));
+
+    renderChat();
+    fireEvent.click(screen.getByTestId("dexter-fab"));
+    const textarea = screen.getByRole("textbox");
+
+    // 20 send/reply round trips = 40 turns (20 user + 20 assistant), well past the 30 cap.
+    for (let i = 0; i < 20; i++) {
+      fireEvent.change(textarea, { target: { value: `message ${i}` } });
+      fireEvent.click(screen.getByRole("button", { name: "Send to Dexter" }));
+      await waitFor(() => expect(mockChat).toHaveBeenCalledTimes(i + 1));
+    }
+
+    const lastCallMessages = mockChat.mock.calls[mockChat.mock.calls.length - 1][0].messages as unknown[];
+    expect(lastCallMessages.length).toBeLessThanOrEqual(30);
+  });
+
   it("defaults to no persona (general assistant) when the user never switches", async () => {
     mockChat.mockResolvedValue({ reply: "Sure.", action: { type: "none" }, applied: false });
 
