@@ -38,15 +38,20 @@ function IcpEnforcementInner({ children }: IcpEnforcementProps) {
     queryKey: ["icp"],
     queryFn: icpApi.get,
     enabled: authReady && !isWizard,
+    // Always verify the current workspace after mounting. The shared ["icp"] cache can
+    // contain a result from another route/workspace and must not drive a redirect.
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
     ...authQueryOptions,
   });
   const complete = isOnboardingComplete(query.data?.config);
 
   useEffect(() => {
-    if (!isWizard && query.isSuccess && !complete) {
+    if (!isWizard && query.isFetchedAfterMount && query.isSuccess && !query.isFetching && !complete) {
       router.replace("/onboarding");
     }
-  }, [complete, isWizard, query.isSuccess, router]);
+  }, [complete, isWizard, query.isFetchedAfterMount, query.isFetching, query.isSuccess, router]);
 
   // The wizard must always remain reachable so an incomplete user can finish it.
   if (isWizard) return children;
@@ -68,7 +73,7 @@ function IcpEnforcementInner({ children }: IcpEnforcementProps) {
     );
   }
 
-  if (query.isPending || !complete) {
+  if (query.isPending || (query.isFetching && !query.isFetchedAfterMount) || !query.isFetchedAfterMount) {
     return (
       <main className="flex min-h-svh items-center justify-center bg-background">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">

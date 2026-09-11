@@ -28,7 +28,11 @@ export function getApiBase(): string {
 }
 
 const API_URL = CONFIGURED_API_URL;
-export const CLERK_ENABLED = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+// E2E_AUTH_BYPASS must select the same stub-auth branch as the middleware. Otherwise
+// local Playwright runs can bypass route protection but still leave authReady false,
+// disabling dashboard queries.
+export const CLERK_ENABLED =
+  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) && process.env.E2E_AUTH_BYPASS !== "true";
 
 const AUTH_LOAD_POLL_MS = 25;
 const AUTH_LOAD_TIMEOUT_MS = 8_000;

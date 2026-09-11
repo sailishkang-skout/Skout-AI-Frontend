@@ -247,10 +247,16 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
 
   const send = useMutation({
     mutationFn: (history: ChatTurn[]) => {
+      // Backend caps messages at 30 (ai.routes.ts's chatSchema) — `turns` only ever grows for
+      // the life of this panel, so any conversation long enough eventually exceeds that and
+      // every further send 400s permanently ("Array must contain at most 30 element(s)"), with
+      // no way to recover short of reloading the page. Keep only the most recent 30 turns; the
+      // model doesn't need the full history anyway, just enough recent context.
+      const recentHistory = history.slice(-30);
       // Soft style hint so replies stay human even before API image rebuild.
       // Shown history stays clean; only the outbound payload is enriched.
-      const messages = history.map((t, i) => {
-        const isLastUser = i === history.length - 1 && t.role === "user";
+      const messages = recentHistory.map((t, i) => {
+        const isLastUser = i === recentHistory.length - 1 && t.role === "user";
         return {
           role: t.role,
           content: isLastUser

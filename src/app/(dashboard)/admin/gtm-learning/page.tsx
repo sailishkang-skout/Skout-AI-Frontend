@@ -77,8 +77,12 @@ export default function GtmLearningReportPage() {
 
   const rows = outcomes.data?.data ?? [];
   const slices = aggregateGtmLearningOutcomes(rows, (row) => dimensionValue(dimension, row));
-  const totalPipeline = slices.reduce((sum, s) => sum + s.pipelineAmount, 0);
-  const totalRevenue = slices.reduce((sum, s) => sum + s.revenueAmount, 0);
+  // A single enrollment can have touchpoints in multiple buckets (for example email and
+  // LinkedIn). Compute headline totals across all rows with one global enrollment dedupe instead
+  // of summing bucket totals, otherwise the same pipeline/revenue can be counted once per channel.
+  const overall = aggregateGtmLearningOutcomes(rows, () => "all")[0];
+  const totalPipeline = overall?.pipelineAmount ?? 0;
+  const totalRevenue = overall?.revenueAmount ?? 0;
   const totalEnrollments = new Set(rows.map((r) => r.enrollmentId)).size;
   const truncated = outcomes.data?.truncated ?? false;
 
