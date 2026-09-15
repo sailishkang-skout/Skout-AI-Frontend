@@ -513,6 +513,7 @@ function StepEditorDialog({
             <option value="inmail">InMail</option>
             <option value="like">Like recent posts</option>
             <option value="follow">Follow profile</option>
+            <option value="voice">Voice note (manual handoff)</option>
           </Select>
         )}
 

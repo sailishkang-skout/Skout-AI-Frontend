@@ -230,7 +230,7 @@ export type SequenceConditionType =
 export type ConditionExpression =
   | { type: SequenceConditionType; not?: boolean; value?: number }
   | { op: "and" | "or"; not?: boolean; clauses: ConditionExpression[] };
-export type SequenceLinkedinAction = "connect" | "message" | "inmail" | "like" | "follow";
+export type SequenceLinkedinAction = "connect" | "message" | "inmail" | "like" | "follow" | "voice";
 export type SequenceVariantKey = "A" | "B" | "C";
 
 export interface Sequence {
