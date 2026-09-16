@@ -57,6 +57,13 @@ export function CountryCombobox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Clear search when dropdown closes for any reason
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+    }
+  }, [open]);
+
   const selectedCountry = useMemo(() => {
     return countries.find(
       (c) =>
@@ -201,6 +208,13 @@ export function IndustryCombobox({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Clear search when dropdown closes for any reason
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+    }
+  }, [open]);
 
   const selectedSector = useMemo(() => {
     return NAICS_SECTORS.find((s) => s.code === value || s.name.toLowerCase() === value.toLowerCase());

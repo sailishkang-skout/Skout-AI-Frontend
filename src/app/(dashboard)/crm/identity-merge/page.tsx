@@ -20,14 +20,8 @@ import type { IdentityMergeProposal } from "@/types/api";
 
 /**
  * §5.2 (Enterprise Completion Plan, Task 22) — review queue for pending identity-merge
- * proposals, against the API apps/api/src/routes/identity-merge.routes.ts already ships.
- *
- * Important, deliberate scope limit surfaced in the banner below: resolving a proposal here
- * (approve or reject) only records the decision and — on approve — a reversible merge event.
- * It does NOT itself merge the underlying company/contact records; that's documented as the
- * caller's responsibility in identity-merge.service.ts's own comment ("resolveMergeProposal
- * does not itself touch the underlying entity records"). No route exists yet to actually apply
- * a merge to CRM data, so this UI cannot silently promise something the backend doesn't do.
+ * proposals, against the API apps/api/src/routes/identity-merge.routes.ts that ships with
+ * full automatic merge functionality.
  */
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -72,7 +66,7 @@ function EntityPreview({ entityType, entityId }: { entityType: string; entityId:
   if (query.error || !query.data) {
     return (
       <div className="rounded-md border border-dashed border-red-300 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:text-red-300">
-        Couldn&apos;t load this {ENTITY_LABEL[entityType]?.toLowerCase() ?? entityType} record
+        couldn&apos;t load this {ENTITY_LABEL[entityType]?.toLowerCase() ?? entityType} record
         (id {entityId}).
       </div>
     );
@@ -251,13 +245,12 @@ export default function IdentityMergeReviewPage() {
         description="Probable duplicate companies or contacts, scored automatically — approve to record a merge decision, or reject to dismiss."
       />
 
-      <Alert variant="warning" title="Approving records a decision — it doesn't merge records yet">
-        Approving a proposal here marks it approved and records a reversible merge event with a
-        snapshot of both records as they looked at review time. It does not currently update the
-        company/contact records themselves — there is no automatic merge-apply step in the API
-        yet. Treat an approved proposal as confirmation that these are the same real-world
-        company or person, to be merged through the normal edit/delete tools until that step
-        ships.
+      <Alert variant="default" title="Approving will merge records (reversible)">
+        Approving a proposal here automatically merges the duplicate company/contact records:
+        foreign keys (deals, meetings, activities, tasks, calls) are reassigned to the primary
+        record, blank fields are backfilled, and the merged record is soft-deleted — all in one
+        transaction. All merges are fully reversible via the merge event history if you need to
+        split the records later.
       </Alert>
 
       {proposalsQuery.isLoading && (

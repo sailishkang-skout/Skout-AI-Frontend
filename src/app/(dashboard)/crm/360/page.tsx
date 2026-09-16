@@ -18,7 +18,7 @@ import { useDexterPlatformApi } from "@/lib/dexter-platform";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
-import type { RegionalBriefFieldCategory, ResolvedBriefEntry } from "@/lib/regional-brief";
+import type { RegionalBriefFieldCategory, ResolvedBriefEntry, ResolvedBrief } from "@/lib/regional-brief";
 
 // Evidence ledger interface from existing implementation
 interface EvidenceRow {
@@ -454,16 +454,21 @@ export default function Account360Page() {
           )}
 
           {/* SS-12: Regional Intelligence Section */}
-          {mode === "account" && (() => {
-            const country = (data as unknown as { company?: { country?: string } }).company?.country;
-            const regionalIntel = (data as unknown as { regionalIntel?: ResolvedBriefEntry[] }).regionalIntel;
-            if (!country || !regionalIntel || !Array.isArray(regionalIntel) || regionalIntel.length === 0) return null;
+          {(mode === "account" || mode === "person") && (() => {
+            const location = mode === "account" 
+              ? (data as unknown as { company?: { location?: string } }).company?.location
+              : (data as unknown as { company?: { location?: string } }).company?.location;
+            const regionalIntelligence = mode === "account"
+              ? (data as unknown as { regionalIntelligence?: ResolvedBrief }).regionalIntelligence
+              : (data as unknown as { regionalIntelligence?: ResolvedBrief }).regionalIntelligence;
+            const regionalIntel = regionalIntelligence?.entries;
+            if (!location || !regionalIntel || !Array.isArray(regionalIntel) || regionalIntel.length === 0) return null;
 
             return (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center justify-between">
-                    <span>Regional Intelligence for {country}</span>
+                    <span>Regional Intelligence for {location}</span>
                     <span className="text-xs font-normal text-muted-foreground">{regionalIntel.length} insights</span>
                   </CardTitle>
                 </CardHeader>
