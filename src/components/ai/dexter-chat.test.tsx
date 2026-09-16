@@ -174,7 +174,10 @@ describe("DexterChat — §8.13 SP-13 tool response rendering", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send to Dexter" }));
 
     await waitFor(() => screen.getByText("Sure."));
-    expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ persona: "crm_data" }));
+    expect(mockChat).toHaveBeenCalledWith(
+      expect.objectContaining({ persona: "crm_data" }),
+      expect.anything()
+    );
   });
 
   // §7.3 — production bug found via live testing: ai.routes.ts's chatSchema caps `messages` at
@@ -206,7 +209,10 @@ describe("DexterChat — §8.13 SP-13 tool response rendering", () => {
     await openPanelAndSend("hi");
 
     await waitFor(() => screen.getByText("Sure."));
-    expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ persona: undefined }));
+    expect(mockChat).toHaveBeenCalledWith(
+      expect.objectContaining({ persona: undefined }),
+      expect.anything()
+    );
   });
 
   it("surfaces draft_content's confirmed result instead of discarding it", async () => {

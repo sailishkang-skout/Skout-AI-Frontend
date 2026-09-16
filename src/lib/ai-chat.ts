@@ -172,17 +172,23 @@ export function useAiChatApi() {
   const fetchBlob = useApiFetchBlob();
 
   return {
-    chat: (input: {
-      messages: { role: "user" | "assistant"; content: string }[];
-      mode: ChatMode;
-      stageForReview?: boolean;
-      agent?: ChatAgent;
-      persona?: CopilotPersona;
-      context?: ChatContext;
-    }) =>
+    chat: (
+      input: {
+        messages: { role: "user" | "assistant"; content: string }[];
+        mode: ChatMode;
+        stageForReview?: boolean;
+        agent?: ChatAgent;
+        persona?: CopilotPersona;
+        context?: ChatContext;
+      },
+      /** Lets callers cap how long they'll wait — without it, a stalled connection leaves the
+       * chat UI stuck on "thinking…" forever with no error and no way to recover but a reload. */
+      signal?: AbortSignal
+    ) =>
       fetchApi<ChatResponse>("/api/v1/ai/chat", {
         method: "POST",
         body: JSON.stringify(input),
+        signal,
       }),
 
     executeTool: (toolName: string, args: Record<string, unknown>) =>
