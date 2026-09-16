@@ -387,27 +387,38 @@ function StepCard({
               <option value="inmail">InMail</option>
               <option value="like">Like recent posts</option>
               <option value="follow">Follow profile</option>
+              <option value="voice">Voice note (manual handoff)</option>
             </Select>
-            <textarea
-              placeholder={
-                step.linkedinAction === "message"
-                  ? "Message body — supports {{firstName}}, {{companyName}}, etc."
-                  : "Optional connection note — supports {{firstName}}, {{companyName}}, etc."
-              }
-              value={bodyDraft}
-              onChange={(e) => setBodyDraft(e.target.value)}
-              onBlur={() => {
-                if (bodyDraft !== (step.bodyTemplate ?? ""))
-                  onUpdate({ bodyTemplate: bodyDraft || null });
-              }}
-              disabled={updating}
-              rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Sent via your connected LinkedIn account. Prospects need a LinkedIn profile URL.
-              Connect under Deliverability → LinkedIn.
-            </p>
+            {step.linkedinAction === "voice" ? (
+              <p className="text-[11px] text-muted-foreground">
+                LinkedIn has no API to send a voice note automatically. Dexter drafts a script and
+                creates a mobile handoff — the rep records and sends it themselves, then confirms
+                to resume the sequence. The step waits (up to 7 days) until confirmed.
+              </p>
+            ) : (
+              <>
+                <textarea
+                  placeholder={
+                    step.linkedinAction === "message"
+                      ? "Message body — supports {{firstName}}, {{companyName}}, etc."
+                      : "Optional connection note — supports {{firstName}}, {{companyName}}, etc."
+                  }
+                  value={bodyDraft}
+                  onChange={(e) => setBodyDraft(e.target.value)}
+                  onBlur={() => {
+                    if (bodyDraft !== (step.bodyTemplate ?? ""))
+                      onUpdate({ bodyTemplate: bodyDraft || null });
+                  }}
+                  disabled={updating}
+                  rows={3}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Sent via your connected LinkedIn account. Prospects need a LinkedIn profile URL.
+                  Connect under Deliverability → LinkedIn.
+                </p>
+              </>
+            )}
           </div>
         )}
 

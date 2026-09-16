@@ -1,5 +1,6 @@
 import React from "react";
 import { LinkedinVoiceWizard } from "@/components/linkedin/voice-wizard";
+import { PendingVoiceHandoffsQueue } from "@/components/linkedin/pending-voice-handoffs";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 
 export default function LinkedinVoicePage() {
   return (
-    <div className="container py-8 px-4 sm:px-6 lg:px-8">
+    <div className="container py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <PendingVoiceHandoffsQueue />
       <LinkedinVoiceWizard />
     </div>
   );
