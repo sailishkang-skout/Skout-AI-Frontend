@@ -33,8 +33,15 @@ export function PolicyGatewayChip({
   const tone: BadgeTone = MODE_TONE[normalized] ?? "muted";
 
   return (
-    <Badge tone={loading ? "muted" : tone} title={actionKey ? `Policy: ${actionKey}` : "Automation policy"}>
-      Policy · {loading ? "…" : label}
+    <Badge
+      tone={loading ? "muted" : tone}
+      title={
+        actionKey
+          ? `Workspace-wide automation policy for ${actionKey} — separate from this chat's own reply mode toggle`
+          : "Automation policy"
+      }
+    >
+      Workspace policy · {loading ? "…" : label}
     </Badge>
   );
 }

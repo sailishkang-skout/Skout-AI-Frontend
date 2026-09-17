@@ -142,6 +142,7 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
   const [interim, setInterim] = useState("");
   const [micSupported] = useState(() => isSpeechRecognitionSupported());
   const [ttsSupported] = useState(() => isSpeechSynthesisSupported());
+  const [showDetails, setShowDetails] = useState(false);
   const contextSuggestions = useMemo(() => getContextSuggestions(context), [context]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -264,12 +265,14 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
             : t.content,
         };
       });
-      return api.chat({
-        messages,
-        mode,
-        agent: "dexter",
-        persona,
-        context,
+      // Backend's own OpenRouter client now times out at 60s per round; this client-side cap
+      // is the backstop for cases that never even reach it (dev-server hot-reload dropping the
+      // connection, a network stall) — without it the UI is stuck on "thinking…" forever with
+      // no error and no Retry button, since the promise this mutation awaits never settles.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90_000);
+      return api.chat({ messages, mode, agent: "dexter", persona, context }, controller.signal).finally(() => {
+        clearTimeout(timeoutId);
       });
     },
     onSuccess: async (res) => {
@@ -311,14 +314,17 @@ export function DexterChat({ context, offsetLeft = false }: DexterChatProps) {
     },
     onError: (err) => {
       log.error("dexter send failed", err);
-      const detail = err instanceof Error ? err.message : null;
+      const isTimeout = err instanceof DOMException && err.name === "AbortError";
+      const detail = !isTimeout && err instanceof Error ? err.message : null;
       setTurns((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: detail
-            ? `Sorry — I couldn't process that (${detail}).`
-            : "Sorry — I couldn't process that.",
+          content: isTimeout
+            ? "Sorry — that took too long to respond. Please try again."
+            : detail
+              ? `Sorry — I couldn't process that (${detail}).`
+              : "Sorry — I couldn't process that.",
           failed: true,
         },
       ]);
@@ -551,7 +557,7 @@ function submitText(text: string) {
       data-tour="nav-ai-chat"
       data-testid="dexter-panel"
       className={cn(
-        "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 flex h-[min(40rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-500/30 bg-background shadow-2xl",
+        "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 flex h-[min(46rem,calc(100dvh-3rem))] w-[min(30rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-500/30 bg-background shadow-2xl",
         panelRight
       )}
     >
@@ -568,12 +574,16 @@ function submitText(text: string) {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <div className="mr-1 flex rounded-lg border border-border bg-background p-0.5 text-xs shadow-sm">
+          <div
+            className="mr-1 flex rounded-lg border border-border bg-background p-0.5 text-xs shadow-sm"
+            title="Reply mode for this chat: Ask previews mutating actions before running them, Auto runs them directly. This is separate from the workspace-wide automation policy shown below."
+          >
             {(["ask", "auto"] as ChatMode[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
+                aria-label={`Reply mode: ${m}`}
                 className={cn(
                   "rounded-md px-2 py-1 capitalize transition-colors",
                   mode === m
@@ -633,11 +643,23 @@ function submitText(text: string) {
         </select>
       </div>
 
-      <div className="border-b border-border bg-emerald-50/50 px-3 py-2 dark:bg-emerald-950/20">
-        <VisionIntelligenceStrip config={VISION_SCREENS["17.2"]} compact />
-        <p className="mt-1 px-1 text-[11px] text-muted-foreground">
-          Tap the mic to talk. Dexter sends when you tap again, or after a 10s pause.
-        </p>
+      <div className="border-b border-border bg-emerald-50/50 px-3 py-1.5 dark:bg-emerald-950/20">
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="flex w-full items-center justify-between py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <span>{showDetails ? "Hide details" : "Show policy, audit & voice tips"}</span>
+          <span aria-hidden>{showDetails ? "▾" : "▸"}</span>
+        </button>
+        {showDetails && (
+          <>
+            <VisionIntelligenceStrip config={VISION_SCREENS["17.2"]} compact />
+            <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+              Tap the mic to talk. Dexter sends when you tap again, or after a 10s pause.
+            </p>
+          </>
+        )}
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -860,9 +882,11 @@ function submitText(text: string) {
         )}
       </div>
 
-      <div className="border-t border-border px-2 py-2">
-        <VisionEnterpriseControlStrip compact />
-      </div>
+      {showDetails && (
+        <div className="border-t border-border px-2 py-2">
+          <VisionEnterpriseControlStrip compact />
+        </div>
+      )}
 
       <div className="border-t border-border bg-background p-3">
         {listening && (
