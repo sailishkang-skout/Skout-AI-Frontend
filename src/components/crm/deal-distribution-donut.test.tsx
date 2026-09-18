@@ -26,6 +26,15 @@ describe("DealDistributionDonut", () => {
     screen.getByText(/no open deals yet/i);
   });
 
+  it("shows a distinct error state with a retry action when the query fails", () => {
+    const onRetry = vi.fn();
+    render(<DealDistributionDonut isError onRetry={onRetry} />);
+    expect(screen.queryByText(/no open deals yet/i)).toBeNull();
+    screen.getByText(/couldn.t load chart data/i);
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
   it("renders the real total value across stages, in the stages' own currency", () => {
     render(<DealDistributionDonut stages={STAGES} />);
     screen.getByText("USD 200k");

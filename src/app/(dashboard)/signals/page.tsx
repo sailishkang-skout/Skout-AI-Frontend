@@ -255,7 +255,12 @@ export default function SignalCenterPage() {
 
       <div className="grid gap-6 lg:grid-cols-5 mb-6">
         <div className="lg:col-span-2">
-          <SignalDensityChart data={densityQuery.data?.byType} isLoading={densityQuery.isLoading} />
+          <SignalDensityChart
+            data={densityQuery.data?.byType}
+            isLoading={densityQuery.isLoading}
+            isError={densityQuery.isError}
+            onRetry={() => densityQuery.refetch()}
+          />
         </div>
         <div className="lg:col-span-3 flex flex-col gap-3">
           {(() => {
@@ -267,6 +272,13 @@ export default function SignalCenterPage() {
                 <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                   Loading signal trend…
                 </div>
+              );
+            }
+            if (densityQuery.isError) {
+              return (
+                <Alert variant="error" onRetry={() => densityQuery.refetch()}>
+                  {formatQueryError(densityQuery.error, "Couldn't load the signal trend.")}
+                </Alert>
               );
             }
             if (total === 0) {

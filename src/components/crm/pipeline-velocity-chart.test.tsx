@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PipelineVelocityChart } from "./pipeline-velocity-chart";
 
 describe("PipelineVelocityChart", () => {
@@ -8,6 +8,15 @@ describe("PipelineVelocityChart", () => {
   it("shows a loading state", () => {
     render(<PipelineVelocityChart isLoading />);
     screen.getByText(/loading/i);
+  });
+
+  it("shows a distinct error state with a retry action when the query fails", () => {
+    const onRetry = vi.fn();
+    render(<PipelineVelocityChart isError onRetry={onRetry} />);
+    expect(screen.queryByText(/no new deals created/i)).toBeNull();
+    screen.getByText(/couldn.t load chart data/i);
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("shows an honest empty state instead of a fake trend when no deals were created", () => {

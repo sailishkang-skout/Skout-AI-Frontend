@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 interface DailyBarChartPoint {
   /** ISO date, YYYY-MM-DD */
@@ -13,6 +14,8 @@ interface DailyBarChartPoint {
 interface DailyBarChartProps {
   data: DailyBarChartPoint[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   emptyLabel: string;
   color?: string;
   valueLabel: string;
@@ -22,6 +25,8 @@ interface DailyBarChartProps {
 export function DailyBarChart({
   data,
   isLoading,
+  isError,
+  onRetry,
   emptyLabel,
   color = "hsl(var(--primary))",
   valueLabel,
@@ -39,6 +44,8 @@ export function DailyBarChart({
     <div className="h-40 w-full">
       {isLoading ? (
         <ChartSkeleton />
+      ) : isError ? (
+        <ChartErrorState onRetry={onRetry} />
       ) : !hasData ? (
         <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyLabel}</div>
       ) : (

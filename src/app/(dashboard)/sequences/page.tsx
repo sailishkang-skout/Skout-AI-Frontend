@@ -84,7 +84,12 @@ export default function SequencesPage() {
       />
 
       <div className="mb-6">
-        <SequencePerformanceChart data={performance.data?.data} isLoading={performance.isLoading} />
+        <SequencePerformanceChart
+          data={performance.data?.data}
+          isLoading={performance.isLoading}
+          isError={performance.isError}
+          onRetry={() => performance.refetch()}
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
