@@ -5,13 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { signalLabel } from "@/lib/signals";
 import type { SignalDensityResult } from "@/lib/signals";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 interface SignalDensityChartProps {
   data?: SignalDensityResult["byType"];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
-export function SignalDensityChart({ data, isLoading }: SignalDensityChartProps) {
+export function SignalDensityChart({ data, isLoading, isError, onRetry }: SignalDensityChartProps) {
   const chartData = (data ?? []).map((bucket) => ({ subject: signalLabel(bucket.signalType), A: bucket.count }));
   const maxCount = Math.max(1, ...chartData.map((d) => d.A));
 
@@ -25,6 +28,8 @@ export function SignalDensityChart({ data, isLoading }: SignalDensityChartProps)
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
             <ChartSkeleton />
+          ) : isError ? (
+            <ChartErrorState onRetry={onRetry} />
           ) : chartData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No signals detected in the last 7 days.

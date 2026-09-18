@@ -5,6 +5,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardOverview } from "@/types/crm";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 const STAGE_COLORS = [
   "hsl(var(--muted-foreground))",
@@ -23,9 +24,13 @@ function formatTotal(value: number, currency: string): string {
 export function DealDistributionDonut({
   stages,
   isLoading,
+  isError,
+  onRetry,
 }: {
   stages?: DashboardOverview["stages"];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }) {
   const router = useRouter();
 
@@ -55,6 +60,10 @@ export function DealDistributionDonut({
         {isLoading ? (
           <div className="h-[250px] w-full">
             <ChartSkeleton />
+          </div>
+        ) : isError ? (
+          <div className="h-[250px] w-full">
+            <ChartErrorState onRetry={onRetry} />
           </div>
         ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No open deals yet.</p>

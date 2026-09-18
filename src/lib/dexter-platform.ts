@@ -1,6 +1,25 @@
 import { useApiFetch } from "./api-client";
+import type { Company } from "@/types/crm";
+import type { ResolvedBrief } from "./regional-brief";
 
 export type AutomationMode = "ask" | "auto" | "draft" | "approve";
+
+/**
+ * Mirrors Skout-AI-Backend/apps/api/src/routes/account-360.routes.ts's `data.company` and
+ * `data.regionalIntelligence` fields — the two fields T360-01 found mismatched between the
+ * frontend and the API (`.country` vs `.location`, a bare `regionalIntel` array vs
+ * `regionalIntelligence.entries`). Typing these here means a future rename on either side is a
+ * type error at the call site, not a silently-null card.
+ */
+export interface Account360Company {
+  company: Pick<Company, "id" | "name" | "domain" | "industry" | "employeeCount" | "location"> | null;
+  regionalIntelligence: ResolvedBrief | null;
+}
+
+export interface Person360Company {
+  company: Pick<Company, "id" | "name" | "domain" | "location"> | null;
+  regionalIntelligence: ResolvedBrief | null;
+}
 
 export type LinkedinVoiceEligibility = {
   eligible: boolean;
@@ -217,10 +236,10 @@ export function useDexterPlatformApi() {
       ),
 
     getAccount360: (companyId: string) =>
-      fetchApi<{ data: Record<string, unknown> }>(`/api/v1/account-360/${companyId}`),
+      fetchApi<{ data: Record<string, unknown> & Account360Company }>(`/api/v1/account-360/${companyId}`),
 
     getPerson360: (contactId: string) =>
-      fetchApi<{ data: Record<string, unknown> }>(`/api/v1/person-360/${contactId}`),
+      fetchApi<{ data: Record<string, unknown> & Person360Company }>(`/api/v1/person-360/${contactId}`),
 
     getLinkedinVoiceEligibility: (prospectId: string, linkedinUrl?: string) => {
       const params = new URLSearchParams({ prospectId });

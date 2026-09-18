@@ -4,15 +4,18 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EnrichmentEfficiencyPoint } from "@/lib/enrichment";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 interface EnrichmentSuccessChartProps {
   data?: EnrichmentEfficiencyPoint[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   /** Called with a bucket's ISO date (YYYY-MM-DD) when the user clicks that day's bars. */
   onDayClick?: (isoDate: string) => void;
 }
 
-export function EnrichmentSuccessChart({ data, isLoading, onDayClick }: EnrichmentSuccessChartProps) {
+export function EnrichmentSuccessChart({ data, isLoading, isError, onRetry, onDayClick }: EnrichmentSuccessChartProps) {
   const chartData = (data ?? []).map((point) => ({
     date: new Date(point.date).toLocaleDateString("en-US", { weekday: "short" }),
     isoDate: point.date,
@@ -40,6 +43,8 @@ export function EnrichmentSuccessChart({ data, isLoading, onDayClick }: Enrichme
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
             <ChartSkeleton />
+          ) : isError ? (
+            <ChartErrorState onRetry={onRetry} />
           ) : !hasActivity ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No enrichment activity in the last 7 days.

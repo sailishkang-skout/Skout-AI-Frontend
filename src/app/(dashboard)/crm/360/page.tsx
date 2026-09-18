@@ -37,6 +37,128 @@ interface EvidenceRow {
   resolutionRuleOrModelVersion: string | null;
 }
 
+// SS-12: Evidence ledger helper functions — pure, so they live at module scope rather than
+// being recreated (and passed down as new closures) on every render.
+function getEvidenceStatus(item: EvidenceRow) {
+  const now = new Date();
+  let isExpiringSoon = false;
+  try {
+    const expiresAt = new Date(item.freshnessExpiresAt);
+    if (!isNaN(expiresAt.getTime())) {
+      const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+      isExpiringSoon = timeUntilExpiry < 24 * 60 * 60 * 1000; // Within 24 hours
+    }
+  } catch {
+    isExpiringSoon = false;
+  }
+  const isLowConfidence = item.confidence < 0.7;
+  return { isExpiringSoon, isLowConfidence, hasWarnings: isExpiringSoon || isLowConfidence };
+}
+
+function formatDate(dateStr: string | undefined | null) {
+  if (!dateStr) return "Unknown date";
+  try {
+    return new Date(dateStr).toLocaleString();
+  } catch {
+    return "Invalid date";
+  }
+}
+
+function getStatusClasses(item: EvidenceRow) {
+  const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+  if (isExpiringSoon || isLowConfidence) {
+    return {
+      badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+      border: "border-amber-200 dark:border-amber-800",
+    };
+  }
+  return {
+    badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    border: "border-emerald-200 dark:border-emerald-800",
+  };
+}
+
+/**
+ * A single evidence-backed attribute (e.g. "Domain", "Industry") with an expandable evidence
+ * ledger. Hoisted to module scope (rather than defined inside Account360Page's render body, as
+ * it originally was) so React sees a stable component type across renders — an inline
+ * definition would count as a "new" component on every parent re-render, forcing React to
+ * unmount/remount every instance and refire its internal useQuery each time.
+ */
+function EvidencePanel({
+  attribute,
+  label,
+  value,
+  companyId,
+  isExpanded,
+  onToggle,
+  authReady,
+  apiFetch,
+}: {
+  attribute: string;
+  label: string;
+  value?: string | number;
+  companyId?: string;
+  isExpanded: boolean;
+  onToggle: (attribute: string) => void;
+  authReady: boolean;
+  apiFetch: ReturnType<typeof useApiFetch>;
+}) {
+  const { data: evidenceData } = useQuery<{ data: EvidenceRow[] }>({
+    queryKey: ["evidence", "company", companyId, attribute],
+    queryFn: async () => {
+      if (!companyId) throw new Error("Missing company ID");
+      return apiFetch<{ data: EvidenceRow[] }>(
+        `/api/v1/evidence?entityType=company&entityId=${encodeURIComponent(companyId)}&attribute=${encodeURIComponent(attribute)}`
+      );
+    },
+    enabled: authReady && Boolean(companyId) && isExpanded,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const evidence = evidenceData?.data || [];
+  const hasWarnings = evidence.some((item) => getEvidenceStatus(item).hasWarnings);
+
+  return (
+    <div>
+      <div className="flex items-center gap-1">
+        <p className="text-xs font-semibold text-foreground">{label}</p>
+        {hasWarnings && (
+          <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" title="Evidence has warnings" />
+        )}
+        {evidence.length > 0 && (
+          <button onClick={() => onToggle(attribute)} className="ml-1 text-muted-foreground hover:text-foreground">
+            <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+          </button>
+        )}
+      </div>
+      <p>{value ?? "N/A"}</p>
+      {isExpanded && evidence.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {evidence.map((item) => {
+            const statusClasses = getStatusClasses(item);
+            const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
+            return (
+              <div key={item.id} className={`rounded-lg border p-2 text-xs ${statusClasses.border}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <Badge className={statusClasses.badge}>{item.source.replace(/_/g, " ")}</Badge>
+                  <span>Confidence: {Math.round(item.confidence * 100)}%</span>
+                </div>
+                <p className="text-muted-foreground">
+                  {isExpiringSoon && "⚠️ Expiring soon · "}
+                  {isLowConfidence && "⚠️ Low confidence · "}
+                  Fresh until: {formatDate(item.freshnessExpiresAt)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** §8.4 — Account / Person 360 compose view. */
 export default function Account360Page() {
   const authReady = useAuthReady();
@@ -121,46 +243,6 @@ export default function Account360Page() {
     mode === "account"
       ? ((data as unknown as { company?: { name?: string } })?.company?.name ?? "this account")
       : ((data as unknown as { professionalFacts?: { fullName?: string } })?.professionalFacts?.fullName ?? "this person");
-
-  // SS-12: Evidence ledger helper functions
-  const getEvidenceStatus = (item: EvidenceRow) => {
-    const now = new Date();
-    let isExpiringSoon = false;
-    try {
-      const expiresAt = new Date(item.freshnessExpiresAt);
-      if (!isNaN(expiresAt.getTime())) {
-        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-        isExpiringSoon = timeUntilExpiry < 24 * 60 * 60 * 1000; // Within 24 hours
-      }
-    } catch {
-      isExpiringSoon = false;
-    }
-    const isLowConfidence = item.confidence < 0.7;
-    return { isExpiringSoon, isLowConfidence, hasWarnings: isExpiringSoon || isLowConfidence };
-  };
-
-  const formatDate = (dateStr: string | undefined | null) => {
-    if (!dateStr) return "Unknown date";
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const getStatusClasses = (item: EvidenceRow) => {
-    const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
-    if (isExpiringSoon || isLowConfidence) {
-      return {
-        badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-        border: "border-amber-200 dark:border-amber-800",
-      };
-    }
-    return {
-      badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-      border: "border-emerald-200 dark:border-emerald-800",
-    };
-  };
 
   // SS-12: Regional brief category labels
   const REGIONAL_CATEGORY_LABELS: Record<RegionalBriefFieldCategory, string> = {
@@ -323,80 +405,50 @@ export default function Account360Page() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {(() => {
-                      // Create a reusable EvidencePanel component inline
-                      const EvidencePanel = ({ attribute, label, value, companyId }: { attribute: string; label: string; value?: string | number; companyId?: string }) => {
-                        const isExpanded = expandedEvidence.has(attribute);
-                        const { data: evidenceData } = useQuery<{ data: EvidenceRow[] }>({
-                          queryKey: ["evidence", "company", companyId, attribute],
-                          queryFn: async () => {
-                            if (!companyId) throw new Error("Missing company ID");
-                            return apiFetch<{ data: EvidenceRow[] }>(
-                              `/api/v1/evidence?entityType=company&entityId=${encodeURIComponent(companyId)}&attribute=${encodeURIComponent(attribute)}`
-                            );
-                          },
-                          enabled: authReady && Boolean(companyId) && isExpanded,
-                          staleTime: 30_000,
-                          retry: 1,
-                        });
-
-                        const evidence = evidenceData?.data || [];
-                        const hasWarnings = evidence.some(item => getEvidenceStatus(item).hasWarnings);
-
-                        return (
-                          <div>
-                            <div className="flex items-center gap-1">
-                              <p className="text-xs font-semibold text-foreground">{label}</p>
-                              {hasWarnings && (
-                                <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" title="Evidence has warnings" />
-                              )}
-                              {evidence.length > 0 && (
-                                <button
-                                  onClick={() => toggleEvidence(attribute)}
-                                  className="ml-1 text-muted-foreground hover:text-foreground"
-                                >
-                                  <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                                </button>
-                              )}
-                            </div>
-                            <p>{value ?? "N/A"}</p>
-                            {isExpanded && evidence.length > 0 && (
-                              <div className="mt-2 space-y-2">
-                                {evidence.map((item) => {
-                                  const statusClasses = getStatusClasses(item);
-                                  const { isExpiringSoon, isLowConfidence } = getEvidenceStatus(item);
-                                  return (
-                                    <div
-                                      key={item.id}
-                                      className={`rounded-lg border p-2 text-xs ${statusClasses.border}`}
-                                    >
-                                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                                        <Badge className={statusClasses.badge}>
-                                          {item.source.replace(/_/g, " ")}
-                                        </Badge>
-                                        <span>Confidence: {Math.round(item.confidence * 100)}%</span>
-                                      </div>
-                                      <p className="text-muted-foreground">
-                                        {isExpiringSoon && "⚠️ Expiring soon · "}
-                                        {isLowConfidence && "⚠️ Low confidence · "}
-                                        Fresh until: {formatDate(item.freshnessExpiresAt)}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      };
-
                       const companyId = lookupId;
                       const company = (data as unknown as { company?: { domain?: string; industry?: string; employeeCount?: number; country?: string } }).company;
                       return (
                         <>
-                          <EvidencePanel attribute="domain" label="Domain" value={company?.domain} companyId={companyId || undefined} />
-                          <EvidencePanel attribute="industry" label="Industry" value={company?.industry} companyId={companyId || undefined} />
-                          <EvidencePanel attribute="employeeCount" label="Employees" value={company?.employeeCount} companyId={companyId || undefined} />
-                          <EvidencePanel attribute="country" label="Location" value={company?.country} companyId={companyId || undefined} />
+                          <EvidencePanel
+                            attribute="domain"
+                            label="Domain"
+                            value={company?.domain}
+                            companyId={companyId || undefined}
+                            isExpanded={expandedEvidence.has("domain")}
+                            onToggle={toggleEvidence}
+                            authReady={authReady}
+                            apiFetch={apiFetch}
+                          />
+                          <EvidencePanel
+                            attribute="industry"
+                            label="Industry"
+                            value={company?.industry}
+                            companyId={companyId || undefined}
+                            isExpanded={expandedEvidence.has("industry")}
+                            onToggle={toggleEvidence}
+                            authReady={authReady}
+                            apiFetch={apiFetch}
+                          />
+                          <EvidencePanel
+                            attribute="employeeCount"
+                            label="Employees"
+                            value={company?.employeeCount}
+                            companyId={companyId || undefined}
+                            isExpanded={expandedEvidence.has("employeeCount")}
+                            onToggle={toggleEvidence}
+                            authReady={authReady}
+                            apiFetch={apiFetch}
+                          />
+                          <EvidencePanel
+                            attribute="country"
+                            label="Location"
+                            value={company?.country}
+                            companyId={companyId || undefined}
+                            isExpanded={expandedEvidence.has("country")}
+                            onToggle={toggleEvidence}
+                            authReady={authReady}
+                            apiFetch={apiFetch}
+                          />
                         </>
                       );
                     })()}
@@ -455,12 +507,8 @@ export default function Account360Page() {
 
           {/* SS-12: Regional Intelligence Section */}
           {(mode === "account" || mode === "person") && (() => {
-            const location = mode === "account" 
-              ? (data as unknown as { company?: { location?: string } }).company?.location
-              : (data as unknown as { company?: { location?: string } }).company?.location;
-            const regionalIntelligence = mode === "account"
-              ? (data as unknown as { regionalIntelligence?: ResolvedBrief }).regionalIntelligence
-              : (data as unknown as { regionalIntelligence?: ResolvedBrief }).regionalIntelligence;
+            const location = data?.company?.location;
+            const regionalIntelligence = data?.regionalIntelligence;
             const regionalIntel = regionalIntelligence?.entries;
             if (!location || !regionalIntel || !Array.isArray(regionalIntel) || regionalIntel.length === 0) return null;
 
