@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DailyBarChart } from "./daily-bar-chart";
 
 describe("DailyBarChart", () => {
@@ -8,6 +8,15 @@ describe("DailyBarChart", () => {
   it("shows a loading skeleton instead of a chart while loading", () => {
     render(<DailyBarChart data={[]} isLoading emptyLabel="No data" valueLabel="credits" />);
     screen.getByText(/loading chart data/i);
+  });
+
+  it("shows a distinct error state with a retry action when the query fails", () => {
+    const onRetry = vi.fn();
+    render(<DailyBarChart data={[]} isError onRetry={onRetry} emptyLabel="No data" valueLabel="credits" />);
+    expect(screen.queryByText("No data")).toBeNull();
+    screen.getByText(/couldn.t load chart data/i);
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("shows the empty label instead of a chart when every value is zero", () => {

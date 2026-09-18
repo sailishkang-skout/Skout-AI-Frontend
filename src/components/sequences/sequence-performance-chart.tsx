@@ -4,13 +4,16 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianG
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SequencePerformancePoint } from "@/lib/sequences";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 interface SequencePerformanceChartProps {
   data?: SequencePerformancePoint[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
-export function SequencePerformanceChart({ data, isLoading }: SequencePerformanceChartProps) {
+export function SequencePerformanceChart({ data, isLoading, isError, onRetry }: SequencePerformanceChartProps) {
   const chartData = (data ?? []).map((point) => ({
     date: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     openRate: point.openRate,
@@ -40,6 +43,8 @@ export function SequencePerformanceChart({ data, isLoading }: SequencePerformanc
         <div className="h-[300px] w-full mt-4">
           {isLoading ? (
             <ChartSkeleton />
+          ) : isError ? (
+            <ChartErrorState onRetry={onRetry} />
           ) : !hasSends ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               No emails sent in the last 14 days.

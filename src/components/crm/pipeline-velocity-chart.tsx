@@ -4,15 +4,20 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PipelineVelocityPoint } from "@/types/crm";
 import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { ChartErrorState } from "@/components/ui/chart-error-state";
 
 const formatCurrency = (value: number) => `$${(value / 1000).toFixed(0)}k`;
 
 export function PipelineVelocityChart({
   series,
   isLoading,
+  isError,
+  onRetry,
 }: {
   series?: PipelineVelocityPoint[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }) {
   const chartData = (series ?? []).map((point) => ({
     date: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -37,6 +42,10 @@ export function PipelineVelocityChart({
         {isLoading ? (
           <div className="h-[300px]">
             <ChartSkeleton />
+          </div>
+        ) : isError ? (
+          <div className="h-[300px]">
+            <ChartErrorState onRetry={onRetry} />
           </div>
         ) : !hasData ? (
           <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
