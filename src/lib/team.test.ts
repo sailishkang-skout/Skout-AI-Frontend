@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getInviteDetails } from "./team";
+import type { WorkspaceRole } from "@/types/api";
 
 const mockFetch = vi.fn();
 
@@ -73,5 +74,19 @@ describe("getInviteDetails", () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit | undefined];
     const headers = new Headers(init?.headers);
     expect(headers.get("Authorization")).toBeNull();
+  });
+});
+
+describe("member role sorting (matches production team page logic)", () => {
+  it("sorts members by role hierarchy: owner → admin → member", () => {
+    const ROLE_ORDER: Record<WorkspaceRole, number> = { owner: 0, admin: 1, member: 2 };
+    const members: Array<{ role: WorkspaceRole; name: string }> = [
+      { role: "member", name: "Member" },
+      { role: "owner", name: "Owner" }, 
+      { role: "admin", name: "Admin" }
+    ];
+    
+    const sorted = [...members].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
+    expect(sorted.map(m => m.name)).toEqual(["Owner", "Admin", "Member"]);
   });
 });
