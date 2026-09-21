@@ -19,7 +19,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { AddStepInput, StepVariantInput, UpdateStepInput } from "@/lib/sequences";
+import type { AddStepInput, StepSuggestion, StepVariantInput, UpdateStepInput } from "@/lib/sequences";
+import { StepSuggestions } from "./step-suggestions";
 import type {
   ConditionExpression,
   SequenceConditionType,
@@ -453,6 +454,20 @@ function StepEditorDialog({
 
   const showVariants = step.stepType === "email" || step.stepType === "linkedin";
 
+  // AI suggestions land in the first blank variant (A, then B, then C); if every visible
+  // variant already has copy, the label says plainly that A is being replaced.
+  const visibleKeys: SequenceVariantKey[] = godMode ? ["A", "B", "C"] : ["A", "B"];
+  const isBlank = (v: { subject: string; body: string }) => !v.subject.trim() && !v.body.replace(/<[^>]+>/g, "").trim();
+  const blankKey = visibleKeys.find((k) => isBlank(variants[k]));
+  const suggestionKey = blankKey ?? "A";
+
+  function applySuggestion(s: StepSuggestion) {
+    setVariants((v) => ({
+      ...v,
+      [suggestionKey]: { ...v[suggestionKey], subject: s.subject ?? v[suggestionKey].subject, body: s.body },
+    }));
+  }
+
   function save() {
     const patch: UpdateStepInput = { delayDays, delayUnit };
     if (step.stepType === "email" || step.stepType === "linkedin" || step.stepType === "whatsapp" || step.stepType === "task") {
@@ -515,6 +530,19 @@ function StepEditorDialog({
             <option value="follow">Follow profile</option>
             <option value="voice">Voice note (manual handoff)</option>
           </Select>
+        )}
+
+        {showVariants && (
+          <StepSuggestions
+            sequenceId={step.sequenceId}
+            stepId={step.id}
+            stepType={step.stepType}
+            linkedinAction={linkedinAction}
+            empty={visibleKeys.every((k) => isBlank(variants[k]))}
+            autoLoad
+            applyLabel={blankKey ? `Use in Variant ${blankKey}` : "Replace Variant A"}
+            onApply={applySuggestion}
+          />
         )}
 
         {step.stepType === "condition" && (

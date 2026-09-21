@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { EmailBodyEditor } from "@/components/sequences/email-body-editor";
+import { StepSuggestions } from "@/components/sequences/step-suggestions";
 import type { SequenceDelayUnit, SequenceLinkedinAction, SequenceStep, SequenceStepType } from "@/types/api";
 
 // ── Step type visual config ──────────────────────────────────
@@ -217,6 +218,7 @@ function StepCard({
 
   const [subjectDraft, setSubjectDraft] = useState(step.subject ?? "");
   const [bodyDraft, setBodyDraft] = useState(step.bodyTemplate ?? "");
+  const emailEmpty = !subjectDraft.trim() && !bodyDraft.replace(/<[^>]+>/g, "").trim();
 
   return (
     <div
@@ -349,6 +351,19 @@ function StepCard({
         {/* ── Email fields ────────────────────────────── */}
         {step.stepType === "email" && (
           <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
+            <StepSuggestions
+              sequenceId={step.sequenceId}
+              stepId={step.id}
+              stepType="email"
+              empty={emailEmpty}
+              autoLoad={false}
+              applyLabel={emailEmpty ? "Use this" : "Replace draft"}
+              onApply={(s) => {
+                setSubjectDraft(s.subject ?? "");
+                setBodyDraft(s.body);
+                onUpdate({ subject: s.subject ?? null, bodyTemplate: s.body });
+              }}
+            />
             <Input
               placeholder="Subject line — supports {{firstName}}, {{companyName}}, etc."
               value={subjectDraft}
@@ -389,6 +404,19 @@ function StepCard({
               <option value="follow">Follow profile</option>
               <option value="voice">Voice note (manual handoff)</option>
             </Select>
+            <StepSuggestions
+              sequenceId={step.sequenceId}
+              stepId={step.id}
+              stepType="linkedin"
+              linkedinAction={step.linkedinAction ?? "connect"}
+              empty={!bodyDraft.trim()}
+              autoLoad={false}
+              applyLabel={bodyDraft.trim() ? "Replace draft" : "Use this"}
+              onApply={(s) => {
+                setBodyDraft(s.body);
+                onUpdate({ bodyTemplate: s.body });
+              }}
+            />
             {step.linkedinAction === "voice" ? (
               <p className="text-[11px] text-muted-foreground">
                 LinkedIn has no API to send a voice note automatically. Dexter drafts a script and
