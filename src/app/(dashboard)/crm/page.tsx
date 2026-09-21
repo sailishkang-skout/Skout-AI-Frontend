@@ -57,10 +57,20 @@ export default function CrmDashboardPage() {
       {/* Visual Revenue Hub */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <PipelineVelocityChart series={pipelineVelocity.data?.series} isLoading={pipelineVelocity.isLoading} />
+          <PipelineVelocityChart
+            series={pipelineVelocity.data?.series}
+            isLoading={pipelineVelocity.isLoading}
+            isError={pipelineVelocity.isError}
+            onRetry={() => pipelineVelocity.refetch()}
+          />
         </div>
         <div className="lg:col-span-1">
-          <DealDistributionDonut stages={overview.data?.stages} isLoading={overview.isLoading} />
+          <DealDistributionDonut
+            stages={overview.data?.stages}
+            isLoading={overview.isLoading}
+            isError={overview.isError}
+            onRetry={() => overview.refetch()}
+          />
         </div>
       </div>
 

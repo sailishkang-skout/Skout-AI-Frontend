@@ -103,7 +103,9 @@ export default function AnalyticsPage() {
       <DemoBanner />
 
       {report.error && (
-        <Alert variant="warning">Could not load analytics — check that the API is running.</Alert>
+        <Alert variant="warning" onRetry={() => report.refetch()}>
+          Could not load analytics — check that the API is running.
+        </Alert>
       )}
 
       {report.isLoading && !data && (

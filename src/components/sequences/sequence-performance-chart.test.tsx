@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SequencePerformanceChart } from "./sequence-performance-chart";
 
 describe("SequencePerformanceChart", () => {
@@ -8,6 +8,15 @@ describe("SequencePerformanceChart", () => {
   it("shows a loading state", () => {
     render(<SequencePerformanceChart isLoading />);
     screen.getByText(/loading/i);
+  });
+
+  it("shows a distinct error state with a retry action when the query fails", () => {
+    const onRetry = vi.fn();
+    render(<SequencePerformanceChart isError onRetry={onRetry} />);
+    expect(screen.queryByText(/no emails sent/i)).toBeNull();
+    screen.getByText(/couldn.t load chart data/i);
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("shows an honest empty state instead of a fake random walk when no emails were sent", () => {

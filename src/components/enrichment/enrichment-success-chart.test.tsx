@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EnrichmentSuccessChart } from "./enrichment-success-chart";
 
 describe("EnrichmentSuccessChart", () => {
@@ -8,6 +8,15 @@ describe("EnrichmentSuccessChart", () => {
   it("shows a loading state", () => {
     render(<EnrichmentSuccessChart isLoading />);
     screen.getByText(/loading/i);
+  });
+
+  it("shows a distinct error state with a retry action when the query fails", () => {
+    const onRetry = vi.fn();
+    render(<EnrichmentSuccessChart isError onRetry={onRetry} />);
+    expect(screen.queryByText(/no enrichment activity/i)).toBeNull();
+    screen.getByText(/couldn.t load chart data/i);
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("shows an honest empty state instead of fake random data when there's no activity", () => {
