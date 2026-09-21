@@ -140,14 +140,17 @@ export function ProductTourProvider({ children }: { children: ReactNode }) {
   );
 
   const currentStep = TOUR_STEPS[stepIndex];
+  // The setup wizard comes first: never overlay the tour on it (the tour would also navigate
+  // away mid-setup). The welcome modal shows on the first normal page after onboarding.
+  const onWizard = pathname === "/onboarding" || pathname === "/onboarding/";
 
   return (
     <ProductTourContext.Provider value={value}>
       {children}
-      {ready && phase === "welcome" && (
+      {ready && !onWizard && phase === "welcome" && (
         <WelcomeModal onStart={startTour} onSkip={skipTour} />
       )}
-      {ready && phase === "tour" && currentStep && (
+      {ready && !onWizard && phase === "tour" && currentStep && (
         <TourTooltip
           step={currentStep}
           stepIndex={stepIndex}

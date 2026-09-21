@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { SidebarPanel, TopBar } from "@/components/workspace/sidebar";
 import { IcpEnforcement } from "@/components/layout/icp-enforcement";
 import { WorkspaceAiChat } from "@/components/ai/workspace-ai-chat";
@@ -11,10 +13,26 @@ import {
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { authQueryOptions, useAuthReady } from "@/lib/api-client";
+import { useIcpApi } from "@/lib/icp";
+import { isOnboardingComplete } from "@/lib/scoring";
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const tour = useProductTourOptional();
+  const pathname = usePathname();
+  const authReady = useAuthReady();
+  const icpApi = useIcpApi();
+  const isWizard = pathname === "/onboarding" || pathname === "/onboarding/";
+  // A first-time user is mid-setup: the wizard is a bare full-screen page for them. Once
+  // onboarding is complete (revisiting the wizard) it renders inside the normal shell.
+  const icp = useQuery({
+    queryKey: ["icp"],
+    queryFn: icpApi.get,
+    enabled: authReady && isWizard,
+    ...authQueryOptions,
+  });
+  const wizardOnboardingDone = isOnboardingComplete(icp.data?.config);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -36,6 +54,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     if (window.matchMedia("(min-width: 1024px)").matches) return;
     setMobileOpen(true);
   }, [tour?.phase, tour?.stepIndex]);
+
+  if (isWizard && !wizardOnboardingDone) {
+    return <main className="min-h-svh overflow-y-auto bg-background">{children}</main>;
+  }
 
   return (
     <div className="flex h-svh min-h-0 w-full overflow-hidden">
