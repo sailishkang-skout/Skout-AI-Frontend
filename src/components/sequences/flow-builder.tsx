@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { AddStepInput, StepSuggestion, StepVariantInput, UpdateStepInput } from "@/lib/sequences";
 import { StepSuggestions } from "./step-suggestions";
+import { CONDITION_LABELS, CONDITION_VALUE_DEFAULTS } from "./step-drawer/condition-relevance";
 import type {
   ConditionExpression,
   SequenceConditionType,
@@ -42,28 +43,6 @@ const PALETTE: { type: SequenceStepType; label: string; icon: React.ComponentTyp
   { type: "task", label: "Task", icon: ListChecks, tone: "text-teal-600" },
   { type: "goal", label: "Goal", icon: Target, tone: "text-purple-600" },
 ];
-
-const CONDITION_LABELS: Record<SequenceConditionType, string> = {
-  linkedin_invite_accepted: "LinkedIn invite accepted",
-  linkedin_connected: "LinkedIn connected",
-  linkedin_invite_declined: "LinkedIn invite declined",
-  email_opened: "Email opened",
-  email_clicked: "Email clicked",
-  email_opened_count_gte: "Email opened at least N times",
-  email_clicked_count_gte: "Email clicked at least N times",
-  email_replied: "Email replied",
-  call_connected: "Call connected",
-  icp_score_gte: "ICP score ≥",
-  has_email: "Has email",
-  has_linkedin: "Has LinkedIn URL",
-  account_has_positive_reply: "Another contact at this account replied positively",
-};
-
-const CONDITION_VALUE_DEFAULTS: Partial<Record<SequenceConditionType, number>> = {
-  icp_score_gte: 80,
-  email_opened_count_gte: 3,
-  email_clicked_count_gte: 3,
-};
 
 function iconFor(type: SequenceStepType) {
   return PALETTE.find((p) => p.type === type)?.icon ?? Mail;
