@@ -38,8 +38,6 @@ const nextConfig = {
       { source: "/signin/:path*", destination: "/sign-in/:path*" },
       { source: "/login", destination: "/sign-in" },
       { source: "/login/:path*", destination: "/sign-in/:path*" },
-      { source: "/sign-up", destination: "/sign-in" },
-      { source: "/sign-up/:path*", destination: "/sign-in/:path*" },
     ];
   },
   env: {
@@ -53,7 +51,7 @@ const nextConfig = {
     NEXT_PUBLIC_CLERK_SIGN_IN_URL:
       process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,
     NEXT_PUBLIC_CLERK_SIGN_UP_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,
+      process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || `${appUrl.replace(/\/$/, "")}/sign-up`,
   },
   experimental: {
     serverActions: {
