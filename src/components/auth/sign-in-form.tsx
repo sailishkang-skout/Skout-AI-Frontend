@@ -36,7 +36,7 @@ export function SignInForm({ path = "/sign-in" }: { path?: string }) {
           }}
           routing="path"
           path={clerkPath}
-          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-in" : "/sign-in"}
+          signUpUrl={clerkPath.startsWith("/app") ? "/app/sign-up" : "/sign-up"}
           forceRedirectUrl={callbackUrl}
           fallbackRedirectUrl={callbackUrl}
         />
