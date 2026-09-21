@@ -94,6 +94,7 @@ describe("StepSuggestions", () => {
   });
 
   it.each([
+    ["inmail", "linkedin"],
     ["like", "linkedin"],
     ["follow", "linkedin"],
     ["voice", "linkedin"],
