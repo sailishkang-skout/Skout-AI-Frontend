@@ -34,7 +34,7 @@ export function useComplianceApi() {
       );
     },
     addSuppression: (email: string, reason = "manual_dnc") =>
-      fetchApi<{ data: SuppressionRow }>("/api/v1/suppressions", {
+      fetchApi<{ data: SuppressionRow; alreadyExisted?: boolean }>("/api/v1/suppressions", {
         method: "POST",
         body: JSON.stringify({ email, reason }),
       }),
@@ -50,6 +50,10 @@ export function useComplianceApi() {
         `/api/v1/compliance/consents${qs ? `?${qs}` : ""}`
       );
     },
+    revokeConsent: (id: string) =>
+      fetchApi<{ data: ConsentRow }>(`/api/v1/consents/${encodeURIComponent(id)}/revoke`, {
+        method: "POST",
+      }),
     listDsar: (status?: string) =>
       fetchApi<{ data: DsarRow[]; total: number }>(
         `/api/v1/dsar${status ? `?status=${encodeURIComponent(status)}` : ""}`

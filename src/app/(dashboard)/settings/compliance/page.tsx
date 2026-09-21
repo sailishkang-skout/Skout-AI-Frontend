@@ -71,10 +71,25 @@ export default function ComplianceCenterPage() {
     enabled: authReady,
   });
 
+  const revokeConsent = useMutation({
+    mutationFn: (id: string) => api.revokeConsent(id),
+    onSuccess: () => {
+      toast.success("Consent revoked", "Consent Updated");
+      qc.invalidateQueries({ queryKey: ["compliance-consents"] });
+    },
+    onError: (err) => {
+      toast.error(formatQueryError(err, "Failed to revoke consent"), "Revoke Failed");
+    },
+  });
+
   const add = useMutation({
     mutationFn: () => api.addSuppression(email.trim()),
-    onSuccess: () => {
-      toast.success(`Suppression added for ${email.trim()}`, "Email Suppressed");
+    onSuccess: (res) => {
+      if (res.alreadyExisted) {
+        toast.error(`${email.trim()} already exists in the suppression list`, "Already Suppressed");
+      } else {
+        toast.success(`Suppression added for ${email.trim()}`, "Email Suppressed");
+      }
       setEmail("");
       qc.invalidateQueries({ queryKey: ["suppressions"] });
     },
@@ -101,7 +116,7 @@ export default function ComplianceCenterPage() {
   });
 
   return (
-    <PageShell width="wide">
+    <PageShell width="wide" data-testid="page-compliance">
       <PageHeader
         title="Compliance center"
         description="Unified consent audit trail, email suppression (DNC) list, and DSAR management across all outreach channels."
@@ -117,7 +132,7 @@ export default function ComplianceCenterPage() {
                 Suppression list (DNC)
               </CardTitle>
               <Badge tone="muted" className="text-[10px]">
-                {suppressions.data?.data.length ?? 0} Suppressed
+                {suppressions.data?.total ?? 0} Suppressed
               </Badge>
             </div>
             <CardDescription className="text-xs">
@@ -273,9 +288,22 @@ export default function ComplianceCenterPage() {
                             {c.subjectType}:{c.subjectId.slice(0, 8)}…
                           </span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatRelativeTime(c.grantedAt)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatRelativeTime(c.grantedAt)}
+                          </span>
+                          {!c.revokedAt && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px]"
+                              disabled={revokeConsent.isPending}
+                              onClick={() => revokeConsent.mutate(c.id)}
+                            >
+                              Revoke
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -322,6 +350,13 @@ export default function ComplianceCenterPage() {
   );
 }
 
+function dsarErrorMessage(err: unknown, fallback: string): string {
+  const msg = formatQueryError(err, fallback);
+  return msg.includes("dsar_already_open")
+    ? "An open request of this type already exists for this email."
+    : msg;
+}
+
 function DsarPanel() {
   const authReady = useAuthReady();
   const api = useComplianceApi();
@@ -348,7 +383,15 @@ function DsarPanel() {
       qc.invalidateQueries({ queryKey: ["dsar"] });
     },
     onError: (err) => {
-      toast.error(formatQueryError(err, "Failed to submit DSAR request"), "Submission Failed");
+      toast.error(dsarErrorMessage(err, "Failed to submit DSAR request"), "Submission Failed");
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: (v: { id: string; status: DsarRow["status"] }) => api.updateDsar(v.id, v.status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["dsar"] }),
+    onError: (err) => {
+      toast.error(formatQueryError(err, "Failed to update DSAR request"), "Update Failed");
     },
   });
 
@@ -358,7 +401,10 @@ function DsarPanel() {
         <Input
           placeholder="subject@email.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (create.isError) create.reset();
+          }}
           className="h-8 text-xs font-mono max-w-sm"
         />
         <Select
@@ -387,7 +433,7 @@ function DsarPanel() {
       </div>
 
       {create.isError && (
-        <Alert variant="error">{formatQueryError(create.error, "Could not submit DSAR.")}</Alert>
+        <Alert variant="error">{dsarErrorMessage(create.error, "Could not submit DSAR.")}</Alert>
       )}
 
       <div className="max-h-64 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
@@ -403,7 +449,9 @@ function DsarPanel() {
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
-                  tone={row.status === "completed" ? "success" : "warning"}
+                  tone={
+                    row.status === "completed" ? "success" : row.status === "rejected" ? "danger" : "warning"
+                  }
                   className="text-[10px] capitalize"
                 >
                   {row.status}
@@ -415,9 +463,44 @@ function DsarPanel() {
                   {row.subjectEmail}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground">
-                {row.fulfillmentMode} fulfillment
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">
+                  {row.fulfillmentMode} fulfillment · {formatRelativeTime(row.createdAt)}
+                </span>
+                {(row.status === "received" || row.status === "in_progress") && (
+                  <>
+                    {row.status === "received" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        disabled={updateStatus.isPending}
+                        onClick={() => updateStatus.mutate({ id: row.id, status: "in_progress" })}
+                      >
+                        Start
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px]"
+                      disabled={updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: row.id, status: "completed" })}
+                    >
+                      Complete
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px]"
+                      disabled={updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: row.id, status: "rejected" })}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           ))
         )}
