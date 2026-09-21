@@ -94,6 +94,26 @@ export interface UpdateStepInput {
   variants?: StepVariantInput[];
 }
 
+/** One AI-drafted alternative for an Email / LinkedIn step. `body` is HTML for email, plain text for LinkedIn. */
+export interface StepSuggestion {
+  angle: string;
+  /** Email only — LinkedIn steps have no subject. */
+  subject?: string;
+  body: string;
+}
+
+export interface SuggestStepInput {
+  stepType: "email" | "linkedin";
+  linkedinAction?: "connect" | "message" | "inmail";
+  stepId?: string;
+  /** Angles already shown, so a refresh returns something different. */
+  excludeAngles?: string[];
+}
+
+export interface SuggestStepResponse {
+  suggestions: StepSuggestion[];
+}
+
 export interface EnrollInput {
   prospectIds?: string[];
   listId?: string;
@@ -146,6 +166,12 @@ export function useSequencesApi() {
 
     addStep: (sequenceId: string, input: AddStepInput) =>
       fetchApi<SequenceStep>(`/api/v1/sequences/${sequenceId}/steps`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    suggestStep: (sequenceId: string, input: SuggestStepInput) =>
+      fetchApi<SuggestStepResponse>(`/api/v1/sequences/${sequenceId}/steps/suggest`, {
         method: "POST",
         body: JSON.stringify(input),
       }),
