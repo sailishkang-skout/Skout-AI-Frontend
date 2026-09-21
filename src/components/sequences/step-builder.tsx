@@ -24,6 +24,7 @@ import {
   Loader2,
   Mail,
   MessageCircle,
+  Pencil,
   Phone,
   Plus,
   Target,
@@ -33,8 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { EmailBodyEditor } from "@/components/sequences/email-body-editor";
-import { StepSuggestions } from "@/components/sequences/step-suggestions";
+import { summarizeStep } from "@/components/sequences/step-summary";
 import type { SequenceDelayUnit, SequenceLinkedinAction, SequenceStep, SequenceStepType } from "@/types/api";
 
 // ── Step type visual config ──────────────────────────────────
@@ -194,6 +194,7 @@ function StepCard({
   step,
   onUpdate,
   onDelete,
+  onEdit,
   updating,
   deleting,
 }: {
@@ -207,6 +208,8 @@ function StepCard({
     bodyTemplate?: string | null;
   }) => void;
   onDelete: () => void;
+  /** Opens the step drawer for this step. */
+  onEdit: () => void;
   updating: boolean;
   deleting: boolean;
 }) {
@@ -216,9 +219,7 @@ function StepCard({
   const cfg = STEP_CONFIG[step.stepType];
   const Icon = cfg.icon;
 
-  const [subjectDraft, setSubjectDraft] = useState(step.subject ?? "");
-  const [bodyDraft, setBodyDraft] = useState(step.bodyTemplate ?? "");
-  const emailEmpty = !subjectDraft.trim() && !bodyDraft.replace(/<[^>]+>/g, "").trim();
+  const summary = summarizeStep(step);
 
   return (
     <div
@@ -348,148 +349,25 @@ function StepCard({
           </div>
         </div>
 
-        {/* ── Email fields ────────────────────────────── */}
-        {step.stepType === "email" && (
-          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
-            <StepSuggestions
-              sequenceId={step.sequenceId}
-              stepId={step.id}
-              stepType="email"
-              empty={emailEmpty}
-              autoLoad={false}
-              applyLabel={emailEmpty ? "Use this" : "Replace draft"}
-              onApply={(s) => {
-                setSubjectDraft(s.subject ?? "");
-                setBodyDraft(s.body);
-                onUpdate({ subject: s.subject ?? null, bodyTemplate: s.body });
-              }}
-            />
-            <Input
-              placeholder="Subject line — supports {{firstName}}, {{companyName}}, etc."
-              value={subjectDraft}
-              onChange={(e) => setSubjectDraft(e.target.value)}
-              onBlur={() => {
-                if (subjectDraft !== (step.subject ?? ""))
-                  onUpdate({ subject: subjectDraft || null });
-              }}
-              disabled={updating}
-              className="h-9 bg-background text-sm"
-            />
-            <EmailBodyEditor
-              value={bodyDraft}
-              onChange={(html) => {
-                setBodyDraft(html);
-                onUpdate({ bodyTemplate: html || null });
-              }}
-              disabled={updating}
-            />
-          </div>
-        )}
-
-        {/* ── LinkedIn fields ─────────────────────────── */}
-        {step.stepType === "linkedin" && (
-          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
-            <Select
-              value={step.linkedinAction ?? "connect"}
-              onChange={(e) =>
-                onUpdate({ linkedinAction: e.target.value as SequenceLinkedinAction })
-              }
-              disabled={updating}
-              className="h-8 max-w-xs text-xs"
-            >
-              <option value="connect">Connection request</option>
-              <option value="message">Direct message</option>
-              <option value="inmail">InMail</option>
-              <option value="like">Like recent posts</option>
-              <option value="follow">Follow profile</option>
-              <option value="voice">Voice note (manual handoff)</option>
-            </Select>
-            <StepSuggestions
-              sequenceId={step.sequenceId}
-              stepId={step.id}
-              stepType="linkedin"
-              linkedinAction={step.linkedinAction ?? "connect"}
-              empty={!bodyDraft.trim()}
-              autoLoad={false}
-              applyLabel={bodyDraft.trim() ? "Replace draft" : "Use this"}
-              onApply={(s) => {
-                setBodyDraft(s.body);
-                onUpdate({ bodyTemplate: s.body });
-              }}
-            />
-            {step.linkedinAction === "voice" ? (
-              <p className="text-[11px] text-muted-foreground">
-                LinkedIn has no API to send a voice note automatically. Dexter drafts a script and
-                creates a mobile handoff — the rep records and sends it themselves, then confirms
-                to resume the sequence. The step waits (up to 7 days) until confirmed.
-              </p>
-            ) : (
-              <>
-                <textarea
-                  placeholder={
-                    step.linkedinAction === "message"
-                      ? "Message body — supports {{firstName}}, {{companyName}}, etc."
-                      : "Optional connection note — supports {{firstName}}, {{companyName}}, etc."
-                  }
-                  value={bodyDraft}
-                  onChange={(e) => setBodyDraft(e.target.value)}
-                  onBlur={() => {
-                    if (bodyDraft !== (step.bodyTemplate ?? ""))
-                      onUpdate({ bodyTemplate: bodyDraft || null });
-                  }}
-                  disabled={updating}
-                  rows={3}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Sent via your connected LinkedIn account. Prospects need a LinkedIn profile URL.
-                  Connect under Deliverability → LinkedIn.
-                </p>
-              </>
+        {/* ── Summary — click to edit in the drawer ─────── */}
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex w-full items-start justify-between gap-3 border-t border-border bg-muted/20 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+        >
+          <span className="min-w-0">
+            <span className={cn("block truncate text-sm font-medium", summary.empty && "italic text-muted-foreground")}>
+              {summary.title}
+            </span>
+            {summary.detail && (
+              <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{summary.detail}</span>
             )}
-          </div>
-        )}
-
-        {/* ── Manual task fields ──────────────────────── */}
-        {step.stepType === "task" && (
-          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
-            <Input
-              placeholder="Task title — e.g. Call {{firstName}} about their trial"
-              value={subjectDraft}
-              onChange={(e) => setSubjectDraft(e.target.value)}
-              onBlur={() => {
-                if (subjectDraft !== (step.subject ?? "")) onUpdate({ subject: subjectDraft || null });
-              }}
-              disabled={updating}
-              className="h-9 bg-background text-sm"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              A task is created on your CRM Tasks page when this step comes up, linked to the prospect.
-            </p>
-          </div>
-        )}
-
-        {/* ── WhatsApp fields ─────────────────────────── */}
-        {step.stepType === "whatsapp" && (
-          <div className="space-y-2 border-t border-border bg-muted/20 px-4 py-3">
-            <textarea
-              placeholder="WhatsApp message — supports {{firstName}}, {{companyName}}, etc."
-              value={bodyDraft}
-              onChange={(e) => setBodyDraft(e.target.value)}
-              onBlur={() => {
-                if (bodyDraft !== (step.bodyTemplate ?? ""))
-                  onUpdate({ bodyTemplate: bodyDraft || null });
-              }}
-              disabled={updating}
-              rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Sent via your connected WhatsApp account. Prospects need a phone number (enrich or import).
-              Connect under Deliverability → WhatsApp.
-            </p>
-          </div>
-        )}
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -502,6 +380,7 @@ export function StepBuilder({
   onUpdateStep,
   onDeleteStep,
   onAddStep,
+  onEditStep,
   reordering,
   updatingStepId,
   deletingStepId,
@@ -522,6 +401,8 @@ export function StepBuilder({
   ) => void;
   onDeleteStep: (stepId: string) => void;
   onAddStep: (input: { stepType: SequenceStepType; delayDays: number; delayUnit?: SequenceDelayUnit }) => void;
+  /** Opens the step drawer for this step. */
+  onEditStep: (stepId: string) => void;
   reordering: boolean;
   updatingStepId: string | null;
   deletingStepId: string | null;
@@ -571,6 +452,7 @@ export function StepBuilder({
                     step={step}
                     onUpdate={(patch) => onUpdateStep(step.id, patch)}
                     onDelete={() => onDeleteStep(step.id)}
+                    onEdit={() => onEditStep(step.id)}
                     updating={updatingStepId === step.id}
                     deleting={deletingStepId === step.id}
                   />
