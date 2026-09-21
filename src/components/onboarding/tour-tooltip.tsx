@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TourStep } from "@/lib/product-tour";
 
@@ -35,6 +35,16 @@ function ensureTargetVisible(target: string) {
   el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
 }
 
+// The card is always centered rather than following each step's target. Following the target
+// made the card (and its Next button) jump between steps because targets sit at different
+// heights. Centering only stays put if the card height is constant too, so the body area below
+// has a fixed height (it scrolls if a step's text is longer).
+const CENTERED: React.CSSProperties = {
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+};
+
 export function TourTooltip({
   step,
   stepIndex,
@@ -45,12 +55,6 @@ export function TourTooltip({
 }: TourTooltipProps) {
   const [rect, setRect] = useState<Rect | null>(null);
   const pad = 6;
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-  });
 
   useLayoutEffect(() => {
     let cancelled = false;
@@ -104,33 +108,6 @@ export function TourTooltip({
 
   const isLast = stepIndex >= total - 1;
 
-  // Runs after the card has rendered with real content, so offsetHeight/Width reflect this
-  // step's actual body length — then clamps against the viewport so the card can never render
-  // partially off-screen, however tall the content or however close the target is to an edge.
-  useLayoutEffect(() => {
-    if (!rect) {
-      setStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" });
-      return;
-    }
-    const margin = 12;
-    const cardHeight = cardRef.current?.offsetHeight ?? 280;
-    const cardWidth = cardRef.current?.offsetWidth ?? 352;
-
-    const spaceBelow = window.innerHeight - (rect.top + rect.height + pad + margin);
-    const spaceAbove = rect.top - pad - margin;
-    const placeAbove = spaceBelow < cardHeight && spaceAbove >= cardHeight;
-
-    const preferredTop = placeAbove
-      ? rect.top - pad - margin - cardHeight
-      : rect.top + rect.height + pad + margin;
-    // Clamp regardless of which side was chosen — guarantees the card stays fully on-screen
-    // even when neither side has enough room (e.g. a target pinned to a viewport corner).
-    const top = Math.min(Math.max(margin, preferredTop), window.innerHeight - cardHeight - margin);
-    const left = Math.min(Math.max(margin, rect.left), window.innerWidth - cardWidth - margin);
-
-    setStyle({ top, left, transform: undefined });
-  }, [rect, pad, step.body, step.details, stepIndex]);
-
   return (
     <div className="fixed inset-0 z-[90]" aria-live="polite">
       {/* Dim overlay with spotlight cutout */}
@@ -149,12 +126,11 @@ export function TourTooltip({
       )}
 
       <div
-        ref={cardRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-step-title"
         className="absolute z-[92] w-[min(100%-2rem,22rem)] rounded-xl border border-border bg-background p-4 shadow-2xl"
-        style={style}
+        style={CENTERED}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -185,7 +161,7 @@ export function TourTooltip({
         <h3 id="tour-step-title" className="text-base font-semibold">
           {step.title}
         </h3>
-        <div className="mt-1.5 max-h-[40vh] space-y-2 overflow-y-auto pr-0.5">
+        <div className="mt-1.5 h-56 max-h-[40vh] space-y-2 overflow-y-auto pr-0.5">
           <p className="text-sm text-muted-foreground">{step.body}</p>
           {step.details && step.details.length > 0 && (
             <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
