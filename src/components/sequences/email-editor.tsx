@@ -336,7 +336,7 @@ function ImageModal({
   const canInsert = tab === "upload" ? !!preview : !!urlInput.trim();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-[420px] mx-4 overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold">Insert image</h3>
