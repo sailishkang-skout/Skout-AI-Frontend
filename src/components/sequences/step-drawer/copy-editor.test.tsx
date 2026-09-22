@@ -35,6 +35,21 @@ describe("CopyEditor — plain", () => {
     render(<CopyEditor kind="plain" ariaLabel="Message body" value="Hi" onChange={vi.fn()} />);
     expect(screen.queryByText(/\/\d+$/)).toBeNull();
   });
+
+  it("has no variable menu unless asked", () => {
+    render(<CopyEditor kind="plain" ariaLabel="Message body" value="Hi" onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Variable" })).toBeNull();
+  });
+
+  it("inserts a variable at the caret when withVariables is on", () => {
+    const onChange = vi.fn();
+    render(<CopyEditor kind="plain" ariaLabel="Message body" value="Hi , welcome" withVariables onChange={onChange} />);
+    (screen.getByLabelText("Message body") as HTMLTextAreaElement).setSelectionRange(3, 3);
+
+    fireEvent.click(screen.getByRole("button", { name: "Variable" }));
+    fireEvent.click(screen.getByRole("button", { name: /\{\{firstName\}\}/ }));
+    expect(onChange).toHaveBeenCalledWith("Hi {{firstName}}, welcome");
+  });
 });
 
 describe("CopyEditor — rich", () => {

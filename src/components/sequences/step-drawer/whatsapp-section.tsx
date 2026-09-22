@@ -16,6 +16,7 @@ export function WhatsappSection({ draft, onChange }: SectionProps) {
         placeholder="WhatsApp message — supports {{firstName}}, {{companyName}}, etc."
         value={draft.body}
         onChange={(body) => onChange({ body })}
+        withVariables
       />
     </div>
   );

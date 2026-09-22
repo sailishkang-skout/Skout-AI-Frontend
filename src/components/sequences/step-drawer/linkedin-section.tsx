@@ -117,6 +117,7 @@ export function LinkedinSection({ step, draft, onChange }: SectionProps) {
             maxLength={LIMITS[action]}
             value={draft.variants[active].body}
             onChange={(value) => onChange(updateVariant(active, { body: value }))}
+            withVariables
           />
         </>
       )}

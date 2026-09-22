@@ -152,3 +152,24 @@ describe("EmailSection — templates", () => {
     expect(editor().value).toBe("<p>Template body</p>");
   });
 });
+
+describe("EmailSection — variables", () => {
+  it("inserts a variable into the subject at the caret", () => {
+    renderEmail(mkStep({ subject: "S-A", bodyTemplate: "<p>B-A</p>", variants: [filled("A", "A"), mkVariant("B")] }));
+    subject().setSelectionRange(0, 0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Variable" }));
+    fireEvent.click(screen.getByRole("button", { name: /\{\{firstName\}\}/ }));
+    expect(subject().value).toBe("{{firstName}}S-A");
+  });
+
+  it("inserts a variable with a fallback", () => {
+    renderEmail(mkStep({ subject: "Hi ", bodyTemplate: "<p>B-A</p>", variants: [mkVariant("A", { subject: "Hi ", bodyTemplate: "<p>B-A</p>" })] }));
+    subject().setSelectionRange(3, 3);
+
+    fireEvent.click(screen.getByRole("button", { name: "Variable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add fallback for First name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert" }));
+    expect(subject().value).toBe("Hi {{firstName|there}}");
+  });
+});

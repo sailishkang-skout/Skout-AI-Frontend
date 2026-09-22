@@ -90,6 +90,15 @@ describe("LinkedinSection — copy", () => {
     screen.getByRole("tab", { name: "A · 50%" });
   });
 
+  it("offers the variable menu wherever there is copy, and not for a voice note", () => {
+    renderLinkedin({ linkedinAction: "message", bodyTemplate: "Hi " });
+    screen.getByRole("button", { name: "Variable" });
+    cleanup();
+
+    renderLinkedin({ linkedinAction: "voice" });
+    expect(screen.queryByRole("button", { name: "Variable" })).toBeNull();
+  });
+
   it("does not offer suggestions for InMail", () => {
     renderLinkedin({ linkedinAction: "inmail" });
     expect(mockSuggestStep).not.toHaveBeenCalled();

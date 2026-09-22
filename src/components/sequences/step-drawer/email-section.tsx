@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { insertIntoField } from "@/lib/insert-at-cursor";
 import type { SequenceVariantKey } from "@/types/api";
 import { StepSuggestions } from "../step-suggestions";
 import { CopyEditor } from "./copy-editor";
@@ -8,6 +9,7 @@ import type { SectionProps } from "./section-types";
 import { godModePatch, splitPatch, suggestionTarget, updateVariant, weightsOf } from "./step-draft";
 import { TemplatePicker } from "./template-picker";
 import { TimingRow } from "./timing-row";
+import { VariableMenu } from "./variable-menu";
 import { VariantTabs } from "./variant-tabs";
 
 export function EmailSection({ step, draft, onChange }: SectionProps) {
@@ -15,6 +17,7 @@ export function EmailSection({ step, draft, onChange }: SectionProps) {
   // Bumped whenever content is loaded from outside the editor (a suggestion or template), so the
   // uncontrolled rich editor remounts with it.
   const [nonce, setNonce] = useState(0);
+  const subjectRef = useRef<HTMLInputElement>(null);
   const target = suggestionTarget(draft, "email");
   const variant = draft.variants[active];
 
@@ -56,9 +59,17 @@ export function EmailSection({ step, draft, onChange }: SectionProps) {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase text-muted-foreground">Subject</span>
-          <TemplatePicker subject={variant.subject} html={variant.body} onApply={applyTemplate} />
+          <div className="flex items-center gap-1.5">
+            <VariableMenu
+              onPick={(text) =>
+                insertIntoField(subjectRef.current, text, (value) => onChange(updateVariant(active, { subject: value })))
+              }
+            />
+            <TemplatePicker subject={variant.subject} html={variant.body} onApply={applyTemplate} />
+          </div>
         </div>
         <Input
+          ref={subjectRef}
           aria-label="Subject"
           placeholder="Subject line — supports {{firstName}}, {{companyName}}, etc."
           value={variant.subject}
