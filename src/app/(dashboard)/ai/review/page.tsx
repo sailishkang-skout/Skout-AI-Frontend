@@ -21,6 +21,7 @@ import {
   useAiDraftsApi,
 } from "@/lib/ai-drafts";
 import { cn } from "@/lib/utils";
+import { TOKEN_PATTERN, resolveTokens } from "@/lib/merge-tokens";
 import type { AiDraft, AiDraftStatus } from "@/types/api";
 import { sanitizeHtml } from "@/components/ai/ai-chat-box";
 
@@ -63,7 +64,7 @@ function resolvePreviewTokens(text: string, draft: AiDraft): string {
     // unsubscribe URL is generated at send time). Kept here because it lives inside an href.
     unsubscribeUrl: PREVIEW_UNSUBSCRIBE_URL,
   };
-  return text.replace(/\{\{(\w+)\}\}/g, (match, key: string) => values[key] ?? match);
+  return resolveTokens(text, values);
 }
 
 /**
@@ -72,7 +73,7 @@ function resolvePreviewTokens(text: string, draft: AiDraft): string {
  * inside attributes (e.g. href="{{...}}") are never wrapped (which would corrupt the markup).
  */
 function highlightTokens(html: string): string {
-  return html.replace(/(<[^>]*>)|(\{\{\w+\}\})/g, (_match, tag: string, token: string) => {
+  return html.replace(new RegExp(`(<[^>]*>)|(${TOKEN_PATTERN})`, "g"), (_match, tag: string, token: string) => {
     if (tag) return tag;
     return `<span class="rounded bg-amber-100 px-1 text-[0.85em] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">${token}</span>`;
   });
