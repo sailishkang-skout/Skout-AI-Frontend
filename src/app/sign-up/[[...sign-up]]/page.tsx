@@ -1,12 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { SignUpForm } from "@/components/auth/sign-up-form";
+import { getServerSession } from "@/lib/auth/server";
 
 export default async function SignUpPage() {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   if (publishableKey) {
-    const { userId } = await auth();
+    const { userId } = await getServerSession();
     if (userId) {
       redirect("/prospects/search");
     }
