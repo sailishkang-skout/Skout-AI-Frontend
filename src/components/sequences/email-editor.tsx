@@ -20,15 +20,7 @@ import {
   Monitor, Tablet, Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ── Merge tokens ─────────────────────────────────────────────
-const MERGE_TOKENS = [
-  { label: "First name",      token: "{{firstName}}"    },
-  { label: "Last name",       token: "{{lastName}}"     },
-  { label: "Company",         token: "{{companyName}}"  },
-  { label: "Title",           token: "{{title}}"        },
-  { label: "Unsubscribe link",token: "{{unsubscribeUrl}}"},
-];
+import { VariableMenu } from "./step-drawer/variable-menu";
 
 // ── Device preview widths ─────────────────────────────────────
 const DEVICES = [
@@ -240,15 +232,10 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
 
         <Sep />
 
-        {/* Merge tokens */}
-        <span className="ml-1 shrink-0 text-xs text-muted-foreground">Insert:</span>
-        {MERGE_TOKENS.map((t) => (
-          <button key={t.token} type="button" title={t.label}
-            onMouseDown={(e) => { e.preventDefault(); insertToken(t.token); }}
-            className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[11px] text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">
-            {t.token}
-          </button>
-        ))}
+        {/* Merge tokens — searchable, with optional fallbacks */}
+        <div className="shrink-0">
+          <VariableMenu onPick={insertToken} />
+        </div>
       </div>
 
       {/* ── Device label strip ──────────────────────────────── */}

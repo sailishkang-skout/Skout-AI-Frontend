@@ -60,6 +60,15 @@ describe("TaskSection", () => {
     screen.getByLabelText("Delay amount");
     screen.getByText(/CRM Tasks page/);
   });
+
+  it("inserts a variable into the task title at the caret", () => {
+    renderSection(TaskSection, mkStep({ stepType: "task", subject: "Call " }));
+    (screen.getByLabelText("Task title") as HTMLInputElement).setSelectionRange(5, 5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Variable" }));
+    fireEvent.click(screen.getByRole("button", { name: /\{\{firstName\}\}/ }));
+    expect((screen.getByLabelText("Task title") as HTMLInputElement).value).toBe("Call {{firstName}}");
+  });
 });
 
 describe("CallSection", () => {

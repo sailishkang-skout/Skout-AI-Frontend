@@ -1,7 +1,10 @@
+import { useRef } from "react";
 import { Input } from "@/components/ui/input";
+import { insertIntoField } from "@/lib/insert-at-cursor";
 import type { SequenceDelayUnit } from "@/types/api";
 import type { SectionProps } from "./section-types";
 import { DelayFields, formatDuration, TimingRow } from "./timing-row";
+import { VariableMenu } from "./variable-menu";
 
 function Info({ children }: { children: React.ReactNode }) {
   return <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">{children}</p>;
@@ -74,12 +77,19 @@ export function GoalSection({ draft, onChange }: SectionProps) {
 }
 
 export function TaskSection({ draft, onChange }: SectionProps) {
+  const titleRef = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-4">
       <TimingRow draft={draft} onChange={onChange} />
       <div className="space-y-1.5">
-        <p className="text-xs font-semibold uppercase text-muted-foreground">Task title</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Task title</p>
+          <VariableMenu
+            onPick={(text) => insertIntoField(titleRef.current, text, (value) => onChange({ subject: value }))}
+          />
+        </div>
         <Input
+          ref={titleRef}
           aria-label="Task title"
           placeholder="e.g. Call {{firstName}} about their trial"
           value={draft.subject}

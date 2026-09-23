@@ -23,6 +23,11 @@ describe("WhatsappSection", () => {
     expect(latest().body).toBe("Hi {{firstName}}");
   });
 
+  it("offers the variable menu", () => {
+    renderWhatsapp("Hi ");
+    screen.getByRole("button", { name: "Variable" });
+  });
+
   it("explains what WhatsApp needs, and has timing but no variants", () => {
     renderWhatsapp();
     screen.getByText(/Prospects need a phone number/);
