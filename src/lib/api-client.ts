@@ -1,5 +1,10 @@
 import { useAuth } from "@clerk/nextjs";
 import { createClientLogger, logAndCapture } from "@/lib/logger";
+import {
+  AuthErrorCode,
+  isJwtExpiredMessage,
+  parseAuthErrorCodeFromBody,
+} from "@/lib/auth-error-codes";
 
 const log = createClientLogger("api-client");
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
@@ -62,11 +67,41 @@ function useAuthReadyStub(): boolean {
 
 export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
 
-/** True for the backend's Clerk-verification rejection of a token that was valid when
- * fetched but expired before the request landed — Clerk's own JWT template TTL here is
- * only ~60s, so this is routine, not a real auth failure. */
+/** Extract stable auth `code` from an ApiError body (AUTH-BE-08 / AUTH-FE-02). */
+export function getAuthErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  return parseAuthErrorCodeFromBody(error.body);
+}
+
+/** True when the session JWT expired (retry after refresh) — not invalid credentials. */
 export function isJwtExpiredError(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401 && /jwt is expired/i.test(error.message);
+  if (!(error instanceof ApiError) || error.status !== 401) return false;
+  const code = getAuthErrorCode(error);
+  if (code === AuthErrorCode.AUTH_TOKEN_EXPIRED) return true;
+  return isJwtExpiredMessage(error.message);
+}
+
+const NON_RETRYABLE_AUTH_CODES = new Set<string>([
+  AuthErrorCode.AUTH_TOKEN_INVALID,
+  AuthErrorCode.AUTH_ACCOUNT_BLOCKED,
+  AuthErrorCode.AUTH_SESSION_INVALID,
+  AuthErrorCode.AUTH_UNAUTHORIZED,
+  AuthErrorCode.AUTH_REAUTH_USER_MISMATCH,
+]);
+
+function isClientAuthRaceMessage(message: string): boolean {
+  return (
+    message.includes("Auth is still loading") ||
+    message.includes("Missing Clerk session token") ||
+    message.includes("Sign in required")
+  );
+}
+
+/** Legacy substring fallback when backend has not shipped BE-08 `code` yet. */
+function isLegacyRetryableAuthMessage(message: string): boolean {
+  if (message.includes("Missing bearer token")) return true;
+  if (isJwtExpiredMessage(message)) return true;
+  return false;
 }
 
 function messageFromErrorBody(errBody: unknown, fallback: string): string {
@@ -83,26 +118,56 @@ function messageFromErrorBody(errBody: unknown, fallback: string): string {
 }
 
 export function isRetryableAuthError(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return false;
-  if (error.status === 401) {
-    return (
-      error.message.includes("Auth is still loading") ||
-      error.message.includes("Missing Clerk session token") ||
-      error.message.includes("Missing bearer token") ||
-      error.message.includes("Invalid Clerk token") ||
-      error.message.includes("Invalid authorization token") ||
-      error.message.includes("Sign in required") ||
-      isJwtExpiredError(error)
-    );
+  if (!(error instanceof ApiError) || error.status !== 401) return false;
+
+  if (isClientAuthRaceMessage(error.message)) return true;
+
+  const code = getAuthErrorCode(error);
+  if (code) {
+    if (NON_RETRYABLE_AUTH_CODES.has(code)) return false;
+    if (
+      code === AuthErrorCode.AUTH_TOKEN_EXPIRED ||
+      code === AuthErrorCode.AUTH_MISSING_TOKEN
+    ) {
+      return true;
+    }
+    return false;
   }
-  return false;
+
+  if (isJwtExpiredError(error)) return true;
+  return isLegacyRetryableAuthMessage(error.message);
 }
 
 /** User-facing message for failed API queries. */
+function formatAuth401Message(error: ApiError): string {
+  const code = getAuthErrorCode(error);
+  switch (code) {
+    case AuthErrorCode.AUTH_TOKEN_EXPIRED:
+      return "Your session expired. Refresh the page or sign in again.";
+    case AuthErrorCode.AUTH_MISSING_TOKEN:
+      return "You're not signed in. Sign in again to continue.";
+    case AuthErrorCode.AUTH_TOKEN_INVALID:
+      return "We couldn't verify your session. Sign out and sign in again.";
+    case AuthErrorCode.AUTH_ACCOUNT_BLOCKED:
+      return "Your account is inactive or blocked. Contact your workspace admin.";
+    case AuthErrorCode.AUTH_SESSION_INVALID:
+      return "Your session expired or is invalid. Sign in again.";
+    case AuthErrorCode.AUTH_UNAUTHORIZED:
+      return "You're not authorized to perform this action.";
+    case AuthErrorCode.AUTH_REAUTH_USER_MISMATCH:
+      return "Re-authentication did not match your current session. Try again.";
+    default:
+      if (isJwtExpiredMessage(error.message)) {
+        return "Your session expired. Refresh the page or sign in again.";
+      }
+      return "Your session could not be verified. Sign out and sign in again, or refresh the page.";
+  }
+}
+
 export function formatQueryError(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      return "Your session could not be verified. Sign out and sign in again, or refresh the page.";
+      return formatAuth401Message(error);
     }
     if (error.status >= 500) {
       const body = error.body as { message?: string; error?: string } | undefined;

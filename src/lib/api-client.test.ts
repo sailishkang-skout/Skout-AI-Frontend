@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiFetch } from "./api-client";
+import { AuthErrorCode } from "./auth-error-codes";
+import {
+  ApiError,
+  apiFetch,
+  authQueryOptions,
+  formatQueryError,
+  getAuthErrorCode,
+  isJwtExpiredError,
+  isRetryableAuthError,
+} from "./api-client";
 
 const mockFetch = vi.fn();
 
@@ -148,5 +157,166 @@ describe("ApiError", () => {
 
   it("body is undefined when not provided", () => {
     expect(new ApiError("oops", 400).body).toBeUndefined();
+  });
+});
+
+function apiErr(
+  status: number,
+  message: string,
+  body?: unknown
+): ApiError {
+  return new ApiError(message, status, body);
+}
+
+describe("AUTH-FE-02 auth error classification", () => {
+  describe("isJwtExpiredError — code path", () => {
+    it("returns true for AUTH_TOKEN_EXPIRED", () => {
+      const err = apiErr(401, "jwt is expired", {
+        error: "jwt is expired",
+        code: AuthErrorCode.AUTH_TOKEN_EXPIRED,
+      });
+      expect(isJwtExpiredError(err)).toBe(true);
+    });
+
+    it("returns false for AUTH_TOKEN_INVALID", () => {
+      const err = apiErr(401, "Invalid authorization token", {
+        error: "Invalid authorization token",
+        code: AuthErrorCode.AUTH_TOKEN_INVALID,
+      });
+      expect(isJwtExpiredError(err)).toBe(false);
+    });
+  });
+
+  describe("isJwtExpiredError — legacy message fallback", () => {
+    it("returns true when message contains jwt is expired without code", () => {
+      expect(isJwtExpiredError(apiErr(401, "Token jwt is expired"))).toBe(true);
+    });
+  });
+
+  describe("isRetryableAuthError — code path", () => {
+    it("retries AUTH_TOKEN_EXPIRED and AUTH_MISSING_TOKEN", () => {
+      expect(
+        isRetryableAuthError(
+          apiErr(401, "Missing bearer token", {
+            error: "Missing bearer token",
+            code: AuthErrorCode.AUTH_MISSING_TOKEN,
+          })
+        )
+      ).toBe(true);
+      expect(
+        isRetryableAuthError(
+          apiErr(401, "jwt is expired", {
+            error: "jwt is expired",
+            code: AuthErrorCode.AUTH_TOKEN_EXPIRED,
+          })
+        )
+      ).toBe(true);
+    });
+
+    it("does not treat AUTH_TOKEN_INVALID as retryable auth (no 3x auth retry storm)", () => {
+      const err = apiErr(401, "Invalid authorization token", {
+        error: "Invalid authorization token",
+        code: AuthErrorCode.AUTH_TOKEN_INVALID,
+      });
+      expect(isRetryableAuthError(err)).toBe(false);
+      expect(authQueryOptions.retry(0, err)).toBe(true);
+      expect(authQueryOptions.retry(1, err)).toBe(false);
+      expect(authQueryOptions.retry(2, err)).toBe(false);
+    });
+
+    it("does not retry AUTH_ACCOUNT_BLOCKED", () => {
+      const err = apiErr(403, "Account is inactive or blocked", {
+        error: "Account is inactive or blocked",
+        code: AuthErrorCode.AUTH_ACCOUNT_BLOCKED,
+      });
+      expect(isRetryableAuthError(err)).toBe(false);
+    });
+  });
+
+  describe("isRetryableAuthError — legacy fallback", () => {
+    it("retries missing bearer message without code", () => {
+      expect(isRetryableAuthError(apiErr(401, "Missing bearer token"))).toBe(true);
+    });
+
+    it("does not retry Invalid authorization token without expired code", () => {
+      expect(isRetryableAuthError(apiErr(401, "Invalid authorization token"))).toBe(false);
+      expect(isRetryableAuthError(apiErr(401, "Invalid Clerk token"))).toBe(false);
+    });
+
+    it("retries jwt expired message without code", () => {
+      expect(isRetryableAuthError(apiErr(401, "jwt is expired"))).toBe(true);
+    });
+  });
+
+  describe("getAuthErrorCode", () => {
+    it("reads code from ApiError body", () => {
+      const err = apiErr(401, "x", { error: "x", code: AuthErrorCode.AUTH_TOKEN_INVALID });
+      expect(getAuthErrorCode(err)).toBe(AuthErrorCode.AUTH_TOKEN_INVALID);
+    });
+  });
+
+  describe("formatQueryError — 401 messages", () => {
+    it("uses code-specific copy when code is present", () => {
+      expect(
+        formatQueryError(
+          apiErr(401, "jwt is expired", {
+            error: "jwt is expired",
+            code: AuthErrorCode.AUTH_TOKEN_EXPIRED,
+          }),
+          "fallback"
+        )
+      ).toMatch(/session expired/i);
+
+      expect(
+        formatQueryError(
+          apiErr(401, "Invalid authorization token", {
+            error: "Invalid authorization token",
+            code: AuthErrorCode.AUTH_TOKEN_INVALID,
+          }),
+          "fallback"
+        )
+      ).toMatch(/couldn't verify your session/i);
+    });
+
+    it("falls back to generic 401 copy for unknown legacy bodies", () => {
+      expect(formatQueryError(apiErr(401, "Invalid Clerk token"), "fallback")).toMatch(
+        /could not be verified/i
+      );
+    });
+  });
+
+  describe("authQueryOptions retry budget", () => {
+    it("allows up to 3 retries for retryable auth errors only", () => {
+      const retryable = apiErr(401, "jwt is expired", {
+        code: AuthErrorCode.AUTH_TOKEN_EXPIRED,
+        error: "jwt is expired",
+      });
+      expect(isRetryableAuthError(retryable)).toBe(true);
+      expect(authQueryOptions.retry(0, retryable)).toBe(true);
+      expect(authQueryOptions.retry(2, retryable)).toBe(true);
+      expect(authQueryOptions.retry(3, retryable)).toBe(false);
+
+      const invalid = apiErr(401, "Invalid authorization token", {
+        code: AuthErrorCode.AUTH_TOKEN_INVALID,
+        error: "Invalid authorization token",
+      });
+      expect(isRetryableAuthError(invalid)).toBe(false);
+      expect(authQueryOptions.retry(2, invalid)).toBe(false);
+    });
+  });
+});
+
+describe("apiFetch auth error body (integration)", () => {
+  it("surfaces BE-08 code on ApiError for 401 responses", async () => {
+    mockFetch.mockResolvedValue(
+      makeResponse(
+        401,
+        { error: "Missing bearer token", code: AuthErrorCode.AUTH_MISSING_TOKEN },
+        false
+      )
+    );
+    const err = (await apiFetch("/api/v1/protected").catch((e) => e)) as ApiError;
+    expect(getAuthErrorCode(err)).toBe(AuthErrorCode.AUTH_MISSING_TOKEN);
+    expect(isRetryableAuthError(err)).toBe(true);
   });
 });
