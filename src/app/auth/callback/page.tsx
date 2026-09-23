@@ -1,12 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/auth/server";
 import { isOnboardingComplete } from "@/lib/scoring";
 import type { IcpConfig } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
 export default async function AuthCallbackPage() {
-  const { userId, getToken } = await auth();
+  const { userId, getToken } = await getServerSession();
 
   if (!userId) {
     redirect("/sign-in");
