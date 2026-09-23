@@ -20,15 +20,7 @@ import {
   Monitor, Tablet, Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ── Merge tokens ─────────────────────────────────────────────
-const MERGE_TOKENS = [
-  { label: "First name",      token: "{{firstName}}"    },
-  { label: "Last name",       token: "{{lastName}}"     },
-  { label: "Company",         token: "{{companyName}}"  },
-  { label: "Title",           token: "{{title}}"        },
-  { label: "Unsubscribe link",token: "{{unsubscribeUrl}}"},
-];
+import { VariableMenu } from "./step-drawer/variable-menu";
 
 // ── Device preview widths ─────────────────────────────────────
 const DEVICES = [
@@ -240,15 +232,10 @@ export function EmailEditor({ initialContent, onChange }: EmailEditorProps) {
 
         <Sep />
 
-        {/* Merge tokens */}
-        <span className="ml-1 shrink-0 text-xs text-muted-foreground">Insert:</span>
-        {MERGE_TOKENS.map((t) => (
-          <button key={t.token} type="button" title={t.label}
-            onMouseDown={(e) => { e.preventDefault(); insertToken(t.token); }}
-            className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[11px] text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400">
-            {t.token}
-          </button>
-        ))}
+        {/* Merge tokens — searchable, with optional fallbacks */}
+        <div className="shrink-0">
+          <VariableMenu onPick={insertToken} />
+        </div>
       </div>
 
       {/* ── Device label strip ──────────────────────────────── */}
@@ -336,7 +323,7 @@ function ImageModal({
   const canInsert = tab === "upload" ? !!preview : !!urlInput.trim();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-[420px] mx-4 overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold">Insert image</h3>

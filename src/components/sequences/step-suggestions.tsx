@@ -9,7 +9,8 @@ import { useSequencesApi, type StepSuggestion, type SuggestStepInput } from "@/l
 import { cn } from "@/lib/utils";
 import type { SequenceLinkedinAction, SequenceStepType } from "@/types/api";
 
-const SUGGESTABLE_LINKEDIN_ACTIONS: ReadonlySet<string> = new Set(["connect", "message", "inmail"]);
+// InMail is deliberately excluded: it currently sends as a connection request, so drafting for it misleads.
+const SUGGESTABLE_LINKEDIN_ACTIONS: ReadonlySet<string> = new Set(["connect", "message"]);
 const STALE_MS = 10 * 60 * 1000;
 
 /** Email, plus the LinkedIn actions that carry written copy. Everything else has nothing to draft. */
@@ -19,7 +20,7 @@ function toTarget(
 ): Pick<SuggestStepInput, "stepType" | "linkedinAction"> | null {
   if (stepType === "email") return { stepType };
   if (stepType === "linkedin" && linkedinAction && SUGGESTABLE_LINKEDIN_ACTIONS.has(linkedinAction)) {
-    return { stepType, linkedinAction: linkedinAction as "connect" | "message" | "inmail" };
+    return { stepType, linkedinAction: linkedinAction as "connect" | "message" };
   }
   return null;
 }

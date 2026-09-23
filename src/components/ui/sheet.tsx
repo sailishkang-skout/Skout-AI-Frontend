@@ -12,6 +12,7 @@ export function Sheet({
   description,
   children,
   className,
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,6 +20,8 @@ export function Sheet({
   description?: string;
   children: React.ReactNode;
   className?: string;
+  /** Pinned under the scrolling body (e.g. Save / Cancel). */
+  footer?: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -77,6 +80,7 @@ export function Sheet({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto bg-background px-4 py-4 sm:px-6">{children}</div>
+        {footer && <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-6">{footer}</div>}
       </aside>
     </>,
     document.body

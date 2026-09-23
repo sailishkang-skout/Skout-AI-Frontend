@@ -26,7 +26,8 @@ import { EnrollPanel } from "@/components/sequences/enroll-panel";
 import { EnrolledListsPanel } from "@/components/sequences/enrolled-lists-panel";
 import { FlowBuilder } from "@/components/sequences/flow-builder";
 import { StepBuilder } from "@/components/sequences/step-builder";
-import type { AddStepInput, UpdateStepInput } from "@/lib/sequences";
+import { StepDrawer } from "@/components/sequences/step-drawer/step-drawer";
+import type { AddStepInput } from "@/lib/sequences";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -73,6 +74,7 @@ export default function SequenceDetailPage() {
   const [updatingStepId, setUpdatingStepId] = useState<string | null>(null);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const [focusEmailStepId, setFocusEmailStepId] = useState<string | null>(null);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -436,7 +438,7 @@ export default function SequenceDetailPage() {
               <FlowBuilder
                 steps={steps}
                 onAddStep={(input) => addStep.mutate(input)}
-                onUpdateStep={(stepId, patch) => updateStep.mutate({ stepId, patch: patch as UpdateStepInput })}
+                onEditStep={setEditingStepId}
                 onDeleteStep={(stepId) => deleteStep.mutate(stepId)}
                 adding={addStep.isPending}
                 updatingStepId={updatingStepId}
@@ -453,6 +455,7 @@ export default function SequenceDetailPage() {
                     onUpdateStep={(stepId, patch) => updateStep.mutate({ stepId, patch })}
                     onDeleteStep={(stepId) => deleteStep.mutate(stepId)}
                     onAddStep={(input) => addStep.mutate(input)}
+                    onEditStep={setEditingStepId}
                     reordering={reorderSteps.isPending}
                     updatingStepId={updatingStepId}
                     deletingStepId={deletingStepId}
@@ -467,6 +470,14 @@ export default function SequenceDetailPage() {
           {tab === "lists" && <EnrolledListsPanel sequenceId={sequenceId} />}
           {tab === "analytics" && <AnalyticsPanel sequenceId={sequenceId} />}
           {tab === "activity" && <ActivityLog sequenceId={sequenceId} />}
+
+          <StepDrawer
+            step={steps.find((s) => s.id === editingStepId) ?? null}
+            steps={steps}
+            onClose={() => setEditingStepId(null)}
+            onSave={(stepId, patch) => updateStep.mutateAsync({ stepId, patch })}
+            onDelete={(stepId) => deleteStep.mutateAsync(stepId)}
+          />
         </>
       )}
     </PageShell>

@@ -16,21 +16,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { AddStepInput, StepSuggestion, StepVariantInput, UpdateStepInput } from "@/lib/sequences";
-import { StepSuggestions } from "./step-suggestions";
-import type {
-  ConditionExpression,
-  SequenceConditionType,
-  SequenceDelayUnit,
-  SequenceLinkedinAction,
-  SequenceStep,
-  SequenceStepType,
-  SequenceStepVariant,
-  SequenceVariantKey,
-} from "@/types/api";
+import type { AddStepInput } from "@/lib/sequences";
+import { CONDITION_LABELS } from "./step-drawer/condition-relevance";
+import type { SequenceStep, SequenceStepType } from "@/types/api";
 
 const PALETTE: { type: SequenceStepType; label: string; icon: React.ComponentType<{ className?: string }>; tone: string }[] = [
   { type: "email", label: "Email", icon: Mail, tone: "text-blue-600" },
@@ -42,28 +31,6 @@ const PALETTE: { type: SequenceStepType; label: string; icon: React.ComponentTyp
   { type: "task", label: "Task", icon: ListChecks, tone: "text-teal-600" },
   { type: "goal", label: "Goal", icon: Target, tone: "text-purple-600" },
 ];
-
-const CONDITION_LABELS: Record<SequenceConditionType, string> = {
-  linkedin_invite_accepted: "LinkedIn invite accepted",
-  linkedin_connected: "LinkedIn connected",
-  linkedin_invite_declined: "LinkedIn invite declined",
-  email_opened: "Email opened",
-  email_clicked: "Email clicked",
-  email_opened_count_gte: "Email opened at least N times",
-  email_clicked_count_gte: "Email clicked at least N times",
-  email_replied: "Email replied",
-  call_connected: "Call connected",
-  icp_score_gte: "ICP score ≥",
-  has_email: "Has email",
-  has_linkedin: "Has LinkedIn URL",
-  account_has_positive_reply: "Another contact at this account replied positively",
-};
-
-const CONDITION_VALUE_DEFAULTS: Partial<Record<SequenceConditionType, number>> = {
-  icp_score_gte: 80,
-  email_opened_count_gte: 3,
-  email_clicked_count_gte: 3,
-};
 
 function iconFor(type: SequenceStepType) {
   return PALETTE.find((p) => p.type === type)?.icon ?? Mail;
@@ -97,7 +64,7 @@ function stepTitle(step: SequenceStep) {
 export function FlowBuilder({
   steps,
   onAddStep,
-  onUpdateStep,
+  onEditStep,
   onDeleteStep,
   adding,
   updatingStepId,
@@ -105,13 +72,13 @@ export function FlowBuilder({
 }: {
   steps: SequenceStep[];
   onAddStep: (input: AddStepInput) => void;
-  onUpdateStep: (stepId: string, patch: UpdateStepInput) => void;
+  /** Opens the step drawer for this step. */
+  onEditStep: (stepId: string) => void;
   onDeleteStep: (stepId: string) => void;
   adding?: boolean;
   updatingStepId?: string | null;
   deletingStepId?: string | null;
 }) {
-  const [editing, setEditing] = useState<SequenceStep | null>(null);
   const [addAfter, setAddAfter] = useState<{ parentStepId?: string | null; branch?: "yes" | "no" | null } | null>(
     null,
   );
@@ -145,7 +112,7 @@ export function FlowBuilder({
               <FlowNode
                 step={step}
                 busy={updatingStepId === step.id || deletingStepId === step.id}
-                onEdit={() => setEditing(step)}
+                onEdit={() => onEditStep(step.id)}
                 onDelete={() => onDeleteStep(step.id)}
               />
               {step.stepType === "condition" ? (
@@ -156,7 +123,7 @@ export function FlowBuilder({
                     steps={children(step.id, "no")}
                     updatingStepId={updatingStepId}
                     deletingStepId={deletingStepId}
-                    onEdit={setEditing}
+                    onEdit={(s) => onEditStep(s.id)}
                     onDelete={onDeleteStep}
                     onAdd={() => setAddAfter({ parentStepId: step.id, branch: "no" })}
                   />
@@ -166,7 +133,7 @@ export function FlowBuilder({
                     steps={children(step.id, "yes")}
                     updatingStepId={updatingStepId}
                     deletingStepId={deletingStepId}
-                    onEdit={setEditing}
+                    onEdit={(s) => onEditStep(s.id)}
                     onDelete={onDeleteStep}
                     onAdd={() => setAddAfter({ parentStepId: step.id, branch: "yes" })}
                   />
@@ -229,15 +196,6 @@ export function FlowBuilder({
             })}
           </div>
         </Dialog>
-      )}
-
-      {editing && (
-        <StepEditorDialog
-          step={steps.find((s) => s.id === editing.id) ?? editing}
-          saving={updatingStepId === editing.id}
-          onClose={() => setEditing(null)}
-          onSave={(patch) => onUpdateStep(editing.id, patch)}
-        />
       )}
     </div>
   );
@@ -399,292 +357,5 @@ function BranchColumn({
       ))}
       <AddPlus onClick={onAdd} />
     </div>
-  );
-}
-
-function StepEditorDialog({
-  step,
-  saving,
-  onClose,
-  onSave,
-}: {
-  step: SequenceStep;
-  saving?: boolean;
-  onClose: () => void;
-  onSave: (patch: UpdateStepInput) => void;
-}) {
-  const [delayDays, setDelayDays] = useState(step.delayDays);
-  const [delayUnit, setDelayUnit] = useState<SequenceDelayUnit>(step.delayUnit ?? "days");
-  const [subject, setSubject] = useState(step.subject ?? "");
-  const [body, setBody] = useState(step.bodyTemplate ?? "");
-  const [linkedinAction, setLinkedinAction] = useState<SequenceLinkedinAction>(step.linkedinAction ?? "connect");
-  const [conditionType, setConditionType] = useState<SequenceConditionType>(
-    step.conditionType ?? "linkedin_invite_accepted",
-  );
-  const initialExpr = step.conditionExpression;
-  const [compound, setCompound] = useState(Boolean(initialExpr && "op" in initialExpr));
-  const [compoundOp, setCompoundOp] = useState<"and" | "or">(
-    initialExpr && "op" in initialExpr ? initialExpr.op : "and",
-  );
-  const [clauses, setClauses] = useState<{ type: SequenceConditionType; not: boolean; value?: number }[]>(() => {
-    if (initialExpr && "op" in initialExpr) {
-      return initialExpr.clauses
-        .filter((c): c is Extract<ConditionExpression, { type: SequenceConditionType }> => "type" in c)
-        .map((c) => ({ type: c.type, not: Boolean(c.not), value: c.value }));
-    }
-    if (initialExpr && "type" in initialExpr) {
-      return [{ type: initialExpr.type, not: Boolean(initialExpr.not), value: initialExpr.value }];
-    }
-    return [{ type: step.conditionType ?? "linkedin_invite_accepted", not: false }];
-  });
-  const [conditionWaitDays, setConditionWaitDays] = useState(step.conditionWaitDays ?? 3);
-  const [goalLabel, setGoalLabel] = useState(step.goalLabel ?? "");
-  const [godMode, setGodMode] = useState(Boolean(step.variants?.find((v) => v.variantKey === "C" && v.enabled)));
-  const [variants, setVariants] = useState<Record<SequenceVariantKey, { subject: string; body: string; weight: number }>>(
-    () => {
-      const from = (key: SequenceVariantKey): SequenceStepVariant | undefined =>
-        step.variants?.find((v) => v.variantKey === key);
-      return {
-        A: { subject: from("A")?.subject ?? step.subject ?? "", body: from("A")?.bodyTemplate ?? step.bodyTemplate ?? "", weight: from("A")?.weight ?? 50 },
-        B: { subject: from("B")?.subject ?? "", body: from("B")?.bodyTemplate ?? "", weight: from("B")?.weight ?? 50 },
-        C: { subject: from("C")?.subject ?? "", body: from("C")?.bodyTemplate ?? "", weight: from("C")?.weight ?? 0 },
-      };
-    },
-  );
-
-  const showVariants = step.stepType === "email" || step.stepType === "linkedin";
-
-  // AI suggestions land in the first blank variant (A, then B, then C); if every visible
-  // variant already has copy, the label says plainly that A is being replaced.
-  const visibleKeys: SequenceVariantKey[] = godMode ? ["A", "B", "C"] : ["A", "B"];
-  const isBlank = (v: { subject: string; body: string }) => !v.subject.trim() && !v.body.replace(/<[^>]+>/g, "").trim();
-  const blankKey = visibleKeys.find((k) => isBlank(variants[k]));
-  const suggestionKey = blankKey ?? "A";
-
-  function applySuggestion(s: StepSuggestion) {
-    setVariants((v) => ({
-      ...v,
-      [suggestionKey]: { ...v[suggestionKey], subject: s.subject ?? v[suggestionKey].subject, body: s.body },
-    }));
-  }
-
-  function save() {
-    const patch: UpdateStepInput = { delayDays, delayUnit };
-    if (step.stepType === "email" || step.stepType === "linkedin" || step.stepType === "whatsapp" || step.stepType === "task") {
-      patch.subject = subject || null;
-      patch.bodyTemplate = body || null;
-    }
-    if (step.stepType === "linkedin") patch.linkedinAction = linkedinAction;
-    if (step.stepType === "condition") {
-      patch.conditionWaitDays = conditionWaitDays;
-      if (compound && clauses.length > 0) {
-        patch.conditionType = clauses[0]!.type;
-        patch.conditionExpression = {
-          op: compoundOp,
-          clauses: clauses.map((c) => ({
-            type: c.type,
-            not: c.not || undefined,
-            value: c.type in CONDITION_VALUE_DEFAULTS ? c.value ?? CONDITION_VALUE_DEFAULTS[c.type] : undefined,
-          })),
-        };
-      } else {
-        patch.conditionType = conditionType;
-        patch.conditionExpression = null;
-      }
-    }
-    if (step.stepType === "goal") patch.goalLabel = goalLabel || null;
-    if (showVariants) {
-      const list: StepVariantInput[] = [
-        { variantKey: "A", subject: variants.A.subject || null, bodyTemplate: variants.A.body || null, weight: variants.A.weight, enabled: true },
-        { variantKey: "B", subject: variants.B.subject || null, bodyTemplate: variants.B.body || null, weight: variants.B.weight, enabled: true },
-        { variantKey: "C", subject: variants.C.subject || null, bodyTemplate: variants.C.body || null, weight: godMode ? variants.C.weight || 25 : 0, enabled: godMode },
-      ];
-      patch.variants = list;
-      patch.subject = variants.A.subject || subject || null;
-      patch.bodyTemplate = variants.A.body || body || null;
-    }
-    onSave(patch);
-    onClose();
-  }
-
-  return (
-    <Dialog open onClose={onClose} title={`Edit ${PALETTE.find((p) => p.type === step.stepType)?.label ?? "step"}`} className="max-w-lg">
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Wait</span>
-          <Input type="number" min={0} className="h-8 w-16" value={delayDays} onChange={(e) => setDelayDays(Number(e.target.value) || 0)} />
-          <Select value={delayUnit} onChange={(e) => setDelayUnit(e.target.value as SequenceDelayUnit)} className="h-8 w-28">
-            <option value="minutes">minutes</option>
-            <option value="hours">hours</option>
-            <option value="days">days</option>
-            <option value="weeks">weeks</option>
-          </Select>
-        </div>
-
-        {step.stepType === "linkedin" && (
-          <Select value={linkedinAction} onChange={(e) => setLinkedinAction(e.target.value as SequenceLinkedinAction)}>
-            <option value="connect">Connection request</option>
-            <option value="message">Direct message</option>
-            <option value="inmail">InMail</option>
-            <option value="like">Like recent posts</option>
-            <option value="follow">Follow profile</option>
-            <option value="voice">Voice note (manual handoff)</option>
-          </Select>
-        )}
-
-        {showVariants && (
-          <StepSuggestions
-            sequenceId={step.sequenceId}
-            stepId={step.id}
-            stepType={step.stepType}
-            linkedinAction={linkedinAction}
-            empty={visibleKeys.every((k) => isBlank(variants[k]))}
-            autoLoad
-            applyLabel={blankKey ? `Use in Variant ${blankKey}` : "Replace Variant A"}
-            onApply={applySuggestion}
-          />
-        )}
-
-        {step.stepType === "condition" && (
-          <>
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={compound} onChange={(e) => setCompound(e.target.checked)} />
-              Compound AND / OR / NOT
-            </label>
-            {!compound ? (
-              <Select value={conditionType} onChange={(e) => setConditionType(e.target.value as SequenceConditionType)}>
-                {Object.entries(CONDITION_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </Select>
-            ) : (
-              <div className="space-y-2 rounded-md border border-border p-2">
-                <Select value={compoundOp} onChange={(e) => setCompoundOp(e.target.value as "and" | "or")} className="h-8">
-                  <option value="and">Match ALL (AND)</option>
-                  <option value="or">Match ANY (OR)</option>
-                </Select>
-                {clauses.map((clause, idx) => (
-                  <div key={idx} className="flex flex-wrap items-center gap-1.5">
-                    <label className="flex items-center gap-1 text-[11px]">
-                      <input
-                        type="checkbox"
-                        checked={clause.not}
-                        onChange={(e) => setClauses((rows) => rows.map((r, i) => i === idx ? { ...r, not: e.target.checked } : r))}
-                      />
-                      NOT
-                    </label>
-                    <Select
-                      value={clause.type}
-                      className="h-8 flex-1"
-                      onChange={(e) => setClauses((rows) => rows.map((r, i) => i === idx ? { ...r, type: e.target.value as SequenceConditionType } : r))}
-                    >
-                      {Object.entries(CONDITION_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </Select>
-                    {clause.type in CONDITION_VALUE_DEFAULTS && (
-                      <Input
-                        type="number"
-                        className="h-8 w-16"
-                        value={clause.value ?? CONDITION_VALUE_DEFAULTS[clause.type]}
-                        onChange={(e) => {
-                          const fallback = CONDITION_VALUE_DEFAULTS[clause.type]!;
-                          setClauses((rows) => rows.map((r, i) => i === idx ? { ...r, value: Number(e.target.value) || fallback } : r));
-                        }}
-                      />
-                    )}
-                    <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setClauses((rows) => rows.filter((_, i) => i !== idx))}>
-                      ×
-                    </button>
-                  </div>
-                ))}
-                <Button type="button" size="sm" variant="outline" onClick={() => setClauses((rows) => [...rows, { type: "email_opened", not: false }])}>
-                  Add clause
-                </Button>
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Max wait</span>
-              <Input type="number" min={1} max={30} className="h-8 w-16" value={conditionWaitDays} onChange={(e) => setConditionWaitDays(Number(e.target.value) || 1)} />
-              <span className="text-muted-foreground">days, then fallback (No)</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Accepted → Yes branch. Declined or still pending after the wait → No / email fallback.
-            </p>
-          </>
-        )}
-
-        {step.stepType === "goal" && (
-          <Input placeholder="Goal label — e.g. Event participation confirmation" value={goalLabel} onChange={(e) => setGoalLabel(e.target.value)} />
-        )}
-
-        {showVariants && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">A/B/C testing</p>
-              <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={godMode} onChange={(e) => setGodMode(e.target.checked)} />
-                Enable C — God Mode
-              </label>
-            </div>
-            {(["A", "B", ...(godMode ? (["C"] as const) : [])] as SequenceVariantKey[]).map((key) => (
-              <div key={key} className="space-y-1.5 rounded-md border border-border p-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold">Variant {key}{key === "C" ? " · God Mode" : ""}</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    className="h-7 w-16 text-xs"
-                    value={variants[key].weight}
-                    onChange={(e) =>
-                      setVariants((v) => ({ ...v, [key]: { ...v[key], weight: Number(e.target.value) || 0 } }))
-                    }
-                    aria-label={`${key} weight`}
-                  />
-                </div>
-                {step.stepType === "email" && (
-                  <Input
-                    placeholder="Subject"
-                    value={variants[key].subject}
-                    onChange={(e) => setVariants((v) => ({ ...v, [key]: { ...v[key], subject: e.target.value } }))}
-                  />
-                )}
-                <textarea
-                  rows={3}
-                  placeholder="Message body"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={variants[key].body}
-                  onChange={(e) => setVariants((v) => ({ ...v, [key]: { ...v[key], body: e.target.value } }))}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!showVariants && (step.stepType === "whatsapp" || step.stepType === "task") && (
-          <>
-            {step.stepType === "task" && (
-              <Input placeholder="Task title" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            )}
-            <textarea
-              rows={4}
-              placeholder="Body"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-          </>
-        )}
-
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save
-          </Button>
-        </div>
-      </div>
-    </Dialog>
   );
 }
