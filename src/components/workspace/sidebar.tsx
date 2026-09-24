@@ -1,7 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
-import { CLERK_ENABLED } from "@/lib/api-client";
+import { useAuthAdapter, AUTH_ENABLED, useAuthUserMenu } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -449,6 +448,7 @@ export function SidebarPanel({
 }
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+  const UserMenu = useAuthUserMenu();
   const apiFetch = useApiFetch();
   const enrichmentApi = useEnrichmentApi();
   const authReady = useAuthReady();
@@ -512,8 +512,8 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize md:inline">
           {role}
         </span>
-        {CLERK_ENABLED ? (
-          <UserButton afterSignOutUrl="/sign-in" />
+        {AUTH_ENABLED && UserMenu ? (
+          <UserMenu />
         ) : null}
       </div>
     </header>

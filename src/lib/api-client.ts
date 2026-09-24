@@ -1,10 +1,10 @@
-import { useAuth } from "@clerk/nextjs";
 import { createClientLogger, logAndCapture } from "@/lib/logger";
 import {
   AuthErrorCode,
   isJwtExpiredMessage,
   parseAuthErrorCodeFromBody,
 } from "@/lib/auth-error-codes";
+import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 
 const log = createClientLogger("api-client");
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
@@ -36,8 +36,8 @@ const API_URL = CONFIGURED_API_URL;
 // E2E_AUTH_BYPASS must select the same stub-auth branch as the middleware. Otherwise
 // local Playwright runs can bypass route protection but still leave authReady false,
 // disabling dashboard queries.
-export const CLERK_ENABLED =
-  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) && process.env.E2E_AUTH_BYPASS !== "true";
+// Keep CLERK_ENABLED for backward compatibility
+export const CLERK_ENABLED = AUTH_ENABLED;
 
 const AUTH_LOAD_POLL_MS = 25;
 const AUTH_LOAD_TIMEOUT_MS = 8_000;
@@ -55,17 +55,18 @@ export class ApiError extends Error {
   }
 }
 
-/** True once Clerk has hydrated and the user has an active session. */
-function useAuthReadyClerk(): boolean {
-  const { isLoaded, isSignedIn } = useAuth();
-  return isLoaded && !!isSignedIn;
+/** True once auth has hydrated and the user has an active session. */
+function useAuthReadyAdapter(): boolean {
+  const adapter = useAuthAdapter();
+  const session = adapter.useSession();
+  return session.isLoaded && session.isSignedIn;
 }
 
 function useAuthReadyStub(): boolean {
   return true;
 }
 
-export const useAuthReady = CLERK_ENABLED ? useAuthReadyClerk : useAuthReadyStub;
+export const useAuthReady = AUTH_ENABLED ? useAuthReadyAdapter : useAuthReadyStub;
 
 /** Extract stable auth `code` from an ApiError body (AUTH-BE-08 / AUTH-FE-02). */
 export function getAuthErrorCode(error: unknown): string | undefined {
@@ -373,54 +374,58 @@ export async function getClerkApiToken(
   throw new ApiError("Missing Clerk session token — sign in again", 401);
 }
 
-function useApiFetchClerk() {
-  const auth = useAuth();
+function useApiFetchAdapter() {
+  const adapter = useAuthAdapter();
+  const session = adapter.useSession();
+  const getAccessToken = adapter.useGetAccessToken();
 
   return async function fetchWithAuth<T>(
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<T> {
-    await waitForClerkLoaded(auth.isLoaded, () => auth.isLoaded);
+    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
 
-    if (!auth.isSignedIn) {
+    if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => auth.getToken());
+    const authToken = await getClerkApiToken(() => getAccessToken());
 
     try {
       return await apiFetch<T>(path, { ...options, authToken });
     } catch (error) {
-      // Clerk's cache can hand back a token that was valid when fetched but expired by
+      // Auth adapter's cache can hand back a token that was valid when fetched but expired by
       // the time the backend verified it (very short TTL). Retry once with a forced
       // fresh token instead of resending the same stale one forever.
       if (!isJwtExpiredError(error)) throw error;
-      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      const freshToken = await getClerkApiToken(() => getAccessToken({ forceRefresh: true }));
       return apiFetch<T>(path, { ...options, authToken: freshToken });
     }
   };
 }
 
-function useApiFetchBlobClerk() {
-  const auth = useAuth();
+function useApiFetchBlobAdapter() {
+  const adapter = useAuthAdapter();
+  const session = adapter.useSession();
+  const getAccessToken = adapter.useGetAccessToken();
 
   return async function fetchBlobWithAuth(
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<Blob> {
-    await waitForClerkLoaded(auth.isLoaded, () => auth.isLoaded);
+    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
 
-    if (!auth.isSignedIn) {
+    if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => auth.getToken());
+    const authToken = await getClerkApiToken(() => getAccessToken());
 
     try {
       return await apiFetchBlob(path, { ...options, authToken });
     } catch (error) {
       if (!isJwtExpiredError(error)) throw error;
-      const freshToken = await getClerkApiToken(() => auth.getToken({ skipCache: true }));
+      const freshToken = await getClerkApiToken(() => getAccessToken({ forceRefresh: true }));
       return apiFetchBlob(path, { ...options, authToken: freshToken });
     }
   };
@@ -452,7 +457,7 @@ function useApiFetchBlobStub() {
   };
 }
 
-export const useApiFetch = CLERK_ENABLED ? useApiFetchClerk : useApiFetchStub;
-export const useApiFetchBlob = CLERK_ENABLED ? useApiFetchBlobClerk : useApiFetchBlobStub;
+export const useApiFetch = AUTH_ENABLED ? useApiFetchAdapter : useApiFetchStub;
+export const useApiFetchBlob = AUTH_ENABLED ? useApiFetchBlobAdapter : useApiFetchBlobStub;
 
 export { API_URL };
