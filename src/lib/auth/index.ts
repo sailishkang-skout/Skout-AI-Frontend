@@ -31,8 +31,9 @@ const HAS_CLERK_KEY = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 // Calculate which adapter to use - preserves existing behavior by default
 export function resolveAuthMode(): AuthMode {
-  // If we're in a test environment (vitest is running), always use stub
-  if (typeof vitest !== "undefined") {
+  // If we're in a test environment (vitest is running or NODE_ENV=test), always use stub
+  const isTestEnvironment = typeof (globalThis as any).vitest !== "undefined" || process.env.NODE_ENV === "test";
+  if (isTestEnvironment) {
     return "stub";
   }
   
