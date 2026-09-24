@@ -4,6 +4,8 @@ import type { AuthAdapter } from "./index";
 import { ClerkAuthAdapter } from "./clerk-adapter";
 import { StubAuthAdapter } from "./stub-adapter";
 
+console.log("✅ auth-adapter.contract.test.ts loaded - running AUTH-FE-01 contract tests");
+
 // Shared contract tests that all auth adapters must pass
 function runAuthAdapterContractTests(adapterName: string, adapter: AuthAdapter) {
   describe(`${adapterName} - AuthAdapter contract`, () => {
