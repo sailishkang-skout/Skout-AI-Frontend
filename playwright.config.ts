@@ -36,24 +36,36 @@ export default defineConfig({
         },
       },
     },
+    // Project for testing real token handling (no E2E_AUTH_BYPASS) - run locally with custom auth mode
+    {
+      name: "real-token-chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+      testIgnore: ["**/smoke.spec.ts", "**/*-bypass.spec.ts"], // Only run real-token tests here
+    },
   ],
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
-    : [
-        {
-          command: "pnpm dev",
-          url: baseURL,
-          reuseExistingServer: !process.env.CI,
-          timeout: 120_000,
-          env: {
-            ...process.env,
-            E2E_AUTH_BYPASS: "true",
-            NEXT_PUBLIC_API_URL: apiURL,
-            NEXT_PUBLIC_CRM_API_URL: crmApiURL,
+    : {
+        command: "pnpm dev",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+        env: {
+          ...process.env,
+          // Use E2E_AUTH_BYPASS by default for all CI and standard tests
+          E2E_AUTH_BYPASS: process.env.PLAYWRIGHT_REAL_TOKEN_TESTS === "true" ? "false" : "true",
+          // Set auth mode to custom when running real token tests
+          NEXT_PUBLIC_AUTH_MODE: process.env.PLAYWRIGHT_REAL_TOKEN_TESTS === "true" ? "custom" : "clerk",
+          NEXT_PUBLIC_API_URL: apiURL,
+          NEXT_PUBLIC_CRM_API_URL: crmApiURL,
+          // Only blank Clerk keys when using stub auth bypass
+          ...(process.env.PLAYWRIGHT_REAL_TOKEN_TESTS === "true" ? {} : {
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
             CLERK_SECRET_KEY: "",
-          },
+          }),
         },
-      ],
+      },
   globalSetup: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : "./e2e/global-setup.ts",
 });
