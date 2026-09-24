@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuthAdapter } from "@/lib/auth";
 import { useCallback, useEffect, useRef } from "react";
 import {
   connectExtensionSeamless,
@@ -27,23 +27,23 @@ declare global {
 
 /** Invisible: keeps the extension signed in while the user uses Skout normally. */
 export function ExtensionAuthSync() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
+  const adapter = useAuthAdapter();
+  const { isLoaded, isSignedIn, user } = adapter.useSession();
+  const getAccessToken = adapter.useGetAccessToken();
   const lastSyncedToken = useRef("");
   const lastSyncAt = useRef(0);
   const syncInFlight = useRef(false);
 
-  const email =
-    user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses?.[0]?.emailAddress ?? "";
+  const email = user?.email ?? "";
 
   const getAuth = useCallback(async () => {
     if (!isSignedIn) return { error: "not_signed_in" as const };
-    // Use Clerk's cached token. It auto-refreshes near expiry, so this almost never
+    // Use adapter's cached token. It auto-refreshes near expiry, so this almost never
     // hits the network — forcing skipCache here was spamming the token endpoint (429s).
-    const token = await getToken();
+    const token = await getAccessToken();
     if (!token) return { error: "no_token" as const };
     return { token, email };
-  }, [getToken, isSignedIn, email]);
+  }, [getAccessToken, isSignedIn, email]);
 
   const syncToExtension = useCallback(
     async (force = false) => {
@@ -77,7 +77,7 @@ export function ExtensionAuthSync() {
         syncInFlight.current = false;
       }
     },
-    [getAuth, isLoaded, isSignedIn]
+    [getAuth, isLoaded, isSignedIn, lastSyncedToken, lastSyncAt, syncInFlight]
   );
 
   // Keep a stable reference to the latest sync/getAuth so the listener and interval

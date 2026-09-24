@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, XCircle } from "lucide-react";
-import { CLERK_ENABLED, getApiBase } from "@/lib/api-client";
+import { getApiBase } from "@/lib/api-client";
 import { getInviteDetails } from "@/lib/team";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,14 +51,15 @@ type OtpStep = "idle" | "sent" | "verified" | "done";
 export default function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
+  const adapter = useAuthAdapter();
+  const { isLoaded, isSignedIn } = adapter.useSession();
 
   const [otpStep, setOtpStep] = useState<OtpStep>("idle");
 
-  // After SSO login Clerk redirects back here — auto-send to dashboard
+  // After SSO login redirects back here — auto-send to dashboard
   // so resolveOrProvisionUser runs and auto-accepts the pending invite
   useEffect(() => {
-    if (CLERK_ENABLED && isLoaded && isSignedIn && otpStep === "idle") {
+    if (AUTH_ENABLED && isLoaded && isSignedIn && otpStep === "idle") {
       router.replace("/dashboard");
     }
   }, [isLoaded, isSignedIn, otpStep, router]);

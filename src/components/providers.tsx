@@ -16,6 +16,7 @@ import { CreditsModalProvider } from "@/components/credits/insufficient-credits-
 import { PostHogProvider } from "@/components/posthog-provider";
 import { ExtensionAuthSync } from "@/components/extension-auth-sync";
 import { StubExtensionAuthSync } from "@/components/stub-extension-auth-sync";
+import { AuthProvider } from "@/lib/auth";
 
 const log = createClientLogger("react-query");
 
@@ -58,10 +59,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return (
       <ThemeProvider>
         <PostHogProvider>
-          <StubExtensionAuthSync />
-          <CreditsModalProvider>
-            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-          </CreditsModalProvider>
+          <AuthProvider>
+            <StubExtensionAuthSync />
+            <CreditsModalProvider>
+              <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+            </CreditsModalProvider>
+          </AuthProvider>
         </PostHogProvider>
       </ThemeProvider>
     );
@@ -80,11 +83,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
             ? { allowedRedirectOrigins: [appOrigin] as [string, ...string[]] }
             : {})}
         >
-        <ExtensionAuthSync />
-        <CreditsModalProvider>
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </CreditsModalProvider>
-      </ClerkProvider>
+          <AuthProvider>
+            <ExtensionAuthSync />
+            <CreditsModalProvider>
+              <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+            </CreditsModalProvider>
+          </AuthProvider>
+        </ClerkProvider>
       </PostHogProvider>
     </ThemeProvider>
   );

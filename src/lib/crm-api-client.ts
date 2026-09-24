@@ -1,5 +1,5 @@
-import { useAuth } from "@clerk/nextjs";
-import { ApiError, CLERK_ENABLED, getClerkApiToken } from "./api-client";
+import { ApiError, getClerkApiToken } from "./api-client";
+import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 
 /** Dev/prod often expose CRM routes on the same API Gateway host as the main API (ALB path rules). */
 const CONFIGURED_CRM_API_URL =
@@ -92,17 +92,19 @@ async function waitForClerkLoaded(isLoaded: boolean, getIsLoaded: () => boolean)
   }
 }
 
-function useCrmServiceFetchClerk() {
-  const auth = useAuth();
+function useCrmServiceFetchAdapter() {
+  const adapter = useAuthAdapter();
+  const session = adapter.useSession();
+  const getAccessToken = adapter.useGetAccessToken();
 
   return async function fetchWithAuth<T>(path: string, options?: RequestInit): Promise<T> {
-    await waitForClerkLoaded(auth.isLoaded, () => auth.isLoaded);
+    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
 
-    if (!auth.isSignedIn) {
+    if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => auth.getToken());
+    const authToken = await getClerkApiToken(() => getAccessToken());
 
     return crmApiFetch<T>(path, { ...options, authToken });
   };
@@ -111,11 +113,11 @@ function useCrmServiceFetchClerk() {
 function useCrmServiceFetchStub() {
   return async function fetchWithAuth<T>(path: string, options?: RequestInit): Promise<T> {
     const headers = new Headers(options?.headers);
-    if (!CLERK_ENABLED) {
+    if (!AUTH_ENABLED) {
       headers.set("x-stub-user-email", "stub@example.com");
     }
     return crmApiFetch<T>(path, { ...options, headers });
   };
 }
 
-export const useCrmServiceFetch = CLERK_ENABLED ? useCrmServiceFetchClerk : useCrmServiceFetchStub;
+export const useCrmServiceFetch = AUTH_ENABLED ? useCrmServiceFetchAdapter : useCrmServiceFetchStub;
