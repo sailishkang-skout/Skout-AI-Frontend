@@ -31,6 +31,11 @@ const HAS_CLERK_KEY = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 // Calculate which adapter to use - preserves existing behavior by default
 export function resolveAuthMode(): AuthMode {
+  // If we're in a test environment (vitest is running), always use stub
+  if (typeof vitest !== "undefined") {
+    return "stub";
+  }
+  
   // If E2E auth bypass is enabled, always use stub
   if (E2E_AUTH_BYPASS) {
     return "stub";
