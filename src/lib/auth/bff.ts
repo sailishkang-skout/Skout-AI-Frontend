@@ -15,9 +15,22 @@
  *
  * Everything here is inert unless NEXT_PUBLIC_AUTH_MODE=custom.
  */
-import { randomBytes, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { APP_BASE_PATH } from "./routes";
+
+// Edge-compatible crypto utilities using Web Crypto API
+async function generateRandomBytes(length: number): Promise<Uint8Array> {
+  return crypto.getRandomValues(new Uint8Array(length));
+}
+
+function timingSafeEqual(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return result === 0;
+}
 
 export const REFRESH_COOKIE = "skout_app_refresh";
 export const SESSION_COOKIE = "skout_app_session";
@@ -110,8 +123,9 @@ export function csrfRejected(): NextResponse {
   return NextResponse.json({ error: "Missing or invalid CSRF token", statusCode: 403 }, { status: 403 });
 }
 
-export function newCsrfToken(): string {
-  return randomBytes(24).toString("base64url");
+export async function newCsrfToken(): Promise<string> {
+  const bytes = await generateRandomBytes(24);
+  return Buffer.from(bytes).toString("base64url");
 }
 
 /** Headers that let the API rate-limit and lock out per real client, not per web server.
@@ -148,7 +162,7 @@ export async function callAuthApi(
   if (init.json !== undefined) headers["content-type"] = "application/json";
   if (init.bearer) headers.authorization = `Bearer ${init.bearer}`;
   if (init.refreshToken) {
-    const csrf = newCsrfToken();
+    const csrf = await newCsrfToken();
     headers.cookie = `${API_REFRESH_COOKIE}=${init.refreshToken}; ${API_CSRF_COOKIE}=${csrf}`;
     headers[CSRF_HEADER] = csrf;
   }
@@ -202,8 +216,8 @@ export function tokenPayload(body: unknown): TokenPayload | null {
 
 /** Sets all three cookies and returns the body the client gets: the access token (to keep in
  *  memory), its lifetime, and the CSRF token — never the refresh token. */
-export function sessionResponse(tokens: TokenPayload, refreshToken: string, status = 200): NextResponse {
-  const csrf = newCsrfToken();
+export async function sessionResponse(tokens: TokenPayload, refreshToken: string, status = 200): Promise<NextResponse> {
+  const csrf = await newCsrfToken();
   const res = NextResponse.json(
     { data: { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn, csrfToken: csrf } },
     { status, headers: { "cache-control": "no-store" } }
