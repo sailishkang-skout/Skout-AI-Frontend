@@ -270,7 +270,7 @@ export const CustomAuthAdapter: AuthAdapter = {
           headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
         }
 
-        await fetch("/app/api/auth/revoke", {
+        await fetch("/app/api/auth/logout", {
           method: "POST",
           credentials: "same-origin", // Automatically sends refresh cookie to be cleared
           headers,
