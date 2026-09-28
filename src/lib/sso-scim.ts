@@ -9,6 +9,7 @@ export function useSsoScimApi() {
           platformReady: boolean;
           workspaceBinding: {
             status: string;
+            orgRef?: string;
             clerkOrgId: string;
             idpProvider: string;
             scimEnabled: boolean;
@@ -18,6 +19,7 @@ export function useSsoScimApi() {
       }>("/api/v1/sso/stage6/status"),
     getConfig: () => fetchApi<{ data: Record<string, unknown> | null }>("/api/v1/sso/workspaces/current"),
     saveConfig: (input: {
+      orgRef?: string;
       clerkOrgId: string;
       idpProvider: string;
       idpMetadataUrl?: string | null;
