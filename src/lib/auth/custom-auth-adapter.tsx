@@ -13,12 +13,11 @@ type BroadcastMessage =
   | { type: "SIGN_OUT" }
   | { type: "SESSION_REVOKED" };
 
-// Token management state - kept in memory (shared across all hook instances)
-// Refresh token is stored in HttpOnly cookie (FE-05 compliance), never in JS memory
+// Token management state - FE-05 compliant (NO refresh token in JS memory)
 let inMemoryAccessToken: string | null = null;
-let csrfToken: string | null = null; // CSRF token from refresh responses
+let csrfToken: string | null = null; // CSRF token from refresh/login responses (only this is safe to store in JS)
 let tokenExpiresAt: number = 0;
-let activeRefreshPromise: Promise<string | null> | null = null;
+let activeRefreshPromise: Promise<string | null> | null = null; // Single-flight lock
 let broadcastChannel: BroadcastChannel | null = null;
 
 // Refresh 30 seconds before token expires to be safe
@@ -88,7 +87,7 @@ function isTokenExpired(): boolean {
   return Date.now() >= tokenExpiresAt - REFRESH_THRESHOLD_MS;
 }
 
-// Perform token refresh
+// FE-05 fully compliant performTokenRefresh()
 async function performTokenRefresh(): Promise<string | null> {
   // If there's already an active refresh, return that promise (single-flight)
   if (activeRefreshPromise) {
@@ -100,7 +99,7 @@ async function performTokenRefresh(): Promise<string | null> {
   // Create new refresh promise
   activeRefreshPromise = (async () => {
     try {
-      // Use FE-05 compliant Next.js route handler - refresh token is in HttpOnly cookie
+      // FE-05 requirement: Call Next.js app route, not direct API_URL
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -112,7 +111,7 @@ async function performTokenRefresh(): Promise<string | null> {
 
       const response = await fetch("/app/api/auth/refresh", {
         method: "POST",
-        credentials: "same-origin", // Automatically sends HttpOnly refresh cookie
+        credentials: "same-origin", // Critical: sends skout_app_refresh HttpOnly cookie
         headers,
         signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
       });
@@ -281,9 +280,9 @@ export const CustomAuthAdapter: AuthAdapter = {
         // Notify all other tabs
         broadcast({ type: "SIGN_OUT" });
         // Redirect to sign in page (skip in JSDOM test environment)
-         if (typeof window !== 'undefined' && !window.navigator.userAgent.includes('jsdom')) {
-           window.location.href = "/sign-in";
-         }
+        if (typeof window !== 'undefined' && !window.navigator.userAgent.includes('jsdom')) {
+          window.location.href = "/sign-in";
+        }
       }
     }, []);
 
