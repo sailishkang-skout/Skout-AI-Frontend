@@ -3,13 +3,26 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
+import { useAuthAdapter, AUTH_ENABLED, resolvedAuthMode } from "@/lib/auth";
+import { setCustomSession } from "@/lib/auth/custom-auth-adapter";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, XCircle } from "lucide-react";
 import { getApiBase } from "@/lib/api-client";
 import { getInviteDetails } from "@/lib/team";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { InviteDetails } from "@/types/api";
+
+// AUTH-BE-26 response when AUTH_CUSTOM_ENABLED is on: verify-otp already signs the user
+// in as a normal own-auth session (no second login needed after set-password).
+type VerifyOtpData = {
+  sessionToken: string;
+  workspaceId: string;
+  role: string;
+  email: string;
+  accessToken?: string;
+  expiresIn?: number;
+  user?: { id: string; email: string };
+};
 
 async function sendOtp(inviteToken: string): Promise<{ email: string; expiresInMinutes: number }> {
   const res = await fetch(`${getApiBase()}/api/v1/invite-auth/send-otp`, {
@@ -22,16 +35,13 @@ async function sendOtp(inviteToken: string): Promise<{ email: string; expiresInM
   return body.data!;
 }
 
-async function verifyOtp(
-  inviteToken: string,
-  otp: string
-): Promise<{ sessionToken: string; workspaceId: string; role: string; email: string }> {
+async function verifyOtp(inviteToken: string, otp: string): Promise<VerifyOtpData> {
   const res = await fetch(`${getApiBase()}/api/v1/invite-auth/verify-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ inviteToken, otp }),
   });
-  const body = await res.json() as { data?: { sessionToken: string; workspaceId: string; role: string; email: string }; error?: string };
+  const body = (await res.json()) as { data?: VerifyOtpData; error?: string };
   if (!res.ok) throw new Error(body.error ?? "Invalid code");
   return body.data!;
 }
@@ -86,8 +96,13 @@ export default function AcceptInvitePage() {
   const verifyOtpMut = useMutation({
     mutationFn: () => verifyOtp(token, otpValue.trim()),
     onSuccess: (data) => {
-      localStorage.setItem("invite_session_token", data.sessionToken);
+      // Held in memory only for this page's lifetime — never persisted (AUTH-FE-11).
       setSessionToken(data.sessionToken);
+      // AUTH-BE-26: with AUTH_CUSTOM_ENABLED on, verify-otp already signs the user into a
+      // real own-auth session — adopt it now so no second login is needed after set-password.
+      if (resolvedAuthMode === "custom" && data.accessToken && data.expiresIn && data.user) {
+        setCustomSession({ accessToken: data.accessToken, expiresIn: data.expiresIn, user: data.user });
+      }
       setOtpStep("verified");
     },
   });
@@ -95,7 +110,11 @@ export default function AcceptInvitePage() {
   const setPasswordMut = useMutation({
     mutationFn: () => submitSetPassword(sessionToken, password),
     onSuccess: () => {
-      localStorage.removeItem("invite_session_token");
+      if (resolvedAuthMode === "custom") {
+        // Already signed in via verify-otp's own-auth session — go straight to the dashboard.
+        router.replace("/dashboard");
+        return;
+      }
       setOtpStep("done");
     },
   });

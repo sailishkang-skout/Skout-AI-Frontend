@@ -163,6 +163,21 @@ async function performTokenRefresh(): Promise<string | null> {
   return activeRefreshPromise;
 }
 
+// AUTH-FE-11: adopt a session already issued by another own-auth endpoint (e.g. invite
+// verify-otp, which signs the user in via issueOwnAuthSession on the backend) without a
+// second login round-trip. No refresh-cookie/CSRF handshake happened for this session, so
+// refresh will fail once the access token expires — acceptable for the short invite flow,
+// which only needs the user signed in long enough to land on the dashboard.
+export function setCustomSession(session: { accessToken: string; expiresIn: number; user: User }) {
+  initBroadcastChannel();
+  inMemoryAccessToken = session.accessToken;
+  tokenExpiresAt = Date.now() + session.expiresIn * 1000;
+  currentUser = session.user;
+  isSessionLoaded = true;
+
+  broadcast({ type: "TOKEN_REFRESHED", accessToken: session.accessToken, expiresAt: tokenExpiresAt });
+}
+
 // Initial sign in (called from login page) - FE-05 compliant
 export async function customSignIn(credentials: { email: string; password: string }) {
   initBroadcastChannel();
@@ -270,7 +285,7 @@ export const CustomAuthAdapter: AuthAdapter = {
           headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
         }
 
-        await fetch("/app/api/auth/revoke", {
+        await fetch("/app/api/auth/logout", {
           method: "POST",
           credentials: "same-origin", // Automatically sends refresh cookie to be cleared
           headers,
