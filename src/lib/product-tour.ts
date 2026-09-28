@@ -542,7 +542,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Configure enterprise SSO connections and SCIM provisioning when your customer IdP is ready.",
     details: [
       "Owner/admin configuration surface",
-      "Per-customer Clerk IdP setup happens at deal time",
+      "Per-customer IdP setup happens at deal time",
       "Document connection status before go-live",
     ],
   },

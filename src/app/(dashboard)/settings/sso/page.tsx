@@ -22,7 +22,7 @@ export default function SsoSettingsPage() {
   const { canDelete: isAdmin } = useWorkspaceRole();
   const api = useSsoScimApi();
   const qc = useQueryClient();
-  const [clerkOrgId, setClerkOrgId] = useState("");
+  const [orgRef, setOrgRef] = useState("");
   const [idpProvider, setIdpProvider] = useState("okta");
   const [metadataUrl, setMetadataUrl] = useState("");
 
@@ -41,7 +41,8 @@ export default function SsoSettingsPage() {
   const save = useMutation({
     mutationFn: () =>
       api.saveConfig({
-        clerkOrgId: clerkOrgId.trim(),
+        orgRef: orgRef.trim(),
+        clerkOrgId: orgRef.trim(), // Keep sending legacy clerkOrgId until BE-25
         idpProvider,
         idpMetadataUrl: metadataUrl.trim() || null,
         scimEnabled: true,
@@ -71,7 +72,7 @@ export default function SsoSettingsPage() {
     <PageShell width="narrow">
       <PageHeader
         title="SSO & SCIM"
-        description="Per-customer IdP binding via Clerk — activate at deal time without a code deploy."
+        description="Per-customer IdP binding — activate at deal time without a code deploy."
       />
 
       {status.isLoading ? (
@@ -94,7 +95,7 @@ export default function SsoSettingsPage() {
             {binding ? (
               <p>
                 Workspace binding: <Badge tone="success">{binding.status}</Badge> · {binding.idpProvider} ·{" "}
-                {binding.clerkOrgId}
+                {binding.orgRef || binding.clerkOrgId}
               </p>
             ) : (
               <p className="text-muted-foreground">No IdP bound for this workspace yet.</p>
@@ -109,9 +110,9 @@ export default function SsoSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <Input
-            placeholder="Clerk organization ID"
-            value={clerkOrgId || String((config.data?.data as { clerkOrgId?: string })?.clerkOrgId ?? "")}
-            onChange={(e) => setClerkOrgId(e.target.value)}
+            placeholder="Organization reference ID"
+            value={orgRef || String((config.data?.data as { orgRef?: string, clerkOrgId?: string })?.orgRef ?? (config.data?.data as { clerkOrgId?: string })?.clerkOrgId ?? "")}
+            onChange={(e) => setOrgRef(e.target.value)}
           />
           <Select value={idpProvider} onChange={(e) => setIdpProvider(e.target.value)}>
             <option value="okta">Okta</option>
