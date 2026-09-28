@@ -14,8 +14,9 @@ type BroadcastMessage =
   | { type: "SESSION_REVOKED" };
 
 // Token management state - kept in memory (shared across all hook instances)
+// Refresh token is stored in HttpOnly cookie (FE-05 compliance), never in JS memory
 let inMemoryAccessToken: string | null = null;
-let inMemoryRefreshToken: string | null = null;
+let csrfToken: string | null = null; // CSRF token from refresh responses
 let tokenExpiresAt: number = 0;
 let activeRefreshPromise: Promise<string | null> | null = null;
 let broadcastChannel: BroadcastChannel | null = null;
@@ -74,7 +75,7 @@ function broadcast(message: BroadcastMessage) {
 // Clear all auth state
 function clearAuthState() {
   inMemoryAccessToken = null;
-  inMemoryRefreshToken = null;
+  csrfToken = null;
   tokenExpiresAt = 0;
   activeRefreshPromise = null;
   currentUser = null;
@@ -99,27 +100,26 @@ async function performTokenRefresh(): Promise<string | null> {
   // Create new refresh promise
   activeRefreshPromise = (async () => {
     try {
-      if (!inMemoryRefreshToken) {
-        log.error("No refresh token available");
-        clearAuthState();
-        return null;
+      // Use FE-05 compliant Next.js route handler - refresh token is in HttpOnly cookie
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add CSRF token if we have one (required for FE-05's route handler)
+      if (csrfToken) {
+        headers["x-csrf-token"] = csrfToken;
       }
 
-      // Call backend to refresh tokens
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, {
+      const response = await fetch("/app/api/auth/refresh", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          refreshToken: inMemoryRefreshToken,
-        }),
+        credentials: "same-origin", // Automatically sends HttpOnly refresh cookie
+        headers,
         signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Refresh token is invalid, force sign out
+          // Refresh token is invalid/expired, force sign out across all tabs
           log.warn("Refresh token rejected, signing out");
           clearAuthState();
           broadcast({ type: "SIGN_OUT" });
@@ -130,9 +130,9 @@ async function performTokenRefresh(): Promise<string | null> {
 
       const data = await response.json();
       
-      // Update in-memory tokens
+      // Update in-memory state only - refresh token stays in HttpOnly cookie (FE-05)
       inMemoryAccessToken = data.accessToken;
-      inMemoryRefreshToken = data.refreshToken ?? inMemoryRefreshToken; // Use new refresh token if provided
+      csrfToken = data.csrfToken ?? csrfToken; // Update CSRF token if rotated
       tokenExpiresAt = Date.now() + data.expiresIn * 1000;
       
       // Update user if provided
@@ -140,7 +140,7 @@ async function performTokenRefresh(): Promise<string | null> {
         currentUser = data.user;
       }
       
-      // Broadcast the new token to all tabs
+      // Broadcast the new token to all tabs (only what's safe to share)
       if (inMemoryAccessToken) {
         broadcast({
           type: "TOKEN_REFRESHED",
@@ -163,12 +163,14 @@ async function performTokenRefresh(): Promise<string | null> {
   return activeRefreshPromise;
 }
 
-// Initial sign in (would be called from login page)
+// Initial sign in (called from login page) - FE-05 compliant
 export async function customSignIn(credentials: { email: string; password: string }) {
   initBroadcastChannel();
   
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+  // Use Next.js auth route handler which sets HttpOnly refresh cookie (FE-05)
+  const response = await fetch("/app/api/auth/login", {
     method: "POST",
+    credentials: "same-origin", // Required to receive and store the HttpOnly cookie
     headers: {
       "Content-Type": "application/json",
     },
@@ -181,13 +183,14 @@ export async function customSignIn(credentials: { email: string; password: strin
 
   const data = await response.json();
   
+  // Only store safe values in JS memory - refresh token stays in HttpOnly cookie
   inMemoryAccessToken = data.accessToken;
-  inMemoryRefreshToken = data.refreshToken;
+  csrfToken = data.csrfToken; // Store CSRF token for future refresh requests
   tokenExpiresAt = Date.now() + data.expiresIn * 1000;
   currentUser = data.user;
   isSessionLoaded = true;
   
-  // Broadcast initial token to other tabs
+  // Broadcast initial token to other tabs (only what's safe to share)
   if (inMemoryAccessToken) {
     broadcast({
       type: "TOKEN_REFRESHED",
@@ -254,19 +257,24 @@ export const CustomAuthAdapter: AuthAdapter = {
   useSignOut() {
     const signOut = useCallback(async (): Promise<void> => {
       try {
-        // Revoke refresh token on server
-        if (inMemoryRefreshToken) {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/revoke`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${inMemoryAccessToken}`,
-            },
-            body: JSON.stringify({
-              refreshToken: inMemoryRefreshToken,
-            }),
-          }).catch(e => log.warn("Failed to revoke token on server", e));
+        // Revoke session server-side using FE-05's route handler
+        // Refresh cookie is sent automatically, server clears it on revoke
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        
+        if (csrfToken) {
+          headers["x-csrf-token"] = csrfToken;
         }
+        if (inMemoryAccessToken) {
+          headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
+        }
+
+        await fetch("/app/api/auth/revoke", {
+          method: "POST",
+          credentials: "same-origin", // Automatically sends refresh cookie to be cleared
+          headers,
+        }).catch(e => log.warn("Failed to revoke token on server", e));
       } finally {
         // Clear local state regardless of server response
         clearAuthState();
