@@ -3,6 +3,7 @@ import { renderHook } from "@testing-library/react";
 import type { AuthAdapter } from "./index";
 import { ClerkAuthAdapter } from "./clerk-adapter";
 import { StubAuthAdapter } from "./stub-adapter";
+import { CustomAuthAdapter } from "./custom-auth-adapter";
 
 console.log("✅ auth-adapter.contract.test.ts loaded - running AUTH-FE-01 contract tests");
 
@@ -46,6 +47,7 @@ function runAuthAdapterContractTests(adapterName: string, adapter: AuthAdapter) 
 
 // Run contract tests for all existing adapters
 runAuthAdapterContractTests("StubAuthAdapter", StubAuthAdapter);
+runAuthAdapterContractTests("CustomAuthAdapter", CustomAuthAdapter);
 // Note: ClerkAuthAdapter can't be tested in isolation in unit tests because it depends on Clerk's Provider
 // We'll skip the full contract tests for Clerk in unit tests since it requires the Clerk context to be set up
 // But we still verify it implements the interface correctly
@@ -53,6 +55,14 @@ describe("ClerkAuthAdapter - interface check", () => {
   it("implements the AuthAdapter interface (type check only)", () => {
     // This is a type-only check that will fail at compile time if the interface isn't implemented
     const adapter: AuthAdapter = ClerkAuthAdapter;
+    expect(adapter).toBeDefined();
+  });
+});
+
+describe("CustomAuthAdapter - interface check", () => {
+  it("implements the AuthAdapter interface (type check only)", () => {
+    // This is a type-only check that will fail at compile time if the interface isn't implemented
+    const adapter: AuthAdapter = CustomAuthAdapter;
     expect(adapter).toBeDefined();
   });
 });

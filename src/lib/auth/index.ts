@@ -62,5 +62,6 @@ export const AUTH_ENABLED = resolvedAuthMode !== "stub";
 // Export adapter implementations
 import { ClerkAuthAdapter } from "./clerk-adapter";
 import { StubAuthAdapter } from "./stub-adapter";
-export { ClerkAuthAdapter, StubAuthAdapter };
+import { CustomAuthAdapter } from "./custom-auth-adapter";
+export { ClerkAuthAdapter, StubAuthAdapter, CustomAuthAdapter };
 export { AuthProvider, useAuthAdapter, useAuthUserMenu } from "./auth-provider";

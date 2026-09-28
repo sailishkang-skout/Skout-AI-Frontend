@@ -5,6 +5,7 @@ import {
   parseAuthErrorCodeFromBody,
 } from "@/lib/auth-error-codes";
 import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
+import { handleSessionRevoked } from "@/lib/auth/custom-auth-adapter";
 
 const log = createClientLogger("api-client");
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
@@ -293,6 +294,14 @@ export async function apiFetch<T>(
     const errBody = await res.json().catch(() => undefined);
     const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
+    
+    // Check if session was revoked
+    const errorCode = parseAuthErrorCodeFromBody(errBody);
+    if (errorCode === AuthErrorCode.AUTH_SESSION_REVOKED) {
+      log.warn("Received AUTH_SESSION_REVOKED, signing out");
+      handleSessionRevoked();
+    }
+    
     logApiFailure(method, path, error, { workspaceId });
     throw error;
   }
@@ -339,6 +348,14 @@ export async function apiFetchBlob(
     const errBody = await res.json().catch(() => undefined);
     const message = messageFromErrorBody(errBody, res.statusText || `Request failed (${res.status})`);
     const error = new ApiError(message, res.status, errBody);
+    
+    // Check if session was revoked
+    const errorCode = parseAuthErrorCodeFromBody(errBody);
+    if (errorCode === AuthErrorCode.AUTH_SESSION_REVOKED) {
+      log.warn("Received AUTH_SESSION_REVOKED, signing out");
+      handleSessionRevoked();
+    }
+    
     logApiFailure(method, path, error, { workspaceId });
     throw error;
   }
