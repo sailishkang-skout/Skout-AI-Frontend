@@ -1,7 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextFetchEvent } from "next/server";
 import { NextResponse, NextRequest } from "next/server";
-import { PROTECTED_ROUTE_PATTERNS } from "@/lib/auth/routes";
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
+import { PROTECTED_ROUTE_PATTERNS, APP_BASE_PATH } from "@/lib/auth/routes";
+import { SESSION_COOKIE, authApiBase } from "@/lib/auth/bff";
 import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
 import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
 
@@ -15,9 +17,39 @@ import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
  */
 const isProtectedRoute = createRouteMatcher(PROTECTED_ROUTE_PATTERNS);
 
+// Determine auth mode once at module load
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE;
+const isClerkMode = AUTH_MODE !== "custom";
 const useClerkMiddleware =
+  isClerkMode &&
   process.env.E2E_AUTH_BYPASS !== "true" &&
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+// JWKS setup for custom mode
+let remoteJwks: { base: string; keySet: JWTVerifyGetKey } | null = null;
+function jwksFor(base: string): JWTVerifyGetKey {
+  if (!remoteJwks || remoteJwks.base !== base) {
+    remoteJwks = { base, keySet: createRemoteJWKSet(new URL(`${base}/.well-known/jwks.json`)) };
+  }
+  return remoteJwks.keySet;
+}
+
+// Custom session verification for custom mode
+async function verifySessionCookie(token: string): Promise<boolean> {
+  const base = authApiBase();
+  if (!base) return false;
+  try {
+    const { payload } = await jwtVerify(token, jwksFor(base), {
+      issuer: process.env.AUTH_JWT_ISSUER || "https://auth.skoutai.io",
+      audience: process.env.AUTH_JWT_AUDIENCE || "skout-api",
+      algorithms: ["RS256"],
+      clockTolerance: 30,
+    });
+    return typeof payload.sub === "string" && !!payload.sub;
+  } catch {
+    return false;
+  }
+}
 
 const clerkMiddlewareOptions = {
   signInUrl: process.env.CLERK_SIGN_IN_URL ?? process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
@@ -90,16 +122,46 @@ export default async function middleware(request: NextRequest, event: NextFetchE
   if (isHealthCheck(request)) {
     return NextResponse.next();
   }
-  // Runs regardless of Clerk's config state — the gate's whole point is to block access
-  // before any auth check, so it must not get skipped just because Clerk is unconfigured.
+  // Runs regardless of auth mode — the gate's whole point is to block access
+  // before any auth check, so it must not get skipped.
   const gated = await gateCheck(request);
   if (gated) return gated;
-  if (!clerkHandler) {
-    return NextResponse.next();
+
+  // Process with public origin header
+  const processedRequest = requestWithPublicOrigin(request);
+
+  // Clerk mode - use existing clerk middleware
+  if (clerkHandler) {
+    return clerkHandler(processedRequest, event);
   }
-  return clerkHandler(requestWithPublicOrigin(request), event);
+
+  // Custom mode - implement our own auth check
+  if (!isClerkMode) {
+    // Check if this is a protected route
+    if (isProtectedRoute(processedRequest)) {
+      // Get session cookie
+      const sessionToken = processedRequest.cookies.get(SESSION_COOKIE)?.value;
+      const isAuthenticated = sessionToken ? await verifySessionCookie(sessionToken) : false;
+
+      if (!isAuthenticated) {
+        // Redirect to sign-in page with validated next parameter
+        const signInUrl = processedRequest.nextUrl.clone();
+        signInUrl.pathname = `${APP_BASE_PATH}/sign-in`;
+        signInUrl.search = "";
+        // Use safeNextPath to prevent open redirects
+        const nextPath = safeNextPath(processedRequest.nextUrl.pathname);
+        if (nextPath) {
+          signInUrl.searchParams.set("next", nextPath);
+        }
+        return NextResponse.redirect(signInUrl);
+      }
+    }
+  }
+
+  return NextResponse.next();
 }
 
+// Matchers must be static for Next.js to analyze correctly
 export const config = {
   matcher: [
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
