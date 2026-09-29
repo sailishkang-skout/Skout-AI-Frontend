@@ -323,7 +323,7 @@ export const CustomAuthAdapter: AuthAdapter = {
         broadcast({ type: "SIGN_OUT" });
         // Redirect to sign in page (skip in JSDOM test environment)
         if (typeof window !== 'undefined' && !window.navigator.userAgent.includes('jsdom')) {
-          window.location.href = "/sign-in";
+          window.location.href = "/app/sign-in";
         }
       }
     }, []);
@@ -358,5 +358,5 @@ export function handleSessionRevoked() {
   log.warn("Session revoked, signing out");
   clearAuthState();
   broadcast({ type: "SESSION_REVOKED" });
-  window.location.href = "/sign-in";
+  window.location.href = "/app/sign-in";
 }
