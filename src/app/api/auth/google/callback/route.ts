@@ -18,6 +18,7 @@ import {
   refreshTokenFromSetCookies,
   sessionRedirect,
 } from "@/lib/auth/bff";
+import { APP_BASE_PATH } from "@/lib/auth/routes";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ type CallbackResponse = {
 };
 
 function errorRedirect(request: NextRequest, message: string): NextResponse {
-  const url = new URL("/sign-in", request.url);
+  const url = new URL(`${APP_BASE_PATH}/sign-in`, request.url);
   url.searchParams.set("error", message);
   return NextResponse.redirect(url);
 }
@@ -78,7 +79,10 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const destination = new URL(body.data.next && body.data.next.startsWith("/") ? body.data.next : "/auth/callback", request.url);
+  const destination = new URL(
+    body.data.next && body.data.next.startsWith("/") ? body.data.next : `${APP_BASE_PATH}/auth/callback`,
+    request.url
+  );
   const response = await sessionRedirect(
     { accessToken: body.data.accessToken, expiresIn: body.data.expiresIn },
     refreshToken,

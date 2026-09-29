@@ -126,7 +126,7 @@ describe("google/callback", () => {
     nextResponse = () =>
       apiResponse(200, { data: { accessToken: "access-1", expiresIn: 600 } }, ["skout_refresh=rt-1"]);
     const res = await googleCallback(req("google/callback?code=abc&state=xyz"));
-    expect(res.headers.get("location")).toBe(`${APP}/auth/callback`);
+    expect(res.headers.get("location")).toBe(`${APP}/app/auth/callback`);
   });
 
   it("redirects to sign-in with a cancelled-consent message when Google reports access_denied", async () => {
