@@ -149,6 +149,10 @@ export function OwnAuthLoginForm() {
               "Sign in"
             )}
           </Button>
+
+          <a href="/otp-sign-in" className="text-center text-sm text-primary underline-offset-2 hover:underline">
+            Email me a code instead
+          </a>
         </form>
       )}
 
