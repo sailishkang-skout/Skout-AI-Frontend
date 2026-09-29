@@ -8,7 +8,7 @@ import {
   rememberExtensionId,
 } from "@/lib/extension-connect";
 
-/** Minimum gap between extension syncs — protects Clerk's token endpoint from request storms. */
+/** Minimum gap between extension syncs — protects Skout's token endpoint from request storms. */
 const SYNC_THROTTLE_MS = 20_000;
 const SYNC_INTERVAL_MS = 5 * 60_000;
 
