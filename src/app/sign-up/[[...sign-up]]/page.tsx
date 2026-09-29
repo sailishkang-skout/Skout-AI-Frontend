@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { SignUpForm } from "@/components/auth/sign-up-form";
+import { OwnAuthSignupForm } from "@/components/auth/own-auth-signup-form";
 import { getServerSession } from "@/lib/auth/server";
 
 export default async function SignUpPage() {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const isCustomAuth = process.env.NEXT_PUBLIC_AUTH_MODE === "custom";
 
-  if (publishableKey) {
+  if (publishableKey || isCustomAuth) {
     const { userId } = await getServerSession();
     if (userId) {
       redirect("/prospects/search");
@@ -14,7 +16,9 @@ export default async function SignUpPage() {
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
-      {publishableKey ? (
+      {isCustomAuth ? (
+        <OwnAuthSignupForm />
+      ) : publishableKey ? (
         <SignUpForm />
       ) : (
         <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">

@@ -131,18 +131,16 @@ async function performTokenRefresh(): Promise<string | null> {
         throw new Error(`Refresh failed with status: ${response.status}`);
       }
 
-      const data = await response.json();
-      
+      // FE-05's route handlers nest the payload under `data` (see sessionResponse in bff.ts):
+      // { data: { accessToken, expiresIn, csrfToken } } — no `user` field.
+      const body = (await response.json()) as { data?: { accessToken: string; expiresIn: number; csrfToken: string } };
+      if (!body.data) throw new Error("Unexpected refresh response shape");
+
       // Update in-memory state only - refresh token stays in HttpOnly cookie (FE-05)
-      inMemoryAccessToken = data.accessToken;
-      csrfToken = data.csrfToken ?? csrfToken; // Update CSRF token if rotated
-      tokenExpiresAt = Date.now() + data.expiresIn * 1000;
-      
-      // Update user if provided
-      if (data.user) {
-        currentUser = data.user;
-      }
-      
+      inMemoryAccessToken = body.data.accessToken;
+      csrfToken = body.data.csrfToken ?? csrfToken; // CSRF token rotates with every refresh
+      tokenExpiresAt = Date.now() + body.data.expiresIn * 1000;
+
       // Broadcast the new token to all tabs (only what's safe to share)
       if (inMemoryAccessToken) {
         broadcast({
@@ -181,6 +179,35 @@ export function setCustomSession(session: { accessToken: string; expiresIn: numb
   broadcast({ type: "TOKEN_REFRESHED", accessToken: session.accessToken, expiresAt: tokenExpiresAt });
 }
 
+/** Thrown by customSignIn/customSignUp with the backend's §3 error code attached, so callers
+ *  can render the right generic message (AUTH_INVALID_CREDENTIALS, AUTH_RATE_LIMITED, …). */
+export class AuthApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string | undefined,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = "AuthApiError";
+  }
+}
+
+async function throwAuthApiError(response: Response): Promise<never> {
+  const body = await response.json().catch(() => ({}) as { error?: string; code?: string });
+  throw new AuthApiError(body.error ?? "Request failed", body.code, response.status);
+}
+
+/** GET /app/api/auth/session → the signed-in user's profile (never a token). AUTH-FE-08: the
+ *  login BFF route only returns {accessToken, expiresIn, csrfToken} per §3 — no user claims are
+ *  in the token, so the user profile has to be fetched separately after establishing a session. */
+async function fetchCurrentUser(): Promise<User | null> {
+  const res = await fetch("/app/api/auth/session", { method: "GET", credentials: "same-origin" });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { data?: { userId: string; email: string; fullName?: string } };
+  if (!body.data) return null;
+  return { id: body.data.userId, email: body.data.email, name: body.data.fullName };
+}
+
 // Initial sign in (called from login page) - FE-05 compliant
 export async function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: { id: string; email: string } }) {
   initBroadcastChannel();
@@ -199,11 +226,15 @@ export async function customSignIn(credentials: { email: string; password: strin
       body: JSON.stringify(credentials),
     });
 
-    if (!response.ok) {
-      throw new Error("Login failed");
-    }
-
-    data = await response.json();
+    if (!response.ok) await throwAuthApiError(response);
+    const responseData = await response.json();
+    // The login response nests payload under `data` per §3
+    data = {
+      accessToken: responseData.data.accessToken,
+      expiresIn: responseData.data.expiresIn,
+      csrfToken: responseData.data.csrfToken,
+      user: await fetchCurrentUser()
+    };
   } else {
     // If we're signing in with an existing accessToken (OTP flow), use that directly
     data = credentials;
@@ -215,7 +246,7 @@ export async function customSignIn(credentials: { email: string; password: strin
   tokenExpiresAt = Date.now() + data.expiresIn * 1000;
   currentUser = data.user;
   isSessionLoaded = true;
-  
+
   // Broadcast initial token to other tabs (only what's safe to share)
   if (inMemoryAccessToken) {
     broadcast({
