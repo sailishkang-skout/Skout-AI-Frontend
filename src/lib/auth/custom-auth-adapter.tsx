@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { AuthAdapter, Session, GetAccessTokenOptions, User } from "./index";
 import { logAndCapture, createClientLogger } from "@/lib/logger";
 
+export function isCustomAuthMode(): boolean {
+  return process.env.NEXT_PUBLIC_AUTH_MODE === "custom";
+}
+
 const log = createClientLogger("custom-auth-adapter");
 
 // Broadcast channel for cross-tab communication
@@ -178,28 +182,36 @@ export function setCustomSession(session: { accessToken: string; expiresIn: numb
 }
 
 // Initial sign in (called from login page) - FE-05 compliant
-export async function customSignIn(credentials: { email: string; password: string }) {
+export async function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: { id: string; email: string } }) {
   initBroadcastChannel();
   
-  // Use Next.js auth route handler which sets HttpOnly refresh cookie (FE-05)
-  const response = await fetch("/app/api/auth/login", {
-    method: "POST",
-    credentials: "same-origin", // Required to receive and store the HttpOnly cookie
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(credentials),
-  });
+  let data: { accessToken: string; expiresIn: number; csrfToken?: string; user: { id: string; email: string } };
+  
+  // If we're signing in with email/password, call the login API
+  if ("email" in credentials && "password" in credentials) {
+    // Use Next.js auth route handler which sets HttpOnly refresh cookie (FE-05)
+    const response = await fetch("/app/api/auth/login", {
+      method: "POST",
+      credentials: "same-origin", // Required to receive and store the HttpOnly cookie
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
+    });
 
-  if (!response.ok) {
-    throw new Error("Login failed");
+    if (!response.ok) {
+      throw new Error("Login failed");
+    }
+
+    data = await response.json();
+  } else {
+    // If we're signing in with an existing accessToken (OTP flow), use that directly
+    data = credentials;
   }
-
-  const data = await response.json();
   
   // Only store safe values in JS memory - refresh token stays in HttpOnly cookie
   inMemoryAccessToken = data.accessToken;
-  csrfToken = data.csrfToken; // Store CSRF token for future refresh requests
+  csrfToken = data.csrfToken ?? null; // Store CSRF token for future refresh requests
   tokenExpiresAt = Date.now() + data.expiresIn * 1000;
   currentUser = data.user;
   isSessionLoaded = true;
