@@ -6,6 +6,7 @@ import { PROTECTED_ROUTE_PATTERNS, APP_BASE_PATH } from "@/lib/auth/routes";
 import { SESSION_COOKIE, authApiBase } from "@/lib/auth/bff";
 import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
 import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
+import { appProxy } from "@/lib/app-proxy";
 
 /**
  * Route tables live in `@/lib/auth/routes` (AUTH-FE-03). next.config.mjs sets basePath: "/app" —
@@ -122,13 +123,28 @@ export default async function middleware(request: NextRequest, event: NextFetchE
   if (isHealthCheck(request)) {
     return NextResponse.next();
   }
+  
+  // Run app proxy logic first - handles Clerk path rewrites, sign-in redirects, oversized payloads
+  const proxyResponse = await appProxy(request);
+  // If the proxy returned a response (redirect or rewrite), use it
+  if (proxyResponse && proxyResponse.headers.get("Location")) {
+    return proxyResponse;
+  }
+  
+  // Use the rewritten request from the proxy if it was modified - preserve all headers from the proxy's rewritten request
+  let processedRequest = proxyResponse?.headers.get("x-skout-proxied") 
+    ? new NextRequest(proxyResponse.headers.get("Location") || request.url, { 
+        headers: new Headers(proxyResponse.headers) // Copy all headers including x-skout-proxied
+      })
+    : request;
+
   // Runs regardless of auth mode — the gate's whole point is to block access
   // before any auth check, so it must not get skipped.
-  const gated = await gateCheck(request);
+  const gated = await gateCheck(processedRequest);
   if (gated) return gated;
 
   // Process with public origin header
-  const processedRequest = requestWithPublicOrigin(request);
+  processedRequest = requestWithPublicOrigin(processedRequest);
 
   // Clerk mode - use existing clerk middleware
   if (clerkHandler) {
