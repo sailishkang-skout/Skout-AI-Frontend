@@ -137,6 +137,16 @@ async function performTokenRefresh(): Promise<string | null> {
       csrfToken = body.data.csrfToken ?? csrfToken; // CSRF token rotates with every refresh
       tokenExpiresAt = Date.now() + body.data.expiresIn * 1000;
 
+      // The refresh response carries no user claims (§3), same as login. Without this, a cold
+      // page load (no prior client-side navigation to carry currentUser across, e.g. landing
+      // back from an external redirect like FE-10's Google OAuth flow) would refresh a valid
+      // token forever while isSignedIn (token AND user) stayed stuck false. Only fetch once —
+      // proactive refreshes every ~9.5 min shouldn't re-hit /session each time.
+      if (!currentUser) {
+        currentUser = await fetchCurrentUser();
+        isSessionLoaded = true;
+      }
+
       // Broadcast the new token to all tabs (only what's safe to share)
       if (inMemoryAccessToken) {
         broadcast({

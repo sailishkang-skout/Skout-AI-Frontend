@@ -8,7 +8,10 @@ const { push, customSignIn } = vi.hoisted(() => ({
   customSignIn: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/auth/custom-auth-adapter", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth/custom-auth-adapter")>(
     "@/lib/auth/custom-auth-adapter"
