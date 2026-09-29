@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AuthAdapter, Session, GetAccessTokenOptions, User } from "./index";
 import { logAndCapture, createClientLogger } from "@/lib/logger";
+import { UserMenu as UserMenuCard } from "@/components/auth/user-menu";
 
 const log = createClientLogger("custom-auth-adapter");
 
@@ -364,26 +365,15 @@ export const CustomAuthAdapter: AuthAdapter = {
     return signOut;
   },
 
-  // Simple user menu that calls sign out
   UserMenu: () => {
-          const { useSignOut, useSession } = CustomAuthAdapter;
-          const signOut = useSignOut();
-          const session = useSession();
-          
-          if (!session.isSignedIn) return null;
-          
-          return (
-            <div className="flex items-center gap-4">
-              <span>{session.user?.email}</span>
-              <button 
-                onClick={signOut}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Sign out
-              </button>
-            </div>
-          );
-        },
+    const { useSignOut, useSession } = CustomAuthAdapter;
+    const signOut = useSignOut();
+    const session = useSession();
+
+    if (!session.isSignedIn || !session.user) return null;
+
+    return <UserMenuCard user={session.user} onSignOut={() => void signOut()} />;
+  },
 };
 
 // Handle AUTH_SESSION_REVOKED error from API calls
