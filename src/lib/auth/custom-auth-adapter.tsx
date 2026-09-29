@@ -209,10 +209,10 @@ async function fetchCurrentUser(): Promise<User | null> {
 }
 
 // Initial sign in (called from login page) - FE-05 compliant
-export async function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: { id: string; email: string } }) {
+export async function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: User }) {
   initBroadcastChannel();
   
-  let data: { accessToken: string; expiresIn: number; csrfToken?: string; user: { id: string; email: string } };
+  let data: { accessToken: string; expiresIn: number; csrfToken?: string; user: User };
   
   // If we're signing in with email/password, call the login API
   if ("email" in credentials && "password" in credentials) {
@@ -228,12 +228,16 @@ export async function customSignIn(credentials: { email: string; password: strin
 
     if (!response.ok) await throwAuthApiError(response);
     const responseData = await response.json();
+    const currentUser = await fetchCurrentUser();
+    if (!currentUser) {
+      throw new Error("Failed to fetch user profile after login");
+    }
     // The login response nests payload under `data` per §3
     data = {
       accessToken: responseData.data.accessToken,
       expiresIn: responseData.data.expiresIn,
       csrfToken: responseData.data.csrfToken,
-      user: await fetchCurrentUser()
+      user: currentUser
     };
   } else {
     // If we're signing in with an existing accessToken (OTP flow), use that directly
