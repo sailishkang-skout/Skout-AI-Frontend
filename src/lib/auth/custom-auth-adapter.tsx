@@ -29,6 +29,17 @@ const REFRESH_TIMEOUT_MS = 10 * 1000;
 let currentUser: User | null = null;
 let isSessionLoaded = false;
 
+// FE-05's skout_app_csrf cookie (bff.ts CSRF_COOKIE) is deliberately JS-readable — it survives
+// a cold page load even though the in-memory `csrfToken` above doesn't. Read it directly instead
+// of relying on memory that a hard navigation (e.g. FE-10's Google OAuth redirect) always wipes.
+const CSRF_COOKIE_NAME = "skout_app_csrf";
+
+function readCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // Initialize broadcast channel
 function initBroadcastChannel() {
   if (broadcastChannel) return;
@@ -104,9 +115,11 @@ async function performTokenRefresh(): Promise<string | null> {
         "Content-Type": "application/json",
       };
       
-      // Add CSRF token if we have one (required for FE-05's route handler)
-      if (csrfToken) {
-        headers["x-csrf-token"] = csrfToken;
+      // In-memory csrfToken is wiped by a hard page load; fall back to the JS-readable cookie
+      // (still valid — it's set with the same lifetime as the refresh cookie).
+      const csrfForRequest = csrfToken ?? readCsrfCookie();
+      if (csrfForRequest) {
+        headers["x-csrf-token"] = csrfForRequest;
       }
 
       const response = await fetch("/app/api/auth/refresh", {
@@ -260,12 +273,21 @@ export const CustomAuthAdapter: AuthAdapter = {
     
     useEffect(() => {
       initBroadcastChannel();
-      
+
       // If we have tokens but session isn't marked as loaded, mark it as loaded
       if (inMemoryAccessToken && currentUser && !isSessionLoaded) {
         isSessionLoaded = true;
       }
-      
+
+      // Cold page load (hard navigation, e.g. landing back from FE-10's Google OAuth
+      // redirect): the access token lives in JS memory only, so it's gone, but the refresh
+      // cookie survived. Without this, isSessionLoaded/isSignedIn would stay false forever —
+      // nothing else ever calls performTokenRefresh() on mount. Single-flight-guarded, so a
+      // second mounted consumer won't double-fire it.
+      if (!isSessionLoaded && !inMemoryAccessToken) {
+        void performTokenRefresh();
+      }
+
       // Listen for changes that should trigger re-renders
       const checkForChanges = () => {
         const currentIsSignedIn = !!inMemoryAccessToken && !!currentUser;
@@ -314,8 +336,9 @@ export const CustomAuthAdapter: AuthAdapter = {
           "Content-Type": "application/json",
         };
         
-        if (csrfToken) {
-          headers["x-csrf-token"] = csrfToken;
+        const csrfForRequest = csrfToken ?? readCsrfCookie();
+        if (csrfForRequest) {
+          headers["x-csrf-token"] = csrfForRequest;
         }
         if (inMemoryAccessToken) {
           headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
