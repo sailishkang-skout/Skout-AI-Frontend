@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { OwnAuthLoginForm } from "@/components/auth/own-auth-login-form";
 import { getServerSession } from "@/lib/auth/server";
 
 export default async function SignInPage() {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const isCustomAuth = process.env.NEXT_PUBLIC_AUTH_MODE === "custom";
 
-  if (publishableKey) {
+  if (publishableKey || isCustomAuth) {
     const { userId } = await getServerSession();
     if (userId) {
       redirect("/prospects/search");
@@ -14,7 +16,9 @@ export default async function SignInPage() {
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
-      {publishableKey ? (
+      {isCustomAuth ? (
+        <OwnAuthLoginForm />
+      ) : publishableKey ? (
         <SignInForm path="/sign-in" />
       ) : (
         <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
