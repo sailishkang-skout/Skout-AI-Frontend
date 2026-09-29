@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react";
@@ -27,15 +27,22 @@ async function resetPassword(input: { token: string; password: string }): Promis
 export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  // FE-09: keep the token for the submit call, but — like the verify-email confirm page —
+  // strip it from the URL/history immediately, so it never lingers there or in analytics.
+  const tokenRef = useRef(searchParams.get("token") ?? "");
+  const [hasToken] = useState(() => Boolean(tokenRef.current));
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  useEffect(() => {
+    if (tokenRef.current) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const resetMut = useMutation({
-    mutationFn: () => resetPassword({ token, password }),
+    mutationFn: () => resetPassword({ token: tokenRef.current, password }),
   });
 
-  if (!token) {
+  if (!hasToken) {
     return (
       <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
         <h1 className="text-lg font-semibold">Invalid link</h1>
