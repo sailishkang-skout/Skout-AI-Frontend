@@ -196,7 +196,7 @@ async function throwAuthApiError(response: Response): Promise<never> {
 /** GET /app/api/auth/session → the signed-in user's profile (never a token). AUTH-FE-08: the
  *  login BFF route only returns {accessToken, expiresIn, csrfToken} per §3 — no user claims are
  *  in the token, so the user profile has to be fetched separately after establishing a session. */
-async function fetchCurrentUser(): Promise<User | null> {
+export async function fetchCurrentUser(): Promise<User | null> {
   const res = await fetch("/app/api/auth/session", { method: "GET", credentials: "same-origin" });
   if (!res.ok) return null;
   const body = (await res.json()) as { data?: { userId: string; email: string; fullName?: string } };
@@ -205,40 +205,54 @@ async function fetchCurrentUser(): Promise<User | null> {
 }
 
 // Initial sign in (called from login page) - FE-05 compliant
-export async function customSignIn(credentials: { email: string; password: string }) {
+type IssuedSession = { accessToken: string; expiresIn: number; csrfToken: string };
+
+/** Adopts a session the BFF (FE-05) already established via Set-Cookie — shared by every flow
+ *  that signs the user in through a `sessionResponse()` route (login, FE-09's verify-email
+ *  confirm and otp/verify): store the safe values in memory, fetch the profile (§3 carries no
+ *  user claims), and broadcast to other tabs. */
+async function adoptSession(session: IssuedSession): Promise<void> {
   initBroadcastChannel();
-
-  // Use Next.js auth route handler which sets HttpOnly refresh cookie (FE-05)
-  const response = await fetch("/app/api/auth/login", {
-    method: "POST",
-    credentials: "same-origin", // Required to receive and store the HttpOnly cookie
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(credentials),
-  });
-
-  if (!response.ok) await throwAuthApiError(response);
-
-  const data = await response.json();
-
-  // Only store safe values in JS memory - refresh token stays in HttpOnly cookie
-  inMemoryAccessToken = data.data.accessToken;
-  csrfToken = data.data.csrfToken; // Store CSRF token for future refresh requests
-  tokenExpiresAt = Date.now() + data.data.expiresIn * 1000;
-  // The login response carries no user claims (§3) — fetch the profile separately so
-  // useSession().isSignedIn (which requires both a token AND a user) actually flips true.
+  inMemoryAccessToken = session.accessToken;
+  csrfToken = session.csrfToken;
+  tokenExpiresAt = Date.now() + session.expiresIn * 1000;
   currentUser = await fetchCurrentUser();
   isSessionLoaded = true;
+  broadcast({ type: "TOKEN_REFRESHED", accessToken: session.accessToken, expiresAt: tokenExpiresAt });
+}
 
-  // Broadcast initial token to other tabs (only what's safe to share)
-  if (inMemoryAccessToken) {
-    broadcast({
-      type: "TOKEN_REFRESHED",
-      accessToken: inMemoryAccessToken,
-      expiresAt: tokenExpiresAt,
-    });
-  }
+/** POSTs a §3 auth route through the BFF and adopts the session it establishes. Used by every
+ *  own-auth flow that ends in a normal login-equivalent session (login itself, FE-09's
+ *  verify-email confirm and otp/verify) so the response parsing and session bookkeeping live in
+ *  one place. */
+async function signInViaBff(path: string, body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin", // Required to receive and store the HttpOnly cookie
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) await throwAuthApiError(response);
+
+  const data = (await response.json()) as { data?: IssuedSession };
+  if (!data.data) throw new AuthApiError("Unexpected response from auth API", undefined, 502);
+  await adoptSession(data.data);
+}
+
+export function customSignIn(credentials: { email: string; password: string }): Promise<void> {
+  return signInViaBff("/app/api/auth/login", credentials);
+}
+
+/** FE-09: confirms an email-verification token; the BFF's verify-email route issues a normal
+ *  own-auth session on success, exactly like login. */
+export function confirmEmailVerification(token: string): Promise<void> {
+  return signInViaBff("/app/api/auth/verify-email", { token });
+}
+
+/** FE-09: verifies an email-OTP code (also the Clerk magic-link users' "email me a code" path);
+ *  the BFF's otp-verify route issues a normal own-auth session on success, exactly like login. */
+export function verifyEmailOtp(credentials: { email: string; code: string }): Promise<void> {
+  return signInViaBff("/app/api/auth/otp-verify", credentials);
 }
 
 // Custom auth adapter implementation
