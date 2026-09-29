@@ -118,6 +118,20 @@ describe("login", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
+  it("forwards only the trusted last hop of X-Forwarded-For, dropping client-spoofed entries", async () => {
+    // A browser's own fetch() can set X-Forwarded-For directly (it's not a forbidden header).
+    // Only the last hop is trustworthy — appended by our own edge (ALB/CloudFront) — so a
+    // client prepending a fake IP must not reach the API's per-IP brute-force lockout (BE-14).
+    await login(
+      req("login", {
+        body: { email: "a@b.c", password: "pw" },
+        headers: { "x-forwarded-for": "1.2.3.4, 203.0.113.7" },
+      })
+    );
+    const sent = calls[0]!.init.headers as Record<string, string>;
+    expect(sent["x-forwarded-for"]).toBe("203.0.113.7");
+  });
+
   it("marks every cookie Secure in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const res = await login(req("login", { body: { email: "a@b.c", password: "pw" } }));

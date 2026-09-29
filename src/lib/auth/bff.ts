@@ -128,12 +128,25 @@ export async function newCsrfToken(): Promise<string> {
   return Buffer.from(bytes).toString("base64url");
 }
 
+/** The real client IP as seen by our own trusted edge (ALB/CloudFront, AUTH-ADI-11), which
+ *  appends it as the last hop of X-Forwarded-For before reaching this server. Any earlier
+ *  entries in the chain are attacker-controlled: `X-Forwarded-For` is not a forbidden header,
+ *  so a browser's own fetch() can set it directly on the request to this route handler. Taking
+ *  the raw header as-is and relaying it to the API would let a client spoof its IP and bypass
+ *  BE-14's per-IP brute-force lockout entirely — so only the trusted last hop is forwarded. */
+function realClientIp(request: NextRequest): string | null {
+  const xff = request.headers.get("x-forwarded-for");
+  if (!xff) return null;
+  const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+  return hops.length > 0 ? hops[hops.length - 1] : null;
+}
+
 /** Headers that let the API rate-limit and lock out per real client, not per web server.
  *  Only honoured by the API when its TRUST_PROXY setting trusts this hop (AUTH-ADI-11). */
 function forwardedHeaders(request: NextRequest): Record<string, string> {
   const headers: Record<string, string> = {};
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) headers["x-forwarded-for"] = xff;
+  const ip = realClientIp(request);
+  if (ip) headers["x-forwarded-for"] = ip;
   const ua = request.headers.get("user-agent");
   if (ua) headers["user-agent"] = ua;
   return headers;
