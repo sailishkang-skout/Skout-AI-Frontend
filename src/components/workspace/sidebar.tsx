@@ -236,6 +236,7 @@ export const settingsNav: NavGroup[] = [
     label: "Settings & Help",
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3, tourId: "nav-analytics" },
+      { href: "/settings/account", label: "Account & security", icon: ShieldCheck, tourId: "nav-account-security" },
       { href: "/settings/workspace", label: "Workspace", icon: Users, tourId: "nav-workspace" },
       { href: "/settings/team", label: "Team", icon: Users2, tourId: "nav-team" },
       { href: "/settings/icp", label: "ICP Settings", icon: Target, tourId: "nav-icp-settings" },
