@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { OwnAuthLoginForm } from "@/components/auth/own-auth-login-form";
 import { getServerSession } from "@/lib/auth/server";
@@ -17,7 +18,9 @@ export default async function SignInPage() {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
       {isCustomAuth ? (
-        <OwnAuthLoginForm />
+        <Suspense>
+          <OwnAuthLoginForm />
+        </Suspense>
       ) : publishableKey ? (
         <SignInForm path="/sign-in" />
       ) : (

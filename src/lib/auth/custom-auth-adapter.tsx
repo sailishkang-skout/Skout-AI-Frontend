@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AuthAdapter, Session, GetAccessTokenOptions, User } from "./index";
 import { logAndCapture, createClientLogger } from "@/lib/logger";
+import { UserMenu as UserMenuCard } from "@/components/auth/user-menu";
 
 const log = createClientLogger("custom-auth-adapter");
 
@@ -28,6 +29,17 @@ const REFRESH_TIMEOUT_MS = 10 * 1000;
 // User state
 let currentUser: User | null = null;
 let isSessionLoaded = false;
+
+// FE-05's skout_app_csrf cookie (bff.ts CSRF_COOKIE) is deliberately JS-readable — it survives
+// a cold page load even though the in-memory `csrfToken` above doesn't. Read it directly instead
+// of relying on memory that a hard navigation (e.g. FE-10's Google OAuth redirect) always wipes.
+const CSRF_COOKIE_NAME = "skout_app_csrf";
+
+function readCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 // Initialize broadcast channel
 function initBroadcastChannel() {
@@ -104,9 +116,11 @@ async function performTokenRefresh(): Promise<string | null> {
         "Content-Type": "application/json",
       };
       
-      // Add CSRF token if we have one (required for FE-05's route handler)
-      if (csrfToken) {
-        headers["x-csrf-token"] = csrfToken;
+      // In-memory csrfToken is wiped by a hard page load; fall back to the JS-readable cookie
+      // (still valid — it's set with the same lifetime as the refresh cookie).
+      const csrfForRequest = csrfToken ?? readCsrfCookie();
+      if (csrfForRequest) {
+        headers["x-csrf-token"] = csrfForRequest;
       }
 
       const response = await fetch("/app/api/auth/refresh", {
@@ -136,6 +150,16 @@ async function performTokenRefresh(): Promise<string | null> {
       inMemoryAccessToken = body.data.accessToken;
       csrfToken = body.data.csrfToken ?? csrfToken; // CSRF token rotates with every refresh
       tokenExpiresAt = Date.now() + body.data.expiresIn * 1000;
+
+      // The refresh response carries no user claims (§3), same as login. Without this, a cold
+      // page load (no prior client-side navigation to carry currentUser across, e.g. landing
+      // back from an external redirect like FE-10's Google OAuth flow) would refresh a valid
+      // token forever while isSignedIn (token AND user) stayed stuck false. Only fetch once —
+      // proactive refreshes every ~9.5 min shouldn't re-hit /session each time.
+      if (!currentUser) {
+        currentUser = await fetchCurrentUser();
+        isSessionLoaded = true;
+      }
 
       // Broadcast the new token to all tabs (only what's safe to share)
       if (inMemoryAccessToken) {
@@ -264,12 +288,21 @@ export const CustomAuthAdapter: AuthAdapter = {
     
     useEffect(() => {
       initBroadcastChannel();
-      
+
       // If we have tokens but session isn't marked as loaded, mark it as loaded
       if (inMemoryAccessToken && currentUser && !isSessionLoaded) {
         isSessionLoaded = true;
       }
-      
+
+      // Cold page load (hard navigation, e.g. landing back from FE-10's Google OAuth
+      // redirect): the access token lives in JS memory only, so it's gone, but the refresh
+      // cookie survived. Without this, isSessionLoaded/isSignedIn would stay false forever —
+      // nothing else ever calls performTokenRefresh() on mount. Single-flight-guarded, so a
+      // second mounted consumer won't double-fire it.
+      if (!isSessionLoaded && !inMemoryAccessToken) {
+        void performTokenRefresh();
+      }
+
       // Listen for changes that should trigger re-renders
       const checkForChanges = () => {
         const currentIsSignedIn = !!inMemoryAccessToken && !!currentUser;
@@ -318,8 +351,9 @@ export const CustomAuthAdapter: AuthAdapter = {
           "Content-Type": "application/json",
         };
         
-        if (csrfToken) {
-          headers["x-csrf-token"] = csrfToken;
+        const csrfForRequest = csrfToken ?? readCsrfCookie();
+        if (csrfForRequest) {
+          headers["x-csrf-token"] = csrfForRequest;
         }
         if (inMemoryAccessToken) {
           headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
@@ -345,26 +379,15 @@ export const CustomAuthAdapter: AuthAdapter = {
     return signOut;
   },
 
-  // Simple user menu that calls sign out
   UserMenu: () => {
-          const { useSignOut, useSession } = CustomAuthAdapter;
-          const signOut = useSignOut();
-          const session = useSession();
-          
-          if (!session.isSignedIn) return null;
-          
-          return (
-            <div className="flex items-center gap-4">
-              <span>{session.user?.email}</span>
-              <button 
-                onClick={signOut}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Sign out
-              </button>
-            </div>
-          );
-        },
+    const { useSignOut, useSession } = CustomAuthAdapter;
+    const signOut = useSignOut();
+    const session = useSession();
+
+    if (!session.isSignedIn || !session.user) return null;
+
+    return <UserMenuCard user={session.user} onSignOut={() => void signOut()} />;
+  },
 };
 
 // Handle AUTH_SESSION_REVOKED error from API calls
