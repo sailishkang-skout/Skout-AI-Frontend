@@ -115,7 +115,7 @@ describe("google/callback", () => {
     expect((calls[0]!.init.headers as Record<string, string>).cookie).toContain(`${GOOGLE_STATE_COOKIE}=state-abc`);
 
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe(`${APP}/dashboard`);
+    expect(res.headers.get("location")).toBe(`${APP}/app/dashboard`);
     expect(cookie(res, REFRESH_COOKIE)?.value).toBe("rt-1");
     expect(cookie(res, SESSION_COOKIE)?.value).toBe("access-1");
     // The state cookie is single-use — cleared either way.

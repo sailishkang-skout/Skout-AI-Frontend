@@ -79,10 +79,11 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const destination = new URL(
-    body.data.next && body.data.next.startsWith("/") ? body.data.next : `${APP_BASE_PATH}/auth/callback`,
-    request.url
-  );
+  // BE-16's next is validated server-side (validateSafeNextUrl) but is app-relative — it has no
+  // idea this frontend is mounted under basePath "/app", so that prefix is added here, once.
+  const safeNext = body.data.next && body.data.next.startsWith("/") ? body.data.next : "/auth/callback";
+  const nextPath = safeNext.startsWith(APP_BASE_PATH) ? safeNext : `${APP_BASE_PATH}${safeNext}`;
+  const destination = new URL(nextPath, request.url);
   const response = await sessionRedirect(
     { accessToken: body.data.accessToken, expiresIn: body.data.expiresIn },
     refreshToken,
