@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
+import { useStepUp } from "@/hooks/use-step-up";
 import {
   IDENTITY_MERGE_PROPOSALS_QUERY_KEY,
   useIdentityMergeApi,
@@ -193,6 +194,7 @@ export default function IdentityMergeReviewPage() {
   const identityMergeApi = useIdentityMergeApi();
   const companiesApi = useCompaniesApi();
   const contactsApi = useContactsApi();
+  const { withStepUp, stepUpModal } = useStepUp();
 
   const proposalsQuery = useQuery({
     queryKey: IDENTITY_MERGE_PROPOSALS_QUERY_KEY,
@@ -231,7 +233,9 @@ export default function IdentityMergeReviewPage() {
           };
         }
       }
-      return identityMergeApi.resolveProposal(proposal.id, decision, beforeSnapshot);
+      return withStepUp((reauthToken) =>
+        identityMergeApi.resolveProposal(proposal.id, decision, beforeSnapshot, reauthToken)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: IDENTITY_MERGE_PROPOSALS_QUERY_KEY });
@@ -290,6 +294,7 @@ export default function IdentityMergeReviewPage() {
           ))}
         </div>
       )}
+      {stepUpModal}
     </PageShell>
   );
 }
