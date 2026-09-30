@@ -6,7 +6,7 @@ import { PROTECTED_ROUTE_PATTERNS, APP_BASE_PATH } from "@/lib/auth/routes";
 import { SESSION_COOKIE, authApiBase } from "@/lib/auth/bff";
 import { GATE_COOKIE_NAME, hashGateToken, isGatePath, safeNextPath } from "@/lib/gate";
 import { GATE_TOKEN_VALUE } from "@/lib/gate-token.generated";
-import { appProxy } from "@/lib/app-proxy";
+import { appProxy, buildProcessedRequest } from "@/lib/app-proxy";
 
 /**
  * Route tables live in `@/lib/auth/routes` (AUTH-FE-03). next.config.mjs sets basePath: "/app" —
@@ -138,12 +138,9 @@ export default async function middleware(request: NextRequest, event: NextFetchE
     return proxyResponse;
   }
   
-  // Use the rewritten request from the proxy if it was modified - preserve all headers from the proxy's rewritten request
-  let processedRequest = proxyResponse?.headers.get("x-skout-proxied") 
-    ? new NextRequest(proxyResponse.headers.get("Location") || request.url, { 
-        headers: new Headers(proxyResponse.headers) // Copy all headers including x-skout-proxied
-      })
-    : request;
+  // See buildProcessedRequest's own comment — it preserves the browser's real headers (cookies
+  // included), which building this from `proxyResponse.headers` used to silently drop.
+  let processedRequest = buildProcessedRequest(request, proxyResponse);
 
   // Runs regardless of auth mode — the gate's whole point is to block access
   // before any auth check, so it must not get skipped.

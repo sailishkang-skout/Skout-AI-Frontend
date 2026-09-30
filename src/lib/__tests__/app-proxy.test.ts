@@ -8,7 +8,8 @@ import {
   handleSignInPathMapping,
   rewriteClerkPaths,
   validateOwnAuthCookies,
-  appProxy
+  appProxy,
+  buildProcessedRequest
 } from "../app-proxy";
 
 describe("app-proxy", () => {
@@ -161,6 +162,32 @@ describe("app-proxy", () => {
       expect(response!.status).toBeGreaterThanOrEqual(300);
       expect(response!.status).toBeLessThan(400);
       expect(response!.headers.get("Location")).toBeTruthy();
+    });
+  });
+
+  describe("buildProcessedRequest — cookies must survive the internal rewrite signal (regression, 2026-09-30)", () => {
+    it("preserves the browser's cookie header (Clerk session included) when appProxy signaled a rewrite", async () => {
+      const request = new NextRequest("https://www.skoutai.io/app/sign-in", {
+        headers: { cookie: "__session=real-clerk-session-value; __client_uat=123" },
+      });
+      const proxyResponse = await appProxy(request);
+
+      const processed = buildProcessedRequest(request, proxyResponse);
+
+      // This is the exact bug: building the continuation request from proxyResponse.headers
+      // instead of request.headers silently dropped this, so clerkMiddleware/getServerSession
+      // always saw a signed-out request even when the browser genuinely had a session — a
+      // split-brain that produced a same-page redirect loop on /app/auth/callback.
+      expect(processed.headers.get("cookie")).toBe("__session=real-clerk-session-value; __client_uat=123");
+      expect(processed.headers.get("x-skout-proxied")).toBe("true");
+    });
+
+    it("passes the original request through untouched when appProxy did not signal a rewrite", () => {
+      const request = new NextRequest("https://www.skoutai.io/app/sign-in", {
+        headers: { cookie: "__session=abc", "x-skout-proxied": "true" },
+      });
+      const processed = buildProcessedRequest(request, null);
+      expect(processed).toBe(request);
     });
   });
 });
