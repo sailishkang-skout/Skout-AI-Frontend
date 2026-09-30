@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
@@ -149,9 +150,9 @@ export function OwnAuthLoginForm() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <a href="/forgot-password" className="self-end text-xs text-primary underline-offset-2 hover:underline">
+            <Link href="/forgot-password" className="self-end text-xs text-primary underline-offset-2 hover:underline">
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           {loginMut.isError && (
@@ -171,17 +172,17 @@ export function OwnAuthLoginForm() {
             )}
           </Button>
 
-          <a href="/otp-sign-in" className="text-center text-sm text-primary underline-offset-2 hover:underline">
+          <Link href="/otp-sign-in" className="text-center text-sm text-primary underline-offset-2 hover:underline">
             Email me a code instead
-          </a>
+          </Link>
         </form>
       )}
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <a href="/sign-up" className="text-primary underline-offset-2 hover:underline">
+        <Link href="/sign-up" className="text-primary underline-offset-2 hover:underline">
           Sign up
-        </a>
+        </Link>
       </p>
     </div>
   );

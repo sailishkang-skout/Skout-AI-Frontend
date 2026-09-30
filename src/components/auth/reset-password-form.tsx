@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react";
@@ -47,12 +48,12 @@ export function ResetPasswordForm() {
       <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
         <h1 className="text-lg font-semibold">Invalid link</h1>
         <p className="mt-1 text-sm text-muted-foreground">This password reset link is missing its token.</p>
-        <a
+        <Link
           href="/forgot-password"
           className="mt-6 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
         >
           Request a new link
-        </a>
+        </Link>
       </div>
     );
   }

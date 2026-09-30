@@ -18,6 +18,7 @@ import {
   cookieValueFromSetCookies,
   isCustomAuthMode,
   notFound,
+  publicOrigin,
 } from "@/lib/auth/bff";
 import { APP_BASE_PATH } from "@/lib/auth/routes";
 
@@ -35,14 +36,16 @@ export async function GET(request: NextRequest) {
 
   if (!result.ok) {
     const message = (result.body as { error?: string } | null)?.error ?? "Could not start Google sign-in.";
-    return NextResponse.redirect(new URL(`${APP_BASE_PATH}/sign-in?error=${encodeURIComponent(message)}`, request.url));
+    return NextResponse.redirect(
+      new URL(`${APP_BASE_PATH}/sign-in?error=${encodeURIComponent(message)}`, publicOrigin(request))
+    );
   }
 
   const body = result.body as { data?: { authorizationUrl?: string } } | null;
   const authorizationUrl = body?.data?.authorizationUrl;
   const stateId = cookieValueFromSetCookies(result.setCookies, GOOGLE_STATE_COOKIE);
   if (!authorizationUrl || !stateId) {
-    return NextResponse.redirect(new URL(`${APP_BASE_PATH}/sign-in?error=google_start_failed`, request.url));
+    return NextResponse.redirect(new URL(`${APP_BASE_PATH}/sign-in?error=google_start_failed`, publicOrigin(request)));
   }
 
   const response = NextResponse.redirect(authorizationUrl);

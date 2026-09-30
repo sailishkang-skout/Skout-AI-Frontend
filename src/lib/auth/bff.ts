@@ -89,6 +89,23 @@ function originOf(value: string | null | undefined): string | null {
   }
 }
 
+/**
+ * The origin to build browser-facing redirect URLs from — never `request.url`/`request.nextUrl`.
+ * Behind the ALB/API-Gateway proxy in front of this app, those reflect the internal ECS task
+ * hostname (e.g. `http://ip-10-0-2-70.ec2.internal:3000`), not the public one. FE-10's Google
+ * OAuth start/callback routes learned this the hard way: building `new URL(path, request.url)`
+ * sent the browser to that internal, unreachable hostname instead of skoutai.io — an information
+ * disclosure (leaking infra topology) as well as a broken redirect. Same precedence as
+ * `requestWithPublicOrigin` in middleware.ts, which fixes the equivalent problem for Clerk.
+ */
+export function publicOrigin(request: NextRequest): string {
+  const fromHeader = originOf(request.headers.get("x-skout-public-origin"));
+  if (fromHeader) return fromHeader;
+  const fromEnv = originOf(process.env.NEXT_PUBLIC_APP_URL);
+  if (fromEnv) return fromEnv;
+  return request.nextUrl.origin;
+}
+
 /** Origins this app is legitimately served from: its own host, the public origin the proxy
  *  reports, and NEXT_PUBLIC_APP_URL (www.skoutai.io/app behind the marketing proxy). */
 function allowedOrigins(request: NextRequest): Set<string> {

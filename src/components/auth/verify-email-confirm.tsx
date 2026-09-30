@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,12 @@ export function VerifyEmailConfirm() {
         <XCircle className="mx-auto h-10 w-10 text-destructive" />
         <h1 className="mt-4 text-lg font-semibold">Link invalid or expired</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in and we&apos;ll send a fresh verification link.</p>
-        <a
+        <Link
           href="/sign-in"
           className="mt-6 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
         >
           Back to sign in
-        </a>
+        </Link>
       </div>
     );
   }
