@@ -126,8 +126,15 @@ export default async function middleware(request: NextRequest, event: NextFetchE
   
   // Run app proxy logic first - handles Clerk path rewrites, sign-in redirects, oversized payloads
   const proxyResponse = await appProxy(request);
-  // If the proxy returned a response (redirect or rewrite), use it
-  if (proxyResponse && proxyResponse.headers.get("Location")) {
+  // appProxy() overloads the "Location" header two ways: a real redirect (NextResponse.redirect,
+  // status 3xx — oversized-payload workaround, /app/signin -> /app/sign-in loop avoidance) that
+  // must be sent to the browser as-is, and an internal-only rewrite signal on a
+  // NextResponse.next() (status 200) used further down to build `processedRequest`. Returning a
+  // 200-with-Location response directly to the browser is not a real redirect — browsers only
+  // follow Location on a 3xx status — so every request that hit the internal-signal path was
+  // rendering blank (found via AUTH-ADI-14 rehearsal, 2026-09-30). Only return proxyResponse
+  // as-is when it's an actual redirect.
+  if (proxyResponse && proxyResponse.status >= 300 && proxyResponse.status < 400) {
     return proxyResponse;
   }
   
