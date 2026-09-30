@@ -41,6 +41,12 @@ export const CSRF_HEADER = "x-csrf-token";
 const API_REFRESH_COOKIE = "skout_refresh";
 const API_CSRF_COOKIE = "skout_csrf";
 
+/** BE-16's Google OAuth state cookie name, and the app-origin path FE-10's start/callback route
+ *  pair re-sets it on (shared here so the two routes can't drift). */
+export const GOOGLE_STATE_COOKIE = "skout_oauth_google_state";
+export const GOOGLE_ROUTE_PATH = `${APP_BASE_PATH}/api/auth/google`;
+export const GOOGLE_STATE_TTL_SECONDS = 10 * 60;
+
 const AUTH_ROUTE_PATH = `${APP_BASE_PATH}/api/auth`;
 /** Matches the API's refresh absolute lifetime (§3: 60 days); the API remains the authority. */
 const REFRESH_MAX_AGE_SECONDS = 60 * 24 * 60 * 60;
@@ -164,7 +170,15 @@ export type ApiCallResult =
 export async function callAuthApi(
   request: NextRequest,
   path: string,
-  init: { method?: "GET" | "POST"; json?: unknown; refreshToken?: string; bearer?: string } = {}
+  init: {
+    method?: "GET" | "POST";
+    json?: unknown;
+    refreshToken?: string;
+    bearer?: string;
+    /** Raw cookie pairs to forward as the API's own Cookie header (e.g. BE-16's OAuth state
+     *  cookie, which the API reads directly off the request rather than accepting as a param). */
+    extraCookies?: Record<string, string>;
+  } = {}
 ): Promise<ApiCallResult> {
   const base = authApiBase();
   if (!base) {
@@ -174,11 +188,16 @@ export async function callAuthApi(
   const headers: Record<string, string> = { ...forwardedHeaders(request), accept: "application/json" };
   if (init.json !== undefined) headers["content-type"] = "application/json";
   if (init.bearer) headers.authorization = `Bearer ${init.bearer}`;
+  const cookiePairs: string[] = [];
   if (init.refreshToken) {
     const csrf = await newCsrfToken();
-    headers.cookie = `${API_REFRESH_COOKIE}=${init.refreshToken}; ${API_CSRF_COOKIE}=${csrf}`;
+    cookiePairs.push(`${API_REFRESH_COOKIE}=${init.refreshToken}`, `${API_CSRF_COOKIE}=${csrf}`);
     headers[CSRF_HEADER] = csrf;
   }
+  if (init.extraCookies) {
+    for (const [name, value] of Object.entries(init.extraCookies)) cookiePairs.push(`${name}=${value}`);
+  }
+  if (cookiePairs.length > 0) headers.cookie = cookiePairs.join("; ");
 
   let response: Response;
   try {
@@ -206,17 +225,22 @@ export async function callAuthApi(
   return { ok: response.ok, status: response.status, body, setCookies };
 }
 
-/** The raw refresh-token value from the API's Set-Cookie headers, if it set one. */
-export function refreshTokenFromSetCookies(setCookies: string[]): string | null {
+/** The raw value of a named cookie from a set of Set-Cookie headers, if present. */
+export function cookieValueFromSetCookies(setCookies: string[], name: string): string | null {
   for (const header of setCookies) {
     const [pair] = header.split(";");
     const eq = pair?.indexOf("=") ?? -1;
-    if (pair && eq > 0 && pair.slice(0, eq).trim() === API_REFRESH_COOKIE) {
+    if (pair && eq > 0 && pair.slice(0, eq).trim() === name) {
       const value = pair.slice(eq + 1).trim();
       return value || null;
     }
   }
   return null;
+}
+
+/** The raw refresh-token value from the API's Set-Cookie headers, if it set one. */
+export function refreshTokenFromSetCookies(setCookies: string[]): string | null {
+  return cookieValueFromSetCookies(setCookies, API_REFRESH_COOKIE);
 }
 
 export type TokenPayload = { accessToken: string; expiresIn: number };
@@ -227,14 +251,7 @@ export function tokenPayload(body: unknown): TokenPayload | null {
   return { accessToken: data.accessToken, expiresIn: data.expiresIn };
 }
 
-/** Sets all three cookies and returns the body the client gets: the access token (to keep in
- *  memory), its lifetime, and the CSRF token — never the refresh token. */
-export async function sessionResponse(tokens: TokenPayload, refreshToken: string, status = 200): Promise<NextResponse> {
-  const csrf = await newCsrfToken();
-  const res = NextResponse.json(
-    { data: { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn, csrfToken: csrf } },
-    { status, headers: { "cache-control": "no-store" } }
-  );
+function setSessionCookies(res: NextResponse, tokens: TokenPayload, refreshToken: string, csrf: string): void {
   const secure = secureCookies();
   res.cookies.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
@@ -257,6 +274,28 @@ export async function sessionResponse(tokens: TokenPayload, refreshToken: string
     path: APP_BASE_PATH,
     maxAge: REFRESH_MAX_AGE_SECONDS,
   });
+}
+
+/** Sets all three cookies and returns the body the client gets: the access token (to keep in
+ *  memory), its lifetime, and the CSRF token — never the refresh token. */
+export async function sessionResponse(tokens: TokenPayload, refreshToken: string, status = 200): Promise<NextResponse> {
+  const csrf = await newCsrfToken();
+  const res = NextResponse.json(
+    { data: { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn, csrfToken: csrf } },
+    { status, headers: { "cache-control": "no-store" } }
+  );
+  setSessionCookies(res, tokens, refreshToken, csrf);
+  return res;
+}
+
+/** Same cookie-setting as `sessionResponse`, but for flows that arrive via a full-page
+ *  navigation (AUTH-FE-10's Google OAuth callback) rather than a client-side fetch, so the
+ *  response has to be an HTTP redirect — the access token can't be handed back in a JSON body
+ *  for anyone to read, it's picked up from `/app/api/auth/session` after landing. */
+export async function sessionRedirect(tokens: TokenPayload, refreshToken: string, redirectUrl: string): Promise<NextResponse> {
+  const csrf = await newCsrfToken();
+  const res = NextResponse.redirect(redirectUrl);
+  setSessionCookies(res, tokens, refreshToken, csrf);
   return res;
 }
 

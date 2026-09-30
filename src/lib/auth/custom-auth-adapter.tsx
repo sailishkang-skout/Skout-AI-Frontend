@@ -3,10 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AuthAdapter, Session, GetAccessTokenOptions, User } from "./index";
 import { logAndCapture, createClientLogger } from "@/lib/logger";
-
-export function isCustomAuthMode(): boolean {
-  return process.env.NEXT_PUBLIC_AUTH_MODE === "custom";
-}
+import { UserMenu as UserMenuCard } from "@/components/auth/user-menu";
 
 const log = createClientLogger("custom-auth-adapter");
 
@@ -32,6 +29,17 @@ const REFRESH_TIMEOUT_MS = 10 * 1000;
 // User state
 let currentUser: User | null = null;
 let isSessionLoaded = false;
+
+// FE-05's skout_app_csrf cookie (bff.ts CSRF_COOKIE) is deliberately JS-readable — it survives
+// a cold page load even though the in-memory `csrfToken` above doesn't. Read it directly instead
+// of relying on memory that a hard navigation (e.g. FE-10's Google OAuth redirect) always wipes.
+const CSRF_COOKIE_NAME = "skout_app_csrf";
+
+function readCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 // Initialize broadcast channel
 function initBroadcastChannel() {
@@ -108,9 +116,11 @@ async function performTokenRefresh(): Promise<string | null> {
         "Content-Type": "application/json",
       };
       
-      // Add CSRF token if we have one (required for FE-05's route handler)
-      if (csrfToken) {
-        headers["x-csrf-token"] = csrfToken;
+      // In-memory csrfToken is wiped by a hard page load; fall back to the JS-readable cookie
+      // (still valid — it's set with the same lifetime as the refresh cookie).
+      const csrfForRequest = csrfToken ?? readCsrfCookie();
+      if (csrfForRequest) {
+        headers["x-csrf-token"] = csrfForRequest;
       }
 
       const response = await fetch("/app/api/auth/refresh", {
@@ -140,6 +150,16 @@ async function performTokenRefresh(): Promise<string | null> {
       inMemoryAccessToken = body.data.accessToken;
       csrfToken = body.data.csrfToken ?? csrfToken; // CSRF token rotates with every refresh
       tokenExpiresAt = Date.now() + body.data.expiresIn * 1000;
+
+      // The refresh response carries no user claims (§3), same as login. Without this, a cold
+      // page load (no prior client-side navigation to carry currentUser across, e.g. landing
+      // back from an external redirect like FE-10's Google OAuth flow) would refresh a valid
+      // token forever while isSignedIn (token AND user) stayed stuck false. Only fetch once —
+      // proactive refreshes every ~9.5 min shouldn't re-hit /session each time.
+      if (!currentUser) {
+        currentUser = await fetchCurrentUser();
+        isSessionLoaded = true;
+      }
 
       // Broadcast the new token to all tabs (only what's safe to share)
       if (inMemoryAccessToken) {
@@ -200,7 +220,7 @@ async function throwAuthApiError(response: Response): Promise<never> {
 /** GET /app/api/auth/session → the signed-in user's profile (never a token). AUTH-FE-08: the
  *  login BFF route only returns {accessToken, expiresIn, csrfToken} per §3 — no user claims are
  *  in the token, so the user profile has to be fetched separately after establishing a session. */
-async function fetchCurrentUser(): Promise<User | null> {
+export async function fetchCurrentUser(): Promise<User | null> {
   const res = await fetch("/app/api/auth/session", { method: "GET", credentials: "same-origin" });
   if (!res.ok) return null;
   const body = (await res.json()) as { data?: { userId: string; email: string; fullName?: string } };
@@ -209,56 +229,54 @@ async function fetchCurrentUser(): Promise<User | null> {
 }
 
 // Initial sign in (called from login page) - FE-05 compliant
-export async function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: User }) {
+type IssuedSession = { accessToken: string; expiresIn: number; csrfToken: string };
+
+/** Adopts a session the BFF (FE-05) already established via Set-Cookie — shared by every flow
+ *  that signs the user in through a `sessionResponse()` route (login, FE-09's verify-email
+ *  confirm and otp/verify): store the safe values in memory, fetch the profile (§3 carries no
+ *  user claims), and broadcast to other tabs. */
+async function adoptSession(session: IssuedSession): Promise<void> {
   initBroadcastChannel();
-  
-  let data: { accessToken: string; expiresIn: number; csrfToken?: string; user: User };
-  
-  // If we're signing in with email/password, call the login API
-  if ("email" in credentials && "password" in credentials) {
-    // Use Next.js auth route handler which sets HttpOnly refresh cookie (FE-05)
-    const response = await fetch("/app/api/auth/login", {
-      method: "POST",
-      credentials: "same-origin", // Required to receive and store the HttpOnly cookie
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) await throwAuthApiError(response);
-    const responseData = await response.json();
-    const currentUser = await fetchCurrentUser();
-    if (!currentUser) {
-      throw new Error("Failed to fetch user profile after login");
-    }
-    // The login response nests payload under `data` per §3
-    data = {
-      accessToken: responseData.data.accessToken,
-      expiresIn: responseData.data.expiresIn,
-      csrfToken: responseData.data.csrfToken,
-      user: currentUser
-    };
-  } else {
-    // If we're signing in with an existing accessToken (OTP flow), use that directly
-    data = credentials;
-  }
-  
-  // Only store safe values in JS memory - refresh token stays in HttpOnly cookie
-  inMemoryAccessToken = data.accessToken;
-  csrfToken = data.csrfToken ?? null; // Store CSRF token for future refresh requests
-  tokenExpiresAt = Date.now() + data.expiresIn * 1000;
-  currentUser = data.user;
+  inMemoryAccessToken = session.accessToken;
+  csrfToken = session.csrfToken;
+  tokenExpiresAt = Date.now() + session.expiresIn * 1000;
+  currentUser = await fetchCurrentUser();
   isSessionLoaded = true;
+  broadcast({ type: "TOKEN_REFRESHED", accessToken: session.accessToken, expiresAt: tokenExpiresAt });
+}
 
-  // Broadcast initial token to other tabs (only what's safe to share)
-  if (inMemoryAccessToken) {
-    broadcast({
-      type: "TOKEN_REFRESHED",
-      accessToken: inMemoryAccessToken,
-      expiresAt: tokenExpiresAt,
-    });
-  }
+/** POSTs a §3 auth route through the BFF and adopts the session it establishes. Used by every
+ *  own-auth flow that ends in a normal login-equivalent session (login itself, FE-09's
+ *  verify-email confirm and otp/verify) so the response parsing and session bookkeeping live in
+ *  one place. */
+async function signInViaBff(path: string, body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin", // Required to receive and store the HttpOnly cookie
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) await throwAuthApiError(response);
+
+  const data = (await response.json()) as { data?: IssuedSession };
+  if (!data.data) throw new AuthApiError("Unexpected response from auth API", undefined, 502);
+  await adoptSession(data.data);
+}
+
+export function customSignIn(credentials: { email: string; password: string }): Promise<void> {
+  return signInViaBff("/app/api/auth/login", credentials);
+}
+
+/** FE-09: confirms an email-verification token; the BFF's verify-email route issues a normal
+ *  own-auth session on success, exactly like login. */
+export function confirmEmailVerification(token: string): Promise<void> {
+  return signInViaBff("/app/api/auth/verify-email", { token });
+}
+
+/** FE-09: verifies an email-OTP code (also the Clerk magic-link users' "email me a code" path);
+ *  the BFF's otp-verify route issues a normal own-auth session on success, exactly like login. */
+export function verifyEmailOtp(credentials: { email: string; code: string }): Promise<void> {
+  return signInViaBff("/app/api/auth/otp-verify", credentials);
 }
 
 // Custom auth adapter implementation
@@ -270,12 +288,21 @@ export const CustomAuthAdapter: AuthAdapter = {
     
     useEffect(() => {
       initBroadcastChannel();
-      
+
       // If we have tokens but session isn't marked as loaded, mark it as loaded
       if (inMemoryAccessToken && currentUser && !isSessionLoaded) {
         isSessionLoaded = true;
       }
-      
+
+      // Cold page load (hard navigation, e.g. landing back from FE-10's Google OAuth
+      // redirect): the access token lives in JS memory only, so it's gone, but the refresh
+      // cookie survived. Without this, isSessionLoaded/isSignedIn would stay false forever —
+      // nothing else ever calls performTokenRefresh() on mount. Single-flight-guarded, so a
+      // second mounted consumer won't double-fire it.
+      if (!isSessionLoaded && !inMemoryAccessToken) {
+        void performTokenRefresh();
+      }
+
       // Listen for changes that should trigger re-renders
       const checkForChanges = () => {
         const currentIsSignedIn = !!inMemoryAccessToken && !!currentUser;
@@ -324,8 +351,9 @@ export const CustomAuthAdapter: AuthAdapter = {
           "Content-Type": "application/json",
         };
         
-        if (csrfToken) {
-          headers["x-csrf-token"] = csrfToken;
+        const csrfForRequest = csrfToken ?? readCsrfCookie();
+        if (csrfForRequest) {
+          headers["x-csrf-token"] = csrfForRequest;
         }
         if (inMemoryAccessToken) {
           headers["Authorization"] = `Bearer ${inMemoryAccessToken}`;
@@ -351,26 +379,15 @@ export const CustomAuthAdapter: AuthAdapter = {
     return signOut;
   },
 
-  // Simple user menu that calls sign out
   UserMenu: () => {
-          const { useSignOut, useSession } = CustomAuthAdapter;
-          const signOut = useSignOut();
-          const session = useSession();
-          
-          if (!session.isSignedIn) return null;
-          
-          return (
-            <div className="flex items-center gap-4">
-              <span>{session.user?.email}</span>
-              <button 
-                onClick={signOut}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Sign out
-              </button>
-            </div>
-          );
-        },
+    const { useSignOut, useSession } = CustomAuthAdapter;
+    const signOut = useSignOut();
+    const session = useSession();
+
+    if (!session.isSignedIn || !session.user) return null;
+
+    return <UserMenuCard user={session.user} onSignOut={() => void signOut()} />;
+  },
 };
 
 // Handle AUTH_SESSION_REVOKED error from API calls
