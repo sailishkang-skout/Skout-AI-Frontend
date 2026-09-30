@@ -7,6 +7,11 @@ import { UserMenu as UserMenuCard } from "@/components/auth/user-menu";
 
 const log = createClientLogger("custom-auth-adapter");
 
+// Check if we're using custom auth mode (instead of Clerk)
+export function isCustomAuthMode(): boolean {
+  return process.env.NEXT_PUBLIC_AUTH_MODE === "custom";
+}
+
 // Broadcast channel for cross-tab communication
 const BROADCAST_CHANNEL_NAME = "skout-auth-sync";
 type BroadcastMessage =
@@ -263,7 +268,13 @@ async function signInViaBff(path: string, body: unknown): Promise<void> {
   await adoptSession(data.data);
 }
 
-export function customSignIn(credentials: { email: string; password: string }): Promise<void> {
+export function customSignIn(credentials: { email: string; password: string } | { accessToken: string; expiresIn: number; user: User }): Promise<void> {
+  // If we're passing an existing session (from OTP verification), use setCustomSession
+  if ("accessToken" in credentials) {
+    setCustomSession(credentials);
+    return Promise.resolve();
+  }
+  // Otherwise, do normal BFF sign in
   return signInViaBff("/app/api/auth/login", credentials);
 }
 

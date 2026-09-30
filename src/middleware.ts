@@ -160,6 +160,11 @@ export default async function middleware(request: NextRequest, event: NextFetchE
       const isAuthenticated = sessionToken ? await verifySessionCookie(sessionToken) : false;
 
       if (!isAuthenticated) {
+        // Check if there's an existing Clerk session (any Clerk cookie exists)
+        const hasClerkCookies = processedRequest.cookies.getAll().some(cookie => 
+          cookie.name.startsWith('__clerk_') || cookie.name.startsWith('clerk_')
+        );
+        
         // Redirect to sign-in page with validated next parameter
         const signInUrl = processedRequest.nextUrl.clone();
         signInUrl.pathname = `${APP_BASE_PATH}/sign-in`;
@@ -168,6 +173,10 @@ export default async function middleware(request: NextRequest, event: NextFetchE
         const nextPath = safeNextPath(processedRequest.nextUrl.pathname);
         if (nextPath) {
           signInUrl.searchParams.set("next", nextPath);
+        }
+        // Add clerk_session_ended flag if we detected an existing Clerk session that needs migration
+        if (hasClerkCookies) {
+          signInUrl.searchParams.set("clerk_session_ended", "true");
         }
         return NextResponse.redirect(signInUrl);
       }
