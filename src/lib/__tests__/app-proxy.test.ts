@@ -7,7 +7,8 @@ import {
   processResponseCookies,
   handleSignInPathMapping,
   rewriteClerkPaths,
-  validateOwnAuthCookies
+  validateOwnAuthCookies,
+  appProxy
 } from "../app-proxy";
 
 describe("app-proxy", () => {
@@ -129,6 +130,37 @@ describe("app-proxy", () => {
       expect(result.valid).toBe(false);
       expect(result.errors).toContain("Missing required cookie: skout_app_session");
       expect(result.errors).toContain("Missing required cookie: skout_app_csrf");
+    });
+  });
+
+  describe("appProxy — internal rewrite signal vs. real redirect (regression, 2026-09-30)", () => {
+    // appProxy() overloads the "Location" header: a real redirect carries it with a 3xx status
+    // (must reach the browser as-is), and an internal-only "this request was rewritten" signal
+    // carries it on a 200 NextResponse.next() (must NOT reach the browser as-is — middleware.ts
+    // uses the header value to build the request it continues processing with). Confusing the
+    // two made every first-touch /app/sign-in request render blank: a 200 with a Location header
+    // is not a redirect a browser will follow. This test pins the contract both branches of
+    // middleware.ts's dispatch depend on, so a future change to appProxy can't silently break it.
+    it("signals an internal rewrite via a 200 status, never a redirect status, even though Location is set", async () => {
+      const request = new NextRequest("https://www.skoutai.io/app/sign-in");
+      const response = await appProxy(request);
+
+      expect(response.headers.get("Location")).toBeTruthy();
+      // This is the exact condition middleware.ts's dispatch now checks: only a 3xx response is
+      // a real redirect. An internal rewrite signal must stay outside that range.
+      expect(response.status).not.toBeGreaterThanOrEqual(300);
+    });
+
+    it("a genuine redirect (the oversized-handshake workaround) does carry a 3xx status", () => {
+      const request = new NextRequest(
+        "https://www.skoutai.io/app/gate?__clerk_ticket=abc&__clerk_redirect=1"
+      );
+      const response = oversizedWorkspaceRedirect(request);
+
+      expect(response).not.toBeNull();
+      expect(response!.status).toBeGreaterThanOrEqual(300);
+      expect(response!.status).toBeLessThan(400);
+      expect(response!.headers.get("Location")).toBeTruthy();
     });
   });
 });
