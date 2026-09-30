@@ -607,6 +607,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "account-security",
+    target: "nav-account-security",
+    href: "/settings/account",
+    title: "Account & security",
+    body: "Change your password and review active sessions — sign out of any device you don't recognize.",
+    details: [
+      "Changing your password signs out every other active session",
+      "See when each session was created and last used",
+      "Revoke a single session without affecting the others",
+    ],
+  },
+  {
     id: "guides",
     target: "nav-guides",
     href: "/guides",
