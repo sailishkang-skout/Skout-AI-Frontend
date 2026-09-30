@@ -34,15 +34,22 @@ export function useIdentityMergeApi() {
      * using whatever this page already fetched to render the comparison, so the snapshot is the
      * same data the reviewer actually looked at.
      */
+    /**
+     * AUTH-FE-12: `reauthToken` (from useStepUp) is forwarded as `x-reauth-token` when present.
+     * The backend only enforces it once STEP_UP_ENFORCEMENT_ENABLED is on (currently off) — this
+     * call works identically either way, since assertStepUp is a no-op until then.
+     */
     resolveProposal: (
       proposalId: string,
       decision: "approved" | "rejected",
-      beforeSnapshot?: unknown
+      beforeSnapshot?: unknown,
+      reauthToken?: string
     ) =>
       fetchApi<IdentityMergeProposal>(`/api/v1/identity-merge/proposals/${proposalId}/resolve`, {
         method: "POST",
         body: JSON.stringify({ decision, beforeSnapshot }),
         workspaceId: WORKSPACE_ID,
+        headers: reauthToken ? { "x-reauth-token": reauthToken } : undefined,
       }),
   };
 }

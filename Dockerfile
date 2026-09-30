@@ -18,6 +18,10 @@ ARG NEXT_PUBLIC_CRM_API_URL
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG CLERK_SECRET_KEY
 ARG GATE_TOKEN
+# AUTH-ADI-18 — src/lib/auth/index.ts falls back to "clerk" when unset, so a build that omits
+# this arg (every workflow, until AUTH-ADI-15/17 turn a given environment over) behaves exactly
+# as before this arg existed.
+ARG NEXT_PUBLIC_AUTH_MODE=clerk
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 # Do not fall back to API URL — that breaks Clerk redirects / app origin.
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
@@ -25,6 +29,7 @@ ENV NEXT_PUBLIC_CRM_API_URL=${NEXT_PUBLIC_CRM_API_URL}
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
 ENV GATE_TOKEN=$GATE_TOKEN
+ENV NEXT_PUBLIC_AUTH_MODE=$NEXT_PUBLIC_AUTH_MODE
 # Edge middleware cannot read runtime env. Write a string literal (heredoc is
 # quoted so the token does not appear in `docker history`) and fail the build
 # if Next.js did not compile it into the middleware bundle.

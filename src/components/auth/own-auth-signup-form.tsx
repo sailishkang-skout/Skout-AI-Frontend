@@ -6,6 +6,7 @@ import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getApiBase } from "@/lib/api-client";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 // §3: POST /api/v1/auth/signup {email, password, fullName} → 201 {data:{userId}}. No cookies
 // are set on signup (the session starts at login, after email verification), so this can call
@@ -54,8 +55,17 @@ export function OwnAuthSignupForm() {
     <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 shadow-sm sm:p-8">
       <h1 className="text-xl font-semibold">Create your Skout account</h1>
 
+      <div className="mt-6">
+        <GoogleSignInButton />
+      </div>
+      <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
+        or
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       <form
-        className="mt-6 flex flex-col gap-4"
+        className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           signupMut.mutate();
