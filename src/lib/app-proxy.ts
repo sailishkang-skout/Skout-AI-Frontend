@@ -5,6 +5,28 @@
 import { NextResponse, NextRequest, type NextRequest as NextRequestType } from "next/server";
 
 /**
+ * Builds the request middleware.ts continues processing with, after appProxy() has run.
+ *
+ * appProxy()'s catch-all branch (the common case for any first-touch page) signals "this
+ * request was rewritten" by setting `x-skout-proxied` and `Location` on its NextResponse.next()
+ * — it does not carry the browser's real headers, including `cookie`. Building the continuation
+ * request from `proxyResponse.headers` instead of the ORIGINAL `request.headers` silently drops
+ * every cookie (Clerk's session cookie included), so downstream auth (clerkMiddleware,
+ * getServerSession) always sees a signed-out request server-side even when the browser has a
+ * valid session — a split-brain that produces a same-page redirect loop. Always base headers on
+ * the original request; only the URL and the proxied marker come from the signal.
+ */
+export function buildProcessedRequest(request: NextRequestType, proxyResponse: NextResponse | null): NextRequestType {
+  const proxiedMarker = proxyResponse?.headers.get("x-skout-proxied");
+  if (!proxiedMarker) return request;
+
+  const url = proxyResponse?.headers.get("Location") || request.url;
+  const processed = new NextRequest(url, { headers: new Headers(request.headers) });
+  processed.headers.set("x-skout-proxied", proxiedMarker);
+  return processed;
+}
+
+/**
  * oversizedWorkspaceRedirect - works around Clerk handshake JWTs blowing up header limits (HTTP 431)
  * When Clerk's workspace token is too large to fit in headers, this cleans up the query parameters
  * to prevent header overflow
