@@ -11,7 +11,7 @@ export function isGatePath(pathname: string): boolean {
 }
 
 /**
- * Clerk handshake JWTs stuffed into `next` make `/app/gate` URLs exceed proxy
+ * An oversized OAuth handshake or token stuffed into `next` make `/app/gate` URLs exceed proxy
  * header limits (HTTP 431). Keep a short relative path. `redirect()` also
  * prefixes basePath (`/app`), so strip a leading `/app`.
  */

@@ -1,4 +1,4 @@
-import { ApiError, getClerkApiToken } from "./api-client";
+import { ApiError, getApiAuthToken } from "./api-client";
 import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 
 /** Dev/prod often expose CRM routes on the same API Gateway host as the main API (ALB path rules). */
@@ -32,7 +32,7 @@ export function getCrmApiBase(): string {
 
 /**
  * Authenticated fetch against the CRM service. Same auth mechanics as `apiFetch`
- * (Clerk Bearer token or `x-stub-user-email`), but the CRM service resolves the
+ * (a Bearer token or `x-stub-user-email`), but the CRM service resolves the
  * workspace server-side from the authenticated user — no `X-Workspace-Id` header
  * is sent or accepted here, unlike the main API's `WORKSPACE_ID` constant pattern.
  */
@@ -81,7 +81,7 @@ export async function crmApiFetch<T>(
   return res.json() as Promise<T>;
 }
 
-async function waitForClerkLoaded(isLoaded: boolean, getIsLoaded: () => boolean): Promise<void> {
+async function waitForAuthLoaded(isLoaded: boolean, getIsLoaded: () => boolean): Promise<void> {
   if (isLoaded) return;
   const start = Date.now();
   while (!getIsLoaded()) {
@@ -98,13 +98,13 @@ function useCrmServiceFetchAdapter() {
   const getAccessToken = adapter.useGetAccessToken();
 
   return async function fetchWithAuth<T>(path: string, options?: RequestInit): Promise<T> {
-    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
+    await waitForAuthLoaded(session.isLoaded, () => session.isLoaded);
 
     if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => getAccessToken());
+    const authToken = await getApiAuthToken(() => getAccessToken());
 
     return crmApiFetch<T>(path, { ...options, authToken });
   };

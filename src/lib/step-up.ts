@@ -6,12 +6,11 @@ interface StepUpResponse {
   data: { reauthToken: string; issuedAt: string; expiresInMinutes: number };
 }
 
-/** AUTH-FE-12 — POST /api/v1/auth/step-up (AUTH-BE-27). Password re-auth for own-auth users;
- *  a pre-verified Clerk token for Clerk users during dual-verify. */
+/** AUTH-FE-12 — POST /api/v1/auth/step-up (AUTH-BE-27). Password re-auth for own-auth users. */
 export function useStepUpApi() {
   const fetchApi = useApiFetch();
   return {
-    reauthenticate: (credentials: { password: string } | { clerkToken: string }) =>
+    reauthenticate: (credentials: { password: string }) =>
       fetchApi<StepUpResponse>("/api/v1/auth/step-up", {
         method: "POST",
         body: JSON.stringify(credentials),

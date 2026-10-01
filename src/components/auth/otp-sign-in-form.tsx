@@ -23,7 +23,7 @@ async function sendOtp(email: string): Promise<void> {
 }
 
 // FE-09: 6-digit OTP entry with paste support and a resend cooldown. Also the "email me a
-// code" path for Clerk magic-link users who have no password to sign in with.
+// code" path for users who have no password to sign in with.
 export function OtpSignInForm() {
   const router = useRouter();
   const [step, setStep] = useState<"email" | "code">("email");

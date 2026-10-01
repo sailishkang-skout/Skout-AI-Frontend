@@ -240,7 +240,7 @@ describe("AUTH-FE-02 auth error classification", () => {
 
     it("does not retry Invalid authorization token without expired code", () => {
       expect(isRetryableAuthError(apiErr(401, "Invalid authorization token"))).toBe(false);
-      expect(isRetryableAuthError(apiErr(401, "Invalid Clerk token"))).toBe(false);
+      expect(isRetryableAuthError(apiErr(401, "Invalid session token"))).toBe(false);
     });
 
     it("retries jwt expired message without code", () => {
@@ -279,7 +279,7 @@ describe("AUTH-FE-02 auth error classification", () => {
     });
 
     it("falls back to generic 401 copy for unknown legacy bodies", () => {
-      expect(formatQueryError(apiErr(401, "Invalid Clerk token"), "fallback")).toMatch(
+      expect(formatQueryError(apiErr(401, "Invalid session token"), "fallback")).toMatch(
         /could not be verified/i
       );
     });

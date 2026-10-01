@@ -1,4 +1,3 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextFetchEvent } from "next/server";
 import { NextResponse, NextRequest } from "next/server";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
@@ -13,20 +12,14 @@ import { appProxy, buildProcessedRequest } from "@/lib/app-proxy";
  * Next does NOT strip that prefix from request.nextUrl.pathname inside middleware, so every
  * pattern must carry it too. CRITICAL BUG found while full-testing SP-11/SP-12: without this
  * prefix, `isProtectedRoute` silently matched nothing (pathname was always "/app/..." against
- * patterns starting "/dashboard", "/settings", etc.), so `auth().protect()` never ran and every
- * dashboard route was reachable signed-out at the middleware layer.
+ * patterns starting "/dashboard", "/settings", etc.), so the own-auth check below never ran and
+ * every dashboard route was reachable signed-out at the middleware layer.
  */
-const isProtectedRoute = createRouteMatcher(PROTECTED_ROUTE_PATTERNS);
+function isProtectedRoute(request: NextRequest): boolean {
+  return PROTECTED_ROUTE_PATTERNS.some((p) => new RegExp(`^${p}$`).test(request.nextUrl.pathname));
+}
 
-// Determine auth mode once at module load
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE;
-const isClerkMode = AUTH_MODE !== "custom";
-const useClerkMiddleware =
-  isClerkMode &&
-  process.env.E2E_AUTH_BYPASS !== "true" &&
-  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
-// JWKS setup for custom mode
+// JWKS setup for own-auth session verification
 let remoteJwks: { base: string; keySet: JWTVerifyGetKey } | null = null;
 function jwksFor(base: string): JWTVerifyGetKey {
   if (!remoteJwks || remoteJwks.base !== base) {
@@ -35,7 +28,6 @@ function jwksFor(base: string): JWTVerifyGetKey {
   return remoteJwks.keySet;
 }
 
-// Custom session verification for custom mode
 async function verifySessionCookie(token: string): Promise<boolean> {
   const base = authApiBase();
   if (!base) return false;
@@ -52,24 +44,11 @@ async function verifySessionCookie(token: string): Promise<boolean> {
   }
 }
 
-const clerkMiddlewareOptions = {
-  signInUrl: process.env.CLERK_SIGN_IN_URL ?? process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
-  signUpUrl: process.env.CLERK_SIGN_UP_URL ?? process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,
-};
-
-const clerkHandler = useClerkMiddleware
-  ? clerkMiddleware(async (auth, request) => {
-      if (isProtectedRoute(request)) {
-        auth().protect();
-      }
-    }, clerkMiddlewareOptions)
-  : null;
-
 /**
- * When behind API Gateway → ALB, Clerk must build handshake redirects against the
- * public HTTPS origin, not the internal ALB host. We only override the forwarded
- * headers Clerk reads — we do NOT rewrite `nextUrl`, which would make Next.js try to
- * proxy to an external origin (causing request stalls / loops).
+ * When behind API Gateway → ALB, own-auth's JWKS fetch and any redirect built from request.url
+ * must use the public HTTPS origin, not the internal ALB host. We only override the forwarded
+ * headers — we do NOT rewrite `nextUrl`, which would make Next.js try to proxy to an external
+ * origin (causing request stalls / loops).
  */
 function requestWithPublicOrigin(request: NextRequest): NextRequest {
   const publicOrigin =
@@ -90,7 +69,7 @@ function requestWithPublicOrigin(request: NextRequest): NextRequest {
   }
 }
 
-/** ALB health checks hit `/` with no cookies — never run Clerk for them. */
+/** ALB health checks hit `/` with no cookies — never run auth checks for them. */
 function isHealthCheck(request: NextRequest): boolean {
   const ua = request.headers.get("user-agent") ?? "";
   return ua.startsWith("ELB-HealthChecker");
@@ -99,7 +78,7 @@ function isHealthCheck(request: NextRequest): boolean {
 /**
  * Temporary shared-secret gate in front of the whole app (real users hitting sign-up while
  * we're not ready for them). Set GATE_TOKEN to enable; unset it to disable entirely — nothing
- * else changes. Runs before Clerk so it also blocks the sign-in/sign-up pages themselves.
+ * else changes. Runs before the auth check so it also blocks the sign-in/sign-up pages themselves.
  * See src/app/gate/ and src/lib/gate.ts.
  */
 async function gateCheck(request: NextRequest): Promise<NextResponse | null> {
@@ -111,7 +90,7 @@ async function gateCheck(request: NextRequest): Promise<NextResponse | null> {
   if (cookie && cookie === (await hashGateToken(gateToken))) return null;
 
   // .clone() (not `new URL(path, request.url)`) so basePath ("/app") is preserved.
-  // Never copy Clerk handshake / other query params into `next` — that 431s proxies.
+  // Never copy a handshake or other oversized query params into `next` — that 431s proxies.
   const gateUrl = request.nextUrl.clone();
   gateUrl.pathname = "/gate";
   gateUrl.search = "";
@@ -119,12 +98,12 @@ async function gateCheck(request: NextRequest): Promise<NextResponse | null> {
   return NextResponse.redirect(gateUrl);
 }
 
-export default async function middleware(request: NextRequest, event: NextFetchEvent) {
+export default async function middleware(request: NextRequest, _event: NextFetchEvent) {
   if (isHealthCheck(request)) {
     return NextResponse.next();
   }
-  
-  // Run app proxy logic first - handles Clerk path rewrites, sign-in redirects, oversized payloads
+
+  // Run app proxy logic first - handles sign-in path redirects, oversized payloads
   const proxyResponse = await appProxy(request);
   // appProxy() overloads the "Location" header two ways: a real redirect (NextResponse.redirect,
   // status 3xx — oversized-payload workaround, /app/signin -> /app/sign-in loop avoidance) that
@@ -137,53 +116,43 @@ export default async function middleware(request: NextRequest, event: NextFetchE
   if (proxyResponse && proxyResponse.status >= 300 && proxyResponse.status < 400) {
     return proxyResponse;
   }
-  
+
   // See buildProcessedRequest's own comment — it preserves the browser's real headers (cookies
   // included), which building this from `proxyResponse.headers` used to silently drop.
   let processedRequest = buildProcessedRequest(request, proxyResponse);
 
-  // Runs regardless of auth mode — the gate's whole point is to block access
-  // before any auth check, so it must not get skipped.
+  // Runs regardless — the gate's whole point is to block access before any auth check, so it
+  // must not get skipped.
   const gated = await gateCheck(processedRequest);
   if (gated) return gated;
 
   // Process with public origin header
   processedRequest = requestWithPublicOrigin(processedRequest);
 
-  // Clerk mode - use existing clerk middleware
-  if (clerkHandler) {
-    return clerkHandler(processedRequest, event);
-  }
+  // Own-auth protected-route check (Clerk removed — AUTH-FE-18).
+  if (isProtectedRoute(processedRequest)) {
+    const sessionToken = processedRequest.cookies.get(SESSION_COOKIE)?.value;
+    const isAuthenticated = sessionToken ? await verifySessionCookie(sessionToken) : false;
 
-  // Custom mode - implement our own auth check
-  if (!isClerkMode) {
-    // Check if this is a protected route
-    if (isProtectedRoute(processedRequest)) {
-      // Get session cookie
-      const sessionToken = processedRequest.cookies.get(SESSION_COOKIE)?.value;
-      const isAuthenticated = sessionToken ? await verifySessionCookie(sessionToken) : false;
+    if (!isAuthenticated) {
+      // Any real user still carrying a pre-cutover Clerk cookie needs to be told their old
+      // session ended, not just silently bounced to sign-in — kept for that transition window,
+      // independent of the (now-removed) Clerk SDK itself.
+      const hasStaleClerkCookies = processedRequest.cookies.getAll().some(
+        (cookie) => cookie.name.startsWith("__clerk_") || cookie.name.startsWith("clerk_")
+      );
 
-      if (!isAuthenticated) {
-        // Check if there's an existing Clerk session (any Clerk cookie exists)
-        const hasClerkCookies = processedRequest.cookies.getAll().some(cookie => 
-          cookie.name.startsWith('__clerk_') || cookie.name.startsWith('clerk_')
-        );
-        
-        // Redirect to sign-in page with validated next parameter
-        const signInUrl = processedRequest.nextUrl.clone();
-        signInUrl.pathname = `${APP_BASE_PATH}/sign-in`;
-        signInUrl.search = "";
-        // Use safeNextPath to prevent open redirects
-        const nextPath = safeNextPath(processedRequest.nextUrl.pathname);
-        if (nextPath) {
-          signInUrl.searchParams.set("next", nextPath);
-        }
-        // Add clerk_session_ended flag if we detected an existing Clerk session that needs migration
-        if (hasClerkCookies) {
-          signInUrl.searchParams.set("clerk_session_ended", "true");
-        }
-        return NextResponse.redirect(signInUrl);
+      const signInUrl = processedRequest.nextUrl.clone();
+      signInUrl.pathname = `${APP_BASE_PATH}/sign-in`;
+      signInUrl.search = "";
+      const nextPath = safeNextPath(processedRequest.nextUrl.pathname);
+      if (nextPath) {
+        signInUrl.searchParams.set("next", nextPath);
       }
+      if (hasStaleClerkCookies) {
+        signInUrl.searchParams.set("clerk_session_ended", "true");
+      }
+      return NextResponse.redirect(signInUrl);
     }
   }
 
@@ -195,6 +164,5 @@ export const config = {
   matcher: [
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
-    "/__clerk/(.*)",
   ],
 };

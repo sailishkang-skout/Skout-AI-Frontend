@@ -1,6 +1,5 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
 import {
   MutationCache,
   QueryCache,
@@ -9,14 +8,13 @@ import {
 } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, isRetryableAuthError } from "@/lib/api-client";
-import { getAppOrigin } from "@/lib/app-url";
 import { createClientLogger, logAndCapture } from "@/lib/logger";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { CreditsModalProvider } from "@/components/credits/insufficient-credits-modal";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { ExtensionAuthSync } from "@/components/extension-auth-sync";
 import { StubExtensionAuthSync } from "@/components/stub-extension-auth-sync";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, resolvedAuthMode } from "@/lib/auth";
 
 const log = createClientLogger("react-query");
 
@@ -52,44 +50,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  const appOrigin = getAppOrigin();
-
-  if (!publishableKey) {
-    return (
-      <ThemeProvider>
-        <PostHogProvider>
-          <AuthProvider>
-            <StubExtensionAuthSync />
-            <CreditsModalProvider>
-              <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-            </CreditsModalProvider>
-          </AuthProvider>
-        </PostHogProvider>
-      </ThemeProvider>
-    );
-  }
-
   return (
     <ThemeProvider>
       <PostHogProvider>
-        <ClerkProvider
-          publishableKey={publishableKey}
-          signInUrl="/app/sign-in"
-          signUpUrl="/app/sign-in"
-          signInFallbackRedirectUrl="/app/auth/callback"
-          signUpFallbackRedirectUrl="/app/auth/callback"
-          {...(appOrigin
-            ? { allowedRedirectOrigins: [appOrigin] as [string, ...string[]] }
-            : {})}
-        >
-          <AuthProvider>
-            <ExtensionAuthSync />
-            <CreditsModalProvider>
-              <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-            </CreditsModalProvider>
-          </AuthProvider>
-        </ClerkProvider>
+        <AuthProvider>
+          {resolvedAuthMode === "custom" ? <ExtensionAuthSync /> : <StubExtensionAuthSync />}
+          <CreditsModalProvider>
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          </CreditsModalProvider>
+        </AuthProvider>
       </PostHogProvider>
     </ThemeProvider>
   );

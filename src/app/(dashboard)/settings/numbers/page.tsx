@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { formatQueryError, useAuthReady, CLERK_ENABLED, ApiError } from "@/lib/api-client";
+import { formatQueryError, useAuthReady, AUTH_ENABLED, ApiError } from "@/lib/api-client";
 import { useNumbersApi, type AvailableNumber, type NumberRequest } from "@/lib/numbers";
 import { phoneAreaCodesFor, phoneCitiesFor, usesLocalGeo } from "@/lib/phone-geo";
 import { COUNTRIES } from "@/lib/search-constants";
@@ -113,7 +113,7 @@ function requestTone(status: string) {
 
 export default function NumbersMarketplacePage() {
   const authReady = useAuthReady();
-  const canFetch = CLERK_ENABLED ? authReady : true;
+  const canFetch = AUTH_ENABLED ? authReady : true;
   const api = useNumbersApi();
   const queryClient = useQueryClient();
   const requestsCardRef = useRef<HTMLDivElement>(null);
@@ -245,7 +245,7 @@ export default function NumbersMarketplacePage() {
     compliance.error ??
     upload.error;
   const hideAuthNoise =
-    actionError instanceof ApiError && actionError.status === 401 && (!CLERK_ENABLED || !authReady);
+    actionError instanceof ApiError && actionError.status === 401 && (!AUTH_ENABLED || !authReady);
 
   const pendingIds = useMemo(
     () =>

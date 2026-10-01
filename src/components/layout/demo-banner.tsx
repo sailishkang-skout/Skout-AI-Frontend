@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { CLERK_ENABLED } from "@/lib/api-client";
+import { AUTH_ENABLED } from "@/lib/api-client";
 
-/** Lightweight banner for local / E2E runs without Clerk. */
+/** Lightweight banner for local / E2E runs without a real auth session. */
 export function DemoBanner() {
-  if (CLERK_ENABLED) return null;
+  if (AUTH_ENABLED) return null;
 
   return (
     <div

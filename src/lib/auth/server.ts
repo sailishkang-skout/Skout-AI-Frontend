@@ -1,13 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { SESSION_COOKIE, authApiBase } from "./bff";
 
-type ClerkAuth = Awaited<ReturnType<typeof auth>>;
-
 export type ServerSession = {
   userId: string | null;
-  getToken: ClerkAuth["getToken"];
+  getToken: (options?: { template?: string }) => Promise<string | null>;
 };
 
 let remoteJwks: { base: string; keySet: JWTVerifyGetKey } | null = null;
@@ -48,19 +45,11 @@ async function verifySessionCookie(token: string): Promise<string | null> {
   }
 }
 
-/** Server session for App Router server components: Clerk today, own-auth when
- *  NEXT_PUBLIC_AUTH_MODE=custom (reads the cookie set by the /api/auth route handlers). */
+/** Server session for App Router server components: own-auth (reads the cookie set by the
+ *  /api/auth route handlers), verified against the API's public JWKS (BE-12). */
 export async function getServerSession(): Promise<ServerSession> {
-  if (process.env.NEXT_PUBLIC_AUTH_MODE === "custom") {
-    const token = cookies().get(SESSION_COOKIE)?.value ?? null;
-    const userId = token ? await verifySessionCookie(token) : null;
-    const getToken = (async () => (userId ? token : null)) as ClerkAuth["getToken"];
-    return { userId, getToken };
-  }
-
-  const { userId, getToken } = await auth();
-  return {
-    userId: userId ?? null,
-    getToken,
-  };
+  const token = cookies().get(SESSION_COOKIE)?.value ?? null;
+  const userId = token ? await verifySessionCookie(token) : null;
+  const getToken = async () => (userId ? token : null);
+  return { userId, getToken };
 }

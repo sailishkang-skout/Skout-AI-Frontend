@@ -2,13 +2,11 @@
 
 import { createContext, useContext, ReactNode } from "react";
 import type { AuthAdapter } from "./index";
-import { resolvedAuthMode, ClerkAuthAdapter, StubAuthAdapter, CustomAuthAdapter } from "./index";
+import { resolvedAuthMode, StubAuthAdapter, CustomAuthAdapter } from "./index";
 
 // Create the adapter based on resolved auth mode
 function createAdapter(): AuthAdapter {
   switch (resolvedAuthMode) {
-    case "clerk":
-      return ClerkAuthAdapter;
     case "custom":
       return CustomAuthAdapter;
     case "stub":

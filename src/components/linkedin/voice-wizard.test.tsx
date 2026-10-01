@@ -35,7 +35,7 @@ vi.mock("@/lib/api-client", () => ({
       ],
     }),
   useAuthReady: () => true,
-  CLERK_ENABLED: false,
+  AUTH_ENABLED: false,
 }));
 
 describe("LinkedinVoiceWizard", () => {

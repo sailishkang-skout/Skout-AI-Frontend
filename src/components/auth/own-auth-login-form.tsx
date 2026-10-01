@@ -44,7 +44,7 @@ export function OwnAuthLoginForm() {
   const loginMut = useMutation({
     mutationFn: () => customSignIn({ email: email.trim(), password }),
     onSuccess: () => {
-      // Same landing decision as Clerk's flow: onboarding vs dashboard.
+      // Same landing decision as the main login flow: onboarding vs dashboard.
       router.push("/auth/callback");
     },
   });

@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-/** Local dev without Clerk — exposes a stub bridge for the Chrome extension. */
+/** Local dev / E2E stub mode — exposes a stub bridge for the Chrome extension. */
 export function StubExtensionAuthSync() {
   useEffect(() => {
     window.__SKOUT_EXTENSION_BRIDGE__ = {

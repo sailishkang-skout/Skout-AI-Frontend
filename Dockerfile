@@ -15,19 +15,14 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_CRM_API_URL
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-ARG CLERK_SECRET_KEY
 ARG GATE_TOKEN
-# AUTH-ADI-18 — src/lib/auth/index.ts falls back to "clerk" when unset, so a build that omits
-# this arg (every workflow, until AUTH-ADI-15/17 turn a given environment over) behaves exactly
-# as before this arg existed.
-ARG NEXT_PUBLIC_AUTH_MODE=clerk
+# Clerk removed (AUTH-FE-18) — custom auth is the only mode now; kept as a build arg (rather than
+# hardcoded) only so a workflow can still override it, not because another real value exists.
+ARG NEXT_PUBLIC_AUTH_MODE=custom
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# Do not fall back to API URL — that breaks Clerk redirects / app origin.
+# Do not fall back to API URL — that breaks own-auth redirects / app origin.
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_CRM_API_URL=${NEXT_PUBLIC_CRM_API_URL}
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
 ENV GATE_TOKEN=$GATE_TOKEN
 ENV NEXT_PUBLIC_AUTH_MODE=$NEXT_PUBLIC_AUTH_MODE
 # Edge middleware cannot read runtime env. Write a string literal (heredoc is
@@ -59,9 +54,7 @@ NODE
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ARG CLERK_SECRET_KEY
 ARG GATE_TOKEN
-ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
 ENV GATE_TOKEN=$GATE_TOKEN
 RUN addgroup -S skout && adduser -S skout -G skout
 COPY --from=build /app/public ./public

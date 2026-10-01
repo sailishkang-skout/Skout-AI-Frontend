@@ -2,11 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
-  oversizedWorkspaceRedirect,
   stripDomainFromSetCookie,
   processResponseCookies,
   handleSignInPathMapping,
-  rewriteClerkPaths,
   validateOwnAuthCookies,
   appProxy,
   buildProcessedRequest
@@ -49,43 +47,6 @@ describe("app-proxy", () => {
         headers: { "x-skout-proxied": "true" }
       });
       const response = handleSignInPathMapping(request);
-      
-      expect(response).toBeNull();
-    });
-  });
-
-  describe("rewriteClerkPaths", () => {
-    it("rewrites /__clerk/ paths to /app/__clerk/", () => {
-      const request = new NextRequest("https://www.skoutai.io/__clerk/handshake");
-      const rewritten = rewriteClerkPaths(request);
-      
-      expect(rewritten).not.toBeNull();
-      expect(rewritten?.nextUrl.pathname).toBe("/app/__clerk/handshake");
-      expect(rewritten?.headers.get("x-skout-proxied")).toBe("true");
-    });
-
-    it("does not modify non-Clerk paths", () => {
-      const request = new NextRequest("https://www.skoutai.io/app/dashboard");
-      const rewritten = rewriteClerkPaths(request);
-      
-      expect(rewritten).toBeNull();
-    });
-  });
-
-  describe("oversizedWorkspaceRedirect", () => {
-    it("cleans up query parameters when __clerk_ticket is present to prevent 431 errors", () => {
-      const request = new NextRequest("https://www.skoutai.io/app?__clerk_ticket=abc123&__clerk_redirect=https://example.com/long/path");
-      const response = oversizedWorkspaceRedirect(request);
-      
-      expect(response).not.toBeNull();
-      const location = response?.headers.get("Location");
-      expect(location).toContain("__clerk_ticket=abc123");
-      expect(location).not.toContain("__clerk_redirect");
-    });
-
-    it("returns null for requests without Clerk handshake parameters", () => {
-      const request = new NextRequest("https://www.skoutai.io/app/dashboard");
-      const response = oversizedWorkspaceRedirect(request);
       
       expect(response).toBeNull();
     });
@@ -152,11 +113,9 @@ describe("app-proxy", () => {
       expect(response.status).not.toBeGreaterThanOrEqual(300);
     });
 
-    it("a genuine redirect (the oversized-handshake workaround) does carry a 3xx status", () => {
-      const request = new NextRequest(
-        "https://www.skoutai.io/app/gate?__clerk_ticket=abc&__clerk_redirect=1"
-      );
-      const response = oversizedWorkspaceRedirect(request);
+    it("a genuine redirect (the /app/signin -> /app/sign-in loop-avoidance workaround) does carry a 3xx status", () => {
+      const request = new NextRequest("https://www.skoutai.io/app/signin");
+      const response = handleSignInPathMapping(request);
 
       expect(response).not.toBeNull();
       expect(response!.status).toBeGreaterThanOrEqual(300);
@@ -166,25 +125,25 @@ describe("app-proxy", () => {
   });
 
   describe("buildProcessedRequest — cookies must survive the internal rewrite signal (regression, 2026-09-30)", () => {
-    it("preserves the browser's cookie header (Clerk session included) when appProxy signaled a rewrite", async () => {
+    it("preserves the browser's cookie header (session cookie included) when appProxy signaled a rewrite", async () => {
       const request = new NextRequest("https://www.skoutai.io/app/sign-in", {
-        headers: { cookie: "__session=real-clerk-session-value; __client_uat=123" },
+        headers: { cookie: "skout_app_session=real-session-value; skout_app_csrf=123" },
       });
       const proxyResponse = await appProxy(request);
 
       const processed = buildProcessedRequest(request, proxyResponse);
 
       // This is the exact bug: building the continuation request from proxyResponse.headers
-      // instead of request.headers silently dropped this, so clerkMiddleware/getServerSession
-      // always saw a signed-out request even when the browser genuinely had a session — a
-      // split-brain that produced a same-page redirect loop on /app/auth/callback.
-      expect(processed.headers.get("cookie")).toBe("__session=real-clerk-session-value; __client_uat=123");
+      // instead of request.headers silently dropped this, so getServerSession always saw a
+      // signed-out request even when the browser genuinely had a session — a split-brain that
+      // produced a same-page redirect loop on /app/auth/callback.
+      expect(processed.headers.get("cookie")).toBe("skout_app_session=real-session-value; skout_app_csrf=123");
       expect(processed.headers.get("x-skout-proxied")).toBe("true");
     });
 
     it("passes the original request through untouched when appProxy did not signal a rewrite", () => {
       const request = new NextRequest("https://www.skoutai.io/app/sign-in", {
-        headers: { cookie: "__session=abc", "x-skout-proxied": "true" },
+        headers: { cookie: "skout_app_session=abc", "x-skout-proxied": "true" },
       });
       const processed = buildProcessedRequest(request, null);
       expect(processed).toBe(request);
