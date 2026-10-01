@@ -50,7 +50,7 @@ export function OwnAuthLoginForm() {
   });
 
   return (
-    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
+    <div className="auth-card w-full max-w-[min(100vw-2rem,26rem)] rounded-3xl border border-white/10 bg-[rgba(14,11,32,0.78)] p-6 shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
       <h1 className="text-xl font-semibold">Sign in to Skout</h1>
 
       {googleError && (

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700;800&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -109,37 +109,110 @@
   scrollbar-color: hsl(var(--border)) transparent;
 }
 
-/* Auth pages (sign-in / sign-up) backdrop — see components/auth/auth-shell.tsx */
-.auth-grid {
-  background-image:
-    linear-gradient(to right, hsl(260 80% 80% / 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, hsl(260 80% 80% / 0.07) 1px, transparent 1px);
-  background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 100%);
+/* Auth pages — see components/auth/auth-shell.tsx. Everything is scoped under .auth-scope so the
+   shared Input/Button components keep their normal look elsewhere in the app. */
+.auth-mark {
+  position: relative;
+  width: 260px;
+  aspect-ratio: 1.4;
+  margin-bottom: -6px;
 }
-.auth-orb {
-  border-radius: 9999px;
-  filter: blur(90px);
-  animation: auth-drift 18s ease-in-out infinite alternate;
-}
-.auth-orb-slow {
-  animation-duration: 26s;
-}
-.auth-orb-delay {
-  animation-duration: 22s;
-  animation-delay: -9s;
-}
-@keyframes auth-drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(60px, -40px, 0) scale(1.15);
+@media (max-height: 940px) {
+  .auth-mark {
+    width: 150px;
   }
 }
+@media (max-width: 520px) {
+  .auth-mark {
+    width: 104px;
+    margin-bottom: -14px;
+  }
+}
+@media (max-height: 700px) {
+  .auth-mark {
+    display: none;
+  }
+}
+
+.auth-scope h1 {
+  font-family: "Instrument Serif", "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(2rem, 3.4vw, 2.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.auth-scope .auth-card input:not([type="checkbox"]) {
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  background: #0c0a1d;
+  border-color: rgba(160, 150, 255, 0.18);
+  font-size: 0.9375rem;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.auth-scope .auth-card input:not([type="checkbox"]):focus-visible {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18), 0 10px 40px -12px rgba(99, 102, 241, 0.6);
+}
+.auth-scope .auth-card :is(button, a).w-full {
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.3s, background-color 0.3s;
+}
+.auth-scope .auth-card :is(button, a).w-full:hover {
+  transform: translateY(-1px);
+}
+.auth-scope .auth-card button[type="submit"].w-full {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #5b5cf0, #8b5cf6 60%, #a78bfa);
+  box-shadow: 0 12px 36px -10px rgba(99, 102, 241, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.auth-scope .auth-card button[type="submit"].w-full:hover:not(:disabled) {
+  box-shadow: 0 16px 48px -8px rgba(99, 102, 241, 1), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.auth-scope .auth-card button[type="submit"].w-full::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 0.8s;
+  pointer-events: none;
+}
+.auth-scope .auth-card button[type="submit"].w-full:hover:not(:disabled)::before {
+  transform: translateX(120%);
+}
+
+/* Sign up fits one screen: two-column name/email, tighter rhythm. */
+.auth-scope .auth-signup h1 {
+  font-size: clamp(1.875rem, 3.4vw, 2.375rem);
+}
+.auth-scope .auth-signup form {
+  gap: 0.75rem;
+}
+.auth-scope .auth-signup form > div {
+  gap: 0.3rem;
+}
+@media (max-width: 520px) {
+  .auth-scope .auth-signup {
+    padding: 1.125rem;
+  }
+  .auth-scope .auth-signup h1 {
+    font-size: 1.75rem;
+  }
+}
+@media (max-height: 700px) {
+  .auth-scope .auth-signup #signup-password-hint {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .auth-orb {
-    animation: none;
+  .auth-scope .auth-card :is(button, a).w-full {
+    transition: none;
   }
 }
