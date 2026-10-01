@@ -31,8 +31,9 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    // Rewrites (not redirects) so /app/signin serves Clerk without a 307 — avoids a proxy loop
-    // on www.skoutai.io when the marketing site maps /app/sign-in ↔ /app/signin in Location.
+    // Rewrites (not redirects) so /app/signin serves the sign-in page without a 307 — avoids a
+    // proxy loop on www.skoutai.io when the marketing site maps /app/sign-in ↔ /app/signin in
+    // Location.
     return [
       { source: "/signin", destination: "/sign-in" },
       { source: "/signin/:path*", destination: "/sign-in/:path*" },
@@ -41,17 +42,13 @@ const nextConfig = {
     ];
   },
   env: {
-    // Exposed to client so E2E can skip Clerk + onboarding gates (see icp-enforcement.tsx).
+    // Exposed to client so E2E can skip the sign-in + onboarding gates (see icp-enforcement.tsx).
     E2E_AUTH_BYPASS: process.env.E2E_AUTH_BYPASS ?? "",
     // Production behind the shared ALB uses relative /api/* (same origin, no CORS).
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ??
       (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001"),
     NEXT_PUBLIC_APP_URL: appUrl,
-    NEXT_PUBLIC_CLERK_SIGN_IN_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || `${appUrl.replace(/\/$/, "")}/sign-in`,
-    NEXT_PUBLIC_CLERK_SIGN_UP_URL:
-      process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || `${appUrl.replace(/\/$/, "")}/sign-up`,
   },
   experimental: {
     serverActions: {

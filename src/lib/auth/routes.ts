@@ -1,5 +1,12 @@
-import { createRouteMatcher } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
+
+/** Every pattern in this file is a literal regex fragment (e.g. "/app/dashboard(.*)"), not a
+ *  glob — this just anchors and compiles each one, replacing Clerk's `createRouteMatcher` (which
+ *  did nothing Clerk-specific here, only this same regex matching) now that Clerk is removed. */
+function createSimpleRouteMatcher(patterns: string[]): (request: NextRequest) => boolean {
+  const regexes = patterns.map((p) => new RegExp(`^${p}$`));
+  return (request: NextRequest) => regexes.some((r) => r.test(request.nextUrl.pathname));
+}
 
 /**
  * next.config.mjs sets basePath: "/app" — Next does NOT strip that prefix from
@@ -36,7 +43,7 @@ export const PROTECTED_ROUTE_SUFFIXES = [
   "/intelligence(.*)",
   "/signals(.*)",
   // R19.3 — CRO Copilot. Deliberately NOT "/admin(.*)" — /admin/import uses its own
-  // static-secret auth (see docs/tickets) and must stay outside Clerk's protection.
+  // static-secret auth (see docs/tickets) and must stay outside the protected-route gate.
   "/admin/cro(.*)",
   "/admin/control-plane(.*)",
   // Found missing while full-testing SP-11/SP-12: these rendered the dashboard shell for
@@ -91,8 +98,8 @@ export function withAppBasePath(paths: string[]): string[] {
 export const PUBLIC_ROUTE_PATTERNS = withAppBasePath(PUBLIC_ROUTE_SUFFIXES);
 export const PROTECTED_ROUTE_PATTERNS = withAppBasePath(PROTECTED_ROUTE_SUFFIXES);
 
-const isPublicRouteMatcher = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);
-const isProtectedRouteMatcher = createRouteMatcher(PROTECTED_ROUTE_PATTERNS);
+const isPublicRouteMatcher = createSimpleRouteMatcher(PUBLIC_ROUTE_PATTERNS);
+const isProtectedRouteMatcher = createSimpleRouteMatcher(PROTECTED_ROUTE_PATTERNS);
 
 export function requestForPathname(pathname: string): NextRequest {
   return new NextRequest(new URL(`http://localhost${pathname}`));

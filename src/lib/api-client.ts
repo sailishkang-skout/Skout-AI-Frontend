@@ -7,6 +7,8 @@ import {
 import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 import { handleSessionRevoked } from "@/lib/auth/custom-auth-adapter";
 
+export { AUTH_ENABLED };
+
 const log = createClientLogger("api-client");
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
@@ -37,8 +39,6 @@ const API_URL = CONFIGURED_API_URL;
 // E2E_AUTH_BYPASS must select the same stub-auth branch as the middleware. Otherwise
 // local Playwright runs can bypass route protection but still leave authReady false,
 // disabling dashboard queries.
-// Keep CLERK_ENABLED for backward compatibility
-export const CLERK_ENABLED = AUTH_ENABLED;
 
 const AUTH_LOAD_POLL_MS = 25;
 const AUTH_LOAD_TIMEOUT_MS = 8_000;
@@ -94,7 +94,7 @@ const NON_RETRYABLE_AUTH_CODES = new Set<string>([
 function isClientAuthRaceMessage(message: string): boolean {
   return (
     message.includes("Auth is still loading") ||
-    message.includes("Missing Clerk session token") ||
+    message.includes("Missing session token") ||
     message.includes("Sign in required")
   );
 }
@@ -364,7 +364,7 @@ export async function apiFetchBlob(
   return res.blob();
 }
 
-async function waitForClerkLoaded(
+async function waitForAuthLoaded(
   isLoaded: boolean,
   getIsLoaded: () => boolean,
   timeoutMs = AUTH_LOAD_TIMEOUT_MS
@@ -379,8 +379,8 @@ async function waitForClerkLoaded(
   }
 }
 
-/** Resolve a Clerk session JWT for API calls (Bearer header). */
-export async function getClerkApiToken(
+/** Resolve the current session JWT for API calls (Bearer header). */
+export async function getApiAuthToken(
   getToken: (opts?: { skipCache?: boolean }) => Promise<string | null>
 ): Promise<string> {
   for (let attempt = 0; attempt < TOKEN_RETRY_ATTEMPTS; attempt++) {
@@ -388,7 +388,7 @@ export async function getClerkApiToken(
     if (token) return token;
     await new Promise((resolve) => setTimeout(resolve, TOKEN_RETRY_BASE_MS * (attempt + 1)));
   }
-  throw new ApiError("Missing Clerk session token — sign in again", 401);
+  throw new ApiError("Missing session token — sign in again", 401);
 }
 
 function useApiFetchAdapter() {
@@ -400,13 +400,13 @@ function useApiFetchAdapter() {
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<T> {
-    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
+    await waitForAuthLoaded(session.isLoaded, () => session.isLoaded);
 
     if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => getAccessToken());
+    const authToken = await getApiAuthToken(() => getAccessToken());
 
     try {
       return await apiFetch<T>(path, { ...options, authToken });
@@ -415,7 +415,7 @@ function useApiFetchAdapter() {
       // the time the backend verified it (very short TTL). Retry once with a forced
       // fresh token instead of resending the same stale one forever.
       if (!isJwtExpiredError(error)) throw error;
-      const freshToken = await getClerkApiToken(() => getAccessToken({ forceRefresh: true }));
+      const freshToken = await getApiAuthToken(() => getAccessToken({ forceRefresh: true }));
       return apiFetch<T>(path, { ...options, authToken: freshToken });
     }
   };
@@ -430,19 +430,19 @@ function useApiFetchBlobAdapter() {
     path: string,
     options?: RequestInit & { workspaceId?: string }
   ): Promise<Blob> {
-    await waitForClerkLoaded(session.isLoaded, () => session.isLoaded);
+    await waitForAuthLoaded(session.isLoaded, () => session.isLoaded);
 
     if (!session.isSignedIn) {
       throw new ApiError("Sign in required", 401);
     }
 
-    const authToken = await getClerkApiToken(() => getAccessToken());
+    const authToken = await getApiAuthToken(() => getAccessToken());
 
     try {
       return await apiFetchBlob(path, { ...options, authToken });
     } catch (error) {
       if (!isJwtExpiredError(error)) throw error;
-      const freshToken = await getClerkApiToken(() => getAccessToken({ forceRefresh: true }));
+      const freshToken = await getApiAuthToken(() => getAccessToken({ forceRefresh: true }));
       return apiFetchBlob(path, { ...options, authToken: freshToken });
     }
   };
@@ -454,7 +454,7 @@ function useApiFetchStub() {
     options?: RequestInit & { workspaceId?: string }
   ): Promise<T> {
     const headers = new Headers(options?.headers);
-    if (!CLERK_ENABLED) {
+    if (!AUTH_ENABLED) {
       headers.set("x-stub-user-email", "stub@example.com");
     }
     return apiFetch<T>(path, { ...options, headers });
@@ -467,7 +467,7 @@ function useApiFetchBlobStub() {
     options?: RequestInit & { workspaceId?: string }
   ): Promise<Blob> {
     const headers = new Headers(options?.headers);
-    if (!CLERK_ENABLED) {
+    if (!AUTH_ENABLED) {
       headers.set("x-stub-user-email", "stub@example.com");
     }
     return apiFetchBlob(path, { ...options, headers });

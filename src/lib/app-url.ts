@@ -1,7 +1,7 @@
 /** Public path prefix for the product UI on skoutai.io. */
 export const APP_BASE_PATH = "/app";
 
-/** Origin only (no /app). Used for Clerk allowedRedirectOrigins. */
+/** Origin only (no /app). */
 export function getAppOrigin(): string | undefined {
   if (typeof window !== "undefined") {
     return window.location.origin;

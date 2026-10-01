@@ -9,7 +9,7 @@ Next.js web app for the Skout AI GTM platform.
 | **Framework** | Next.js 14 (App Router), React 18, TypeScript |
 | **Styling** | Tailwind CSS, shadcn-style UI components |
 | **State** | TanStack Query (server state) |
-| **Auth** | Clerk (`@clerk/nextjs`) |
+| **Auth** | Own-auth (JWT access tokens + HttpOnly refresh cookie) |
 | **API** | REST → backend `@skout/api` (Fastify) |
 | **Observability** | `createClientLogger()` in `src/lib/logger.ts` (structured console; Sentry/PostHog optional) |
 | **Deploy** | Docker → AWS ECR → ECS (via backend CI/CD) |
@@ -55,8 +55,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Variable | Required? | Where to get |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | Yes | `http://127.0.0.1:3001` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | [Clerk Dashboard](https://dashboard.clerk.com) → API Keys |
-| `CLERK_SECRET_KEY` | Yes | Same Clerk page |
+| `NEXT_PUBLIC_AUTH_MODE` | Yes | `custom` |
 | `NEXT_PUBLIC_WORKSPACE_ID` | Yes (demo) | `00000000-0000-4000-8000-000000000001` after `pnpm db:seed` |
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional | [Sentry](https://sentry.io) → Frontend project → Client Keys |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Optional | [PostHog](https://posthog.com) → Project API key |

@@ -123,7 +123,7 @@ export function useImportApi() {
   };
 }
 
-/** Non-hook variant for the admin page, which authenticates with a static bearer token instead of Clerk. */
+/** Non-hook variant for the admin page, which authenticates with a static bearer token instead of a user session. */
 export function downloadSampleWithToken(format: "csv" | "xlsx", authToken: string): Promise<void> {
   return apiFetchBlob(`/api/v1/import/sample?format=${format}`, { authToken }).then((blob) =>
     triggerBlobDownload(blob, `skout-import-sample.${format}`)

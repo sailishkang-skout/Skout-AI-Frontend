@@ -13,7 +13,7 @@ function initials(name: string | undefined, email: string): string {
 }
 
 /**
- * AUTH-FE-13 — user menu (name/email, sign out), replacing Clerk's <UserButton>. Takes the
+ * AUTH-FE-13 — user menu (name/email, sign out), replacing the previous Clerk-based <UserButton>. Takes the
  * signed-in user and a sign-out action as props (rather than calling useAuthAdapter itself) so
  * each adapter can wire its own UserMenu slot without an import cycle back into lib/auth.
  */

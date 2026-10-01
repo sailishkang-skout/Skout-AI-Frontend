@@ -24,7 +24,7 @@ vi.mock("@/lib/team", () => ({
 vi.mock("@/lib/api-client", () => ({ getApiBase: () => "http://api.test" }));
 
 const { authModeState, useSessionMock, setCustomSession } = vi.hoisted(() => ({
-  authModeState: { mode: "stub" as "clerk" | "custom" | "stub" },
+  authModeState: { mode: "stub" as "custom" | "stub" },
   useSessionMock: vi.fn(() => ({ isLoaded: true, isSignedIn: false, user: null })),
   setCustomSession: vi.fn(),
 }));
@@ -133,8 +133,8 @@ describe("AcceptInvitePage (AUTH-FE-11)", () => {
     expect(screen.queryByText(/sign in to continue/i)).toBeNull();
   });
 
-  it("clerk mode: unchanged — still shows the 'sign in to continue' step, no session adopted", async () => {
-    authModeState.mode = "clerk";
+  it("stub mode: unchanged — still shows the 'sign in to continue' step, no session adopted", async () => {
+    authModeState.mode = "stub";
     renderPage();
     await verifyOtpAndSetPassword();
 

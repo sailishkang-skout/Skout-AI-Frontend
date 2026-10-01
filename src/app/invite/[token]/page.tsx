@@ -238,7 +238,7 @@ export default function AcceptInvitePage() {
               </div>
             )}
 
-            {/* OTP flow — always shown (independent of Clerk auth state) */}
+            {/* OTP flow — always shown (independent of auth mode) */}
             {otpStep === "idle" && (
               <div className="flex flex-col gap-4">
                 {sendOtpMut.isError && (

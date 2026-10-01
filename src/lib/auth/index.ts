@@ -22,12 +22,11 @@ export interface AuthAdapter {
   useSignOut: () => () => Promise<void>;
   UserMenu?: React.FC;
 }
-// Auth mode configuration
-export type AuthMode = "clerk" | "custom" | "stub";
+// Auth mode configuration — Clerk removed (AUTH-FE-18); custom auth is the only live mode
+// besides the dev/E2E "stub" bypass.
+export type AuthMode = "custom" | "stub";
 
-const AUTH_MODE = (process.env.NEXT_PUBLIC_AUTH_MODE as AuthMode) || "clerk";
 const E2E_AUTH_BYPASS = process.env.E2E_AUTH_BYPASS === "true";
-const HAS_CLERK_KEY = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 // Calculate which adapter to use - preserves existing behavior by default
 export function resolveAuthMode(): AuthMode {
@@ -36,32 +35,21 @@ export function resolveAuthMode(): AuthMode {
   if (isTestEnvironment) {
     return "stub";
   }
-  
+
   // If E2E auth bypass is enabled, always use stub
   if (E2E_AUTH_BYPASS) {
     return "stub";
   }
-  
-  // If we have a Clerk key and auth mode is clerk, use clerk
-  if (AUTH_MODE === "clerk" && HAS_CLERK_KEY) {
-    return "clerk";
-  }
-  
-  // If custom mode is explicitly set, use custom
-  if (AUTH_MODE === "custom") {
-    return "custom";
-  }
-  
+
   // Fallback to stub for any other case (preserves existing behavior)
-  return "stub";
+  return "custom";
 }
 
 export const resolvedAuthMode = resolveAuthMode();
 export const AUTH_ENABLED = resolvedAuthMode !== "stub";
 
 // Export adapter implementations
-import { ClerkAuthAdapter } from "./clerk-adapter";
 import { StubAuthAdapter } from "./stub-adapter";
 import { CustomAuthAdapter } from "./custom-auth-adapter";
-export { ClerkAuthAdapter, StubAuthAdapter, CustomAuthAdapter };
+export { StubAuthAdapter, CustomAuthAdapter };
 export { AuthProvider, useAuthAdapter, useAuthUserMenu } from "./auth-provider";

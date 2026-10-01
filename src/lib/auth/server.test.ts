@@ -1,14 +1,9 @@
 // @vitest-environment node
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { vi } from "vitest";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type KeyLike } from "jose";
 
-const authMock = vi.fn();
 const cookieStore = new Map<string, string>();
-
-vi.mock("@clerk/nextjs/server", () => ({
-  auth: () => authMock(),
-  createRouteMatcher: () => () => false,
-}));
 
 vi.mock("next/headers", () => ({
   cookies: () => ({
@@ -19,28 +14,7 @@ vi.mock("next/headers", () => ({
 import { getServerSession, setSessionKeySetForTesting } from "./server";
 import { SESSION_COOKIE } from "./bff";
 
-describe("getServerSession (clerk mode)", () => {
-  beforeEach(() => {
-    authMock.mockReset();
-  });
-
-  it("returns Clerk userId and getToken", async () => {
-    const getToken = vi.fn().mockResolvedValue("jwt");
-    authMock.mockResolvedValue({ userId: "user_1", getToken });
-
-    const session = await getServerSession();
-    expect(session.userId).toBe("user_1");
-    await expect(session.getToken()).resolves.toBe("jwt");
-  });
-
-  it("normalizes missing userId to null", async () => {
-    authMock.mockResolvedValue({ userId: undefined, getToken: vi.fn() });
-    const session = await getServerSession();
-    expect(session.userId).toBeNull();
-  });
-});
-
-describe("getServerSession (custom mode, AUTH-FE-05)", () => {
+describe("getServerSession (own-auth, AUTH-FE-05)", () => {
   let key: KeyLike;
   let otherKey: KeyLike;
 
@@ -53,10 +27,8 @@ describe("getServerSession (custom mode, AUTH-FE-05)", () => {
   });
 
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_AUTH_MODE", "custom");
     vi.stubEnv("AUTH_API_URL", "http://api.test");
     cookieStore.clear();
-    authMock.mockReset();
   });
 
   afterEach(() => {
@@ -74,13 +46,12 @@ describe("getServerSession (custom mode, AUTH-FE-05)", () => {
       .sign(opts.signWith ?? key);
   }
 
-  it("returns the user id from a valid session cookie and never touches Clerk", async () => {
+  it("returns the user id from a valid session cookie", async () => {
     const jwt = await token();
     cookieStore.set(SESSION_COOKIE, jwt);
     const session = await getServerSession();
     expect(session.userId).toBe("user-uuid-1");
     await expect(session.getToken()).resolves.toBe(jwt);
-    expect(authMock).not.toHaveBeenCalled();
   });
 
   it("is signed out with no cookie", async () => {

@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { useApiFetch, useApiFetchBlob, CLERK_ENABLED, ApiError, getApiBase } from "./api-client";
+import { useApiFetch, useApiFetchBlob, AUTH_ENABLED, ApiError, getApiBase } from "./api-client";
 import type {
   ActivationRecord,
   CreditsResponse,

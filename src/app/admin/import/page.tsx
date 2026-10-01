@@ -3,14 +3,14 @@
 /**
  * Static-auth admin data-import page.
  *
- * NOT gated by Clerk — reachable by anyone who knows the shared ADMIN_IMPORT_SECRET
+ * NOT gated by the sign-in flow — reachable by anyone who knows the shared ADMIN_IMPORT_SECRET
  * (see apps/api/src/plugins/auth.ts, the `admin_<secret>` bearer-token path). Intended
  * for ops/internal use: loading bulk seed data (e.g. a purchased contact list) without
  * requiring a full Skout account. Every row lands in the single workspace configured
  * server-side via ADMIN_IMPORT_WORKSPACE_ID — this page never asks which workspace,
  * by design, so a leaked secret can't be used to write into an arbitrary tenant.
  *
- * Reuses the exact same parse → preview → commit flow as the regular, Clerk-authed
+ * Reuses the exact same parse → preview → commit flow as the regular, authenticated
  * /import page (apps/api's /api/v1/import/prospects/parse and /api/v1/import/prospects);
  * only the auth mechanism and the destination-picker differ.
  */

@@ -96,7 +96,7 @@ function originOf(value: string | null | undefined): string | null {
  * OAuth start/callback routes learned this the hard way: building `new URL(path, request.url)`
  * sent the browser to that internal, unreachable hostname instead of skoutai.io — an information
  * disclosure (leaking infra topology) as well as a broken redirect. Same precedence as
- * `requestWithPublicOrigin` in middleware.ts, which fixes the equivalent problem for Clerk.
+ * `requestWithPublicOrigin` in middleware.ts, which fixes the equivalent problem for own-auth session verification.
  */
 export function publicOrigin(request: NextRequest): string {
   const fromHeader = originOf(request.headers.get("x-skout-public-origin"));

@@ -6,7 +6,7 @@
 # 2. Start frontend (from this repo):
 #    docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 #
-# Loads Clerk + API URL from .env.local (NEXT_PUBLIC_* baked at image build time).
+# Loads API URL from .env.local (NEXT_PUBLIC_* baked at image build time).
 
 services:
   web:
@@ -16,9 +16,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
         NEXT_PUBLIC_CRM_API_URL: ${NEXT_PUBLIC_CRM_API_URL:-http://localhost:3002}
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-        CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+        NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-custom}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
       NEXT_PUBLIC_CRM_API_URL: ${NEXT_PUBLIC_CRM_API_URL:-http://localhost:3002}
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}

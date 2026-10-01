@@ -19,11 +19,11 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/app/sign-in")).toBe("/sign-in");
   });
 
-  it("drops Clerk handshake query strings that cause HTTP 431", () => {
-    expect(safeNextPath("/sign-in?__clerk_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.aaa")).toBe(
+  it("drops oversized query strings that cause HTTP 431", () => {
+    expect(safeNextPath("/sign-in?__oauth_handshake=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.aaa")).toBe(
       "/sign-in",
     );
-    expect(safeNextPath("/app/gate?__clerk_handshake=eyJhbGciOiJSUzI1NiJ9.aaa")).toBe("/sign-in");
+    expect(safeNextPath("/app/gate?__oauth_handshake=eyJhbGciOiJSUzI1NiJ9.aaa")).toBe("/sign-in");
   });
 
   it("does not bounce back onto the gate page", () => {
