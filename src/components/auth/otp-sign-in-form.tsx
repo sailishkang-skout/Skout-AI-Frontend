@@ -72,7 +72,7 @@ export function OtpSignInForm() {
 
   if (step === "email") {
     return (
-      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
         <h1 className="text-xl font-semibold">Sign in with a code</h1>
         <p className="mt-1 text-sm text-muted-foreground">We&apos;ll email you a 6-digit code.</p>
 
@@ -120,7 +120,7 @@ export function OtpSignInForm() {
   }
 
   return (
-    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
       <h1 className="text-xl font-semibold">Enter your code</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         We sent a 6-digit code to <strong>{email}</strong>.

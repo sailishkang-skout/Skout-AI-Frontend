@@ -37,7 +37,7 @@ export function VerifyEmailConfirm() {
 
   if (state === "verifying") {
     return (
-      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
+      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 text-center shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
         <Loader2 className="mx-auto h-10 w-10 animate-spin text-muted-foreground" />
         <p className="mt-4 text-sm text-muted-foreground" role="status">
           Verifying your email…
@@ -48,7 +48,7 @@ export function VerifyEmailConfirm() {
 
   if (state === "error") {
     return (
-      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
+      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 text-center shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
         <XCircle className="mx-auto h-10 w-10 text-destructive" />
         <h1 className="mt-4 text-lg font-semibold">Link invalid or expired</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in and we&apos;ll send a fresh verification link.</p>
@@ -63,7 +63,7 @@ export function VerifyEmailConfirm() {
   }
 
   return (
-    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
+    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 text-center shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
       <CheckCircle className="mx-auto h-10 w-10 text-green-500" />
       <h1 className="mt-4 text-lg font-semibold">Email verified</h1>
       <p className="mt-1 text-sm text-muted-foreground">You&apos;re all set.</p>

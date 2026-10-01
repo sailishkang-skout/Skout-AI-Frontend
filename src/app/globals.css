@@ -108,3 +108,38 @@
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;
 }
+
+/* Auth pages (sign-in / sign-up) backdrop — see components/auth/auth-shell.tsx */
+.auth-grid {
+  background-image:
+    linear-gradient(to right, hsl(260 80% 80% / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(260 80% 80% / 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 100%);
+}
+.auth-orb {
+  border-radius: 9999px;
+  filter: blur(90px);
+  animation: auth-drift 18s ease-in-out infinite alternate;
+}
+.auth-orb-slow {
+  animation-duration: 26s;
+}
+.auth-orb-delay {
+  animation-duration: 22s;
+  animation-delay: -9s;
+}
+@keyframes auth-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(60px, -40px, 0) scale(1.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-orb {
+    animation: none;
+  }
+}

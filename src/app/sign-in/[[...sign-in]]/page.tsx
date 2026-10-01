@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { OwnAuthLoginForm } from "@/components/auth/own-auth-login-form";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { getServerSession } from "@/lib/auth/server";
 
 export default async function SignInPage() {
@@ -10,10 +11,10 @@ export default async function SignInPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+    <AuthShell>
       <Suspense>
         <OwnAuthLoginForm />
       </Suspense>
-    </main>
+    </AuthShell>
   );
 }
