@@ -290,6 +290,13 @@ export function verifyEmailOtp(credentials: { email: string; code: string }): Pr
   return signInViaBff("/app/api/auth/otp-verify", credentials);
 }
 
+/** AUTH-FE-11 fix: completes the invite flow's set-password step through the BFF so the
+ *  first-party refresh cookie gets set (see the route handler's doc comment for why this used to
+ *  land the user back on /sign-in instead of the dashboard). */
+export function confirmInviteSetPassword(sessionToken: string, password: string): Promise<void> {
+  return signInViaBff("/app/api/auth/invite-set-password", { sessionToken, password });
+}
+
 // Custom auth adapter implementation
 export const CustomAuthAdapter: AuthAdapter = {
   useSession(): Session {
