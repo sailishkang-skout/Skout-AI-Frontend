@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthAdapter, AUTH_ENABLED, resolvedAuthMode } from "@/lib/auth";
-import { setCustomSession } from "@/lib/auth/custom-auth-adapter";
+import { confirmInviteSetPassword } from "@/lib/auth/custom-auth-adapter";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, XCircle } from "lucide-react";
 import { getApiBase } from "@/lib/api-client";
 import { getInviteDetails } from "@/lib/team";
@@ -44,16 +44,6 @@ async function verifyOtp(inviteToken: string, otp: string): Promise<VerifyOtpDat
   const body = (await res.json()) as { data?: VerifyOtpData; error?: string };
   if (!res.ok) throw new Error(body.error ?? "Invalid code");
   return body.data!;
-}
-
-async function submitSetPassword(sessionToken: string, password: string): Promise<void> {
-  const res = await fetch(`${getApiBase()}/api/v1/invite-auth/set-password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-    body: JSON.stringify({ password }),
-  });
-  const body = await res.json() as { error?: string };
-  if (!res.ok) throw new Error(body.error ?? "Failed to set password");
 }
 
 type OtpStep = "idle" | "sent" | "verified" | "done";
@@ -96,22 +86,33 @@ export default function AcceptInvitePage() {
   const verifyOtpMut = useMutation({
     mutationFn: () => verifyOtp(token, otpValue.trim()),
     onSuccess: (data) => {
-      // Held in memory only for this page's lifetime — never persisted (AUTH-FE-11).
+      // Held in memory only for this page's lifetime — never persisted (AUTH-FE-11). Used as
+      // the bearer for set-password below; the real own-auth session is established there,
+      // through the BFF, so the refresh cookie middleware needs is actually set.
       setSessionToken(data.sessionToken);
-      // AUTH-BE-26: with AUTH_CUSTOM_ENABLED on, verify-otp already signs the user into a
-      // real own-auth session — adopt it now so no second login is needed after set-password.
-      if (resolvedAuthMode === "custom" && data.accessToken && data.expiresIn && data.user) {
-        setCustomSession({ accessToken: data.accessToken, expiresIn: data.expiresIn, user: data.user });
-      }
       setOtpStep("verified");
     },
   });
 
   const setPasswordMut = useMutation({
-    mutationFn: () => submitSetPassword(sessionToken, password),
+    mutationFn: async () => {
+      if (resolvedAuthMode === "custom") {
+        // Goes through the BFF (AUTH-FE-05) so the first-party refresh cookie gets set —
+        // FE-07's middleware only trusts that cookie, not an in-memory token.
+        await confirmInviteSetPassword(sessionToken, password);
+        return;
+      }
+      const res = await fetch(`${getApiBase()}/api/v1/invite-auth/set-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ password }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Failed to set password");
+    },
     onSuccess: () => {
       if (resolvedAuthMode === "custom") {
-        // Already signed in via verify-otp's own-auth session — go straight to the dashboard.
+        // Session cookie is now set — safe for middleware to admit the dashboard route.
         router.replace("/dashboard");
         return;
       }
