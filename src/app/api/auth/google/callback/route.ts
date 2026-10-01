@@ -15,6 +15,7 @@ import {
   callAuthApi,
   isCustomAuthMode,
   notFound,
+  publicOrigin,
   refreshTokenFromSetCookies,
   sessionRedirect,
 } from "@/lib/auth/bff";
@@ -31,7 +32,7 @@ type CallbackResponse = {
 };
 
 function errorRedirect(request: NextRequest, message: string): NextResponse {
-  const url = new URL(`${APP_BASE_PATH}/sign-in`, request.url);
+  const url = new URL(`${APP_BASE_PATH}/sign-in`, publicOrigin(request));
   url.searchParams.set("error", message);
   return NextResponse.redirect(url);
 }
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
   // idea this frontend is mounted under basePath "/app", so that prefix is added here, once.
   const safeNext = body.data.next && body.data.next.startsWith("/") ? body.data.next : "/auth/callback";
   const nextPath = safeNext.startsWith(APP_BASE_PATH) ? safeNext : `${APP_BASE_PATH}${safeNext}`;
-  const destination = new URL(nextPath, request.url);
+  const destination = new URL(nextPath, publicOrigin(request));
   const response = await sessionRedirect(
     { accessToken: body.data.accessToken, expiresIn: body.data.expiresIn },
     refreshToken,

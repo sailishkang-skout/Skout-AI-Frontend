@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,12 +42,12 @@ export function OwnAuthSignupForm() {
         <p className="mt-1 text-sm text-muted-foreground">
           We sent a verification link to <strong>{email}</strong>. Click it to activate your account, then sign in.
         </p>
-        <a
+        <Link
           href="/sign-in"
           className="mt-6 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
         >
           Back to sign in
-        </a>
+        </Link>
       </div>
     );
   }
@@ -164,9 +165,9 @@ export function OwnAuthSignupForm() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <a href="/sign-in" className="text-primary underline-offset-2 hover:underline">
+        <Link href="/sign-in" className="text-primary underline-offset-2 hover:underline">
           Sign in
-        </a>
+        </Link>
       </p>
     </div>
   );

@@ -18,12 +18,15 @@ function apiResponse(status: number, body: unknown, setCookies: string[] = []): 
   return new Response(body === null ? null : JSON.stringify(body), { status, headers });
 }
 
-function req(path: string, opts: { method?: string; cookies?: Record<string, string> } = {}): NextRequest {
-  const headers = new Headers({ origin: APP, "sec-fetch-site": "same-origin" });
+function req(
+  path: string,
+  opts: { method?: string; cookies?: Record<string, string>; base?: string; extraHeaders?: Record<string, string> } = {}
+): NextRequest {
+  const headers = new Headers({ origin: APP, "sec-fetch-site": "same-origin", ...(opts.extraHeaders ?? {}) });
   if (opts.cookies) {
     headers.set("cookie", Object.entries(opts.cookies).map(([k, v]) => `${k}=${v}`).join("; "));
   }
-  return new NextRequest(`${APP}/app/api/auth/${path}`, { method: opts.method ?? "GET", headers });
+  return new NextRequest(`${opts.base ?? APP}/app/api/auth/${path}`, { method: opts.method ?? "GET", headers });
 }
 
 function cookie(res: Response, name: string) {
@@ -148,5 +151,46 @@ describe("google/callback", () => {
     const res = await googleCallback(req("google/callback?code=abc&state=xyz"));
     expect(decodeURIComponent(res.headers.get("location")!)).toContain("email");
     expect(cookie(res, GOOGLE_STATE_COOKIE)?.maxAge).toBe("0");
+  });
+});
+
+describe("redirects use the public origin, never the internal request origin (regression, 2026-10-01)", () => {
+  // Behind the ALB/API-Gateway proxy in front of this app, `request.url` reflects the internal
+  // ECS task hostname (e.g. http://ip-10-0-2-70.ec2.internal:3000), not the public one. Found
+  // during the AUTH-ADI-14 rehearsal: every Google-OAuth redirect (error and success) sent the
+  // browser to that internal, unreachable hostname instead of skoutai.io — an information leak
+  // (infra topology) as well as a broken redirect (DNS_PROBE_POSSIBLE in the browser). Simulate
+  // the proxied case with an internal request origin + NEXT_PUBLIC_APP_URL set to the public one.
+  const INTERNAL = "http://ip-10-0-2-70.ec2.internal:3000";
+  const PUBLIC = "https://www.skoutai.io";
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", `${PUBLIC}/app`);
+  });
+
+  it("google/start's error redirect uses the public origin, not the internal request origin", async () => {
+    nextResponse = () => apiResponse(503, { error: "Google sign-in is not configured", statusCode: 503 });
+    const res = await googleStart(req("google/start", { base: INTERNAL }));
+    const location = res.headers.get("location")!;
+    expect(location.startsWith(PUBLIC)).toBe(true);
+    expect(location).not.toContain("ec2.internal");
+  });
+
+  it("google/callback's error redirect uses the public origin, not the internal request origin", async () => {
+    const res = await googleCallback(req("google/callback?code=abc", { base: INTERNAL }));
+    const location = res.headers.get("location")!;
+    expect(location.startsWith(PUBLIC)).toBe(true);
+    expect(location).not.toContain("ec2.internal");
+  });
+
+  it("google/callback's success redirect uses the public origin, not the internal request origin", async () => {
+    nextResponse = () =>
+      apiResponse(200, { data: { accessToken: "access-1", expiresIn: 600, next: "/dashboard" } }, [
+        "skout_refresh=rt-1",
+      ]);
+    const res = await googleCallback(req("google/callback?code=abc&state=xyz", { base: INTERNAL }));
+    const location = res.headers.get("location")!;
+    expect(location).toBe(`${PUBLIC}/app/dashboard`);
+    expect(location).not.toContain("ec2.internal");
   });
 });
