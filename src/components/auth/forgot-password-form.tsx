@@ -25,7 +25,7 @@ export function ForgotPasswordForm() {
 
   if (sendMut.isSuccess) {
     return (
-      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 text-center shadow-sm sm:p-8">
+      <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 text-center shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
         <CheckCircle className="mx-auto h-10 w-10 text-green-500" />
         <h1 className="mt-4 text-lg font-semibold">Check your email</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -42,7 +42,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+    <div className="w-full max-w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-card/60 p-6 shadow-[0_0_60px_-12px_hsl(265_90%_60%/0.45)] backdrop-blur-xl sm:p-8">
       <h1 className="text-xl font-semibold">Reset your password</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter the email on your account and we&apos;ll send a link to reset your password.
