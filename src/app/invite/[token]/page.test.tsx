@@ -23,10 +23,10 @@ vi.mock("@/lib/team", () => ({
 
 vi.mock("@/lib/api-client", () => ({ getApiBase: () => "http://api.test" }));
 
-const { authModeState, useSessionMock, setCustomSession } = vi.hoisted(() => ({
+const { authModeState, useSessionMock, confirmInviteSetPassword } = vi.hoisted(() => ({
   authModeState: { mode: "stub" as "custom" | "stub" },
   useSessionMock: vi.fn(() => ({ isLoaded: true, isSignedIn: false, user: null })),
-  setCustomSession: vi.fn(),
+  confirmInviteSetPassword: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -37,7 +37,7 @@ vi.mock("@/lib/auth", () => ({
   useAuthAdapter: () => ({ useSession: useSessionMock }),
 }));
 
-vi.mock("@/lib/auth/custom-auth-adapter", () => ({ setCustomSession }));
+vi.mock("@/lib/auth/custom-auth-adapter", () => ({ confirmInviteSetPassword }));
 
 import AcceptInvitePage from "./page";
 
@@ -69,7 +69,8 @@ describe("AcceptInvitePage (AUTH-FE-11)", () => {
     setItemSpy.mockClear();
     push.mockClear();
     replace.mockClear();
-    setCustomSession.mockClear();
+    confirmInviteSetPassword.mockClear();
+    confirmInviteSetPassword.mockImplementation(() => Promise.resolve());
     authModeState.mode = "stub";
 
     global.fetch = vi.fn((url: string) => {
@@ -117,17 +118,13 @@ describe("AcceptInvitePage (AUTH-FE-11)", () => {
     }
   });
 
-  it("custom mode: adopts the own-auth session from verify-otp and skips the second login", async () => {
+  it("custom mode: completes set-password through the BFF and skips the second login", async () => {
     authModeState.mode = "custom";
     renderPage();
     await verifyOtpAndSetPassword();
 
     await waitFor(() =>
-      expect(setCustomSession).toHaveBeenCalledWith({
-        accessToken: "eyJ.own-auth.token",
-        expiresIn: 600,
-        user: { id: "u1", email: "invitee@example.com" },
-      })
+      expect(confirmInviteSetPassword).toHaveBeenCalledWith("isk_abc", "correct horse battery")
     );
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
     expect(screen.queryByText(/sign in to continue/i)).toBeNull();
@@ -140,7 +137,7 @@ describe("AcceptInvitePage (AUTH-FE-11)", () => {
 
     await screen.findByText(/account created/i);
     expect(screen.getByRole("button", { name: /sign in to continue/i })).toBeTruthy();
-    expect(setCustomSession).not.toHaveBeenCalled();
+    expect(confirmInviteSetPassword).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 });
