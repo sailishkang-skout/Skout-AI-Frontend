@@ -20,13 +20,19 @@ export class CopsRequestError extends Error {
 export async function copsFetch<T>(
   path: string,
   init?: RequestInit,
-  opts: { maxAttempts?: number; sleep?: (ms: number) => Promise<void> } = {}
+  opts: {
+    maxAttempts?: number;
+    sleep?: (ms: number) => Promise<void>;
+    /** Authenticated fetcher from useApiFetch(); defaults to the unauthenticated apiFetch. */
+    request?: (path: string, init?: RequestInit) => Promise<T>;
+  } = {}
 ): Promise<T> {
   const maxAttempts = opts.maxAttempts ?? 1;
   const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const request = opts.request ?? ((p: string, i?: RequestInit) => apiFetch<T>(p, i));
   for (let attempt = 1; ; attempt++) {
     try {
-      return await apiFetch<T>(path, init);
+      return await request(path, init);
     } catch (err) {
       const body = err instanceof ApiError ? err.body : undefined;
       const envelope = parseCopsError(body);

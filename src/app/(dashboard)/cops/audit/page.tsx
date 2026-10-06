@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { isRetryableAuthError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 import { AuditViewer, type CopsAuditRow } from "@/components/cops/AuditViewer";
 
@@ -12,13 +13,26 @@ export default function CopsAuditPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [activeQuery, setActiveQuery] = useState("limit=25");
 
+  const authedFetch = useApiFetch();
   const runQuery = useCallback(async (queryString: string, append = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await copsFetch<{ data: CopsAuditRow[]; next_cursor: string | null }>(
-        `/api/v1/cops/audit?${queryString}`
-      );
+      let res: { data: CopsAuditRow[]; next_cursor: string | null } | undefined;
+      // Token can land a moment after session load; retry the same auth race the other pages retry.
+      for (let attempt = 1; !res; attempt++) {
+        try {
+          res = await copsFetch<{ data: CopsAuditRow[]; next_cursor: string | null }>(
+            `/api/v1/cops/audit?${queryString}`,
+            undefined,
+            { request: authedFetch }
+          );
+        } catch (err) {
+          const raced = err instanceof CopsRequestError && isRetryableAuthError(err.cause);
+          if (!raced || attempt >= 4) throw err;
+          await new Promise((r) => setTimeout(r, 300 * attempt));
+        }
+      }
       setRows((current) => append ? [...current, ...res.data] : res.data);
       setNextCursor(res.next_cursor);
       if (!append) setActiveQuery(queryString);
@@ -35,9 +49,13 @@ export default function CopsAuditPage() {
     }
   }, []);
 
+  // Wait for the access token: copsFetch makes a single attempt, so a request sent before auth
+  // is ready would fail with "Missing bearer token" and never retry.
+  const authReady = useAuthReady();
   useEffect(() => {
+    if (!authReady) return;
     void runQuery("limit=25");
-  }, [runQuery]);
+  }, [authReady, runQuery]);
 
   const loadMore = () => {
     if (!nextCursor || loading) return;
