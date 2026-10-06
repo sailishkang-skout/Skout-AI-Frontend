@@ -1,7 +1,13 @@
 /** COPS-01 audit-viewer query helpers, used by the existing dashboard routes. */
 
-export function hasNavPermission(requiredPermission: string | undefined, granted: readonly string[]): boolean {
-  return !requiredPermission || granted.includes(requiredPermission);
+/** A single key, or a list where any one key is enough (e.g. CRM reads OR CRM writers). */
+export function hasNavPermission(
+  requiredPermission: string | readonly string[] | undefined,
+  granted: readonly string[]
+): boolean {
+  if (!requiredPermission) return true;
+  if (typeof requiredPermission === "string") return granted.includes(requiredPermission);
+  return requiredPermission.some((key) => granted.includes(key));
 }
 
 export interface AuditFilters {

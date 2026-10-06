@@ -94,7 +94,7 @@ export type NavItem = {
   tourId?: string;
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
-  requiredPermission?: string;
+  requiredPermission?: string | readonly string[];
   /** Renders as a collapsible submenu instead of a link — `href` is unused when set. */
   children?: NavItem[];
 };
@@ -108,6 +108,8 @@ export type NavGroup = {
 // Discover (who to sell to) -> Outreach (how to reach them) -> Intelligence (what's
 // happening) -> CRM (what to manage) -> Automation (what Skout does for you) -> Settings.
 
+const CRM_NAV_PERMISSION = ["crm:read", "crm:manage"] as const;
+
 export const homeNav: NavGroup[] = [
   {
     label: "Home",
@@ -119,15 +121,15 @@ export const pipelineNav: NavGroup[] = [
   {
     label: "Pipeline",
     items: [
-      { href: "/crm", label: "CRM Overview", icon: BarChart3, exact: true },
-      { href: "/crm/deals", label: "Deals", icon: Briefcase },
-      { href: "/crm/companies", label: "Accounts", icon: Building2 },
-      { href: "/crm/contacts", label: "Contacts", icon: Users2 },
-      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360" },
-      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
-      { href: "/crm/meetings", label: "Meetings", icon: CalendarClock },
-      { href: "/crm/calendar", label: "Calendar", icon: Calendar },
-      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge" },
+      { href: "/crm", label: "CRM Overview", icon: BarChart3, exact: true, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/deals", label: "Deals", icon: Briefcase, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/companies", label: "Accounts", icon: Building2, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/contacts", label: "Contacts", icon: Users2, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360", requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/meetings", label: "Meetings", icon: CalendarClock, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/calendar", label: "Calendar", icon: Calendar, requiredPermission: CRM_NAV_PERMISSION },
+      { href: "/crm/identity-merge", label: "Identity merge review", icon: GitMerge, tourId: "nav-identity-merge", requiredPermission: CRM_NAV_PERMISSION },
     ],
   },
 ];
@@ -205,8 +207,8 @@ export const intelligenceNav: NavGroup[] = [
     label: "Intelligence",
     items: [
       { href: "/signals", label: "Signal Center", icon: Flame, tourId: "nav-signal-center" },
-      { href: "/admin/revenue", label: "Revenue Intelligence", icon: BarChart3, tourId: "nav-revenue-intelligence" },
-      { href: "/crm/intelligence", label: "CRM Intelligence", icon: Kanban, tourId: "nav-deal-intelligence" },
+      { href: "/admin/revenue", label: "Revenue Intelligence", icon: BarChart3, tourId: "nav-revenue-intelligence", requiredPermission: "admin:read" },
+      { href: "/crm/intelligence", label: "CRM Intelligence", icon: Kanban, tourId: "nav-deal-intelligence", requiredPermission: CRM_NAV_PERMISSION },
       {
         href: "/intelligence/email",
         label: "Email Intelligence",
@@ -220,13 +222,13 @@ export const intelligenceNav: NavGroup[] = [
           { href: "/intelligence/email/warmup", label: "Warm-up", icon: Zap },
         ],
       },
-      { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive" },
-      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
-      { href: "/admin/gtm-learning", label: "GTM-learning report", icon: TrendingUp, tourId: "nav-gtm-learning" },
-      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
-      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance" },
-      { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane" },
-      { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
+      { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive", requiredPermission: "admin:read" },
+      { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting", requiredPermission: "admin:read" },
+      { href: "/admin/gtm-learning", label: "GTM-learning report", icon: TrendingUp, tourId: "nav-gtm-learning", requiredPermission: "admin:read" },
+      { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot", requiredPermission: "admin:read" },
+      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance", requiredPermission: "admin:read" },
+      { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane", requiredPermission: "admin:read" },
+      { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents", requiredPermission: "admin:read" },
       { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
       { href: "/ai/review", label: "AI Review", icon: Sparkles, tourId: "nav-ai-review" },
     ],

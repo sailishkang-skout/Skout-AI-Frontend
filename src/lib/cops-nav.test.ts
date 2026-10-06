@@ -7,6 +7,12 @@ describe("hasNavPermission", () => {
     expect(hasNavPermission("admin:read", ["crm:read"])).toBe(false);
     expect(hasNavPermission("admin:read", ["admin:read"])).toBe(true);
   });
+
+  it("accepts any one of several keys", () => {
+    const crm = ["crm:read", "crm:manage"];
+    expect(hasNavPermission(crm, ["crm:manage"])).toBe(true);
+    expect(hasNavPermission(crm, ["sequences:send"])).toBe(false);
+  });
 });
 
 describe("auditQueryString", () => {
