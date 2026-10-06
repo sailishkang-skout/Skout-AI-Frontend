@@ -1,4 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarPanel } from "./sidebar";
 
@@ -18,7 +19,12 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
   afterEach(() => cleanup());
 
   it("renders the Command Center's own grouping, with every route folded in exactly once", async () => {
-    const { container, findByText } = render(<SidebarPanel />);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container, findByText } = render(
+      <QueryClientProvider client={queryClient}>
+        <SidebarPanel />
+      </QueryClientProvider>
+    );
     await findByText("Skout AI");
 
     const labels = groupLabels(container);

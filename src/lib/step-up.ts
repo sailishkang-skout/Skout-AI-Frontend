@@ -23,6 +23,8 @@ export function useStepUpApi() {
  *  `message`, not one of the §3 AUTH_* codes — this is a different control, not a §3 auth code). */
 export function isStepUpRequiredError(err: unknown): boolean {
   if (!(err instanceof ApiError) || err.status !== 401) return false;
-  const body = err.body as { error?: string } | undefined;
-  return body?.error === "step_up_required";
+  // Global envelope (decided 2026-10-06) carries the machine code in `code`; `error` is the
+  // legacy field and is still read so older responses keep working.
+  const body = err.body as { code?: string; error?: string } | undefined;
+  return body?.code === "step_up_required" || body?.error === "step_up_required";
 }

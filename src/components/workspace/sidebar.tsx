@@ -64,6 +64,7 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
+import { hasNavPermission } from "@/lib/cops-nav";
 
 /** Renders as the last item under the Help group — same look as a normal NavLink. */
 function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
@@ -93,6 +94,7 @@ export type NavItem = {
   tourId?: string;
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
+  requiredPermission?: string;
   /** Renders as a collapsible submenu instead of a link — `href` is unused when set. */
   children?: NavItem[];
 };
@@ -248,6 +250,7 @@ export const settingsNav: NavGroup[] = [
       { href: "/settings/sso", label: "SSO & SCIM", icon: ShieldCheck, tourId: "nav-sso" },
       { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
+      { href: "/cops/audit", label: "Audit log", icon: ShieldCheck, requiredPermission: "admin:read" },
       // Not in the new spec's visible groups — kept here rather than dropped from the nav
       // entirely, since it's a real working page with no other listed home for it.
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },
@@ -269,6 +272,7 @@ interface WorkspaceData {
 
 interface MeData {
   role?: string;
+  permissions?: string[];
 }
 
 function NavLink({
@@ -415,6 +419,15 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
+  const apiFetch = useApiFetch();
+  const authReady = useAuthReady();
+  const { data: me } = useQuery<MeData>({
+    queryKey: ["me"],
+    queryFn: () => apiFetch("/api/v1/me"),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+  const grantedPermissions = me?.permissions ?? [];
   const displayGroups = [
     ...homeNav,
     ...pipelineNav,
@@ -423,7 +436,12 @@ export function SidebarPanel({
     ...workflowsNav,
     ...intelligenceNav,
     ...settingsNav,
-  ];
+  ]
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => hasNavPermission(item.requiredPermission, grantedPermissions)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>
