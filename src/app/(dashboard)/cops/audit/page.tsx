@@ -45,7 +45,7 @@ export default function CopsAuditPage() {
   };
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+    <main data-testid="page-cops-audit" className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <header>
         <h1 className="text-xl font-semibold">Audit log</h1>
         <p className="text-sm text-muted-foreground">High-impact changes in this workspace, newest first.</p>
