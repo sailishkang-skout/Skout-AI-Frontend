@@ -40,6 +40,7 @@ export function AuditViewer({
   rows,
   loading = false,
   error = null,
+  fieldErrors = {},
   hasMore = false,
   onQuery,
   onLoadMore,
@@ -47,6 +48,8 @@ export function AuditViewer({
   rows: CopsAuditRow[];
   loading?: boolean;
   error?: string | null;
+  /** 422 messages keyed by the field path the server reported (search, from, to). */
+  fieldErrors?: Record<string, string>;
   hasMore?: boolean;
   onQuery: (queryString: string) => void;
   onLoadMore?: () => void;
@@ -95,6 +98,11 @@ export function AuditViewer({
         Search by a person&apos;s name or email, what changed, the record type, or the reason. Dates are optional.
       </p>
 
+      {Object.entries(fieldErrors).map(([path, message]) => (
+        <p key={path} role="alert" className="text-sm text-destructive">
+          {path === "from" ? "From date" : path === "to" ? "To date" : path === "search" ? "Search" : path}: {message}
+        </p>
+      ))}
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       {loading ? <p className="text-sm text-muted-foreground">Loading audit log…</p> : null}
       {!loading && !error && rows.length === 0 ? (

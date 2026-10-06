@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { isRetryableAuthError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
+import { fieldErrorsByPath } from "@/lib/cops-error";
 import { AuditViewer, type CopsAuditRow } from "@/components/cops/AuditViewer";
 
 /** Admin audit log (COPS-01). Requires admin:read on the API; the server enforces it. */
@@ -10,6 +11,7 @@ export default function CopsAuditPage() {
   const [rows, setRows] = useState<CopsAuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [activeQuery, setActiveQuery] = useState("limit=25");
 
@@ -17,6 +19,7 @@ export default function CopsAuditPage() {
   const runQuery = useCallback(async (queryString: string, append = false) => {
     setLoading(true);
     setError(null);
+    setFieldErrors({});
     try {
       let res: { data: CopsAuditRow[]; next_cursor: string | null } | undefined;
       // Token can land a moment after session load; retry the same auth race the other pages retry.
@@ -25,7 +28,8 @@ export default function CopsAuditPage() {
           res = await copsFetch<{ data: CopsAuditRow[]; next_cursor: string | null }>(
             `/api/v1/cops/audit?${queryString}`,
             undefined,
-            { request: authedFetch }
+            // Retryable errors (429 with retry_after_seconds, 503) back off up to 3 attempts.
+            { request: authedFetch, maxAttempts: 3 }
           );
         } catch (err) {
           const raced = err instanceof CopsRequestError && isRetryableAuthError(err.cause);
@@ -37,6 +41,12 @@ export default function CopsAuditPage() {
       setNextCursor(res.next_cursor);
       if (!append) setActiveQuery(queryString);
     } catch (err) {
+      const fields = err instanceof CopsRequestError && err.envelope ? fieldErrorsByPath(err.envelope) : {};
+      if (Object.keys(fields).length > 0) {
+        setFieldErrors(fields);
+        setLoading(false);
+        return;
+      }
       setError(
         err instanceof CopsRequestError && err.envelope?.code === "FORBIDDEN"
           ? "You do not have permission to view this workspace audit log."
@@ -72,6 +82,7 @@ export default function CopsAuditPage() {
         rows={rows}
         loading={loading}
         error={error}
+        fieldErrors={fieldErrors}
         hasMore={Boolean(nextCursor)}
         onQuery={(query) => void runQuery(query)}
         onLoadMore={loadMore}
