@@ -64,6 +64,7 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useProductTourOptional } from "@/components/onboarding/product-tour-provider";
+import { useWorkspaceRole } from "@/lib/workspace-role";
 
 /** Renders as the last item under the Help group — same look as a normal NavLink. */
 function RestartTourButton({ onNavigate }: { onNavigate?: () => void }) {
@@ -93,6 +94,8 @@ export type NavItem = {
   tourId?: string;
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
+  /** Permission key returned by the authenticated /me endpoint. */
+  requiredPermission?: string;
   /** Renders as a collapsible submenu instead of a link — `href` is unused when set. */
   children?: NavItem[];
 };
@@ -101,6 +104,27 @@ export type NavGroup = {
   label: string;
   items: NavItem[];
 };
+
+function filterNavGroups(
+  groups: NavGroup[],
+  hasPermission: (permission: string) => boolean
+): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
+        .map((item) => {
+          if (!item.children) return item;
+          const children = item.children.filter(
+            (child) => !child.requiredPermission || hasPermission(child.requiredPermission)
+          );
+          return { ...item, children };
+        })
+        .filter((item) => !item.children || item.children.length > 0),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 // Sidebar order follows the user's journey, not an alphabetical feature list:
 // Discover (who to sell to) -> Outreach (how to reach them) -> Intelligence (what's
@@ -139,8 +163,20 @@ export const prospectsNav: NavGroup[] = [
       { href: "/lists", label: "Lists & Smart Lists", icon: List, tourId: "nav-lists" },
       { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
-      { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
-      { href: "/enrichment/workbooks", label: "Workbooks", icon: Sparkles, tourId: "nav-workbooks" },
+      {
+        href: "/enrichment",
+        label: "Enrichment",
+        icon: Zap,
+        tourId: "nav-enrichment",
+        children: [
+          { href: "/enrichment", label: "Overview", icon: LayoutDashboard, exact: true, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/people", label: "People", icon: Users2, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/companies", label: "Companies", icon: Building2, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/job-changes", label: "Job changes", icon: Activity, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/capture", label: "Capture", icon: UserPlus, requiredPermission: "enrichment:capture" },
+          { href: "/enrichment/campaigns", label: "Campaigns", icon: Mail, requiredPermission: "enrichment:read" },
+        ],
+      },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
     ],
   },
@@ -415,7 +451,8 @@ export function SidebarPanel({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
-  const displayGroups = [
+  const { hasPermission } = useWorkspaceRole();
+  const displayGroups = filterNavGroups([
     ...homeNav,
     ...pipelineNav,
     ...prospectsNav,
@@ -423,7 +460,7 @@ export function SidebarPanel({
     ...workflowsNav,
     ...intelligenceNav,
     ...settingsNav,
-  ];
+  ], hasPermission);
 
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>
