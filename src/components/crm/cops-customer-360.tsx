@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
+import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
+import type { Signal } from "@/types/api";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -83,7 +85,7 @@ function Contacts({ data }: { data: Account360 }) {
   );
 }
 
-function RightRail({ data }: { data: Account360 }) {
+function RightRail({ data, signals }: { data: Account360; signals: Signal[] }) {
   const actions = data.next_actions ?? [];
   const risks = data.risks ?? [];
   return (
@@ -128,12 +130,40 @@ function RightRail({ data }: { data: Account360 }) {
           )}
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Recent signals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {signals.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No recent signals for this account.</p>
+          ) : (
+            <ul className="space-y-2" data-testid="cops-recent-signals">
+              {[...signals]
+                .sort((a, b) => new Date(b.observedAt).getTime() - new Date(a.observedAt).getTime())
+                .slice(0, 5)
+                .map((s) => (
+                  <li key={s.id} className="text-sm">
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <Badge tone={isRiskSignal(s.signalType) ? "danger" : "info"}>{signalLabel(s.signalType)}</Badge>
+                      <span className="text-xs font-normal text-muted-foreground">{timeAgoShort(s.observedAt)}</span>
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{signalReasonText(s)}</p>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 /** COPS-02 Customer 360 workspace for one account: tabs plus a right rail of next actions and risks. */
-export function CopsCustomer360({ accountId }: { accountId: string }) {
+/**
+ * `signals` come from the page's existing account-360 load, so the rail adds no extra request.
+ */
+export function CopsCustomer360({ accountId, signals = [] }: { accountId: string; signals?: Signal[] }) {
   const api = useCopsAccountApi();
   const authReady = useAuthReady();
   const [tab, setTab] = useState<TabId>("overview");
@@ -187,7 +217,7 @@ export function CopsCustomer360({ accountId }: { accountId: string }) {
           ) : null}
         </CardContent>
       </Card>
-      {data && <RightRail data={data} />}
+      {data && <RightRail data={data} signals={signals} />}
     </div>
   );
 }

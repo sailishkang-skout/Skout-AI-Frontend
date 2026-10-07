@@ -663,7 +663,7 @@ export default function Account360Page() {
           )}
 
           {/* COPS-02 Customer 360: tabs, the account timeline, next actions and risks. */}
-          {mode === "account" && lookupId && <CopsCustomer360 accountId={lookupId} />}
+          {mode === "account" && lookupId && <CopsCustomer360 accountId={lookupId} signals={signals} />}
 
           {/* Universal Chronological Timeline Feed (person view; accounts use the COPS timeline above) */}
           {mode !== "account" && (
