@@ -229,7 +229,7 @@ export function DealsBoard() {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="flex w-full gap-3 overflow-x-auto pb-2">
+        <div className="scrollbar-hidden flex w-full gap-4 overflow-x-auto pb-2">
           {openStages.map((stage) => (
             <DealStageColumn
               key={stage.id}
@@ -241,9 +241,9 @@ export function DealsBoard() {
               nextActions={nextActions}
               summary={summaryByStage.get(stage.id)}
               onAddDeal={() => setQuickCreateStageId(stage.id)}
-              // Columns share the row width and shrink to 180px, so the six open stages of the
-              // default pipeline fit on a normal screen; only narrow screens scroll sideways.
-              className="flex-1 basis-0 min-w-[180px] shrink"
+              // Columns fill the row and never go below 260px; when they do not fit, the row scrolls
+              // sideways with the scrollbar hidden (trackpad, shift + wheel or touch).
+              className="flex-1 basis-0 min-w-[260px] shrink-0"
             />
           ))}
         </div>
