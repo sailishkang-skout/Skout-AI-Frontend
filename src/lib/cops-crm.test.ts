@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CopsRequestError } from "@/lib/cops-fetch";
-import { isStale, nextActionByDeal, stageMoveErrorMessage } from "./cops-crm";
+import { isStale, nextActionByDeal, recommendNextAction, stageMoveErrorMessage } from "./cops-crm";
 
 function conflict(details: Record<string, unknown>) {
   return new CopsRequestError(
@@ -56,5 +56,22 @@ describe("nextActionByDeal", () => {
     expect(map.get("d1")?.title).toBe("Sooner");
     expect(map.get("d2")?.title).toBe("Only one");
     expect(map.size).toBe(2);
+  });
+});
+
+describe("recommendNextAction", () => {
+  it("picks the longest-waiting open deal with no open task", () => {
+    const rec = recommendNextAction(
+      [
+        { id: "d1", name: "Planned", updated_at: "2026-09-01T00:00:00Z" },
+        { id: "d2", name: "Old unplanned", updated_at: "2026-09-02T00:00:00Z" },
+        { id: "d3", name: "New unplanned", updated_at: "2026-10-01T00:00:00Z" },
+      ],
+      [{ related_entity_id: "d1" }]
+    );
+    expect(rec).toEqual({ dealId: "d2", dealName: "Old unplanned" });
+  });
+  it("returns null when every open deal has a next step", () => {
+    expect(recommendNextAction([{ id: "d1", name: "A", updated_at: "2026-09-01T00:00:00Z" }], [{ related_entity_id: "d1" }])).toBeNull();
   });
 });

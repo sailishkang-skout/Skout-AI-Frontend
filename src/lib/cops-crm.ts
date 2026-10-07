@@ -294,3 +294,18 @@ export function useCopsOpportunityListApi() {
     },
   };
 }
+
+/**
+ * Appendix G "no tasks: show next recommended action": the open deal that has gone longest without
+ * a planned next step. Null when every open deal already has an open task.
+ */
+export function recommendNextAction(
+  openDeals: Array<Pick<OpportunityRow, "id" | "name" | "updated_at">>,
+  openDealTasks: Array<{ related_entity_id: string | null }>
+): { dealId: string; dealName: string } | null {
+  const planned = new Set(openDealTasks.map((t) => t.related_entity_id).filter(Boolean));
+  const candidate = openDeals
+    .filter((d) => !planned.has(d.id))
+    .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())[0];
+  return candidate ? { dealId: candidate.id, dealName: candidate.name } : null;
+}

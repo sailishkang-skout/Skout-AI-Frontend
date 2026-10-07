@@ -43,11 +43,28 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function EmptyTab({ label, ships }: { label: string; ships: string }) {
+/** Appendix G wording where the Bible gives one; the action itself ships with the named ticket. */
+const APPENDIX_G: Partial<Record<TabId, { title: string; action: string }>> = {
+  onboarding: { title: "No onboarding yet", action: "Provision a workspace or start an onboarding plan" },
+  engineering: { title: "No open tickets: this account is healthy", action: "Create ticket" },
+};
+
+function EmptyTab({ id, label, ships }: { id: TabId; label: string; ships: string }) {
+  const g = APPENDIX_G[id];
   return (
-    <div className="rounded-md border border-dashed p-8 text-center">
-      <p className="text-sm font-medium">{label} is not available yet</p>
-      <p className="mt-1 text-xs text-muted-foreground">It arrives with {ships}.</p>
+    <div className="rounded-md border border-dashed p-8 text-center" data-testid={`empty-tab-${id}`}>
+      <p className="text-sm font-medium">{g?.title ?? `${label} is not available yet`}</p>
+      {g && (
+        <button
+          type="button"
+          disabled
+          title={`Available with ${ships}`}
+          className="mt-3 rounded-md border px-3 py-1.5 text-sm font-medium opacity-60"
+        >
+          {g.action}
+        </button>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">{g ? "This action" : "It"} arrives with {ships}.</p>
     </div>
   );
 }
@@ -203,7 +220,7 @@ export function CopsCustomer360({ accountId, signals = [] }: { accountId: string
           {tab === "timeline" ? (
             <CopsAccountTimeline accountId={accountId} />
           ) : "ships" in current ? (
-            <EmptyTab label={current.label} ships={current.ships} />
+            <EmptyTab id={current.id} label={current.label} ships={current.ships} />
           ) : view.isLoading ? (
             <Skeleton className="h-24 w-full rounded-md" />
           ) : view.isError ? (

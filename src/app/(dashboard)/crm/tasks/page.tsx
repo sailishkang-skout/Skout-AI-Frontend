@@ -12,6 +12,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskFormSheet } from "@/components/crm/task-form-sheet";
+import { CrmRecommendedAction } from "@/components/crm/crm-recommended-action";
 import { CallButton } from "@/components/crm/call-button";
 import { useTasksApi } from "@/lib/crm/tasks";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
@@ -184,9 +185,7 @@ export default function TasksPage() {
               <CheckSquare className="h-8 w-8 text-muted-foreground" />
             </div>
             <p className="font-medium">No tasks yet</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Tasks are the next steps on your accounts and deals. Add one with Quick create, or from a deal or account.
-            </p>
+            <CrmRecommendedAction />
           </CardContent>
         </Card>
       ) : (

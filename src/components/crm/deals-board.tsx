@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -232,8 +233,19 @@ export function DealsBoard() {
         <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm" data-testid="board-empty-state">
           <p className="font-medium">No opportunities in this pipeline yet</p>
           <p className="text-muted-foreground">
-            Add one with the + on a stage, or use Quick create. Each deal then moves stage by stage from Qualified to Closed.
+            Create your first opportunity or import existing deals. Each deal then moves stage by stage from Qualified to Closed.
           </p>
+          <div className="mt-2 flex gap-2">
+            {openStages[0] && (
+              <Button size="sm" onClick={() => setQuickCreateStageId(openStages[0]!.id)}>
+                <Plus className="h-4 w-4" />
+                Create opportunity
+              </Button>
+            )}
+            <Link href="/import" className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent">
+              Import deals
+            </Link>
+          </div>
         </div>
       )}
 
