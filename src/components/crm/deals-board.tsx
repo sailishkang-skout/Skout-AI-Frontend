@@ -221,7 +221,7 @@ export function DealsBoard() {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="flex w-full gap-4 overflow-x-auto pb-2">
+        <div className="flex w-full gap-3 overflow-x-auto pb-2">
           {openStages.map((stage) => (
             <DealStageColumn
               key={stage.id}
@@ -232,9 +232,9 @@ export function DealsBoard() {
               companiesById={companiesById}
               summary={summaryByStage.get(stage.id)}
               onAddDeal={() => setQuickCreateStageId(stage.id)}
-              // Columns share the row width and shrink to 200px, so the six open stages of the
+              // Columns share the row width and shrink to 180px, so the six open stages of the
               // default pipeline fit on a normal screen; only narrow screens scroll sideways.
-              className="flex-1 basis-0 min-w-[200px] shrink"
+              className="flex-1 basis-0 min-w-[180px] shrink"
             />
           ))}
         </div>

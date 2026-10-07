@@ -44,9 +44,10 @@ export function DealStageColumn({
   const header = (
     <div className="flex items-center justify-between gap-2 px-1">
       <div className="min-w-0">
-        <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+        <p className="flex items-center gap-1.5 text-sm font-semibold" title={stage.name}>
           <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", stageDotClass(stage))} aria-hidden />
-          {stage.name}
+          {/* Narrow columns cut long names like Payment/Procurement with an ellipsis; title shows it in full. */}
+          <span className="min-w-0 truncate">{stage.name}</span>
         </p>
         <p className="text-xs text-muted-foreground">
           {summary?.count ?? deals.length} · {formatMoneyByCurrency(summary?.valueByCurrency)}
