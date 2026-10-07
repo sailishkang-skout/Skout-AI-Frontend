@@ -2,27 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
-import { CopsRequestError } from "@/lib/cops-fetch";
-import { fieldErrorsByPath } from "@/lib/cops-error";
 import { isStale, STALE_AFTER_DAYS, useCopsAccountListApi, type AccountRow } from "@/lib/cops-crm";
 import { useTeamApi } from "@/lib/team";
-
-function errorText(err: unknown, fallback: string): string {
-  if (err instanceof CopsRequestError && err.envelope) {
-    if (err.envelope.code === "FORBIDDEN") return "You don't have permission for this.";
-    const fields = fieldErrorsByPath(err.envelope);
-    const first = Object.values(fields)[0];
-    return first ?? err.envelope.message;
-  }
-  return fallback;
-}
+import { BulkOwnerBar, copsErrorText, SavedViewPicker } from "./cops-table-parts";
 
 /**
  * COPS-02 accounts table: fast filters (search, only mine, sort), saved views, a stale-record
@@ -33,7 +22,6 @@ export function CopsAccountsTable() {
   const teamApi = useTeamApi();
   const apiFetch = useApiFetch();
   const authReady = useAuthReady();
-  const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
@@ -41,12 +29,6 @@ export function CopsAccountsTable() {
   const [sort, setSort] = useState<"-created_at" | "name">("-created_at");
   const [viewId, setViewId] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [ownerId, setOwnerId] = useState("");
-  const [reason, setReason] = useState("");
-  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [viewName, setViewName] = useState("");
-  const [viewShared, setViewShared] = useState(false);
 
   // Fast filter: search applies 300ms after typing stops.
   useEffect(() => {
@@ -61,12 +43,11 @@ export function CopsAccountsTable() {
     staleTime: 30_000,
   });
   const members = useQuery({ queryKey: ["team", "members"], queryFn: () => teamApi.listMembers(), enabled: authReady });
+  const memberList = members.data?.data ?? [];
   const memberName = useMemo(() => {
-    const map = new Map((members.data?.data ?? []).map((m) => [m.userId, m.fullName || m.email]));
+    const map = new Map(memberList.map((m) => [m.userId, m.fullName || m.email]));
     return (id: string | null) => (id ? map.get(id) ?? "Unknown" : "Unassigned");
-  }, [members.data]);
-
-  const views = useQuery({ queryKey: ["cops-saved-views", "account"], queryFn: () => api.savedViews(), enabled: authReady });
+  }, [memberList]);
 
   const ownerFilter = onlyMine ? me.data?.userId : undefined;
   const list = useInfiniteQuery({
@@ -78,44 +59,6 @@ export function CopsAccountsTable() {
   });
   const rows: AccountRow[] = list.data?.pages.flatMap((p) => p.data) ?? [];
   const filtersActive = Boolean(q || onlyMine || viewId);
-
-  const bulk = useMutation({
-    mutationFn: () => api.bulkReassign(Array.from(selected), ownerId, reason.trim()),
-    onSuccess: (res) => {
-      const { updated, skipped_ids } = res.data;
-      setBulkMessage(`Reassigned ${updated} account${updated === 1 ? "" : "s"} to ${memberName(ownerId)}.${skipped_ids.length ? ` ${skipped_ids.length} skipped.` : ""}`);
-      setSelected(new Set());
-      setReason("");
-      queryClient.invalidateQueries({ queryKey: ["cops-accounts"] });
-    },
-    onError: (err) => setBulkMessage(errorText(err, "Could not reassign these accounts.")),
-  });
-
-  const saveView = useMutation({
-    mutationFn: () =>
-      api.saveView({
-        name: viewName.trim(),
-        filters: { ...(q ? { q } : {}), ...(ownerFilter ? { owner_id: ownerFilter } : {}) },
-        sort,
-        shared: viewShared,
-      }),
-    onSuccess: (res) => {
-      setSaving(false);
-      setViewName("");
-      queryClient.invalidateQueries({ queryKey: ["cops-saved-views", "account"] });
-      setViewId(res.data.id);
-    },
-  });
-
-  const deleteView = useMutation({
-    mutationFn: (id: string) => api.deleteView(id),
-    onSuccess: () => {
-      setViewId("");
-      queryClient.invalidateQueries({ queryKey: ["cops-saved-views", "account"] });
-    },
-  });
-
-  const currentView = views.data?.data.find((v) => v.id === viewId);
   const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   function toggleRow(id: string) {
@@ -146,92 +89,25 @@ export function CopsAccountsTable() {
           <option value="-created_at">Newest first</option>
           <option value="name">Name A–Z</option>
         </Select>
-        <Select aria-label="Saved view" value={viewId} onChange={(e) => setViewId(e.target.value)} className="h-9 w-52">
-          <option value="">All accounts</option>
-          {(views.data?.data ?? []).map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name}
-              {v.shared ? " (shared)" : ""}
-            </option>
-          ))}
-        </Select>
-        {currentView?.mine && (
-          <Button variant="ghost" size="sm" onClick={() => deleteView.mutate(currentView.id)} disabled={deleteView.isPending}>
-            Delete view
-          </Button>
-        )}
-        {!saving ? (
-          <Button variant="outline" size="sm" onClick={() => setSaving(true)} disabled={!q && !onlyMine}>
-            Save view
-          </Button>
-        ) : (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (viewName.trim()) saveView.mutate();
-            }}
-          >
-            <input
-              value={viewName}
-              onChange={(e) => setViewName(e.target.value)}
-              placeholder="View name"
-              aria-label="View name"
-              className="h-9 w-40 rounded-md border bg-background px-3 text-sm"
-              autoFocus
-            />
-            <label className="flex items-center gap-1 text-xs">
-              <input type="checkbox" checked={viewShared} onChange={(e) => setViewShared(e.target.checked)} />
-              Share with team
-            </label>
-            <Button size="sm" type="submit" disabled={!viewName.trim() || saveView.isPending}>
-              Save
-            </Button>
-            <Button size="sm" variant="ghost" type="button" onClick={() => setSaving(false)}>
-              Cancel
-            </Button>
-          </form>
-        )}
+        <SavedViewPicker
+          object="account"
+          viewId={viewId}
+          onChange={setViewId}
+          currentFilters={{ ...(q ? { q } : {}), ...(ownerFilter ? { owner_id: ownerFilter } : {}) }}
+          sort={sort}
+          canSave={Boolean(q || onlyMine)}
+        />
       </div>
-      {saveView.isError && <Alert variant="error">{errorText(saveView.error, "Could not save this view.")}</Alert>}
 
-      {selected.size > 0 && (
-        <form
-          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2 text-sm"
-          data-testid="bulk-reassign-bar"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBulkMessage(null);
-            bulk.mutate();
-          }}
-        >
-          <span className="font-medium">{selected.size} selected</span>
-          <Select aria-label="New owner" value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="h-8 w-48">
-            <option value="">Assign owner…</option>
-            {(members.data?.data ?? []).map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {m.fullName || m.email}
-              </option>
-            ))}
-          </Select>
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason (required)"
-            aria-label="Reason"
-            className="h-8 w-56 rounded-md border bg-background px-2 text-sm"
-          />
-          <Button size="sm" type="submit" disabled={!ownerId || !reason.trim() || bulk.isPending}>
-            {bulk.isPending ? "Assigning…" : "Assign"}
-          </Button>
-          <Button size="sm" variant="ghost" type="button" onClick={() => setSelected(new Set())}>
-            Clear
-          </Button>
-        </form>
-      )}
-      {bulkMessage && <Alert variant={bulk.isError ? "error" : "success"}>{bulkMessage}</Alert>}
+      <BulkOwnerBar
+        object="accounts"
+        selectedIds={Array.from(selected)}
+        members={memberList}
+        onDone={() => setSelected(new Set())}
+        invalidateKey={["cops-accounts"]}
+      />
 
-      {list.isError && <Alert variant="error">{errorText(list.error, "Could not load accounts.")}</Alert>}
+      {list.isError && <Alert variant="error">{copsErrorText(list.error, "Could not load accounts.")}</Alert>}
 
       {list.isLoading ? (
         <Skeleton className="h-40 w-full rounded-md" />

@@ -159,7 +159,7 @@ export function isStale(updatedAt: string, now: Date = new Date()): boolean {
   return now.getTime() - new Date(updatedAt).getTime() > STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 }
 
-/** COPS-02 account list, saved views and bulk owner reassignment. */
+/** COPS-02 account list (saved views and bulk reassignment have their own shared clients). */
 export function useCopsAccountListApi() {
   const request = useApiFetch();
   return {
@@ -173,30 +173,6 @@ export function useCopsAccountListApi() {
       return copsFetch<{ data: AccountRow[]; next_cursor: string | null; applied_filters: Record<string, unknown> }>(
         `/api/v1/accounts?${params.toString()}`,
         undefined,
-        { request }
-      );
-    },
-    savedViews() {
-      return copsFetch<{ data: SavedView[] }>("/api/v1/saved-views?object=account", undefined, { request });
-    },
-    saveView(input: { name: string; filters: Record<string, unknown>; sort?: string; shared: boolean }) {
-      return copsFetch<{ data: { id: string } }>(
-        "/api/v1/saved-views",
-        { method: "POST", body: JSON.stringify({ ...input, object: "account" }) },
-        { request }
-      );
-    },
-    deleteView(id: string) {
-      return copsFetch<void>(`/api/v1/saved-views/${id}`, { method: "DELETE" }, { request });
-    },
-    bulkReassign(ids: string[], ownerId: string, reason: string) {
-      return copsFetch<{ data: { updated: number; updated_ids: string[]; skipped_ids: string[] } }>(
-        "/api/v1/accounts/bulk-reassign",
-        {
-          method: "POST",
-          headers: { "Idempotency-Key": newIdempotencyKey() },
-          body: JSON.stringify({ ids, owner_id: ownerId, reason }),
-        },
         { request }
       );
     },
@@ -235,6 +211,83 @@ export function useCopsTasksApi() {
     openDealTasks() {
       return copsFetch<{ data: Array<NextAction & { related_entity_id: string | null }> }>(
         "/api/v1/tasks?status=open&related_type=deal&limit=100&fields=title,type,due_at,related_entity_id",
+        undefined,
+        { request }
+      );
+    },
+  };
+}
+
+export type SavedViewObject = SavedView["object"];
+
+/** Saved views for any CRM object (account, contact, opportunity, task). */
+export function useCopsSavedViewsApi(object: SavedViewObject) {
+  const request = useApiFetch();
+  return {
+    list() {
+      return copsFetch<{ data: SavedView[] }>(`/api/v1/saved-views?object=${object}`, undefined, { request });
+    },
+    save(input: { name: string; filters: Record<string, unknown>; sort?: string; shared: boolean }) {
+      return copsFetch<{ data: { id: string } }>(
+        "/api/v1/saved-views",
+        { method: "POST", body: JSON.stringify({ ...input, object }) },
+        { request }
+      );
+    },
+    remove(id: string) {
+      return copsFetch<void>(`/api/v1/saved-views/${id}`, { method: "DELETE" }, { request });
+    },
+  };
+}
+
+/** Bulk owner change for accounts or opportunities (one backend implementation). */
+export function useCopsBulkReassignApi(object: "accounts" | "opportunities") {
+  const request = useApiFetch();
+  return (ids: string[], ownerId: string, reason: string) =>
+    copsFetch<{ data: { updated: number; updated_ids: string[]; skipped_ids: string[] } }>(
+      `/api/v1/${object}/bulk-reassign`,
+      { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() }, body: JSON.stringify({ ids, owner_id: ownerId, reason }) },
+      { request }
+    );
+}
+
+export interface OpportunityRow {
+  id: string;
+  name: string;
+  company_id: string | null;
+  pipeline_id: string;
+  stage_id: string;
+  status: string;
+  amount: string | null;
+  currency: string | null;
+  owner_id: string | null;
+  updated_at: string;
+}
+
+export interface OpportunityListQuery {
+  q?: string;
+  ownerId?: string;
+  pipelineId?: string;
+  status?: string;
+  sort?: "-updated_at" | "updated_at";
+  viewId?: string;
+  cursor?: string | null;
+}
+
+export function useCopsOpportunityListApi() {
+  const request = useApiFetch();
+  return {
+    list(query: OpportunityListQuery) {
+      const params = new URLSearchParams({ limit: "25" });
+      if (query.q) params.set("q", query.q);
+      if (query.ownerId) params.set("owner_id", query.ownerId);
+      if (query.pipelineId) params.set("pipeline_id", query.pipelineId);
+      if (query.status) params.set("status", query.status);
+      if (query.sort) params.set("sort", query.sort);
+      if (query.viewId) params.set("view_id", query.viewId);
+      if (query.cursor) params.set("cursor", query.cursor);
+      return copsFetch<{ data: OpportunityRow[]; next_cursor: string | null }>(
+        `/api/v1/opportunities?${params.toString()}`,
         undefined,
         { request }
       );
