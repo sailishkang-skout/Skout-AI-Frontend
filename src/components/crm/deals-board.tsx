@@ -228,6 +228,15 @@ export function DealsBoard() {
         </div>
       </div>
 
+      {pipeline && (deals.data?.data ?? []).every((d) => d.pipelineId !== pipeline.id) && (
+        <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm" data-testid="board-empty-state">
+          <p className="font-medium">No opportunities in this pipeline yet</p>
+          <p className="text-muted-foreground">
+            Add one with the + on a stage, or use Quick create. Each deal then moves stage by stage from Qualified to Closed.
+          </p>
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="scrollbar-hidden flex w-full gap-4 overflow-x-auto pb-2">
           {openStages.map((stage) => (

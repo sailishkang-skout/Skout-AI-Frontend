@@ -183,7 +183,10 @@ export default function TasksPage() {
             <div className="rounded-full bg-muted p-4">
               <CheckSquare className="h-8 w-8 text-muted-foreground" />
             </div>
-            <p className="font-medium">No tasks</p>
+            <p className="font-medium">No tasks yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Tasks are the next steps on your accounts and deals. Add one with Quick create, or from a deal or account.
+            </p>
           </CardContent>
         </Card>
       ) : (
