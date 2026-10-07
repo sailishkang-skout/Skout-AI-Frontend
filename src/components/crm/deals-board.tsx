@@ -14,6 +14,7 @@ import { useCompaniesApi } from "@/lib/crm/companies";
 import { useDealsApi } from "@/lib/crm/deals";
 import { usePipelinesApi } from "@/lib/crm/pipelines";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
+import { stageMoveErrorMessage, useCopsCrmApi } from "@/lib/cops-crm";
 import type { CrmListEnvelope, CurrencyValue, Deal } from "@/types/crm";
 import { DealStageColumn } from "./deal-stage-column";
 import { DealQuickCreateDialog } from "./deal-quick-create-dialog";
@@ -26,6 +27,8 @@ export function DealsBoard() {
   const companiesApi = useCompaniesApi();
   const dealsApi = useDealsApi();
   const pipelinesApi = usePipelinesApi();
+  const copsCrmApi = useCopsCrmApi();
+  const [moveError, setMoveError] = useState<string | null>(null);
   const authReady = useAuthReady();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -123,7 +126,10 @@ export function DealsBoard() {
   }, [openStages, summaryByStage]);
 
   const moveStage = useMutation({
-    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) => dealsApi.update(dealId, { stageId }),
+    // COPS-02: stage changes go through the lifecycle transition service (not a plain update), so
+    // an illegal move is refused with the allowed next moves instead of being saved.
+    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) =>
+      copsCrmApi.moveOpportunityStage(dealId, stageId, "Moved on the pipeline board"),
     onMutate: async ({ dealId, stageId }) => {
       await queryClient.cancelQueries({ queryKey: DEALS_QUERY_KEY });
       const previous = queryClient.getQueryData<CrmListEnvelope<Deal>>(DEALS_QUERY_KEY);
@@ -132,9 +138,12 @@ export function DealsBoard() {
       );
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, vars, context) => {
       if (context?.previous) queryClient.setQueryData(DEALS_QUERY_KEY, context.previous);
+      const dealName = context?.previous?.data.find((d) => d.id === vars.dealId)?.name;
+      setMoveError(stageMoveErrorMessage(err, dealName));
     },
+    onSuccess: () => setMoveError(null),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: DEALS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["crm", "deals", "summary"] });
@@ -172,8 +181,10 @@ export function DealsBoard() {
 
   return (
     <div className="space-y-5">
-      {moveStage.isError && (
-        <Alert variant="error">{formatQueryError(moveStage.error, "Could not move this deal.")}</Alert>
+      {moveError && (
+        <div data-testid="stage-move-error">
+          <Alert variant="error">{moveError}</Alert>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -221,7 +232,9 @@ export function DealsBoard() {
               companiesById={companiesById}
               summary={summaryByStage.get(stage.id)}
               onAddDeal={() => setQuickCreateStageId(stage.id)}
-              className="flex-1 basis-64"
+              // Columns share the row width and shrink to 200px, so the six open stages of the
+              // default pipeline fit on a normal screen; only narrow screens scroll sideways.
+              className="flex-1 basis-0 min-w-[200px] shrink"
             />
           ))}
         </div>
