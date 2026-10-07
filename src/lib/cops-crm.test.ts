@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CopsRequestError } from "@/lib/cops-fetch";
-import { isStale, stageMoveErrorMessage } from "./cops-crm";
+import { isStale, nextActionByDeal, stageMoveErrorMessage } from "./cops-crm";
 
 function conflict(details: Record<string, unknown>) {
   return new CopsRequestError(
@@ -41,5 +41,20 @@ describe("isStale", () => {
   });
   it("does not flag a recently updated account", () => {
     expect(isStale("2026-10-01T00:00:00Z", now)).toBe(false);
+  });
+});
+
+describe("nextActionByDeal", () => {
+  it("picks the open task due soonest per deal, with undated tasks last", () => {
+    const map = nextActionByDeal([
+      { id: "t1", title: "Later", type: "call", due_at: "2026-10-20T00:00:00Z", related_entity_id: "d1" },
+      { id: "t2", title: "Sooner", type: "email", due_at: "2026-10-10T00:00:00Z", related_entity_id: "d1" },
+      { id: "t3", title: "No date", type: "note", due_at: null, related_entity_id: "d1" },
+      { id: "t4", title: "Only one", type: "call", due_at: null, related_entity_id: "d2" },
+      { id: "t5", title: "Orphan", type: "call", due_at: null, related_entity_id: null },
+    ]);
+    expect(map.get("d1")?.title).toBe("Sooner");
+    expect(map.get("d2")?.title).toBe("Only one");
+    expect(map.size).toBe(2);
   });
 });

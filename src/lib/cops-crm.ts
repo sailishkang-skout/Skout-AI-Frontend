@@ -202,3 +202,42 @@ export function useCopsAccountListApi() {
     },
   };
 }
+
+export interface NextAction {
+  id: string;
+  title: string;
+  type: string;
+  due_at: string | null;
+}
+
+/**
+ * The next action per deal: its open task due soonest (tasks without a due date come last).
+ * Built from one task list request, so the board makes a single call for every card.
+ */
+export function nextActionByDeal(
+  tasks: Array<NextAction & { related_entity_id: string | null }>
+): Map<string, NextAction> {
+  const map = new Map<string, NextAction>();
+  for (const t of tasks) {
+    if (!t.related_entity_id) continue;
+    const current = map.get(t.related_entity_id);
+    const due = t.due_at ? new Date(t.due_at).getTime() : Infinity;
+    const currentDue = current?.due_at ? new Date(current.due_at).getTime() : Infinity;
+    if (!current || due < currentDue) map.set(t.related_entity_id, { id: t.id, title: t.title, type: t.type, due_at: t.due_at });
+  }
+  return map;
+}
+
+export function useCopsTasksApi() {
+  const request = useApiFetch();
+  return {
+    /** Open tasks linked to deals, for the board's inline next actions. */
+    openDealTasks() {
+      return copsFetch<{ data: Array<NextAction & { related_entity_id: string | null }> }>(
+        "/api/v1/tasks?status=open&related_type=deal&limit=100&fields=title,type,due_at,related_entity_id",
+        undefined,
+        { request }
+      );
+    },
+  };
+}

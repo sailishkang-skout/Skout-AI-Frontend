@@ -14,7 +14,7 @@ import { useCompaniesApi } from "@/lib/crm/companies";
 import { useDealsApi } from "@/lib/crm/deals";
 import { usePipelinesApi } from "@/lib/crm/pipelines";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
-import { stageMoveErrorMessage, useCopsCrmApi } from "@/lib/cops-crm";
+import { nextActionByDeal, stageMoveErrorMessage, useCopsCrmApi, useCopsTasksApi } from "@/lib/cops-crm";
 import type { CrmListEnvelope, CurrencyValue, Deal } from "@/types/crm";
 import { DealStageColumn } from "./deal-stage-column";
 import { DealQuickCreateDialog } from "./deal-quick-create-dialog";
@@ -28,6 +28,7 @@ export function DealsBoard() {
   const dealsApi = useDealsApi();
   const pipelinesApi = usePipelinesApi();
   const copsCrmApi = useCopsCrmApi();
+  const copsTasksApi = useCopsTasksApi();
   const [moveError, setMoveError] = useState<string | null>(null);
   const authReady = useAuthReady();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -124,6 +125,13 @@ export function DealsBoard() {
     const valueByCurrency: CurrencyValue[] = Array.from(totals, ([currency, value]) => ({ currency, value }));
     return { openDeals, valueByCurrency };
   }, [openStages, summaryByStage]);
+
+  const dealTasks = useQuery({
+    queryKey: ["cops-tasks", "open-deal"],
+    queryFn: () => copsTasksApi.openDealTasks(),
+    enabled: authReady,
+  });
+  const nextActions = useMemo(() => nextActionByDeal(dealTasks.data?.data ?? []), [dealTasks.data]);
 
   const moveStage = useMutation({
     // COPS-02: stage changes go through the lifecycle transition service (not a plain update), so
@@ -230,6 +238,7 @@ export function DealsBoard() {
               stage={stage}
               deals={dealsByStage.get(stage.id) ?? []}
               companiesById={companiesById}
+              nextActions={nextActions}
               summary={summaryByStage.get(stage.id)}
               onAddDeal={() => setQuickCreateStageId(stage.id)}
               // Columns share the row width and shrink to 180px, so the six open stages of the
@@ -251,6 +260,7 @@ export function DealsBoard() {
                   stage={stage}
                   deals={dealsByStage.get(stage.id) ?? []}
                   companiesById={companiesById}
+              nextActions={nextActions}
                   summary={summaryByStage.get(stage.id)}
                   onAddDeal={() => setQuickCreateStageId(stage.id)}
                   layout="row"

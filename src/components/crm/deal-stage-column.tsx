@@ -1,6 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import type { NextAction } from "@/lib/cops-crm";
 import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ export function DealStageColumn({
   stage,
   deals,
   companiesById,
+  nextActions,
   summary,
   onAddDeal,
   className,
@@ -31,6 +33,8 @@ export function DealStageColumn({
   stage: PipelineStage;
   deals: Deal[];
   companiesById: Map<string, Company>;
+  /** COPS-02: next action per deal id (one request for the whole board). */
+  nextActions?: Map<string, NextAction>;
   summary: { count: number; valueByCurrency: CurrencyValue[] } | undefined;
   onAddDeal: () => void;
   className?: string;
@@ -101,7 +105,7 @@ export function DealStageColumn({
               ? emptyState
               : deals.map((deal) => (
                   <div key={deal.id} className="w-64">
-                    <DealCard deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} />
+                    <DealCard deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} nextAction={nextActions?.get(deal.id)} />
                   </div>
                 ))}
           </SortableContext>
@@ -132,7 +136,7 @@ export function DealStageColumn({
           {deals.length === 0
             ? emptyState
             : deals.map((deal) => (
-                <DealCard key={deal.id} deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} />
+                <DealCard key={deal.id} deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} nextAction={nextActions?.get(deal.id)} />
               ))}
         </SortableContext>
       </div>
