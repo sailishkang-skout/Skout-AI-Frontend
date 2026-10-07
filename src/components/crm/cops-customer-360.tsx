@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
+import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 
@@ -18,13 +19,13 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "timeline", label: "Timeline" },
   { id: "contacts", label: "Contacts" },
-  { id: "commercial", label: "Commercial", ships: "COPS-03 (commercial workspace)" },
+  { id: "commercial", label: "Commercial" },
   { id: "onboarding", label: "Onboarding", ships: "COPS-05 (onboarding and activation)" },
   { id: "usage", label: "Usage", ships: "COPS-05 (activation tracking)" },
   { id: "success", label: "Success", ships: "COPS-11 (customer success)" },
   { id: "engineering", label: "Engineering", ships: "COPS-06 (engineering tickets)" },
   { id: "billing", label: "Billing", ships: "COPS-04 (credits) and COPS-08 (subscriptions)" },
-  { id: "documents", label: "Documents", ships: "COPS-03 (proposals and contracts)" },
+  { id: "documents", label: "Documents" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -219,6 +220,8 @@ export function CopsCustomer360({ accountId, signals = [] }: { accountId: string
         <CardContent role="tabpanel" aria-label={current.label}>
           {tab === "timeline" ? (
             <CopsAccountTimeline accountId={accountId} />
+          ) : tab === "commercial" || tab === "documents" ? (
+            <CopsCommercialTab accountId={accountId} mode={tab} />
           ) : "ships" in current ? (
             <EmptyTab id={current.id} label={current.label} ships={current.ships} />
           ) : view.isLoading ? (
