@@ -125,3 +125,80 @@ export function useCopsAccountApi() {
     },
   };
 }
+
+export interface AccountRow {
+  id: string;
+  name: string;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  object: "account" | "contact" | "opportunity" | "task";
+  filters: Record<string, unknown>;
+  sort: string | null;
+  shared: boolean;
+  mine: boolean;
+}
+
+export interface AccountListQuery {
+  q?: string;
+  ownerId?: string;
+  sort?: "name" | "-created_at";
+  viewId?: string;
+  cursor?: string | null;
+  limit?: number;
+}
+
+/** An account untouched for 30 days is flagged as stale on the CRM screen. */
+export const STALE_AFTER_DAYS = 30;
+export function isStale(updatedAt: string, now: Date = new Date()): boolean {
+  return now.getTime() - new Date(updatedAt).getTime() > STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/** COPS-02 account list, saved views and bulk owner reassignment. */
+export function useCopsAccountListApi() {
+  const request = useApiFetch();
+  return {
+    list(query: AccountListQuery) {
+      const params = new URLSearchParams({ limit: String(query.limit ?? 25) });
+      if (query.q) params.set("q", query.q);
+      if (query.ownerId) params.set("owner_id", query.ownerId);
+      if (query.sort) params.set("sort", query.sort);
+      if (query.viewId) params.set("view_id", query.viewId);
+      if (query.cursor) params.set("cursor", query.cursor);
+      return copsFetch<{ data: AccountRow[]; next_cursor: string | null; applied_filters: Record<string, unknown> }>(
+        `/api/v1/accounts?${params.toString()}`,
+        undefined,
+        { request }
+      );
+    },
+    savedViews() {
+      return copsFetch<{ data: SavedView[] }>("/api/v1/saved-views?object=account", undefined, { request });
+    },
+    saveView(input: { name: string; filters: Record<string, unknown>; sort?: string; shared: boolean }) {
+      return copsFetch<{ data: { id: string } }>(
+        "/api/v1/saved-views",
+        { method: "POST", body: JSON.stringify({ ...input, object: "account" }) },
+        { request }
+      );
+    },
+    deleteView(id: string) {
+      return copsFetch<void>(`/api/v1/saved-views/${id}`, { method: "DELETE" }, { request });
+    },
+    bulkReassign(ids: string[], ownerId: string, reason: string) {
+      return copsFetch<{ data: { updated: number; updated_ids: string[]; skipped_ids: string[] } }>(
+        "/api/v1/accounts/bulk-reassign",
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": newIdempotencyKey() },
+          body: JSON.stringify({ ids, owner_id: ownerId, reason }),
+        },
+        { request }
+      );
+    },
+  };
+}

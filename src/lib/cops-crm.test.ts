@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CopsRequestError } from "@/lib/cops-fetch";
-import { stageMoveErrorMessage } from "./cops-crm";
+import { isStale, stageMoveErrorMessage } from "./cops-crm";
 
 function conflict(details: Record<string, unknown>) {
   return new CopsRequestError(
@@ -31,5 +31,15 @@ describe("stageMoveErrorMessage", () => {
 
   it("falls back to a generic message for unknown errors", () => {
     expect(stageMoveErrorMessage(new Error("network"))).toBe("Could not move this deal. Please try again.");
+  });
+});
+
+describe("isStale", () => {
+  const now = new Date("2026-10-07T00:00:00Z");
+  it("flags an account untouched for more than 30 days", () => {
+    expect(isStale("2026-08-23T00:00:00Z", now)).toBe(true);
+  });
+  it("does not flag a recently updated account", () => {
+    expect(isStale("2026-10-01T00:00:00Z", now)).toBe(false);
   });
 });
