@@ -182,10 +182,21 @@ function RightRail({ data, signals }: { data: Account360; signals: Signal[] }) {
 /**
  * `signals` come from the page's existing account-360 load, so the rail adds no extra request.
  */
-export function CopsCustomer360({ accountId, signals = [] }: { accountId: string; signals?: Signal[] }) {
+const isTabId = (v: string | null | undefined): v is TabId => TABS.some((t) => t.id === v);
+
+export function CopsCustomer360({
+  accountId,
+  signals = [],
+  initialTab,
+}: {
+  accountId: string;
+  signals?: Signal[];
+  /** Opens a section directly, e.g. `?tab=commercial` from the Commercial Desk. */
+  initialTab?: string | null;
+}) {
   const api = useCopsAccountApi();
   const authReady = useAuthReady();
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setTab] = useState<TabId>(isTabId(initialTab) ? initialTab : "overview");
 
   const view = useQuery({
     queryKey: ["cops-360", accountId],

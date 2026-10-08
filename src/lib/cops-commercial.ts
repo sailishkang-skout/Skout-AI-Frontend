@@ -143,6 +143,29 @@ function newIdempotencyKey(): string {
     : `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+export type DeskStateFilter = "none" | "proposal_sent" | "msa_pending" | "payment_pending" | "complete";
+export const DESK_STATE_FILTERS: DeskStateFilter[] = ["none", "proposal_sent", "msa_pending", "payment_pending", "complete"];
+export type DeskRow = CommercialSummary & { account: { id: string; name: string | null } | null };
+
+export interface DeskRowStatus {
+  proposal: string | null;
+  msa: string | null;
+  payment: string | null;
+  gate: "fired" | "open" | "waiting";
+}
+
+/** One line per opportunity on the Commercial Desk: the newest proposal, MSA and payment link and the gate. */
+export function deskRowStatus(row: CommercialSummary): DeskRowStatus {
+  const newest = <T extends { created_at: string }>(items: T[]) =>
+    items.reduce<T | null>((best, item) => (!best || item.created_at > best.created_at ? item : best), null);
+  return {
+    proposal: newest(row.proposals)?.status ?? null,
+    msa: newest(row.contracts.filter((c) => c.kind === "msa"))?.status ?? null,
+    payment: newest(row.payment_requests)?.status ?? null,
+    gate: row.gate.fired_at ? "fired" : row.gate.open ? "open" : "waiting",
+  };
+}
+
 export function useCopsCommercialApi() {
   const request = useApiFetch();
   /** One Idempotency-Key per user action; a retried click would need a new action anyway. */
@@ -151,6 +174,13 @@ export function useCopsCommercialApi() {
   return {
     accountCommercial: (accountId: string) =>
       copsFetch<{ data: CommercialSummary[] }>(`/api/v1/accounts/${accountId}/commercial`, undefined, { request }),
+    /** Commercial Desk across accounts: open and won opportunities, most recently changed first. */
+    desk: (params: { state?: DeskStateFilter; cursor?: string | null }) => {
+      const q = new URLSearchParams({ limit: "25" });
+      if (params.state) q.set("state", params.state);
+      if (params.cursor) q.set("cursor", params.cursor);
+      return copsFetch<{ data: DeskRow[]; next_cursor: string | null }>(`/api/v1/commercial/opportunities?${q.toString()}`, undefined, { request });
+    },
     opportunityCommercial: (opportunityId: string) =>
       copsFetch<{ data: CommercialSummary }>(`/api/v1/opportunities/${opportunityId}/commercial`, undefined, { request }),
     createProposal: (opportunityId: string, body: ProposalTermsInput & { title: string }) =>
