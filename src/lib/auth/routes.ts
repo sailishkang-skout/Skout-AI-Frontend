@@ -61,6 +61,10 @@ export const PROTECTED_ROUTE_SUFFIXES = [
   "/admin/model-performance(.*)",
   "/admin/reporting(.*)",
   "/admin/revenue(.*)",
+  // CustomerOps: the audit log (COPS-01) and the Commercial Desk (COPS-03) were reachable
+  // signed-out at the middleware layer until these were added.
+  "/cops(.*)",
+  "/commercial(.*)",
 ];
 
 /** Top-level segments under `src/app/(dashboard)/` — kept in sync with the app tree for tests. */
@@ -68,6 +72,8 @@ export const DASHBOARD_ROUTE_GROUPS = [
   "admin",
   "ai",
   "analytics",
+  "commercial",
+  "cops",
   "crm",
   "dashboard",
   "decisions",
