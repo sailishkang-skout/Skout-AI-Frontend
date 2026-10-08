@@ -23,13 +23,24 @@ import { ProvisionDialog } from "./provision-dialog";
 import { ProvisioningSteps } from "./provisioning-steps";
 import { AmountReasonDialog } from "./amount-reason-dialog";
 
-const STATUS_TONE = { succeeded: "success", failed: "danger", running: "info", pending: "warning" } as const;
+const STATUS_TONE = {
+  succeeded: "success",
+  failed: "danger",
+  running: "info",
+  pending: "warning",
+} as const;
 
 /**
  * Customer 360 Onboarding tab (COPS-04 part): provision the trial workspace, see each saga step,
  * retry a failed one, and extend the trial. Activation tracking joins this tab in COPS-05.
  */
-export function CopsOnboardingTab({ accountId, accountName }: { accountId: string; accountName?: string }) {
+export function CopsOnboardingTab({
+  accountId,
+  accountName,
+}: {
+  accountId: string;
+  accountName?: string;
+}) {
   const api = useCopsProvisioningApi();
   const authReady = useAuthReady();
   const queryClient = useQueryClient();
@@ -41,7 +52,11 @@ export function CopsOnboardingTab({ accountId, accountName }: { accountId: strin
   const queryKey = ["cops-provisioning", accountId];
   const canWrite = can(permissions, PROVISIONING_PERMS.write);
 
-  const view = useQuery({ queryKey, queryFn: () => api.listProvisionings(accountId), enabled: authReady && Boolean(accountId) });
+  const view = useQuery({
+    queryKey,
+    queryFn: () => api.listProvisionings(accountId),
+    enabled: authReady && Boolean(accountId),
+  });
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey });
@@ -55,7 +70,8 @@ export function CopsOnboardingTab({ accountId, accountName }: { accountId: strin
     try {
       await api.retry(p.id);
     } catch (err) {
-      if (!provisioningFromError(err)) setActionError(provisioningErrorMessage(err, "Retry failed."));
+      if (!provisioningFromError(err))
+        setActionError(provisioningErrorMessage(err, "Retry failed."));
     } finally {
       setRetrying(false);
       refresh();
@@ -64,10 +80,14 @@ export function CopsOnboardingTab({ accountId, accountName }: { accountId: strin
 
   if (view.isLoading) return <Skeleton className="h-40 w-full rounded-md" />;
   if (view.isError) {
-    const forbidden = view.error instanceof CopsRequestError && view.error.envelope?.code === "FORBIDDEN";
+    const forbidden =
+      view.error instanceof CopsRequestError &&
+      view.error.envelope?.code === "FORBIDDEN";
     return (
       <Alert variant={forbidden ? "default" : "error"}>
-        {forbidden ? "Onboarding details are visible to onboarding, commercial and finance roles." : "Could not load onboarding."}
+        {forbidden
+          ? "Onboarding details are visible to onboarding, commercial and finance roles."
+          : "Could not load onboarding."}
       </Alert>
     );
   }
@@ -97,88 +117,146 @@ export function CopsOnboardingTab({ accountId, accountName }: { accountId: strin
     </>
   );
 
-  if (!latest) {
+  // Dialogs render at one fixed position so the provision dialog keeps its result when this tab
+  // switches from the empty state to the provisioned view underneath it.
+  return (
+    <>
+      {latest ? renderProvisioned(latest) : renderEmpty()}
+      {dialogs}
+    </>
+  );
+
+  function renderEmpty() {
     // Bible Appendix G: no onboarding -> provision or start plan.
     return (
-      <div className="rounded-md border border-dashed p-8 text-center" data-testid="onboarding-empty">
+      <div
+        className="rounded-md border border-dashed p-8 text-center"
+        data-testid="onboarding-empty"
+      >
         <p className="text-sm font-medium">No onboarding yet</p>
-        <p className="mt-1 text-xs text-muted-foreground">Provision a trial workspace for this customer to start onboarding.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Provision a trial workspace for this customer to start onboarding.
+        </p>
         {canWrite ? (
-          <Button className="mt-3" onClick={() => setDialog("provision")} data-testid="open-provision">
+          <Button
+            className="mt-3"
+            onClick={() => setDialog("provision")}
+            data-testid="open-provision"
+          >
             Provision trial
           </Button>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">Ask someone with onboarding access to provision this account.</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Ask someone with onboarding access to provision this account.
+          </p>
         )}
-        {dialogs}
       </div>
     );
   }
 
-  const daysLeft = trialDaysLeft(latest.trial_ends_at);
-  const invite = latest.admin_invite;
+  function renderProvisioned(latest: Provisioning) {
+    const daysLeft = trialDaysLeft(latest.trial_ends_at);
+    const invite = latest.admin_invite;
 
-  return (
-    <div className="space-y-4" data-testid="onboarding-provisioning">
-      {actionError && <Alert variant="error">{actionError}</Alert>}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">Trial workspace</p>
-          <Badge tone={STATUS_TONE[latest.status]} className="capitalize" data-testid="provisioning-status">
-            {latest.status}
-          </Badge>
-          {latest.within_target === false && <Badge tone="warning">Over 2-minute target</Badge>}
-        </div>
-        <div className="flex gap-2">
-          {canWrite && latest.status === "failed" && (
-            <Button size="sm" onClick={() => retry(latest)} disabled={retrying} data-testid="retry-provisioning">
-              {retrying && <Loader2 className="animate-spin" />}
-              Retry from failed step
-            </Button>
-          )}
-          {canWrite && latest.status === "succeeded" && (
-            <Button size="sm" variant="outline" onClick={() => setDialog("extend")} data-testid="open-extend-trial">
-              Extend trial
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {latest.status === "failed" && latest.last_error && <Alert variant="warning">Failed at {latest.last_error}</Alert>}
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Info label="Plan" value={latest.plan} />
-        <Info label="Trial ends" value={latest.trial_ends_at ? new Date(latest.trial_ends_at).toLocaleDateString() : "—"} />
-        <Info label="Days left" value={daysLeft == null ? "—" : String(daysLeft)} />
-        <Info label="Provisioned in" value={formatDuration(latest.duration_ms)} />
-      </div>
-
-      {invite && (
-        <div className="rounded-md border p-3 text-sm" data-testid="admin-invite">
-          <p>
-            Admin invite: <span className="font-medium">{invite.email}</span>{" "}
-            <Badge tone={invite.accepted_at ? "success" : "info"}>{invite.accepted_at ? "accepted" : "pending"}</Badge>
-          </p>
-          {invite.accept_url && canWrite && (
-            <button
-              type="button"
-              className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              onClick={async () => {
-                await navigator.clipboard?.writeText(invite.accept_url!);
-                setCopied(true);
-              }}
+    return (
+      <div className="space-y-4" data-testid="onboarding-provisioning">
+        {actionError && <Alert variant="error">{actionError}</Alert>}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">Trial workspace</p>
+            <Badge
+              tone={STATUS_TONE[latest.status]}
+              className="capitalize"
+              data-testid="provisioning-status"
             >
-              <Copy className="h-3 w-3" />
-              {copied ? "Link copied" : "Copy invite link (if the email did not arrive)"}
-            </button>
-          )}
+              {latest.status}
+            </Badge>
+            {latest.within_target === false && (
+              <Badge tone="warning">Over 2-minute target</Badge>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {canWrite && latest.status === "failed" && (
+              <Button
+                size="sm"
+                onClick={() => retry(latest)}
+                disabled={retrying}
+                data-testid="retry-provisioning"
+              >
+                {retrying && <Loader2 className="animate-spin" />}
+                Retry from failed step
+              </Button>
+            )}
+            {canWrite && latest.status === "succeeded" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDialog("extend")}
+                data-testid="open-extend-trial"
+              >
+                Extend trial
+              </Button>
+            )}
+          </div>
         </div>
-      )}
 
-      <ProvisioningSteps steps={latest.steps} running={retrying} />
-      {dialogs}
-    </div>
-  );
+        {latest.status === "failed" && latest.last_error && (
+          <Alert variant="warning">Failed at {latest.last_error}</Alert>
+        )}
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Info label="Plan" value={latest.plan} />
+          <Info
+            label="Trial ends"
+            value={
+              latest.trial_ends_at
+                ? new Date(latest.trial_ends_at).toLocaleDateString()
+                : "—"
+            }
+          />
+          <Info
+            label="Days left"
+            value={daysLeft == null ? "—" : String(daysLeft)}
+          />
+          <Info
+            label="Provisioned in"
+            value={formatDuration(latest.duration_ms)}
+          />
+        </div>
+
+        {invite && (
+          <div
+            className="rounded-md border p-3 text-sm"
+            data-testid="admin-invite"
+          >
+            <p>
+              Admin invite: <span className="font-medium">{invite.email}</span>{" "}
+              <Badge tone={invite.accepted_at ? "success" : "info"}>
+                {invite.accepted_at ? "accepted" : "pending"}
+              </Badge>
+            </p>
+            {invite.accept_url && canWrite && (
+              <button
+                type="button"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(invite.accept_url!);
+                  setCopied(true);
+                }}
+              >
+                <Copy className="h-3 w-3" />
+                {copied
+                  ? "Link copied"
+                  : "Copy invite link (if the email did not arrive)"}
+              </button>
+            )}
+          </div>
+        )}
+
+        <ProvisioningSteps steps={latest.steps} running={retrying} />
+      </div>
+    );
+  }
 }
 
 function Info({ label, value }: { label: string; value: string }) {
