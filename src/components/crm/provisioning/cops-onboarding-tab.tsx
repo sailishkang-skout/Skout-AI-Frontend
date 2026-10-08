@@ -22,6 +22,7 @@ import {
 import { ProvisionDialog } from "./provision-dialog";
 import { ProvisioningSteps } from "./provisioning-steps";
 import { AmountReasonDialog } from "./amount-reason-dialog";
+import { OnboardingControl } from "../onboarding/onboarding-control";
 
 const STATUS_TONE = {
   succeeded: "success",
@@ -253,7 +254,20 @@ export function CopsOnboardingTab({
           </div>
         )}
 
-        <ProvisioningSteps steps={latest.steps} running={retrying} />
+        {latest.status === "succeeded" ? (
+          <>
+            {/* COPS-05 Onboarding Control: activation, follow-up, blockers, emails. */}
+            <OnboardingControl accountId={accountId} accountName={accountName ?? "this account"} provisioning={latest} />
+            <details className="rounded-md border p-3 text-sm">
+              <summary className="cursor-pointer text-muted-foreground">Provisioning steps</summary>
+              <div className="pt-3">
+                <ProvisioningSteps steps={latest.steps} running={retrying} />
+              </div>
+            </details>
+          </>
+        ) : (
+          <ProvisioningSteps steps={latest.steps} running={retrying} />
+        )}
       </div>
     );
   }

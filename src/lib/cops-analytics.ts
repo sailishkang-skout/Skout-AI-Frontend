@@ -37,6 +37,14 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.credits_granted",
   "cops.credits_adjusted",
   "cops.trial_extended",
+  // COPS-05
+  "cops.onboarding_email_sent",
+  "cops.onboarding_email_resent",
+  "cops.follow_up_paused",
+  "cops.follow_up_resumed",
+  "cops.follow_up_stopped",
+  "cops.milestone_completed",
+  "cops.follow_up_action_logged",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];
