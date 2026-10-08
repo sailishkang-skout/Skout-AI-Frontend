@@ -1,4 +1,5 @@
 import { useApiFetch } from "@/lib/api-client";
+import { trackCops, withCopsTracking, type CopsAnalyticsProps } from "./cops-analytics";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 
 /**
@@ -137,8 +138,17 @@ export function useCopsProvisioningApi() {
      * The key is chosen by the caller and kept for the whole form: re-submitting with the same key
      * returns (and resumes) the same provisioning, never a second workspace.
      */
-    provision: (accountId: string, body: ProvisionInput, key: string) => post<Provisioning>(`/api/v1/accounts/${accountId}/provision`, body, key),
-    retry: (provisioningId: string) => post<Provisioning>(`/api/v1/provisionings/${provisioningId}/retry`, {}),
+    provision: (accountId: string, body: ProvisionInput, key: string) =>
+      trackProvisioning("cops.trial_provisioned", () => post<Provisioning>(`/api/v1/accounts/${accountId}/provision`, body, key), {
+        account_id: accountId,
+        trial_days: body.trial_days,
+        credits: body.credits,
+        integration_count: body.integrations?.length ?? 0,
+      }),
+    retry: (provisioningId: string) =>
+      trackProvisioning("cops.trial_provisioning_retried", () => post<Provisioning>(`/api/v1/provisionings/${provisioningId}/retry`, {}), {
+        provisioning_id: provisioningId,
+      }),
     wallet: (accountId: string, cursor?: string | null) =>
       copsFetch<{ data: Wallet }>(
         `/api/v1/accounts/${accountId}/credits${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
@@ -146,12 +156,50 @@ export function useCopsProvisioningApi() {
         { request }
       ),
     grant: (accountId: string, body: { amount: number; reason: string }, key: string) =>
-      post<LedgerEntry & { balance: number }>(`/api/v1/accounts/${accountId}/credits/grants`, body, key),
+      withCopsTracking("cops.credits_granted", () => post<LedgerEntry & { balance: number }>(`/api/v1/accounts/${accountId}/credits/grants`, body, key), {
+        account_id: accountId,
+        amount: body.amount,
+      }),
     adjust: (accountId: string, body: { amount: number; reason: string; compensates_id?: string }, key: string) =>
-      post<LedgerEntry & { balance: number }>(`/api/v1/accounts/${accountId}/credits/adjustments`, body, key),
+      withCopsTracking(
+        "cops.credits_adjusted",
+        () => post<LedgerEntry & { balance: number }>(`/api/v1/accounts/${accountId}/credits/adjustments`, body, key),
+        { account_id: accountId, amount: body.amount, corrects_entry: Boolean(body.compensates_id) }
+      ),
     extendTrial: (accountId: string, body: { days: number; reason: string }) =>
-      post<{ trial_starts_at: string; trial_ends_at: string }>(`/api/v1/accounts/${accountId}/trial/extend`, body),
+      withCopsTracking(
+        "cops.trial_extended",
+        () => post<{ trial_starts_at: string; trial_ends_at: string }>(`/api/v1/accounts/${accountId}/trial/extend`, body),
+        { account_id: accountId, days: body.days }
+      ),
   };
+}
+
+/**
+ * Provisioning runs record the result either way: success with the saga duration, or the failed
+ * step (a 502 carries the provisioning next to the error envelope).
+ */
+async function trackProvisioning(
+  event: "cops.trial_provisioned" | "cops.trial_provisioning_retried",
+  run: () => Promise<{ data: Provisioning }>,
+  props: CopsAnalyticsProps
+) {
+  try {
+    const res = await run();
+    trackCops(event, { ...props, provisioning_id: res.data.id, duration_ms: res.data.duration_ms, within_target: res.data.within_target });
+    return res;
+  } catch (err) {
+    const failed = provisioningFromError(err);
+    if (failed) {
+      trackCops("cops.trial_provisioning_failed", {
+        ...props,
+        provisioning_id: failed.id,
+        failed_step: failed.steps.find((s) => s.status === "failed")?.step ?? null,
+        retry: event === "cops.trial_provisioning_retried",
+      });
+    }
+    throw err;
+  }
 }
 
 // ---- Pure helpers ----

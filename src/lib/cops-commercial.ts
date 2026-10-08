@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { withCopsTracking } from "./cops-analytics";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 
@@ -153,19 +154,28 @@ export function useCopsCommercialApi() {
     opportunityCommercial: (opportunityId: string) =>
       copsFetch<{ data: CommercialSummary }>(`/api/v1/opportunities/${opportunityId}/commercial`, undefined, { request }),
     createProposal: (opportunityId: string, body: ProposalTermsInput & { title: string }) =>
-      write<Proposal>("POST", `/api/v1/opportunities/${opportunityId}/proposals`, body),
+      withCopsTracking("cops.proposal_created", () => write<Proposal>("POST", `/api/v1/opportunities/${opportunityId}/proposals`, body), {
+        opportunity_id: opportunityId,
+        line_count: body.line_items?.length ?? 0,
+      }),
     addProposalVersion: (proposalId: string, body: ProposalTermsInput) =>
       write<Proposal>("POST", `/api/v1/proposals/${proposalId}/versions`, body),
-    sendProposal: (proposalId: string) => write<Proposal>("POST", `/api/v1/proposals/${proposalId}/send`, {}),
+    sendProposal: (proposalId: string) =>
+      withCopsTracking("cops.proposal_sent", () => write<Proposal>("POST", `/api/v1/proposals/${proposalId}/send`, {}), { proposal_id: proposalId }),
     setProposalStatus: (proposalId: string, status: "accepted" | "declined" | "expired", reason: string) =>
       write<Proposal>("POST", `/api/v1/proposals/${proposalId}/status`, { status, reason }),
     createContract: (
       opportunityId: string,
       body: { kind: ContractKind; title?: string; proposal_id?: string; document_url: string; file_name?: string; file_sha256: string }
-    ) => write<Contract>("POST", `/api/v1/opportunities/${opportunityId}/contracts`, body),
+    ) =>
+      withCopsTracking("cops.contract_created", () => write<Contract>("POST", `/api/v1/opportunities/${opportunityId}/contracts`, body), {
+        opportunity_id: opportunityId,
+        kind: body.kind,
+      }),
     addContractVersion: (contractId: string, body: { document_url: string; file_name?: string; file_sha256: string }) =>
       write<Contract>("POST", `/api/v1/contracts/${contractId}/versions`, body),
-    sendContract: (contractId: string) => write<Contract>("POST", `/api/v1/contracts/${contractId}/send`, {}),
+    sendContract: (contractId: string) =>
+      withCopsTracking("cops.contract_sent", () => write<Contract>("POST", `/api/v1/contracts/${contractId}/send`, {}), { contract_id: contractId }),
     setContractStatus: (contractId: string, status: "signed" | "declined" | "expired", reason: string) =>
       write<Contract>("POST", `/api/v1/contracts/${contractId}/status`, { status, reason }),
     createPaymentRequest: (body: {
@@ -175,11 +185,24 @@ export function useCopsCommercialApi() {
       currency?: string;
       description?: string;
       customer?: { name?: string; email?: string };
-    }) => write<PaymentRequest>("POST", "/api/v1/payment-requests", body),
+    }) =>
+      withCopsTracking("cops.payment_link_created", () => write<PaymentRequest>("POST", "/api/v1/payment-requests", body), {
+        opportunity_id: body.opportunity_id,
+        from_proposal: Boolean(body.proposal_id),
+        currency: body.currency,
+      }),
     approveTrial: (opportunityId: string, reason: string) =>
-      write<Gate & { fired_now: boolean }>("POST", `/api/v1/opportunities/${opportunityId}/gate/approve-trial`, { reason }),
+      withCopsTracking(
+        "cops.gate_trial_approved",
+        () => write<Gate & { fired_now: boolean }>("POST", `/api/v1/opportunities/${opportunityId}/gate/approve-trial`, { reason }),
+        (res) => ({ opportunity_id: opportunityId, fired_now: res.data.fired_now })
+      ),
     overrideGate: (opportunityId: string, reason: string) =>
-      write<Gate & { fired_now: boolean }>("POST", `/api/v1/opportunities/${opportunityId}/gate/override`, { reason }),
+      withCopsTracking(
+        "cops.gate_overridden",
+        () => write<Gate & { fired_now: boolean }>("POST", `/api/v1/opportunities/${opportunityId}/gate/override`, { reason }),
+        (res) => ({ opportunity_id: opportunityId, fired_now: res.data.fired_now })
+      ),
   };
 }
 
