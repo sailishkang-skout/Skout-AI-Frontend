@@ -99,6 +99,8 @@ export interface Account360 {
     commercial_state: string | null;
     onboarding_pct: number | null;
     plan: string | null;
+    /** COPS-04: the provisioned trial workspace, when there is one. */
+    provisioning?: { workspace_id: string | null; trial_starts_at: string | null; trial_ends_at: string | null } | null;
     renewal_at: string | null;
   };
   contacts?: Array<{ id: string; firstName: string; lastName: string | null; email: string | null }>;

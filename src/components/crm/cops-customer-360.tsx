@@ -12,6 +12,8 @@ import { CopsRequestError } from "@/lib/cops-fetch";
 import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
 import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
+import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
+import { CopsBillingTab } from "./provisioning/cops-billing-tab";
 import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 
@@ -20,11 +22,11 @@ const TABS = [
   { id: "timeline", label: "Timeline" },
   { id: "contacts", label: "Contacts" },
   { id: "commercial", label: "Commercial" },
-  { id: "onboarding", label: "Onboarding", ships: "COPS-05 (onboarding and activation)" },
+  { id: "onboarding", label: "Onboarding" },
   { id: "usage", label: "Usage", ships: "COPS-05 (activation tracking)" },
   { id: "success", label: "Success", ships: "COPS-11 (customer success)" },
   { id: "engineering", label: "Engineering", ships: "COPS-06 (engineering tickets)" },
-  { id: "billing", label: "Billing", ships: "COPS-04 (credits) and COPS-08 (subscriptions)" },
+  { id: "billing", label: "Billing" },
   { id: "documents", label: "Documents" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -46,7 +48,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 /** Appendix G wording where the Bible gives one; the action itself ships with the named ticket. */
 const APPENDIX_G: Partial<Record<TabId, { title: string; action: string }>> = {
-  onboarding: { title: "No onboarding yet", action: "Provision a workspace or start an onboarding plan" },
   engineering: { title: "No open tickets: this account is healthy", action: "Create ticket" },
 };
 
@@ -222,6 +223,10 @@ export function CopsCustomer360({ accountId, signals = [] }: { accountId: string
             <CopsAccountTimeline accountId={accountId} />
           ) : tab === "commercial" || tab === "documents" ? (
             <CopsCommercialTab accountId={accountId} mode={tab} />
+          ) : tab === "onboarding" ? (
+            <CopsOnboardingTab accountId={accountId} accountName={data?.header?.name} />
+          ) : tab === "billing" ? (
+            <CopsBillingTab accountId={accountId} />
           ) : "ships" in current ? (
             <EmptyTab id={current.id} label={current.label} ships={current.ships} />
           ) : view.isLoading ? (
