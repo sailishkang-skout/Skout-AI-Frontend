@@ -122,4 +122,81 @@ test.describe("CustomerOps admin (COPS-07)", () => {
     await expect(page.getByTestId("metric-outbox_lag_seconds")).toContainText("cops-platform.md");
     await expect(page.getByTestId("metric-provisioning_p95_ms")).toContainText("5.9 s");
   });
+
+  test("an activation definition is edited as milestones and saves only when the weights add up to 100", async ({ page }) => {
+    await mockApi(page, ["admin:read", "admin:admin"]);
+    let saved: { milestones: { key: string; weight: number }[]; reason: string } | null = null;
+    const milestones = [
+      { key: "first_search", label: "First search", weight: 60, required: true, source: "event", event_types: ["product.search"] },
+      { key: "first_export", label: "First export", weight: 40, required: true, source: "event", event_types: ["product.export"] },
+    ];
+    await page.route("**/api/v1/admin/activation-templates", (route) =>
+      json(route, { data: [{ id: "a1", key: "default_trial", version: 1, segment: null, milestones, is_system_default: true, created_at: "2026-10-08T00:00:00Z" }] })
+    );
+    await page.route("**/api/v1/admin/activation-templates/default_trial/versions", (route) => {
+      saved = route.request().postDataJSON();
+      return json(route, { data: { id: "a2", key: "default_trial", version: 2, segment: null, milestones: saved!.milestones } }, 201);
+    });
+
+    await gotoAppPage(page, "/cops/admin", "page-cops-admin");
+    await openTab(page, "activation");
+    await page.getByRole("button", { name: "New version from this" }).click();
+    await page.getByLabel("Reason").fill("Search matters more");
+    await page.getByLabel("Milestone 1 weight").fill("70");
+    await expect(page.getByTestId("activation-total")).toContainText("110%");
+    await expect(page.getByTestId("activation-save")).toBeDisabled();
+    await page.getByLabel("Milestone 2 weight").fill("30");
+    await expect(page.getByTestId("activation-total")).toContainText("100%");
+    await page.getByTestId("activation-save").click();
+    await expect.poll(() => saved?.reason).toBe("Search matters more");
+    expect(saved!.milestones.map((m) => m.weight)).toEqual([70, 30]);
+  });
+
+  test("pipelines: a stage is added at the end and an existing stage is renamed", async ({ page }) => {
+    await mockApi(page, ["admin:read", "admin:admin"]);
+    const stages = [
+      { id: "s1", pipelineId: "p1", name: "Qualified", orderIndex: 0, probability: 10, isClosedWon: false, isClosedLost: false },
+      { id: "s2", pipelineId: "p1", name: "Demo", orderIndex: 1, probability: 40, isClosedWon: false, isClosedLost: false },
+    ];
+    const writes: { method: string; path: string; body: Record<string, unknown> }[] = [];
+    await page.route("**/api/v1/pipelines**", (route) => {
+      const req = route.request();
+      if (req.method() === "GET") return json(route, { data: [{ id: "p1", workspaceId: "ws", name: "Sales", isDefault: true, createdAt: "", updatedAt: "", stages }], total: 1 });
+      const body = req.postDataJSON() as Record<string, unknown>;
+      writes.push({ method: req.method(), path: new URL(req.url()).pathname, body });
+      if (req.method() === "POST") stages.push({ id: "s3", pipelineId: "p1", isClosedLost: false, ...(body as { name: string; orderIndex: number; probability: number; isClosedWon: boolean }) });
+      else Object.assign(stages[1]!, body);
+      return json(route, body, req.method() === "POST" ? 201 : 200);
+    });
+
+    await gotoAppPage(page, "/cops/admin", "page-cops-admin");
+    await openTab(page, "pipelines");
+    await expect(page.getByTestId("pipeline-p1")).toContainText("Qualified");
+    await page.getByTestId("pipeline-add-stage-p1").click();
+    await page.getByLabel("Stage name").fill("Closed won");
+    await page.getByLabel("Stage type").selectOption("won");
+    await page.getByTestId("pipeline-stage-save").click();
+    await expect(page.getByTestId("stage-s3")).toContainText("Closed won");
+
+    await page.getByTestId("stage-s2").click();
+    await page.getByLabel("Edit stage name").fill("Product demo");
+    await page.getByLabel("Edit win probability").fill("45");
+    await page.getByTestId("stage-edit-save").click();
+    await expect(page.getByTestId("stage-s2")).toContainText("Product demo");
+    expect(writes).toEqual([
+      { method: "POST", path: "/api/v1/pipelines/p1/stages", body: { name: "Closed won", orderIndex: 2, probability: 0, isClosedWon: true, isClosedLost: false } },
+      { method: "PATCH", path: "/api/v1/pipelines/p1/stages/s2", body: { name: "Product demo", probability: 45 } },
+    ]);
+  });
+
+  test("a page of a module that is turned off says so instead of blaming the role", async ({ page }) => {
+    await mockApi(page, ["tickets:read", "crm:read"]);
+    await page.route(
+      (url) => url.pathname.endsWith("/api/v1/tickets"),
+      (route) => json(route, { code: "FORBIDDEN", message: "This module is turned off for the workspace", details: { reason: "module_disabled", module: "tickets" }, request_id: "r1", retryable: false }, 403)
+    );
+    await gotoAppPage(page, "/engineering", "page-cops-engineering");
+    await expect(page.getByTestId("page-cops-engineering")).toContainText("Engineering tickets are turned off for this workspace");
+    await expect(page.getByTestId("page-cops-engineering")).not.toContainText("is for Engineering, Customer Success and Product roles");
+  });
 });
