@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import {
+  deskRowStatus,
   commercialErrorMessage,
   commercialTimeline,
   formatMoney,
@@ -122,5 +123,36 @@ describe("commercialErrorMessage", () => {
     expect(commercialErrorMessage(err("PROVIDER_UNAVAILABLE"), "f")).toMatch(/not configured/);
     expect(commercialErrorMessage(err("BUSINESS_STATE_CONFLICT"), "f")).toBe("server says BUSINESS_STATE_CONFLICT");
     expect(commercialErrorMessage(new Error("boom"), "fallback")).toBe("fallback");
+  });
+});
+
+describe("deskRowStatus", () => {
+  const base = {
+    opportunity: { id: "o1", name: "Deal", amount: "100", currency: "INR", deal_type: null, status: "open", commercial_state: null },
+    proposals: [],
+    contracts: [],
+    payment_requests: [],
+    gate: { open: false, fired_at: null },
+  } as unknown as Parameters<typeof deskRowStatus>[0];
+
+  it("shows the newest proposal, MSA and payment and the gate state", () => {
+    const row = {
+      ...base,
+      proposals: [
+        { status: "declined", created_at: "2026-10-01T00:00:00Z" },
+        { status: "sent", created_at: "2026-10-05T00:00:00Z" },
+      ],
+      contracts: [
+        { kind: "dpa", status: "signed", created_at: "2026-10-06T00:00:00Z" },
+        { kind: "msa", status: "sent", created_at: "2026-10-02T00:00:00Z" },
+      ],
+      payment_requests: [{ status: "paid", created_at: "2026-10-07T00:00:00Z" }],
+      gate: { open: true, fired_at: "2026-10-07T01:00:00Z" },
+    } as unknown as Parameters<typeof deskRowStatus>[0];
+    expect(deskRowStatus(row)).toEqual({ proposal: "sent", msa: "sent", payment: "paid", gate: "fired" });
+  });
+
+  it("reports nothing started and a waiting gate for a fresh opportunity", () => {
+    expect(deskRowStatus(base)).toEqual({ proposal: null, msa: null, payment: null, gate: "waiting" });
   });
 });

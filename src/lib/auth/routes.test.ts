@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   APP_BASE_PATH,
@@ -50,6 +52,20 @@ describe("auth route tables", () => {
         `expected ${sample} to be protected (group: ${group})`
       ).toBe(true);
     }
+  });
+
+  it("lists every folder under src/app/(dashboard), so a new page cannot skip the auth gate", () => {
+    const dir = path.join(process.cwd(), "src", "app", "(dashboard)");
+    const folders = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith("(") && !d.name.startsWith("_") && !d.name.startsWith("["))
+      .map((d) => d.name);
+    const missing = folders.filter((f) => !(DASHBOARD_ROUTE_GROUPS as readonly string[]).includes(f));
+    expect(missing, "add these to DASHBOARD_ROUTE_GROUPS and PROTECTED_ROUTE_SUFFIXES").toEqual([]);
+  });
+
+  it("protects the CustomerOps pages", () => {
+    expect(isProtectedPathname(`${APP_BASE_PATH}/cops/audit`)).toBe(true);
+    expect(isProtectedPathname(`${APP_BASE_PATH}/commercial`)).toBe(true);
   });
 
   it("requires middleware to apply withAppBasePath — raw suffixes must not be used as matchers", () => {

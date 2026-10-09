@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isRetryableAuthError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 import { fieldErrorsByPath } from "@/lib/cops-error";
+import { trackCops } from "@/lib/cops-analytics";
 import { AuditViewer, type CopsAuditRow } from "@/components/cops/AuditViewer";
 
 /** Admin audit log (COPS-01). Requires admin:read on the API; the server enforces it. */
@@ -39,7 +40,12 @@ export default function CopsAuditPage() {
       }
       setRows((current) => append ? [...current, ...res.data] : res.data);
       setNextCursor(res.next_cursor);
-      if (!append) setActiveQuery(queryString);
+      if (!append) {
+        setActiveQuery(queryString);
+        // Which filters people use, not their values.
+        const filters = Array.from(new URLSearchParams(queryString).keys()).filter((k) => k !== "limit" && k !== "cursor");
+        if (filters.length > 0) trackCops("cops.audit_log_searched", { filters: filters.sort().join(","), result_count: res.data.length });
+      }
     } catch (err) {
       const fields = err instanceof CopsRequestError && err.envelope ? fieldErrorsByPath(err.envelope) : {};
       if (Object.keys(fields).length > 0) {
