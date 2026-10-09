@@ -98,6 +98,8 @@ export type NavItem = {
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
   requiredPermission?: string | readonly string[];
+  /** COPS-07: hidden when the workspace has turned this CustomerOps module off. */
+  copsModule?: "commercial" | "onboarding" | "tickets";
   /** Renders as a collapsible submenu instead of a link — `href` is unused when set. */
   children?: NavItem[];
 };
@@ -129,9 +131,9 @@ export const pipelineNav: NavGroup[] = [
       { href: "/crm/companies", label: "Accounts", icon: Building2, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/contacts", label: "Contacts", icon: Users2, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360", requiredPermission: CRM_NAV_PERMISSION },
-      { href: "/commercial", label: "Commercial", icon: FileSignature, requiredPermission: "commercial:read" },
-      { href: "/follow-up", label: "Follow-up", icon: ListChecks, requiredPermission: ["onboarding:write", "crm:write"] },
-      { href: "/engineering", label: "Engineering", icon: Wrench, requiredPermission: "tickets:read" },
+      { href: "/commercial", label: "Commercial", icon: FileSignature, requiredPermission: "commercial:read", copsModule: "commercial" },
+      { href: "/follow-up", label: "Follow-up", icon: ListChecks, requiredPermission: ["onboarding:write", "crm:write"], copsModule: "onboarding" },
+      { href: "/engineering", label: "Engineering", icon: Wrench, requiredPermission: "tickets:read", copsModule: "tickets" },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/calendar", label: "Calendar", icon: Calendar, requiredPermission: CRM_NAV_PERMISSION },
@@ -437,6 +439,15 @@ export function SidebarPanel({
     staleTime: 30_000,
   });
   const grantedPermissions = me?.permissions ?? [];
+  // A module an admin turned off is hidden; while the answer is loading or fails, nothing is hidden.
+  const { data: copsModules } = useQuery<{ data?: Record<string, boolean> }>({
+    queryKey: ["cops-modules-nav"],
+    queryFn: () => apiFetch("/api/v1/cops/modules"),
+    enabled: authReady,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const moduleOn = (module?: string) => !module || copsModules?.data?.[module] !== false;
   const displayGroups = [
     ...homeNav,
     ...pipelineNav,
@@ -448,7 +459,7 @@ export function SidebarPanel({
   ]
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasNavPermission(item.requiredPermission, grantedPermissions)),
+      items: group.items.filter((item) => hasNavPermission(item.requiredPermission, grantedPermissions) && moduleOn(item.copsModule)),
     }))
     .filter((group) => group.items.length > 0);
 
