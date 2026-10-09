@@ -12,6 +12,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyFormSheet } from "@/components/crm/company-form-sheet";
+import { CopsAccountsTable } from "@/components/crm/cops-accounts-table";
+import { CrmQuickCreate } from "@/components/crm/crm-quick-create";
+import { cn } from "@/lib/utils";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
@@ -23,6 +26,8 @@ export default function CompaniesPage() {
   const { canDelete } = useWorkspaceRole();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // COPS-02: table mode adds fast filters, saved views, stale flags and bulk owner reassignment.
+  const [view, setView] = useState<"table" | "cards">("table");
 
   const companies = useQuery({
     queryKey: ["crm", "companies"],
@@ -53,13 +58,38 @@ export default function CompaniesPage() {
         title="Companies"
         description="Accounts your contacts and deals belong to."
         actions={
-          <Button data-testid="create-company-button" onClick={() => setSheetOpen(true)}>
-            <Plus className="h-4 w-4" />
-            New company
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" data-testid="create-company-button" onClick={() => setSheetOpen(true)}>
+              <Plus className="h-4 w-4" />
+              New company
+            </Button>
+            <CrmQuickCreate />
+          </div>
         }
       />
 
+      <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1" role="tablist" aria-label="Accounts view">
+        {(["table", "cards"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors",
+              view === v ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+
+      {view === "table" ? (
+        <CopsAccountsTable />
+      ) : (
+      <>
       {companies.isError && (
         <Alert variant="error" onRetry={() => companies.refetch()}>
           {formatQueryError(companies.error, "Could not load companies.")}
@@ -123,6 +153,9 @@ export default function CompaniesPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      </>
       )}
 
       <CompanyFormSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />

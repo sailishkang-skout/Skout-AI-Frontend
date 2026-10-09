@@ -19,6 +19,15 @@ function isProtectedRoute(request: NextRequest): boolean {
   return PROTECTED_ROUTE_PATTERNS.some((p) => new RegExp(`^${p}$`).test(request.nextUrl.pathname));
 }
 
+/**
+ * Playwright runs (`playwright.config.ts` sets E2E_AUTH_BYPASS=true on `pnpm dev`) use stub auth,
+ * like `lib/api-client.ts` does. The Clerk middleware honoured this flag; AUTH-FE-18 dropped it, so
+ * every protected e2e page bounced to sign-in. Never active in a production build.
+ */
+export function e2eAuthBypass(env: { E2E_AUTH_BYPASS?: string; NODE_ENV?: string } = process.env): boolean {
+  return env.E2E_AUTH_BYPASS === "true" && env.NODE_ENV !== "production";
+}
+
 // JWKS setup for own-auth session verification
 let remoteJwks: { base: string; keySet: JWTVerifyGetKey } | null = null;
 function jwksFor(base: string): JWTVerifyGetKey {
@@ -130,7 +139,7 @@ export default async function middleware(request: NextRequest, _event: NextFetch
   processedRequest = requestWithPublicOrigin(processedRequest);
 
   // Own-auth protected-route check (Clerk removed — AUTH-FE-18).
-  if (isProtectedRoute(processedRequest)) {
+  if (!e2eAuthBypass() && isProtectedRoute(processedRequest)) {
     const sessionToken = processedRequest.cookies.get(SESSION_COOKIE)?.value;
     const isAuthenticated = sessionToken ? await verifySessionCookie(sessionToken) : false;
 

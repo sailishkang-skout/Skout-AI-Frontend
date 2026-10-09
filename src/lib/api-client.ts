@@ -180,6 +180,7 @@ export function formatQueryError(error: unknown, fallback: string): string {
     const body = error.body as
       | {
           message?: string;
+          code?: string;
           error?:
             | string
             | {
@@ -194,6 +195,16 @@ export function formatQueryError(error: unknown, fallback: string): string {
           issues?: Array<{ path?: string; message?: string }>;
         }
       | undefined;
+    if (body?.code === "VALIDATION_FAILED") {
+      const fields = (body.details as { fields?: Array<{ path?: string; message?: string }> } | undefined)?.fields;
+      if (fields?.length) {
+        const detail = fields
+          .slice(0, 4)
+          .map((field) => (field.path ? `${field.path}: ${field.message}` : field.message))
+          .join("; ");
+        return `${body.message ?? "Request validation failed"} — ${detail}`;
+      }
+    }
     if (body?.issues?.length) {
       const detail = body.issues
         .slice(0, 3)
@@ -277,17 +288,39 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
+  const retrySafe =
+    ["GET", "HEAD", "OPTIONS"].includes(method) ||
+    (headers.has("Idempotency-Key") && (body === undefined || typeof body === "string"));
   let res: Response;
-  try {
-    res = await fetch(`${getApiBase()}${path}`, {
-      ...init,
-      body,
-      headers,
-      credentials: "include",
-    });
-  } catch (err) {
-    logApiFailure(method, path, err, { workspaceId });
-    throw err;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      res = await fetch(`${getApiBase()}${path}`, {
+        ...init,
+        body,
+        headers,
+        credentials: "include",
+      });
+    } catch (err) {
+      logApiFailure(method, path, err, { workspaceId });
+      throw err;
+    }
+
+    if (res.ok || !retrySafe || attempt >= 3) break;
+    const retryEnvelope = (await res.clone().json().catch(() => undefined)) as
+      | { retryable?: unknown; details?: { retry_after_seconds?: unknown } }
+      | undefined;
+    if (retryEnvelope?.retryable !== true) break;
+
+    const advertisedSeconds = retryEnvelope.details?.retry_after_seconds;
+    const retryAfterValue = res.headers.get("retry-after");
+    const retryAfterHeader = retryAfterValue === null ? Number.NaN : Number(retryAfterValue);
+    const retryDelay =
+      typeof advertisedSeconds === "number" && Number.isFinite(advertisedSeconds) && advertisedSeconds >= 0
+        ? advertisedSeconds * 1_000
+        : Number.isFinite(retryAfterHeader) && retryAfterHeader >= 0
+          ? retryAfterHeader * 1_000
+          : 100 * 2 ** (attempt - 1);
+    await new Promise((resolve) => setTimeout(resolve, retryDelay));
   }
 
   if (!res.ok) {
