@@ -20,6 +20,8 @@ vi.mock("@/lib/cops-admin", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/cops-admin")>()),
   useCopsAdminApi: () => api,
 }));
+const pipelinesApi = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), rename: vi.fn(), addStage: vi.fn() }));
+vi.mock("@/lib/crm/pipelines", () => ({ usePipelinesApi: () => pipelinesApi }));
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
   useAuthReady: () => true,
@@ -27,6 +29,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
 
 import { CONFIG_FIELDS, formatMetric, formToValue, valueToForm } from "@/lib/cops-admin";
 import { ConfigEditor } from "./config-editor";
+import { PipelinesPanel } from "./pipelines-panel";
 import { ActivationPanel, FeatureFlagsPanel, OpsPanel, RetentionPanel } from "./admin-panels";
 
 function wrap(ui: ReactNode) {
@@ -107,6 +110,44 @@ describe("RetentionPanel", () => {
     fireEvent.change(screen.getAllByLabelText("Reason")[0]!, { target: { value: "Quarterly cleanup" } });
     fireEvent.click(apply);
     await waitFor(() => expect(api.retentionRun).toHaveBeenLastCalledWith({ mode: "apply", dry_run_id: "d1", reason: "Quarterly cleanup" }));
+  });
+});
+
+describe("PipelinesPanel", () => {
+  const pipeline = {
+    id: "p1",
+    workspaceId: "ws",
+    name: "Sales",
+    isDefault: true,
+    createdAt: "",
+    updatedAt: "",
+    stages: [
+      { id: "s2", pipelineId: "p1", name: "Demo", orderIndex: 1, probability: 40, isClosedWon: false, isClosedLost: false },
+      { id: "s1", pipelineId: "p1", name: "Qualified", orderIndex: 0, probability: 10, isClosedWon: false, isClosedLost: false },
+    ],
+  };
+
+  it("lists stages in order and adds a new stage at the end", async () => {
+    Object.values(pipelinesApi).forEach((f) => f.mockReset());
+    pipelinesApi.list.mockResolvedValue({ data: [pipeline] });
+    pipelinesApi.addStage.mockResolvedValue({});
+    wrap(<PipelinesPanel canWrite />);
+    const card = await screen.findByTestId("pipeline-p1");
+    expect(card.textContent).toMatch(/Qualified.*Demo/);
+    fireEvent.click(screen.getByTestId("pipeline-add-stage-p1"));
+    fireEvent.change(screen.getByLabelText("Stage name"), { target: { value: "Closed won" } });
+    fireEvent.change(screen.getByLabelText("Stage type"), { target: { value: "won" } });
+    fireEvent.click(screen.getByTestId("pipeline-stage-save"));
+    await waitFor(() => expect(pipelinesApi.addStage).toHaveBeenCalledOnce());
+    expect(pipelinesApi.addStage.mock.calls[0]).toEqual(["p1", { name: "Closed won", orderIndex: 2, probability: 0, isClosedWon: true, isClosedLost: false }]);
+  });
+
+  it("shows the empty state and hides the controls from a reader", async () => {
+    Object.values(pipelinesApi).forEach((f) => f.mockReset());
+    pipelinesApi.list.mockResolvedValue({ data: [] });
+    wrap(<PipelinesPanel canWrite={false} />);
+    expect((await screen.findByTestId("pipelines-empty")).textContent).toContain("No pipelines yet");
+    expect(screen.queryByTestId("pipeline-new")).toBeNull();
   });
 });
 

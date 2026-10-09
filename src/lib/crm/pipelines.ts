@@ -9,6 +9,9 @@ export function usePipelinesApi() {
     create: (name: string) =>
       fetchApi<Pipeline>("/api/v1/pipelines", { method: "POST", body: JSON.stringify({ name }) }),
 
+    rename: (pipelineId: string, name: string) =>
+      fetchApi<Pipeline>(`/api/v1/pipelines/${pipelineId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+
     addStage: (
       pipelineId: string,
       stage: { name: string; orderIndex: number; probability?: number; isClosedWon?: boolean; isClosedLost?: boolean }

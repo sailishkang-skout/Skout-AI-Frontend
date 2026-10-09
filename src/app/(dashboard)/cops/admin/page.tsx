@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { can, useMyPermissions } from "@/lib/cops-commercial";
 import { ConfigEditor } from "@/components/cops-admin/config-editor";
 import { ActivationPanel, FeatureFlagsPanel, GatePolicyPanel, OpsPanel, RetentionPanel } from "@/components/cops-admin/admin-panels";
 import { CopsNotificationRoutesPanel } from "@/components/notifications/cops-notification-routes-panel";
+import { PipelinesPanel } from "@/components/cops-admin/pipelines-panel";
 
 const TABS = [
   { id: "trials", label: "Trial templates" },
@@ -71,14 +71,7 @@ export default function CopsAdminPage() {
             {tab === "activation" && <ActivationPanel canWrite={canWrite} />}
             {tab === "gate" && <GatePolicyPanel canWrite={canWrite} />}
             {tab === "routing" && <CopsNotificationRoutesPanel />}
-            {tab === "pipelines" && (
-              <div className="rounded-md border border-dashed p-6 text-center" data-testid="admin-pipelines">
-                <p className="text-sm font-medium">Pipelines and stages are edited in CRM settings</p>
-                <Link href="/settings/crm" className="mt-3 inline-block rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent">
-                  Open CRM settings
-                </Link>
-              </div>
-            )}
+            {tab === "pipelines" && <PipelinesPanel canWrite={canWrite} />}
             {tab === "modules" && <FeatureFlagsPanel canWrite={canWrite} />}
             {tab === "privacy" && <RetentionPanel canWrite={canWrite} />}
             {tab === "ops" && <OpsPanel />}
