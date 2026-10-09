@@ -1,6 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import type { NextAction } from "@/lib/cops-crm";
 import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ export function DealStageColumn({
   stage,
   deals,
   companiesById,
+  nextActions,
   summary,
   onAddDeal,
   className,
@@ -31,6 +33,8 @@ export function DealStageColumn({
   stage: PipelineStage;
   deals: Deal[];
   companiesById: Map<string, Company>;
+  /** COPS-02: next action per deal id (one request for the whole board). */
+  nextActions?: Map<string, NextAction>;
   summary: { count: number; valueByCurrency: CurrencyValue[] } | undefined;
   onAddDeal: () => void;
   className?: string;
@@ -44,9 +48,10 @@ export function DealStageColumn({
   const header = (
     <div className="flex items-center justify-between gap-2 px-1">
       <div className="min-w-0">
-        <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+        <p className="flex items-center gap-1.5 text-sm font-semibold" title={stage.name}>
           <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", stageDotClass(stage))} aria-hidden />
-          {stage.name}
+          {/* Narrow columns cut long names like Payment/Procurement with an ellipsis; title shows it in full. */}
+          <span className="min-w-0 truncate">{stage.name}</span>
         </p>
         <p className="text-xs text-muted-foreground">
           {summary?.count ?? deals.length} · {formatMoneyByCurrency(summary?.valueByCurrency)}
@@ -100,7 +105,7 @@ export function DealStageColumn({
               ? emptyState
               : deals.map((deal) => (
                   <div key={deal.id} className="w-64">
-                    <DealCard deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} />
+                    <DealCard deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} nextAction={nextActions?.get(deal.id)} />
                   </div>
                 ))}
           </SortableContext>
@@ -131,7 +136,7 @@ export function DealStageColumn({
           {deals.length === 0
             ? emptyState
             : deals.map((deal) => (
-                <DealCard key={deal.id} deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} />
+                <DealCard key={deal.id} deal={deal} company={companiesById.get(deal.companyId ?? "")} stageId={stage.id} nextAction={nextActions?.get(deal.id)} />
               ))}
         </SortableContext>
       </div>

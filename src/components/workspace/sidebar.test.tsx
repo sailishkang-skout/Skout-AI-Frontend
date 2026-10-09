@@ -1,18 +1,21 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarPanel } from "./sidebar";
-
-const { mockHasPermission } = vi.hoisted(() => ({
-  mockHasPermission: vi.fn<(permission: string) => boolean>(),
-}));
-
-vi.mock("@/lib/workspace-role", () => ({
-  useWorkspaceRole: () => ({ hasPermission: mockHasPermission }),
-}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
+
+function renderSidebar(permissions: string[]) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient.setQueryData(["me"], { role: "member", permissions });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SidebarPanel />
+    </QueryClientProvider>
+  );
+}
 
 function groupLabels(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll("nav > div > p")).map((el) => el.textContent ?? "");
@@ -21,13 +24,19 @@ function groupLabels(container: HTMLElement): string[] {
 describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
-    mockHasPermission.mockReturnValue(false);
   });
 
   afterEach(() => cleanup());
 
   it("renders the Command Center's own grouping, with every route folded in exactly once", async () => {
-    const { container, findByText } = render(<SidebarPanel />);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // Permission-gated groups only render for a user who holds the keys (see cops-nav.ts).
+    queryClient.setQueryData(["me"], { role: "admin", permissions: ["crm:read", "admin:read"] });
+    const { container, findByText } = render(
+      <QueryClientProvider client={queryClient}>
+        <SidebarPanel />
+      </QueryClientProvider>
+    );
     await findByText("Skout AI");
 
     const labels = groupLabels(container);
@@ -43,8 +52,7 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
   });
 
   it("shows enrichment routes only when the matching workspace permission is granted", async () => {
-    mockHasPermission.mockImplementation((permission) => permission === "enrichment:read");
-    const readOnly = render(<SidebarPanel />);
+    const readOnly = renderSidebar(["enrichment:read"]);
     await readOnly.findByText("Skout AI");
     fireEvent.click(readOnly.getByRole("button", { name: "Enrichment" }));
     expect(readOnly.getByText("People")).toBeTruthy();
@@ -52,10 +60,7 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
     expect(readOnly.queryByText("Capture")).toBeNull();
     readOnly.unmount();
 
-    mockHasPermission.mockImplementation((permission) =>
-      permission === "enrichment:read" || permission === "enrichment:capture"
-    );
-    const canCapture = render(<SidebarPanel />);
+    const canCapture = renderSidebar(["enrichment:read", "enrichment:capture"]);
     await canCapture.findByText("Skout AI");
     fireEvent.click(canCapture.getByRole("button", { name: "Enrichment" }));
     expect(canCapture.getByText("Capture")).toBeTruthy();

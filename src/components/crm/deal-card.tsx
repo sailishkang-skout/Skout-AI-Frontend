@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { NextAction } from "@/lib/cops-crm";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSortable } from "@dnd-kit/sortable";
@@ -50,9 +51,12 @@ export function DealCard({
   deal,
   company,
   stageId,
+  nextAction,
 }: {
   deal: Deal;
   company: Company | undefined;
+  /** COPS-02 inline next action: the deal's open task due soonest. */
+  nextAction?: NextAction;
   /** The column this card currently renders in — carried as sortable `data` so
    * `onDragEnd` can tell which column a card was dropped into/near. */
   stageId: string;
@@ -158,6 +162,24 @@ export function DealCard({
         </div>
         <p className="shrink-0 text-sm font-semibold tabular-nums">{formatMoney(deal.amount, deal.currency)}</p>
       </div>
+      <NextActionLine nextAction={nextAction} />
     </div>
+  );
+}
+
+function NextActionLine({ nextAction }: { nextAction?: NextAction }) {
+  if (!nextAction) {
+    return <p className="mt-2 text-[11px] text-muted-foreground" data-testid="deal-next-action">No next step planned</p>;
+  }
+  const overdue = nextAction.due_at ? new Date(nextAction.due_at).getTime() < Date.now() : false;
+  return (
+    <p
+      className={cn("mt-2 truncate text-[11px]", overdue ? "font-medium text-destructive" : "text-muted-foreground")}
+      data-testid="deal-next-action"
+      title={nextAction.title}
+    >
+      Next: {nextAction.title}
+      {nextAction.due_at ? ` · ${overdue ? "overdue " : ""}${new Date(nextAction.due_at).toLocaleDateString()}` : ""}
+    </p>
   );
 }

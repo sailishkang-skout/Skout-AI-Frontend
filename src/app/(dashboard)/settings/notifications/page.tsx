@@ -8,6 +8,7 @@ import { Send } from "lucide-react";
 import { GuideLink } from "@/components/guides/guide-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
+import { CopsNotificationRoutesPanel } from "@/components/notifications/cops-notification-routes-panel";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +22,17 @@ import type { NotificationChannel } from "@/types/api";
 interface MeData {
   role?: string;
   phone?: string | null;
+  permissions?: string[];
 }
 
 interface WorkspaceCurrentData {
-  data: { id: string; name: string; slug: string; slackWebhookUrl: string | null };
+  data: {
+    id: string;
+    name: string;
+    slug: string;
+    slackWebhookUrl: string | null;
+    teamsWebhookUrl: string | null;
+  };
 }
 
 const NOTIFICATION_TYPES: { type: string; label: string; description: string }[] = [
@@ -49,6 +57,7 @@ export default function NotificationSettingsPage() {
   const callsApi = useCallsApi();
   const queryClient = useQueryClient();
   const [slackUrl, setSlackUrl] = useState<string | null>(null);
+  const [teamsUrl, setTeamsUrl] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
 
   const me = useQuery<MeData>({
@@ -57,6 +66,7 @@ export default function NotificationSettingsPage() {
     enabled: authReady,
   });
   const isAdmin = me.data?.role === "owner" || me.data?.role === "admin";
+  const canManageCopsRoutes = me.data?.permissions?.includes("admin:admin") ?? false;
 
   const savePhone = useMutation({
     mutationFn: (value: string) => callsApi.setMyPhone(value || null),
@@ -98,9 +108,19 @@ export default function NotificationSettingsPage() {
     },
   });
 
+  const saveTeams = useMutation({
+    mutationFn: (url: string | null) =>
+      apiFetch("/api/v1/workspaces/current/teams-webhook", { method: "PUT", body: JSON.stringify({ url }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace-current-slack"] });
+      setTeamsUrl(null);
+    },
+  });
+
   const sendTest = useMutation({ mutationFn: notificationsApi.sendTest });
 
   const currentSlackUrl = slackUrl ?? workspace.data?.data.slackWebhookUrl ?? "";
+  const currentTeamsUrl = teamsUrl ?? workspace.data?.data.teamsWebhookUrl ?? "";
 
   return (
     <PageShell width="narrow">
@@ -151,6 +171,8 @@ export default function NotificationSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {canManageCopsRoutes && <CopsNotificationRoutesPanel />}
 
       <Card>
         <CardHeader>
@@ -222,6 +244,51 @@ export default function NotificationSettingsPage() {
                 </Button>
                 {workspace.data?.data.slackWebhookUrl && (
                   <Button variant="ghost" disabled={saveSlack.isPending} onClick={() => saveSlack.mutate(null)}>
+                    Disconnect
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Microsoft Teams delivery</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Add a Teams Workflows incoming webhook URL to deliver workspace notifications to a channel.
+            Create a workflow with the &quot;When a Teams webhook request is received&quot; trigger first.
+            Owner/admin only.
+          </p>
+          {!isAdmin ? (
+            <Alert variant="default">Only workspace owners or admins can change this.</Alert>
+          ) : (
+            <>
+              {saveTeams.isError && (
+                <Alert variant="error">
+                  {formatQueryError(saveTeams.error, "Could not save the Teams webhook URL.")}
+                </Alert>
+              )}
+              {saveTeams.isSuccess && <Alert variant="success">Teams webhook saved.</Alert>}
+              <div className="flex gap-2">
+                <Input
+                  aria-label="Teams Workflows webhook URL"
+                  value={currentTeamsUrl}
+                  onChange={(event) => setTeamsUrl(event.target.value)}
+                  placeholder="https://…powerplatform.com/…"
+                />
+                <Button
+                  variant="outline"
+                  disabled={saveTeams.isPending}
+                  onClick={() => saveTeams.mutate(currentTeamsUrl.trim() || null)}
+                >
+                  Save
+                </Button>
+                {workspace.data?.data.teamsWebhookUrl && (
+                  <Button variant="ghost" disabled={saveTeams.isPending} onClick={() => saveTeams.mutate(null)}>
                     Disconnect
                   </Button>
                 )}

@@ -109,6 +109,15 @@
   scrollbar-color: hsl(var(--border)) transparent;
 }
 
+/* Scrollable without a visible scrollbar (trackpad, shift + wheel and touch still scroll). */
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* Auth pages — see components/auth/auth-shell.tsx. Everything is scoped under .auth-scope so the
    shared Input/Button components keep their normal look elsewhere in the app. */
 .auth-mark {
