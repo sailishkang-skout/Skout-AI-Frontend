@@ -13,6 +13,7 @@ import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
 import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
+import { AccountEngineeringTab } from "./tickets/account-engineering-tab";
 import { CopsBillingTab } from "./provisioning/cops-billing-tab";
 import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
@@ -25,7 +26,7 @@ const TABS = [
   { id: "onboarding", label: "Onboarding" },
   { id: "usage", label: "Usage", ships: "COPS-05 (activation tracking)" },
   { id: "success", label: "Success", ships: "COPS-11 (customer success)" },
-  { id: "engineering", label: "Engineering", ships: "COPS-06 (engineering tickets)" },
+  { id: "engineering", label: "Engineering" },
   { id: "billing", label: "Billing" },
   { id: "documents", label: "Documents" },
 ] as const;
@@ -47,9 +48,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /** Appendix G wording where the Bible gives one; the action itself ships with the named ticket. */
-const APPENDIX_G: Partial<Record<TabId, { title: string; action: string }>> = {
-  engineering: { title: "No open tickets: this account is healthy", action: "Create ticket" },
-};
+const APPENDIX_G: Partial<Record<TabId, { title: string; action: string }>> = {};
 
 function EmptyTab({ id, label, ships }: { id: TabId; label: string; ships: string }) {
   const g = APPENDIX_G[id];
@@ -236,6 +235,8 @@ export function CopsCustomer360({
             <CopsCommercialTab accountId={accountId} mode={tab} />
           ) : tab === "onboarding" ? (
             <CopsOnboardingTab accountId={accountId} accountName={data?.header?.name} />
+          ) : tab === "engineering" ? (
+            <AccountEngineeringTab accountId={accountId} accountName={data?.header?.name} />
           ) : tab === "billing" ? (
             <CopsBillingTab accountId={accountId} />
           ) : "ships" in current ? (

@@ -31,6 +31,7 @@ import {
 } from "@/lib/cops-onboarding";
 import { OnboardingEmailDialog } from "./onboarding-email-dialog";
 import { FollowUpActionDialog } from "./follow-up-action-dialog";
+import { CreateTicketDialog } from "../tickets/create-ticket-dialog";
 import { ReasonDialog } from "./reason-dialog";
 
 type ReasonMode = { kind: "pause" | "stop"; enrollmentId: string } | { kind: "milestone"; key: string; label: string } | null;
@@ -60,6 +61,7 @@ export function OnboardingControl({
   const [emailOpen, setEmailOpen] = useState(false);
   const [reasonMode, setReasonMode] = useState<ReasonMode>(null);
   const [actionKind, setActionKind] = useState<{ kind: ActionKind; subject?: string } | null>(null);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const key = ["cops-onboarding", accountId];
 
@@ -239,7 +241,7 @@ export function OnboardingControl({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setActionKind({ kind: "task", subject: `Engineering escalation: ${accountName}` })}
+                  onClick={() => setTicketOpen(true)}
                   data-testid="escalate-engineering"
                 >
                   <Wrench className="h-3.5 w-3.5" /> Escalate to engineering
@@ -330,6 +332,15 @@ export function OnboardingControl({
           }
           refresh();
         }}
+      />
+      <CreateTicketDialog
+        open={ticketOpen}
+        onClose={() => setTicketOpen(false)}
+        accountId={accountId}
+        accountName={accountName}
+        blocker={d?.blockers[0]?.kind}
+        source="onboarding_blocker"
+        onCreated={refresh}
       />
       {actionKind && (
         <FollowUpActionDialog
