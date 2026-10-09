@@ -20,7 +20,7 @@ vi.mock("@/lib/cops-admin", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/cops-admin")>()),
   useCopsAdminApi: () => api,
 }));
-const pipelinesApi = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), rename: vi.fn(), addStage: vi.fn() }));
+const pipelinesApi = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), rename: vi.fn(), addStage: vi.fn(), updateStage: vi.fn() }));
 vi.mock("@/lib/crm/pipelines", () => ({ usePipelinesApi: () => pipelinesApi }));
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -140,6 +140,18 @@ describe("PipelinesPanel", () => {
     fireEvent.click(screen.getByTestId("pipeline-stage-save"));
     await waitFor(() => expect(pipelinesApi.addStage).toHaveBeenCalledOnce());
     expect(pipelinesApi.addStage.mock.calls[0]).toEqual(["p1", { name: "Closed won", orderIndex: 2, probability: 0, isClosedWon: true, isClosedLost: false }]);
+  });
+
+  it("a stage can be renamed and given a new probability", async () => {
+    Object.values(pipelinesApi).forEach((f) => f.mockReset());
+    pipelinesApi.list.mockResolvedValue({ data: [pipeline] });
+    pipelinesApi.updateStage.mockResolvedValue({});
+    wrap(<PipelinesPanel canWrite />);
+    fireEvent.click(await screen.findByTestId("stage-s2"));
+    fireEvent.change(screen.getByLabelText("Edit stage name"), { target: { value: "Product demo" } });
+    fireEvent.change(screen.getByLabelText("Edit win probability"), { target: { value: "45" } });
+    fireEvent.click(screen.getByTestId("stage-edit-save"));
+    await waitFor(() => expect(pipelinesApi.updateStage).toHaveBeenCalledWith("p1", "s2", { name: "Product demo", probability: 45 }));
   });
 
   it("shows the empty state and hides the controls from a reader", async () => {

@@ -14,8 +14,9 @@ import type { Pipeline } from "@/types/crm";
 
 /**
  * COPS-07 pipeline and stage editor (Bible p.16), over the existing CRM pipelines API: create a
- * pipeline, rename it, and add stages with a win probability and a closed-won / closed-lost flag.
- * The CRM API has no endpoint to rename, reorder or remove a stage, so the editor says so.
+ * pipeline, rename it, add stages with a win probability and a closed-won / closed-lost flag, and
+ * rename a stage or change its probability. Reordering or removing a stage is not offered: deals
+ * already sit in stages, and the CRM API has no endpoint for it.
  */
 export function PipelinesPanel({ canWrite }: { canWrite: boolean }) {
   const api = usePipelinesApi();
@@ -24,6 +25,7 @@ export function PipelinesPanel({ canWrite }: { canWrite: boolean }) {
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [adding, setAdding] = useState<{ pipelineId: string; name: string; probability: string; closed: "" | "won" | "lost" } | null>(null);
+  const [editingStage, setEditingStage] = useState<{ pipelineId: string; id: string; name: string; probability: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const q = useQuery({ queryKey: ["crm", "pipelines"], queryFn: () => api.list(), enabled: authReady });
@@ -62,7 +64,7 @@ export function PipelinesPanel({ canWrite }: { canWrite: boolean }) {
       <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">Pipelines and stages</h2>
-          <p className="text-xs text-muted-foreground">Stages are added at the end. Renaming, reordering or removing a stage is not available yet.</p>
+          <p className="text-xs text-muted-foreground">Stages are added at the end. Select a stage to rename it or change its probability. Reordering or removing a stage is not available.</p>
         </div>
         {canWrite && (
           <Button size="sm" onClick={() => setCreating(true)} data-testid="pipeline-new">
@@ -118,11 +120,41 @@ export function PipelinesPanel({ canWrite }: { canWrite: boolean }) {
                   {[...p.stages]
                     .sort((a, b) => a.orderIndex - b.orderIndex)
                     .map((s) => (
-                      <li key={s.id} className="rounded border px-2 py-1">
-                        {s.name} <span className="text-muted-foreground">{s.isClosedWon ? "won" : s.isClosedLost ? "lost" : `${s.probability}%`}</span>
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          disabled={!canWrite}
+                          onClick={() => setEditingStage({ pipelineId: p.id, id: s.id, name: s.name, probability: String(s.probability) })}
+                          className="rounded border px-2 py-1 enabled:hover:bg-accent"
+                          data-testid={`stage-${s.id}`}
+                        >
+                          {s.name} <span className="text-muted-foreground">{s.isClosedWon ? "won" : s.isClosedLost ? "lost" : `${s.probability}%`}</span>
+                        </button>
                       </li>
                     ))}
                 </ol>
+              )}
+              {editingStage?.pipelineId === p.id && (
+                <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="stage-edit">
+                  <Input value={editingStage.name} onChange={(e) => setEditingStage({ ...editingStage, name: e.target.value })} aria-label="Edit stage name" className="w-48" maxLength={255} />
+                  <Input type="number" min={0} max={100} value={editingStage.probability} onChange={(e) => setEditingStage({ ...editingStage, probability: e.target.value })} aria-label="Edit win probability" className="w-24" />
+                  <Button
+                    size="sm"
+                    disabled={!editingStage.name.trim()}
+                    onClick={() =>
+                      run(
+                        () => api.updateStage(p.id, editingStage.id, { name: editingStage.name.trim(), probability: Math.min(100, Math.max(0, Math.round(Number(editingStage.probability) || 0))) }),
+                        "Could not update the stage."
+                      ).then(() => setEditingStage(null))
+                    }
+                    data-testid="stage-edit-save"
+                  >
+                    Save stage
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingStage(null)}>
+                    Cancel
+                  </Button>
+                </div>
               )}
               {adding?.pipelineId === p.id && (
                 <div className="flex flex-wrap items-center gap-2 text-xs">
