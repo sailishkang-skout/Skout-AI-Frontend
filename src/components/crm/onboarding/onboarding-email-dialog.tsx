@@ -13,9 +13,11 @@ import { newIdempotencyKey } from "@/lib/cops-provisioning";
 import { BLOCKED_LABEL, onboardingErrorMessage, useCopsOnboardingApi, type EmailSend } from "@/lib/cops-onboarding";
 
 const TEMPLATES = [
-  { key: "", label: "By trial type (default)" },
+  { key: "", label: "By trial type and segment (default)" },
   { key: "welcome_trial", label: "Trial welcome" },
+  { key: "welcome_trial_enterprise", label: "Trial welcome (enterprise)" },
   { key: "welcome_paid", label: "Customer welcome" },
+  { key: "welcome_paid_enterprise", label: "Customer welcome (enterprise)" },
 ];
 
 /**

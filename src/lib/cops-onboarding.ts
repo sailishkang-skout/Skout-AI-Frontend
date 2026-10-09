@@ -84,6 +84,25 @@ export interface Blocker {
   task_id: string | null;
 }
 
+export type IntegrationState = "connected" | "error" | "not_connected" | "not_available";
+
+export interface IntegrationStatus {
+  key: "crm" | "email" | "calendar";
+  status: IntegrationState;
+  detail: string | null;
+}
+
+export const INTEGRATION_LABEL: Record<IntegrationStatus["key"], string> = { crm: "CRM", email: "Email", calendar: "Calendar" };
+export const INTEGRATION_STATE_LABEL: Record<IntegrationState, string> = {
+  connected: "connected",
+  error: "needs attention",
+  not_connected: "not connected",
+  not_available: "not tracked yet",
+};
+export function integrationTone(s: IntegrationState): "success" | "danger" | "muted" {
+  return s === "connected" ? "success" : s === "error" ? "danger" : "muted";
+}
+
 export interface OnboardingState {
   account_id: string;
   trial_ends_at: string | null;
@@ -93,6 +112,7 @@ export interface OnboardingState {
   emails: EmailSend[];
   blockers: Blocker[];
   handoff: { task_id: string; created_at: string | null } | null;
+  integrations: IntegrationStatus[];
 }
 
 export const QUEUE_REASONS = ["reply", "commercial_blocker", "trial_expiry", "stalled_milestone", "due_task", "high_intent_usage"] as const;

@@ -14,6 +14,9 @@ import { can, useMyPermissions } from "@/lib/cops-commercial";
 import { usageSeries, useCopsProvisioningApi, type Provisioning } from "@/lib/cops-provisioning";
 import {
   BLOCKER_LABEL,
+  INTEGRATION_LABEL,
+  INTEGRATION_STATE_LABEL,
+  integrationTone,
   emailProgress,
   emailStatusTone,
   evidenceText,
@@ -86,7 +89,6 @@ export function OnboardingControl({
     const e = d.emails.find((x) => x.contact_id);
     return e ? { id: e.contact_id!, name: e.to, email: e.to } : null;
   })();
-  const crmConnected = activation?.milestones.find((m) => m.key === "crm_connected")?.completed_at;
   const balance = wallet.data?.data.balance;
 
   async function control(action: "resume", enrollmentId: string) {
@@ -259,16 +261,17 @@ export function OnboardingControl({
         <section className="space-y-2" data-testid="onboarding-integrations">
           <h3 className="text-sm font-medium">Integrations</h3>
           <ul className="space-y-1 text-sm">
-            {(provisioning.integrations ?? []).map((i) => {
-              const connected = i === "crm" && Boolean(crmConnected);
-              return (
-                <li key={i} className="flex items-center justify-between rounded-md border px-3 py-1.5">
-                  <span className="uppercase">{i}</span>
-                  <Badge tone={connected ? "success" : "muted"}>{connected ? "connected" : "not connected"}</Badge>
-                </li>
-              );
-            })}
-            {(provisioning.integrations ?? []).length === 0 && <li className="text-muted-foreground">No integrations requested.</li>}
+            {(d.integrations ?? []).map((i) => (
+              <li key={i.key} className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5" data-testid={`integration-${i.key}`}>
+                <span>
+                  {INTEGRATION_LABEL[i.key]}
+                  {(provisioning.integrations ?? []).includes(i.key as never) && <span className="ml-1 text-xs text-muted-foreground">requested</span>}
+                  {i.detail && <span className="block text-xs text-muted-foreground">{i.detail}</span>}
+                </span>
+                <Badge tone={integrationTone(i.status)}>{INTEGRATION_STATE_LABEL[i.status]}</Badge>
+              </li>
+            ))}
+            {(d.integrations ?? []).length === 0 && <li className="text-muted-foreground">No integrations connected yet. Ask the customer to connect their CRM.</li>}
           </ul>
         </section>
       </div>

@@ -60,6 +60,11 @@ function onboardingState(enrollmentStatus = "active") {
     ],
     blockers: [{ kind: "login_no_value", detail: "Signed in, no first result", since: "2026-10-08T15:00:00Z", task_id: "t9" }],
     handoff: null,
+    integrations: [
+      { key: "crm", status: "connected", detail: "hubspot" },
+      { key: "email", status: "error", detail: "ada@acme.test paused" },
+      { key: "calendar", status: "not_available", detail: "Calendar connections are not tracked yet" },
+    ],
   };
 }
 
@@ -90,6 +95,9 @@ test.describe("CustomerOps onboarding (COPS-05)", () => {
     await expect(page.getByTestId("follow-up-card")).toContainText("Step 3");
     await expect(page.getByTestId("onboarding-blockers")).toContainText("Signed in, no first result");
     await expect(page.getByTestId("onboarding-emails")).toContainText("opened");
+    await expect(page.getByTestId("integration-crm")).toContainText("connected");
+    await expect(page.getByTestId("integration-email")).toContainText("needs attention");
+    await expect(page.getByTestId("integration-calendar")).toContainText("not tracked yet");
   });
 
   test("pausing the follow-up needs a reason and is sent to the API", async ({ page }) => {
