@@ -1,4 +1,5 @@
 import { useApiFetch } from "@/lib/api-client";
+import { trackCops, withCopsTracking } from "./cops-analytics";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 
 /** COPS-02 CRM writes that go through the backend transition service and idempotency keys. */
@@ -19,16 +20,25 @@ export function useCopsCrmApi() {
   const request = useApiFetch();
   return {
     /** Moves a deal to a stage. Illegal lifecycle moves come back as CopsRequestError (409). */
-    moveOpportunityStage(dealId: string, stageId: string, reason: string) {
-      return copsFetch<{ data: StageMoveResult }>(
-        `/api/v1/opportunities/${dealId}/stage`,
-        {
-          method: "POST",
-          headers: { "Idempotency-Key": newIdempotencyKey() },
-          body: JSON.stringify({ stage_id: stageId, reason, source: "web" }),
-        },
-        { request }
-      );
+    async moveOpportunityStage(dealId: string, stageId: string, reason: string) {
+      try {
+        const res = await copsFetch<{ data: StageMoveResult }>(
+          `/api/v1/opportunities/${dealId}/stage`,
+          {
+            method: "POST",
+            headers: { "Idempotency-Key": newIdempotencyKey() },
+            body: JSON.stringify({ stage_id: stageId, reason, source: "web" }),
+          },
+          { request }
+        );
+        trackCops("cops.opportunity_stage_moved", { opportunity_id: dealId, stage_id: stageId, state: res.data.state });
+        return res;
+      } catch (err) {
+        if (err instanceof CopsRequestError && err.envelope?.code === "BUSINESS_STATE_CONFLICT") {
+          trackCops("cops.opportunity_stage_move_refused", { opportunity_id: dealId, stage_id: stageId });
+        }
+        throw err;
+      }
     },
   };
 }
@@ -99,6 +109,8 @@ export interface Account360 {
     commercial_state: string | null;
     onboarding_pct: number | null;
     plan: string | null;
+    /** COPS-04: the provisioned trial workspace, when there is one. */
+    provisioning?: { workspace_id: string | null; trial_starts_at: string | null; trial_ends_at: string | null } | null;
     renewal_at: string | null;
   };
   contacts?: Array<{ id: string; firstName: string; lastName: string | null; email: string | null }>;
@@ -228,10 +240,15 @@ export function useCopsSavedViewsApi(object: SavedViewObject) {
       return copsFetch<{ data: SavedView[] }>(`/api/v1/saved-views?object=${object}`, undefined, { request });
     },
     save(input: { name: string; filters: Record<string, unknown>; sort?: string; shared: boolean }) {
-      return copsFetch<{ data: { id: string } }>(
-        "/api/v1/saved-views",
-        { method: "POST", body: JSON.stringify({ ...input, object }) },
-        { request }
+      return withCopsTracking(
+        "cops.saved_view_saved",
+        () =>
+          copsFetch<{ data: { id: string } }>(
+            "/api/v1/saved-views",
+            { method: "POST", body: JSON.stringify({ ...input, object }) },
+            { request }
+          ),
+        { object, shared: input.shared, filter_count: Object.keys(input.filters).length }
       );
     },
     remove(id: string) {
@@ -244,10 +261,15 @@ export function useCopsSavedViewsApi(object: SavedViewObject) {
 export function useCopsBulkReassignApi(object: "accounts" | "opportunities") {
   const request = useApiFetch();
   return (ids: string[], ownerId: string, reason: string) =>
-    copsFetch<{ data: { updated: number; updated_ids: string[]; skipped_ids: string[] } }>(
-      `/api/v1/${object}/bulk-reassign`,
-      { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() }, body: JSON.stringify({ ids, owner_id: ownerId, reason }) },
-      { request }
+    withCopsTracking(
+      "cops.records_bulk_reassigned",
+      () =>
+        copsFetch<{ data: { updated: number; updated_ids: string[]; skipped_ids: string[] } }>(
+          `/api/v1/${object}/bulk-reassign`,
+          { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() }, body: JSON.stringify({ ids, owner_id: ownerId, reason }) },
+          { request }
+        ),
+      (res) => ({ object, requested: ids.length, updated: res.data.updated, skipped: res.data.skipped_ids.length })
     );
 }
 

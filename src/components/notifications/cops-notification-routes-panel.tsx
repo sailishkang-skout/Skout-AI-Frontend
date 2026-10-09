@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { trackCops } from "@/lib/cops-analytics";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import {
   COPS_NOTIFICATION_EVENT_ROUTES,
@@ -45,7 +46,8 @@ export function CopsNotificationRoutesPanel() {
   const saveRoute = useMutation({
     mutationFn: ({ eventType, roleKeys }: { eventType: string; roleKeys: CopsNotificationRole[] }) =>
       notificationsApi.setCopsRoute(eventType, roleKeys, reason.trim()),
-    onSuccess: async () => {
+    onSuccess: async (_res, { eventType, roleKeys }) => {
+      trackCops("cops.notification_routes_saved", { event_type: eventType, role_count: roleKeys.length });
       setReason("");
       setDrafts({});
       await queryClient.invalidateQueries({ queryKey: ["notifications", "cops-routes"] });
