@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   retentionRun: vi.fn(),
   inventory: vi.fn(),
   metrics: vi.fn(),
+  activationTemplates: vi.fn(),
+  newActivationVersion: vi.fn(),
 }));
 vi.mock("@/lib/cops-admin", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/cops-admin")>()),
@@ -25,7 +27,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
 
 import { CONFIG_FIELDS, formatMetric, formToValue, valueToForm } from "@/lib/cops-admin";
 import { ConfigEditor } from "./config-editor";
-import { FeatureFlagsPanel, OpsPanel, RetentionPanel } from "./admin-panels";
+import { ActivationPanel, FeatureFlagsPanel, OpsPanel, RetentionPanel } from "./admin-panels";
 
 function wrap(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -105,6 +107,34 @@ describe("RetentionPanel", () => {
     fireEvent.change(screen.getAllByLabelText("Reason")[0]!, { target: { value: "Quarterly cleanup" } });
     fireEvent.click(apply);
     await waitFor(() => expect(api.retentionRun).toHaveBeenLastCalledWith({ mode: "apply", dry_run_id: "d1", reason: "Quarterly cleanup" }));
+  });
+});
+
+describe("ActivationPanel", () => {
+  it("a new version is edited as milestones, and cannot be saved until the weights add up to 100", async () => {
+    const milestones = [
+      { key: "first_search", label: "First search", weight: 60, required: true, source: "event", event_types: ["product.search"] },
+      { key: "first_export", label: "First export", weight: 40, required: true, source: "event", event_types: ["product.export"] },
+    ];
+    api.activationTemplates.mockResolvedValue({ data: [{ id: "a1", key: "default_trial", version: 1, segment: null, milestones, is_system_default: true, created_at: "2026-10-08T00:00:00Z" }] });
+    api.newActivationVersion.mockResolvedValue({ data: {} });
+    wrap(<ActivationPanel canWrite />);
+    fireEvent.click(await screen.findByText("New version from this"));
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Search matters more" } });
+    fireEvent.change(screen.getByLabelText("Milestone 1 weight"), { target: { value: "70" } });
+    expect(screen.getByTestId("activation-total").textContent).toContain("110%");
+    const save = screen.getByTestId("activation-save") as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Milestone 2 weight"), { target: { value: "30" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    await waitFor(() => expect(api.newActivationVersion).toHaveBeenCalledOnce());
+    const [key, body] = api.newActivationVersion.mock.calls[0]!;
+    expect(key).toBe("default_trial");
+    expect(body).toMatchObject({ segment: null, reason: "Search matters more" });
+    expect(body.milestones.map((m: { weight: number }) => m.weight)).toEqual([70, 30]);
+    // Event types of an existing milestone are kept.
+    expect(body.milestones[0].event_types).toEqual(["product.search"]);
   });
 });
 

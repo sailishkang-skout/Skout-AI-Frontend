@@ -54,6 +54,8 @@ export default function SalesFollowUpPage() {
   });
   const items = queue.data?.pages.flatMap((p) => p.data) ?? [];
   const forbidden = queue.error instanceof CopsRequestError && queue.error.envelope?.code === "FORBIDDEN";
+  // COPS-07: an admin turned the module off; say so instead of blaming the role.
+  const moduleOff = forbidden && ((queue.error as CopsRequestError).envelope?.details as { reason?: string } | null | undefined)?.reason === "module_disabled";
 
   return (
     <div className="space-y-4 p-6" data-testid="page-cops-follow-up">
@@ -89,7 +91,11 @@ export default function SalesFollowUpPage() {
             <Skeleton className="h-40 w-full rounded-md" />
           ) : queue.isError ? (
             <Alert variant={forbidden ? "default" : "error"}>
-              {forbidden ? "The follow-up queue is for Sales and Customer Success roles." : "Could not load the follow-up queue."}
+              {moduleOff
+                ? "Onboarding and follow-up are turned off for this workspace. An admin can turn them on in CustomerOps admin."
+                : forbidden
+                  ? "The follow-up queue is for Sales and Customer Success roles."
+                  : "Could not load the follow-up queue."}
             </Alert>
           ) : items.length === 0 ? (
             // Bible Appendix G: no tasks -> show the next recommended action.

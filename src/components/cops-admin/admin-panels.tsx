@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
-import { adminErrorMessage, COPS_MODULES, formatMetric, GATE_POLICIES, humanizeAdmin, RETENTION_CATEGORIES, useCopsAdminApi, type RetentionRun } from "@/lib/cops-admin";
+import { adminErrorMessage, COPS_MODULES, formatMetric, GATE_POLICIES, humanizeAdmin, RETENTION_CATEGORIES, useCopsAdminApi, type ActivationTemplate, type RetentionRun } from "@/lib/cops-admin";
 
-const TEXTAREA = "flex w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+type Milestone = ActivationTemplate["milestones"][number];
 
 function Panel({ title, hint, children, testId }: { title: string; hint?: string; children: React.ReactNode; testId: string }) {
   return (
@@ -145,29 +145,25 @@ export function GatePolicyPanel({ canWrite }: { canWrite: boolean }) {
   );
 }
 
-/** Activation definitions: versions are listed; a change is a new version entered as milestones JSON. */
+/** Activation definitions: versions are listed; a change is a new version edited as a milestone table. */
 export function ActivationPanel({ canWrite }: { canWrite: boolean }) {
   const api = useCopsAdminApi();
   const authReady = useAuthReady();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<{ key: string; segment: string | null } | null>(null);
-  const [json, setJson] = useState("");
+  const [rows, setRows] = useState<Milestone[]>([]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["cops-activation-templates"], queryFn: () => api.activationTemplates(), enabled: authReady });
-  const rows = q.data?.data ?? [];
+  const templates = q.data?.data ?? [];
+  const totalWeight = rows.reduce((n, m) => n + (Number(m.weight) || 0), 0);
+  const setRow = (i: number, change: Partial<Milestone>) => setRows(rows.map((m, j) => (j === i ? { ...m, ...change } : m)));
 
   async function save() {
     if (!editing) return;
     setError(null);
-    let milestones: unknown;
     try {
-      milestones = JSON.parse(json);
-    } catch {
-      setError("The milestones are not valid JSON.");
-      return;
-    }
-    try {
+      const milestones = rows.map((m) => ({ ...m, key: m.key.trim(), label: m.label.trim(), weight: Number(m.weight) || 0 }));
       await api.newActivationVersion(editing.key, { segment: editing.segment, milestones, reason: reason.trim() });
       setEditing(null);
       setReason("");
@@ -186,7 +182,7 @@ export function ActivationPanel({ canWrite }: { canWrite: boolean }) {
         <Alert variant="error">{adminErrorMessage(q.error, "Could not load activation definitions.")}</Alert>
       ) : (
         <ul className="divide-y rounded-md border">
-          {rows.map((t) => (
+          {templates.map((t) => (
             <li key={t.id} className="space-y-1 px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
@@ -199,7 +195,7 @@ export function ActivationPanel({ canWrite }: { canWrite: boolean }) {
                     variant="outline"
                     onClick={() => {
                       setEditing({ key: t.key, segment: t.segment });
-                      setJson(JSON.stringify(t.milestones, null, 2));
+                      setRows(t.milestones.map((m) => ({ ...m })));
                       setError(null);
                     }}
                   >
@@ -218,13 +214,40 @@ export function ActivationPanel({ canWrite }: { canWrite: boolean }) {
         <div className="space-y-2 rounded-md border p-3">
           <p className="text-sm font-medium">New version of {editing.key}</p>
           <p className="text-xs text-muted-foreground">Weights must add up to 100, and at least one milestone other than first login must be required.</p>
-          <textarea rows={10} className={TEXTAREA} value={json} onChange={(e) => setJson(e.target.value)} aria-label="Milestones JSON" />
+          <ul className="space-y-2" data-testid="activation-rows">
+            {rows.map((m, i) => (
+              <li key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                <Input value={m.key} onChange={(e) => setRow(i, { key: e.target.value })} aria-label={`Milestone ${i + 1} key`} placeholder="key" className="w-36" />
+                <Input value={m.label} onChange={(e) => setRow(i, { label: e.target.value })} aria-label={`Milestone ${i + 1} label`} placeholder="Label" className="w-48" />
+                <Input type="number" min={0} max={100} value={String(m.weight)} onChange={(e) => setRow(i, { weight: Number(e.target.value) })} aria-label={`Milestone ${i + 1} weight`} className="w-20" />
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={m.required} onChange={(e) => setRow(i, { required: e.target.checked })} aria-label={`Milestone ${i + 1} required`} />
+                  Required
+                </label>
+                <Select value={m.source} onChange={(e) => setRow(i, { source: e.target.value })} aria-label={`Milestone ${i + 1} source`} className="w-36">
+                  <option value="event">Product event</option>
+                  <option value="manual">Manual</option>
+                </Select>
+                <button type="button" className="underline" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <Button size="sm" variant="outline" onClick={() => setRows([...rows, { key: "", label: "", weight: 0, required: false, source: "manual", event_types: [] }])}>
+              Add milestone
+            </Button>
+            <span className={totalWeight === 100 ? "text-muted-foreground" : "text-destructive"} data-testid="activation-total">
+              Total weight: {totalWeight}%{totalWeight === 100 ? "" : " (must be 100%)"}
+            </span>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <ReasonInput value={reason} onChange={setReason} />
             <Button size="sm" variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save} disabled={!reason.trim()}>
+            <Button size="sm" onClick={save} disabled={!reason.trim() || totalWeight !== 100 || rows.some((m) => !m.key.trim() || !m.label.trim())} data-testid="activation-save">
               Save new version
             </Button>
           </div>
