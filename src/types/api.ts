@@ -1040,6 +1040,7 @@ export interface WorkspaceCurrent {
   createdAt: string;
   balance: number | null;
   slackWebhookUrl?: string | null;
+  teamsWebhookUrl?: string | null;
   meetingBotAutoJoinDefault?: boolean;
   /** Score threshold (0-100) above which a scored prospect is flagged as a promotion candidate. */
   dealPromotionThreshold?: number;

@@ -21,12 +21,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function makeResponse(status: number, body: unknown, ok = status >= 200 && status < 300) {
+function makeResponse(status: number, body: unknown, ok = status >= 200 && status < 300): Response {
   return {
     ok,
     status,
     statusText: ok ? "OK" : "Error",
+    headers: new Headers(),
     json: () => Promise.resolve(body),
+    clone: (): Response => makeResponse(status, body, ok),
   } as Response;
 }
 
@@ -99,6 +101,62 @@ describe("apiFetch", () => {
     await expect(apiFetch("/api/v1/test")).rejects.toBeInstanceOf(ApiError);
   });
 
+  it("retries a retryable GET according to the COPS envelope", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        makeResponse(503, { code: "UNAVAILABLE", message: "Try again", request_id: "r1", retryable: true })
+      )
+      .mockResolvedValueOnce(makeResponse(200, { ok: true }));
+    await expect(apiFetch("/api/v1/test")).resolves.toEqual({ ok: true });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for the retry delay advertised by a rate limit response", async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    mockFetch
+      .mockResolvedValueOnce(
+        makeResponse(
+          429,
+          {
+            code: "RATE_LIMITED",
+            message: "Slow down",
+            details: { retry_after_seconds: 0 },
+            request_id: "r1",
+            retryable: true,
+          },
+          false
+        )
+      )
+      .mockResolvedValueOnce(makeResponse(200, { ok: true }));
+    await apiFetch("/api/v1/test");
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 0);
+    setTimeoutSpy.mockRestore();
+  });
+
+  it("does not retry an unsafe mutation without an idempotency key", async () => {
+    mockFetch.mockResolvedValue(
+      makeResponse(503, { code: "UNAVAILABLE", message: "Try again", request_id: "r1", retryable: true }, false)
+    );
+    await expect(apiFetch("/api/v1/test", { method: "POST", body: "{}" })).rejects.toBeInstanceOf(ApiError);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("retries an unsafe mutation only when an idempotency key is present", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        makeResponse(503, { code: "UNAVAILABLE", message: "Try again", request_id: "r1", retryable: true }, false)
+      )
+      .mockResolvedValueOnce(makeResponse(200, { ok: true }));
+    await expect(
+      apiFetch("/api/v1/test", {
+        method: "POST",
+        body: "{}",
+        headers: { "Idempotency-Key": "replay-01" },
+      })
+    ).resolves.toEqual({ ok: true });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
   it("includes the HTTP status code in the thrown ApiError", async () => {
     mockFetch.mockResolvedValue(makeResponse(404, { error: "Not Found" }, false));
     const err = (await apiFetch("/api/v1/test").catch((e) => e)) as ApiError;
@@ -118,6 +176,9 @@ describe("apiFetch", () => {
       status: 500,
       statusText: "Internal Server Error",
       json: () => Promise.reject(new SyntaxError("bad json")),
+      clone: () => ({
+        json: () => Promise.reject(new SyntaxError("bad json")),
+      }),
     } as unknown as Response);
     const err = (await apiFetch("/api/v1/test").catch((e) => e)) as ApiError;
     expect(err.status).toBe(500);
@@ -138,6 +199,22 @@ describe("ApiError", () => {
   it("is an instance of Error", () => {
     const err = new ApiError("not found", 404);
     expect(err).toBeInstanceOf(Error);
+  });
+
+  describe("COPS error envelope formatting", () => {
+    it("maps validation field paths into a user-facing message", () => {
+      const message = formatQueryError(
+        new ApiError("Invalid request", 422, {
+          code: "VALIDATION_FAILED",
+          message: "Invalid lifecycle transition",
+          details: { fields: [{ path: "to", message: "Unknown state" }] },
+          request_id: "r1",
+          retryable: false,
+        }),
+        "Request failed"
+      );
+      expect(message).toContain("to: Unknown state");
+    });
   });
 
   it("has name ApiError", () => {
