@@ -54,6 +54,7 @@ import {
   X,
   Zap,
   FileSignature,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
@@ -128,6 +129,7 @@ export const pipelineNav: NavGroup[] = [
       { href: "/crm/contacts", label: "Contacts", icon: Users2, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/360", label: "Account 360", icon: Crosshair, tourId: "nav-account-360", requiredPermission: CRM_NAV_PERMISSION },
       { href: "/commercial", label: "Commercial", icon: FileSignature, requiredPermission: "commercial:read" },
+      { href: "/follow-up", label: "Follow-up", icon: ListChecks, requiredPermission: ["onboarding:write", "crm:write"] },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/calendar", label: "Calendar", icon: Calendar, requiredPermission: CRM_NAV_PERMISSION },

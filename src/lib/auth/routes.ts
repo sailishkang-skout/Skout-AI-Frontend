@@ -65,6 +65,7 @@ export const PROTECTED_ROUTE_SUFFIXES = [
   // signed-out at the middleware layer until these were added.
   "/cops(.*)",
   "/commercial(.*)",
+  "/follow-up(.*)",
 ];
 
 /** Top-level segments under `src/app/(dashboard)/` — kept in sync with the app tree for tests. */
@@ -75,6 +76,7 @@ export const DASHBOARD_ROUTE_GROUPS = [
   "commercial",
   "cops",
   "crm",
+  "follow-up",
   "dashboard",
   "decisions",
   "deliverability",
