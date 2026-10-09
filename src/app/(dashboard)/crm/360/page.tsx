@@ -13,6 +13,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CopsCustomer360 } from "@/components/crm/cops-customer-360";
 import { formatQueryError, useAuthReady, useApiFetch } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
 import { useEnrichmentApi } from "@/lib/enrichment";
@@ -661,7 +662,11 @@ export default function Account360Page() {
             </Card>
           )}
 
-          {/* Universal Chronological Timeline Feed */}
+          {/* COPS-02 Customer 360: tabs, the account timeline, next actions and risks. */}
+          {mode === "account" && lookupId && <CopsCustomer360 accountId={lookupId} signals={signals} />}
+
+          {/* Universal Chronological Timeline Feed (person view; accounts use the COPS timeline above) */}
+          {mode !== "account" && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Universal Activity &amp; Intent Timeline</CardTitle>
@@ -691,6 +696,7 @@ export default function Account360Page() {
               )}
             </CardContent>
           </Card>
+          )}
         </div>
       )}
     </PageShell>
