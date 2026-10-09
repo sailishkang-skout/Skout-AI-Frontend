@@ -259,6 +259,7 @@ export const settingsNav: NavGroup[] = [
       { href: "/settings/alert-rules", label: "Signal alerts", icon: BellRing, tourId: "nav-alert-rules" },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, tourId: "nav-notifications" },
       { href: "/cops/audit", label: "Audit log", icon: ShieldCheck, requiredPermission: "admin:read" },
+      { href: "/cops/admin", label: "CustomerOps admin", icon: ShieldCheck, requiredPermission: "admin:read" },
       // Not in the new spec's visible groups — kept here rather than dropped from the nav
       // entirely, since it's a real working page with no other listed home for it.
       { href: "/settings/corpus", label: "Corpus pipeline", icon: RefreshCw, tourId: "nav-corpus" },

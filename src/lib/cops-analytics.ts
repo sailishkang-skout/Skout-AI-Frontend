@@ -51,6 +51,10 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.ticket_escalated",
   "cops.ticket_internal_note_added",
   "cops.ticket_customer_update_published",
+  // COPS-07
+  "cops.admin_config_saved",
+  "cops.admin_config_rolled_back",
+  "cops.retention_run_started",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];

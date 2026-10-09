@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useCopsAdminApi } from "@/lib/cops-admin";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
@@ -52,6 +53,19 @@ export function ProvisionDialog({
   const [trialDays, setTrialDays] = useState("14");
   const [credits, setCredits] = useState("500");
   const [integrations, setIntegrations] = useState<Integration[]>(["crm", "email"]);
+  // COPS-07: trial templates set by an admin fill plan, length, credits and integrations.
+  const adminApi = useCopsAdminApi();
+  const templates = useQuery({ queryKey: ["cops-trial-templates"], queryFn: () => adminApi.trialTemplates(), enabled: open, retry: false });
+  const [templateKey, setTemplateKey] = useState("");
+  function applyTemplate(key: string) {
+    setTemplateKey(key);
+    const t = templates.data?.data.find((x) => x.key === key);
+    if (!t) return;
+    setPlan(t.plan);
+    setTrialDays(String(t.trial_days));
+    setCredits(String(t.credits));
+    setIntegrations(t.integrations.filter((i): i is Integration => i === "crm" || i === "email" || i === "calendar"));
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Provisioning | null>(null);
@@ -129,6 +143,20 @@ export function ProvisionDialog({
         {error && <Alert variant="error">{error}</Alert>}
         {!result && (
           <fieldset disabled={locked} className="grid gap-3 sm:grid-cols-2">
+            {(templates.data?.data.length ?? 0) > 0 && (
+              <div className="sm:col-span-2">
+                <Field label="Trial template">
+                  <Select value={templateKey} onChange={(e) => applyTemplate(e.target.value)} aria-label="Trial template" data-testid="provision-template">
+                    <option value="">Custom</option>
+                    {templates.data!.data.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.name} ({t.trial_days} days, {t.credits} credits)
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            )}
             <div className="sm:col-span-2">
               <Field label="Opportunity" required>
                 <Select value={opportunityId} onChange={(e) => setOpportunityId(e.target.value)} aria-label="Opportunity">
