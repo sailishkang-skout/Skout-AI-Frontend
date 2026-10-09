@@ -180,8 +180,13 @@ export function ProvisionDialog({
 
         {succeeded && result && (
           <Alert variant="success" data-testid="provision-success">
-            Workspace ready{result.duration_ms != null ? ` in ${(result.duration_ms / 1000).toFixed(1)} s` : ""}. Invitation sent to{" "}
-            {result.admin_invite?.email ?? "the admin"}.
+            Workspace ready{result.duration_ms != null ? ` in ${(result.duration_ms / 1000).toFixed(1)} s` : ""}.{" "}
+            {result.admin_invite?.email_sent === false ? null : <>Invitation sent to {result.admin_invite?.email ?? "the admin"}.</>}
+          </Alert>
+        )}
+        {succeeded && result?.admin_invite?.email_sent === false && (
+          <Alert variant="warning" data-testid="provision-invite-not-sent">
+            The invitation email to {result.admin_invite.email} could not be sent. Copy the invite link from the Onboarding tab and share it with the admin.
           </Alert>
         )}
 
