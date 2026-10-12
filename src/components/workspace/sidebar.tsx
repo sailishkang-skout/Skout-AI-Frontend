@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity,
+  Link2,
+  Plug,
   AlertTriangle,
   BadgeCheck,
   BarChart3,
@@ -180,6 +182,8 @@ export const prospectsNav: NavGroup[] = [
           { href: "/enrichment/companies", label: "Companies", icon: Building2, requiredPermission: "enrichment:read" },
           { href: "/enrichment/job-changes", label: "Job changes", icon: Activity, requiredPermission: "enrichment:read" },
           { href: "/enrichment/capture", label: "Capture", icon: UserPlus, requiredPermission: "enrichment:capture" },
+          { href: "/enrichment/add", label: "Add profile", icon: Link2, requiredPermission: "enrichment:enrich" },
+          { href: "/enrichment/providers", label: "Providers", icon: Plug, requiredPermission: "enrichment:admin" },
           { href: "/enrichment/campaigns", label: "Campaigns", icon: Mail, requiredPermission: "enrichment:read" },
         ],
       },

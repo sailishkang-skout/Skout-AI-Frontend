@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,9 @@ import {
   type EvidenceFact,
 } from "@/lib/enrichment-research";
 import { useWorkspaceRole } from "@/lib/workspace-role";
+import { ContactDataPanel } from "./contact-data-panel";
 import { EmploymentBadge, EvidenceBadge, Fact, IdentityBadge } from "./evidence-badge";
+import { ReEnrichControl } from "./provider-jobs";
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
@@ -96,9 +98,13 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
       else setNotice("Public profile URL attached. Capture that profile to verify the current employer.");
     },
   });
-  const reEnrich = useMutation({
+  // The contact waterfall (email, validation, company) for this person.
+  const findContact = useMutation({
     mutationFn: () => api.reEnrich(detail.data!.person),
-    onSuccess: (job) => setNotice(`Re-enrichment queued (job ${job.jobId.slice(0, 8)}, ${job.status}). Results appear on the Enrichment overview.`),
+    onSuccess: async (job) => {
+      await queryClient.invalidateQueries({ queryKey: ["enrichment-provider", "contact-data", prospectId] });
+      setNotice(`Contact lookup ${job.status === "completed" ? "finished" : job.status} (job ${job.jobId.slice(0, 8)}).`);
+    },
   });
   const csv = useMutation({
     mutationFn: () => api.personCsv(prospectId),
@@ -137,7 +143,7 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
 
   const person = detail.data.person;
   const facts = factsByAttribute(person.facts);
-  const mutationError = attach.error ?? reEnrich.error ?? csv.error ?? remove.error;
+  const mutationError = attach.error ?? findContact.error ?? csv.error ?? remove.error;
   const relationship = person.relationshipContext ?? {};
   const relationshipLines = [
     typeof relationship.degree === "number" ? `${relationship.degree}${["st", "nd", "rd"][relationship.degree - 1] ?? "th"}-degree connection` : "",
@@ -152,17 +158,6 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
         description={person.headline ?? (person.pendingCapture ? "Only the LinkedIn URL is saved. Open the profile and capture it with the Skout extension." : "")}
         actions={
           <div className="flex flex-wrap gap-2">
-            {hasPermission("enrichment:enrich") && (
-              <Button
-                variant="outline"
-                disabled={reEnrich.isPending || !person.companyDomain}
-                title={person.companyDomain ? undefined : "Re-enrichment needs a company for this person"}
-                onClick={() => reEnrich.mutate()}
-              >
-                {reEnrich.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Re-enrich
-              </Button>
-            )}
             {hasPermission("enrichment:export") && (
               <Button variant="outline" disabled={csv.isPending} onClick={() => csv.mutate()}>
                 <Download className="h-4 w-4" />
@@ -234,6 +229,21 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
           </dl>
         </CardContent>
       </Card>
+
+      <ReEnrichControl
+        targetId={person.prospectId}
+        url={person.linkedinUrl}
+        canEnrich={hasPermission("enrichment:enrich")}
+        missingUrlReason="Provider enrichment needs this person's public LinkedIn profile URL."
+      />
+
+      <ContactDataPanel
+        prospectId={person.prospectId}
+        canEnrich={hasPermission("enrichment:enrich")}
+        onFindContactData={() => findContact.mutate()}
+        findPending={findContact.isPending}
+        findDisabledReason={person.companyDomain ? undefined : "A contact lookup needs a company for this person"}
+      />
 
       {person.identity === "sales_lead" && hasPermission("enrichment:capture") && (
         <Card>

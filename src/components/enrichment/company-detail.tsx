@@ -18,6 +18,7 @@ import { ApiError, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { downloadBlob, factsByAttribute, formatCaptureDate, useResearchApi, type PeopleFilters } from "@/lib/enrichment-research";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { EvidenceBadge, Fact, IdentityBadge, Pagination } from "./evidence-badge";
+import { ReEnrichControl } from "./provider-jobs";
 
 type Group = "verified" | "candidates";
 
@@ -186,6 +187,12 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
             : formatQueryError(mutationError, "The action could not be completed.")}
         </Alert>
       )}
+      <ReEnrichControl
+        targetId={company.id}
+        url={company.linkedinUrl}
+        canEnrich={hasPermission("enrichment:enrich")}
+        missingUrlReason="Provider enrichment needs this company's LinkedIn URL."
+      />
       {company.freshness.stale && (
         <Alert variant="warning">
           This company was last captured {formatCaptureDate(company.freshness.capturedAt)}, more than 90 days ago. Capture the company page again before relying on it.
