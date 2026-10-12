@@ -1,5 +1,5 @@
-import { EnrichmentArea } from "@/components/enrichment/enrichment-area";
+import { PeopleList } from "@/components/enrichment/people-list";
 
 export default function EnrichmentPeoplePage() {
-  return <EnrichmentArea kind="people" />;
+  return <PeopleList />;
 }

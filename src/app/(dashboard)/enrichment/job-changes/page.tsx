@@ -1,5 +1,5 @@
-import { EnrichmentArea } from "@/components/enrichment/enrichment-area";
+import { JobChanges } from "@/components/enrichment/job-changes";
 
 export default function EnrichmentJobChangesPage() {
-  return <EnrichmentArea kind="job-changes" />;
+  return <JobChanges />;
 }
