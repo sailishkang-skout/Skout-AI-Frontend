@@ -271,6 +271,9 @@ export function CapturePage() {
                     <option key={name} value={name} />
                   ))}
                 </datalist>
+                {companiesQuery.isError && (
+                  <span className="block text-xs text-muted-foreground">Saved company suggestions could not be loaded. Type the company name.</span>
+                )}
               </label>
               <label className="space-y-1 text-sm">
                 <span className="font-medium">Jump to a department</span>

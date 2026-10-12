@@ -129,6 +129,11 @@ export function ReEnrichControl({
               : formatQueryError(start.error, "The run could not be started.")}
           </Alert>
         )}
+        {latest.isError && (
+          <Alert variant="error" onRetry={() => latest.refetch()}>
+            {formatQueryError(latest.error, "Could not load the last run.")}
+          </Alert>
+        )}
         {job ? (
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last run</p>
