@@ -1,5 +1,5 @@
-import { EnrichmentArea } from "@/components/enrichment/enrichment-area";
+import { CapturePage } from "@/components/enrichment/capture-page";
 
 export default function EnrichmentCapturePage() {
-  return <EnrichmentArea kind="capture" />;
+  return <CapturePage />;
 }
