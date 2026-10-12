@@ -240,9 +240,11 @@ describe("PersonDetailView", () => {
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith("/enrichment/people/p-merged"));
   });
 
-  it("re-enriches, downloads CSV and deletes after confirmation; actions are hidden without permission", async () => {
+  it("looks up contact data, downloads CSV and deletes after confirmation; actions are hidden without permission", async () => {
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/enrich")) return { jobId: "job-12345678", status: "queued" };
+      if (url.endsWith("/enrich")) return { jobId: "job-12345678", status: "completed" };
+      if (url.includes("/contact-data")) return { contactData: { prospectId: "p1", contactId: "c1", email: null, phone: null, otherPhones: [], lastRun: null, freshnessDays: 90 } };
+      if (url.includes("/provider-jobs")) return { data: [], total: 0 };
       if (init?.method === "DELETE") return { success: true };
       return { person: person() };
     });
@@ -250,8 +252,8 @@ describe("PersonDetailView", () => {
     URL.createObjectURL = vi.fn(() => "blob:x");
     URL.revokeObjectURL = vi.fn();
     const { unmount } = renderWithClient(<PersonDetailView prospectId="p1" />);
-    fireEvent.click(await screen.findByRole("button", { name: /Re-enrich/ }));
-    expect(await screen.findByText(/Re-enrichment queued \(job job-1234, queued\)/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Find contact data/ }));
+    expect(await screen.findByText(/Contact lookup finished \(job job-1234\)/)).toBeTruthy();
     expect(JSON.parse(String(mockApiFetch.mock.calls.find(([url]) => String(url).endsWith("/enrich"))![1].body)).prospect).toMatchObject({ prospectId: "p1", companyDomain: "initech.example" });
 
     fireEvent.click(screen.getByRole("button", { name: /CSV/ }));
@@ -266,7 +268,7 @@ describe("PersonDetailView", () => {
     mockHasPermission.mockReturnValue(false);
     renderWithClient(<PersonDetailView prospectId="p1" />);
     await screen.findByRole("heading", { name: "Priya Raman" });
-    for (const name of [/Re-enrich/, /CSV/, /Delete/]) expect(screen.queryByRole("button", { name })).toBeNull();
+    for (const name of [/Re-enrich/, /Find contact data/, /Verify email/, /CSV/, /Delete/]) expect(screen.queryByRole("button", { name })).toBeNull();
   });
 });
 
