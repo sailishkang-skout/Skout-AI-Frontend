@@ -4,6 +4,7 @@ import { ApiError, useApiFetch, useAuthReady } from "./api-client";
 interface MeResponse {
   userId?: string;
   role?: string;
+  permissions?: string[];
 }
 
 /**
@@ -30,7 +31,10 @@ export function useWorkspaceRole() {
   const role = data?.role;
   const canDelete = role === "owner" || role === "admin";
 
-  return { role, canDelete, userId: data?.userId, isLoading };
+  const permissions = new Set(data?.permissions ?? []);
+  const hasPermission = (permission: string) => permissions.has(permission);
+
+  return { role, canDelete, userId: data?.userId, isLoading, permissions, hasPermission };
 }
 
 /** True if a CRM delete/mutation was rejected because the user's role isn't owner/admin. */
