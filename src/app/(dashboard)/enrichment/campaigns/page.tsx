@@ -1,5 +1,5 @@
-import { EnrichmentArea } from "@/components/enrichment/enrichment-area";
+import { CampaignsHome } from "@/components/enrichment/campaigns-home";
 
 export default function EnrichmentCampaignsPage() {
-  return <EnrichmentArea kind="campaigns" />;
+  return <CampaignsHome />;
 }
