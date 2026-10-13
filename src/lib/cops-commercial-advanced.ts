@@ -182,6 +182,19 @@ export interface FinancePaymentRow {
   paid_at: string | null;
   created_at: string;
 }
+export interface CreditActivityRow {
+  id: string;
+  account_id: string;
+  account_name: string | null;
+  kind: "purchase" | "grant" | "adjustment" | "refund";
+  amount: number;
+  balance_after: number | null;
+  action: string;
+  reason: string | null;
+  actor_type: string | null;
+  actor_id: string | null;
+  created_at: string;
+}
 export interface GrandfatheredDeal {
   opportunity_id: string;
   opportunity_name: string;
@@ -230,6 +243,7 @@ export function useCopsAdvancedApi() {
     reconciliation: () => get<{ generated_at: string; counts: Record<string, number>; issues: ReconciliationIssue[] }>("/api/v1/finance/reconciliation"),
     financeSubscriptions: (renewingWithinDays?: number) =>
       get<FinanceSubscriptionRow[]>(`/api/v1/finance/subscriptions${renewingWithinDays ? `?renewing_within_days=${renewingWithinDays}` : ""}`),
+    creditActivity: () => get<CreditActivityRow[]>("/api/v1/finance/credit-activity"),
     financePayments: (status?: string) => get<FinancePaymentRow[]>(`/api/v1/finance/payment-requests${status ? `?status=${status}` : ""}`),
   };
 }
@@ -342,6 +356,7 @@ export function advancedErrorMessage(error: unknown, fallback: string): string {
     }
     if (env.code === "VALIDATION_FAILED" && details.fields?.length) return details.fields.map((f) => f.message).join("; ");
     if (env.code === "PROVIDER_UNAVAILABLE") return "This is not configured for this workspace yet.";
+    if ((env.code as string) === "subscription_restricted") return "This workspace has an unpaid subscription bill. Pay it on the billing page to continue.";
     if (env.code === "PROVIDER_ERROR") return "The provider did not accept the request. Try again in a moment.";
     return env.message;
   }

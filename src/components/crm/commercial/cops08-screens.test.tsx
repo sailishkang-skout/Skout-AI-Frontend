@@ -17,6 +17,7 @@ const api = {
   reconciliation: vi.fn(),
   financeSubscriptions: vi.fn(),
   financePayments: vi.fn(),
+  creditActivity: vi.fn(),
   grandfathered: vi.fn(),
 };
 let permissions: string[] = [];
@@ -213,6 +214,13 @@ describe("Finance page", () => {
 
     fireEvent.click(screen.getByTestId("finance-tab-subscriptions"));
     expect(await screen.findByTestId("finance-subscriptions-empty")).toBeTruthy();
+
+    api.creditActivity.mockResolvedValue({ data: [{ id: "t1", account_id: "acc1", account_name: "Acme Labs", kind: "adjustment", amount: -5, balance_after: 45, action: "manual_adjustment", reason: "Duplicate grant corrected", actor_type: "user", actor_id: "u1", created_at: "2026-10-13T10:00:00Z" }] });
+    fireEvent.click(screen.getByTestId("finance-tab-credits"));
+    const credits = await screen.findByTestId("finance-credits-table");
+    expect(credits.textContent).toContain("Acme Labs");
+    expect(credits.textContent).toContain("-5");
+    expect(credits.textContent).toContain("Duplicate grant corrected");
   });
 
   it("hides the write actions from a read-only role, and explains a forbidden view", async () => {

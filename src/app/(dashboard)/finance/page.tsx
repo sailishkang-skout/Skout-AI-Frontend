@@ -21,6 +21,7 @@ const TABS = [
   { key: "reconciliation", label: "Reconciliation" },
   { key: "subscriptions", label: "Subscriptions" },
   { key: "payments", label: "Invoices & payment links" },
+  { key: "credits", label: "Credit activity" },
   { key: "grandfathered", label: "Exempt from approvals" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
@@ -62,6 +63,8 @@ export default function FinancePage() {
           return { tab, rows: (await api.financeSubscriptions()).data } as const;
         case "payments":
           return { tab, rows: (await api.financePayments()).data } as const;
+        case "credits":
+          return { tab, rows: (await api.creditActivity()).data } as const;
         case "grandfathered":
           return { tab, rows: (await api.grandfathered()).data } as const;
       }
@@ -242,6 +245,46 @@ export default function FinancePage() {
                       <td className="px-2 py-2 text-xs text-muted-foreground">
                         {p.provider} · {p.provider_ref}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          ) : data.tab === "credits" ? (
+            data.rows.length === 0 ? (
+              <Empty testId="finance-credits-empty" title="No credit purchases or manual entries yet" hint="Purchases, complimentary grants, adjustments and refunds appear here. Usage does not." />
+            ) : (
+              <table className="w-full text-sm" data-testid="finance-credits-table">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-2 font-medium">Account</th>
+                    <th className="px-2 py-2 font-medium">Entry</th>
+                    <th className="px-2 py-2 text-right font-medium">Credits</th>
+                    <th className="px-2 py-2 font-medium">Reason</th>
+                    <th className="px-2 py-2 font-medium">By</th>
+                    <th className="px-2 py-2 font-medium">When</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.rows.map((c) => (
+                    <tr key={c.id}>
+                      <td className="px-2 py-2">
+                        <Link href={`/crm/360?id=${c.account_id}`} className="hover:underline">
+                          {c.account_name ?? "Account"}
+                        </Link>
+                      </td>
+                      <td className="px-2 py-2">
+                        <Badge tone={c.kind === "purchase" ? "success" : c.kind === "adjustment" || c.kind === "refund" ? "warning" : "muted"} className="capitalize">
+                          {c.kind}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-2 text-right font-medium">
+                        {c.amount > 0 ? "+" : ""}
+                        {c.amount.toLocaleString()}
+                      </td>
+                      <td className="px-2 py-2 text-muted-foreground">{c.reason ?? humanize(c.action)}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{c.actor_type ?? "—"}</td>
+                      <td className="px-2 py-2">{date(c.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
