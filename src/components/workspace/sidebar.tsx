@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity,
+  Link2,
+  Plug,
   AlertTriangle,
   BadgeCheck,
   BarChart3,
@@ -97,6 +99,7 @@ export type NavItem = {
   tourId?: string;
   /** Only match this exact pathname — use when `href` is also a prefix of sibling routes (e.g. a group's "/crm" overview vs "/crm/companies"). */
   exact?: boolean;
+  /** Permission key(s) returned by the authenticated /me endpoint — any one key in a list is enough. */
   requiredPermission?: string | readonly string[];
   /** COPS-07: hidden when the workspace has turned this CustomerOps module off. */
   copsModule?: "commercial" | "onboarding" | "tickets";
@@ -108,6 +111,29 @@ export type NavGroup = {
   label: string;
   items: NavItem[];
 };
+
+function filterNavGroups(
+  groups: NavGroup[],
+  granted: readonly string[],
+  /** COPS-07: false for a CustomerOps module the workspace has turned off. */
+  moduleOn: (module?: string) => boolean = () => true
+): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => hasNavPermission(item.requiredPermission, granted) && moduleOn(item.copsModule))
+        .map((item) => {
+          if (!item.children) return item;
+          const children = item.children.filter(
+            (child) => hasNavPermission(child.requiredPermission, granted) && moduleOn(child.copsModule)
+          );
+          return { ...item, children };
+        })
+        .filter((item) => !item.children || item.children.length > 0),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 // Sidebar order follows the user's journey, not an alphabetical feature list:
 // Discover (who to sell to) -> Outreach (how to reach them) -> Intelligence (what's
@@ -151,8 +177,22 @@ export const prospectsNav: NavGroup[] = [
       { href: "/lists", label: "Lists & Smart Lists", icon: List, tourId: "nav-lists" },
       { href: "/smart-lists", label: "Smart lists", icon: Sparkles, tourId: "nav-smart-lists" },
       { href: "/prospects/add", label: "Add prospect", icon: UserPlus, tourId: "nav-add-prospect" },
-      { href: "/enrichment", label: "Enrichment", icon: Zap, tourId: "nav-enrichment" },
-      { href: "/enrichment/workbooks", label: "Workbooks", icon: Sparkles, tourId: "nav-workbooks" },
+      {
+        href: "/enrichment",
+        label: "Enrichment",
+        icon: Zap,
+        tourId: "nav-enrichment",
+        children: [
+          { href: "/enrichment", label: "Overview", icon: LayoutDashboard, exact: true, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/people", label: "People", icon: Users2, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/companies", label: "Companies", icon: Building2, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/job-changes", label: "Job changes", icon: Activity, requiredPermission: "enrichment:read" },
+          { href: "/enrichment/capture", label: "Capture", icon: UserPlus, requiredPermission: "enrichment:capture" },
+          { href: "/enrichment/add", label: "Add profile", icon: Link2, requiredPermission: "enrichment:enrich" },
+          { href: "/enrichment/providers", label: "Providers", icon: Plug, requiredPermission: "enrichment:admin" },
+          { href: "/enrichment/campaigns", label: "Campaigns", icon: Mail, requiredPermission: "enrichment:read" },
+        ],
+      },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
     ],
   },
@@ -448,7 +488,7 @@ export function SidebarPanel({
     retry: false,
   });
   const moduleOn = (module?: string) => !module || copsModules?.data?.[module] !== false;
-  const displayGroups = [
+  const displayGroups = filterNavGroups([
     ...homeNav,
     ...pipelineNav,
     ...prospectsNav,
@@ -456,12 +496,7 @@ export function SidebarPanel({
     ...workflowsNav,
     ...intelligenceNav,
     ...settingsNav,
-  ]
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => hasNavPermission(item.requiredPermission, grantedPermissions) && moduleOn(item.copsModule)),
-    }))
-    .filter((group) => group.items.length > 0);
+  ], grantedPermissions, moduleOn);
 
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>

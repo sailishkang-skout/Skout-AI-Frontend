@@ -176,11 +176,7 @@ export function refreshJobs(queryClient: QueryClient) {
   void queryClient.refetchQueries({ queryKey: JOBS_QUERY_KEY });
 }
 
-/**
- * Demo workspace — matches the API's default tenant context
- * (apps/api workspace-context plugin). Override via NEXT_PUBLIC_WORKSPACE_ID;
- * replace with the authenticated workspace id once auth lands.
- */
+/** Legacy override used by non-enrichment callers; enrichment follows the authenticated API workspace. */
 export const WORKSPACE_ID =
   process.env.NEXT_PUBLIC_WORKSPACE_ID ?? "00000000-0000-4000-8000-000000000001";
 
@@ -191,7 +187,9 @@ interface ListEnvelope<T> {
 }
 
 export function useEnrichmentApi() {
-  const fetchApi = useApiFetch();
+  const authenticatedFetch = useApiFetch();
+  const fetchApi = <T>(path: string, options?: RequestInit & { workspaceId?: string }) =>
+    authenticatedFetch<T>(path, { ...options, workspaceId: undefined });
   return {
     getCredits: () =>
       fetchApi<CreditsResponse>("/api/v1/enrichment/credits", { workspaceId: WORKSPACE_ID }),
@@ -381,14 +379,18 @@ export function useEnrichmentApi() {
 export const CSV_EXPORT_CREDIT_COST = 2;
 
 export function useListExportApi() {
-  const fetchApi = useApiFetch();
-  const fetchBlob = useApiFetchBlob();
+  const authenticatedFetch = useApiFetch();
+  const authenticatedFetchBlob = useApiFetchBlob();
+  const fetchApi = <T>(path: string, options?: RequestInit & { workspaceId?: string }) =>
+    authenticatedFetch<T>(path, { ...options, workspaceId: undefined });
+  const fetchBlob = (path: string, options?: RequestInit) =>
+    authenticatedFetchBlob(path, { ...options, workspaceId: undefined });
 
   return {
     exportListCsv: async (listId: string): Promise<CsvExportResponse> => {
       const meta = await fetchApi<CsvExportResponse & { content?: string }>(
         `/api/v1/lists/${listId}/export/csv`,
-        { method: "GET", workspaceId: WORKSPACE_ID }
+        { method: "GET" }
       );
 
       if (meta.content) {
@@ -403,8 +405,7 @@ export function useListExportApi() {
       }
 
       const blob = await fetchBlob(
-        `/api/v1/lists/${listId}/export/csv/download?key=${encodeURIComponent(key)}`,
-        { workspaceId: WORKSPACE_ID }
+        `/api/v1/lists/${listId}/export/csv/download?key=${encodeURIComponent(key)}`
       );
       triggerBlobDownload(blob, meta.filename);
       return meta;
@@ -420,4 +421,3 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
-

@@ -7,6 +7,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Mail, Phone, RefreshC
 import { JobDetailSheet } from "@/components/enrichment/job-detail-sheet";
 import { handleCreditsError, useCreditGuard, useCreditsModal } from "@/components/credits/insufficient-credits-modal";
 import { EnrichmentSuccessChart } from "@/components/enrichment/enrichment-success-chart";
+import { ResearchOverview } from "@/components/enrichment/research-overview";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
@@ -221,6 +222,8 @@ export default function EnrichmentPage() {
       />
 
       <DemoBanner />
+
+      <ResearchOverview />
 
       <div className="mb-8">
         <EnrichmentSuccessChart data={efficiency.data?.data} isLoading={efficiency.isLoading} onDayClick={jumpToDay} />
