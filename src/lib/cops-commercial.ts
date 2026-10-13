@@ -85,6 +85,8 @@ export interface Contract {
   status: ContractStatus;
   current_version: number;
   status_reason: string | null;
+  /** COPS-08: where the contract stands in negotiation; null when it was never redlined. */
+  redline_status?: "customer_redline" | "internal_review" | "agreed" | null;
   status_changed_at: string | null;
   signed_at: string | null;
   created_at: string;

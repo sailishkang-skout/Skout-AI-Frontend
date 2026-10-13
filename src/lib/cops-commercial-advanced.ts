@@ -44,6 +44,10 @@ export interface ApprovalDecision {
 export interface Approval {
   id: string;
   opportunity_id: string;
+  /** Present on the approval queue. */
+  opportunity_name?: string | null;
+  account_id?: string | null;
+  account_name?: string | null;
   proposal_id: string;
   proposal_version: number;
   status: ApprovalStatus;
@@ -71,6 +75,10 @@ export interface ApprovalEvaluation {
 }
 
 // ---- E-signature ----
+
+export const REDLINE_STATUSES = ["customer_redline", "internal_review", "agreed"] as const;
+export type RedlineStatus = (typeof REDLINE_STATUSES)[number];
+export const REDLINE_LABEL: Record<RedlineStatus, string> = { customer_redline: "Customer redline", internal_review: "Internal review", agreed: "Redline agreed" };
 
 export type EnvelopeStatus = "pending_send" | "failed" | "sent" | "viewed" | "expired" | "declined" | "signed";
 export interface EnvelopeSigner {
@@ -202,6 +210,9 @@ export function useCopsAdvancedApi() {
       withCopsTracking("cops.approval_decided", () => post<Approval>(`/api/v1/approvals/${approvalId}/decisions`, body), { approval_id: approvalId, role: body.role, decision: body.decision }),
     grandfathered: () => get<GrandfatheredDeal[]>("/api/v1/approvals/grandfathered"),
 
+    /** A version negotiated outside Skout, attached as a new contract version with where the redline stands. */
+    attachNegotiatedVersion: (contractId: string, body: { document_url: string; file_name?: string; file_sha256: string; redline_status: RedlineStatus }) =>
+      post<unknown>(`/api/v1/contracts/${contractId}/negotiated-versions`, body),
     envelopes: (contractId: string) => get<Envelope[]>(`/api/v1/contracts/${contractId}/envelopes`),
     sendEnvelope: (contractId: string, body: { signers: EnvelopeSigner[]; message?: string }) =>
       withCopsTracking("cops.envelope_sent", () => post<Envelope>(`/api/v1/contracts/${contractId}/envelopes`, body), { contract_id: contractId, signers: body.signers.length }),

@@ -79,6 +79,12 @@ export default function ApprovalsPage() {
               {rows.map((a) => (
                 <li key={a.id} className="space-y-2 p-3" data-testid={`approval-${a.id}`}>
                   <div className="flex flex-wrap items-center gap-2">
+                    {(a.opportunity_name || a.account_name) && (
+                      <span className="text-sm font-medium">
+                        {a.opportunity_name}
+                        {a.account_name ? <span className="font-normal text-muted-foreground"> · {a.account_name}</span> : null}
+                      </span>
+                    )}
                     <span className="text-sm font-medium">{formatMoney(a.terms.contract_value_minor, a.terms.currency)}</span>
                     <span className="text-xs text-muted-foreground">
                       {a.terms.seats} seats · {a.terms.term_months} months · {a.terms.discount_pct}% discount · proposal v{a.proposal_version}
@@ -86,8 +92,8 @@ export default function ApprovalsPage() {
                     <Badge tone={statusTone(a.status === "approved" ? "signed" : a.status === "pending" ? "sent" : "declined")} className="capitalize">
                       {a.status}
                     </Badge>
-                    <Link href="/commercial" className="ml-auto text-xs text-primary hover:underline">
-                      Open the Commercial Desk
+                    <Link href={a.account_id ? `/crm/360?id=${a.account_id}` : "/commercial"} className="ml-auto text-xs text-primary hover:underline">
+                      {a.account_id ? "Open the account" : "Open the Commercial Desk"}
                     </Link>
                   </div>
                   <p className="text-xs text-muted-foreground">
