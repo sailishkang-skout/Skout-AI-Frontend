@@ -55,6 +55,12 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.admin_config_saved",
   "cops.admin_config_rolled_back",
   "cops.retention_run_started",
+  // COPS-08 approvals, e-sign and subscriptions
+  "cops.approval_requested",
+  "cops.approval_decided",
+  "cops.envelope_sent",
+  "cops.subscription_created",
+  "cops.subscription_amended",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];
