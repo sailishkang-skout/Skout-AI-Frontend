@@ -235,6 +235,11 @@ export function CopsOnboardingTab({
               <Badge tone={invite.accepted_at ? "success" : "info"}>
                 {invite.accepted_at ? "accepted" : "pending"}
               </Badge>
+              {invite.email_sent === false && !invite.accepted_at && (
+                <span className="ml-2 text-xs text-amber-700" data-testid="admin-invite-not-sent">
+                  Invitation email was not sent; share the link.
+                </span>
+              )}
             </p>
             {invite.accept_url && canWrite && (
               <button

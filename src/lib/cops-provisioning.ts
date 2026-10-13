@@ -54,7 +54,7 @@ export interface Provisioning {
   status: StepStatus;
   provisioned_workspace_id: string | null;
   invite_id: string | null;
-  admin_invite: { email: string; accepted_at: string | null; expires_at: string; accept_url: string | null } | null;
+  admin_invite: { email: string; accepted_at: string | null; expires_at: string; accept_url: string | null; email_sent?: boolean | null } | null;
   plan: string;
   trial_starts_at: string | null;
   trial_ends_at: string | null;
