@@ -20,6 +20,10 @@ import {
   previewTotals,
   useCopsCommercialApi,
   type BillingCadence,
+  type PriceBasis,
+  defaultPriceBasis,
+  PRICE_BASES,
+  PRICE_BASIS_LABEL,
   type LineKind,
   type Proposal,
 } from "@/lib/cops-commercial";
@@ -31,10 +35,11 @@ interface Row {
   quantity: string;
   unitPrice: string;
   discountPct: string;
+  basis: PriceBasis;
 }
 
 let rowKey = 0;
-const emptyRow = (): Row => ({ key: ++rowKey, kind: "product", description: "", quantity: "1", unitPrice: "", discountPct: "" });
+const emptyRow = (): Row => ({ key: ++rowKey, kind: "product", description: "", quantity: "1", unitPrice: "", discountPct: "", basis: "per_term" });
 const num = (v: string) => (v.trim() === "" ? 0 : Number(v));
 
 /**
@@ -67,6 +72,10 @@ export function ProposalBuilderDialog({
   const [discount, setDiscount] = useState("");
   const [tax, setTax] = useState("");
   const [notes, setNotes] = useState("");
+  const [netDays, setNetDays] = useState("30");
+  const [freeCredits, setFreeCredits] = useState("0");
+  const [customClauses, setCustomClauses] = useState(false);
+  const [nonStandardSla, setNonStandardSla] = useState(false);
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +92,10 @@ export function ProposalBuilderDialog({
       setDiscount(latest.discount_pct ? String(latest.discount_pct) : "");
       setTax(latest.tax_pct ? String(latest.tax_pct) : "");
       setNotes(latest.notes ?? "");
+      setNetDays(String(latest.payment_terms_net_days ?? 30));
+      setFreeCredits(String(latest.free_credits ?? 0));
+      setCustomClauses(Boolean(latest.custom_clauses));
+      setNonStandardSla(Boolean(latest.non_standard_sla));
       setRows(
         latest.line_items.map((l) => ({
           key: ++rowKey,
@@ -91,6 +104,7 @@ export function ProposalBuilderDialog({
           quantity: String(l.quantity),
           unitPrice: minorToMajorInput(l.unit_amount_minor, latest.currency),
           discountPct: l.discount_pct ? String(l.discount_pct) : "",
+          basis: l.price_basis ?? defaultPriceBasis(l.kind),
         }))
       );
     } else {
@@ -101,6 +115,10 @@ export function ProposalBuilderDialog({
       setDiscount("");
       setTax("");
       setNotes("");
+      setNetDays("30");
+      setFreeCredits("0");
+      setCustomClauses(false);
+      setNonStandardSla(false);
       setRows([emptyRow()]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +130,7 @@ export function ProposalBuilderDialog({
     quantity: num(r.quantity),
     unit_amount_minor: parseMajorToMinor(r.unitPrice || "0", currency) ?? Number.NaN,
     discount_pct: num(r.discountPct),
+    price_basis: r.basis,
   }));
   const totals = useMemo(
     () => previewTotals({ line_items: lineItems, discount_pct: num(discount), tax_pct: num(tax) }),
@@ -128,6 +147,10 @@ export function ProposalBuilderDialog({
   if (![num(discount), num(tax), ...lineItems.map((l) => l.discount_pct)].every(pctOk)) problems.push("Percentages must be between 0 and 100.");
   const termNum = Number(term);
   if (!Number.isInteger(termNum) || termNum < 1 || termNum > 120) problems.push("Term must be 1 to 120 months.");
+  const netDaysNum = Number(netDays);
+  const freeCreditsNum = Number(freeCredits || "0");
+  if (!Number.isInteger(netDaysNum) || netDaysNum < 0 || netDaysNum > 365) problems.push("Payment terms must be 0 to 365 days.");
+  if (!Number.isInteger(freeCreditsNum) || freeCreditsNum < 0) problems.push("Free credits must be a whole number of 0 or more.");
 
   const set = (key: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
@@ -141,6 +164,10 @@ export function ProposalBuilderDialog({
       discount_pct: num(discount),
       tax_pct: num(tax),
       notes: notes.trim() || null,
+      payment_terms_net_days: netDaysNum,
+      free_credits: freeCreditsNum,
+      custom_clauses: customClauses,
+      non_standard_sla: nonStandardSla,
       line_items: lineItems,
     };
     try {
@@ -214,10 +241,19 @@ export function ProposalBuilderDialog({
                   ))}
                 </Select>
               </div>
-              <Input className="col-span-12 sm:col-span-4" aria-label={`Line ${i + 1} description`} placeholder="Description" value={r.description} onChange={(e) => set(r.key, { description: e.target.value })} />
+              <Input className="col-span-12 sm:col-span-3" aria-label={`Line ${i + 1} description`} placeholder="Description" value={r.description} onChange={(e) => set(r.key, { description: e.target.value })} />
               <Input className="col-span-3 sm:col-span-1" aria-label={`Line ${i + 1} quantity`} type="number" min={1} value={r.quantity} onChange={(e) => set(r.key, { quantity: e.target.value })} />
               <Input className="col-span-4 sm:col-span-2" aria-label={`Line ${i + 1} unit price`} inputMode="decimal" placeholder="Unit price" value={r.unitPrice} onChange={(e) => set(r.key, { unitPrice: e.target.value })} />
-              <Input className="col-span-3 sm:col-span-2" aria-label={`Line ${i + 1} discount percent`} type="number" min={0} max={100} step="0.01" placeholder="Disc %" value={r.discountPct} onChange={(e) => set(r.key, { discountPct: e.target.value })} />
+              <div className="col-span-5 sm:col-span-2">
+                <Select aria-label={`Line ${i + 1} price covers`} value={r.basis} onChange={(e) => set(r.key, { basis: e.target.value as PriceBasis })}>
+                  {PRICE_BASES.map((b) => (
+                    <option key={b} value={b}>
+                      {PRICE_BASIS_LABEL[b]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Input className="col-span-3 sm:col-span-1" aria-label={`Line ${i + 1} discount percent`} type="number" min={0} max={100} step="0.01" placeholder="Disc %" value={r.discountPct} onChange={(e) => set(r.key, { discountPct: e.target.value })} />
               <Button variant="ghost" size="icon" className="col-span-2 sm:col-span-1" aria-label={`Remove line ${i + 1}`} disabled={rows.length === 1} onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}>
                 <Trash2 />
               </Button>
@@ -226,6 +262,27 @@ export function ProposalBuilderDialog({
           <Button variant="outline" size="sm" onClick={() => setRows((rs) => [...rs, emptyRow()])} disabled={rows.length >= 200}>
             <Plus /> Add line
           </Button>
+        </fieldset>
+
+        <fieldset className="space-y-2" data-testid="proposal-approval-terms">
+          <legend className="text-sm font-medium">Terms</legend>
+          <p className="text-xs text-muted-foreground">Standard terms need no approval. A longer payment period, free credits, custom clauses or a non-standard SLA may need one before the proposal can go out.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Payment terms (net days)">
+              <Input type="number" min={0} max={365} value={netDays} onChange={(e) => setNetDays(e.target.value)} aria-label="Payment terms in days" />
+            </Field>
+            <Field label="Free credits">
+              <Input type="number" min={0} value={freeCredits} onChange={(e) => setFreeCredits(e.target.value)} aria-label="Free credits" />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={customClauses} onChange={(e) => setCustomClauses(e.target.checked)} aria-label="Custom clauses" />
+            The contract has custom clauses
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={nonStandardSla} onChange={(e) => setNonStandardSla(e.target.checked)} aria-label="Non-standard SLA" />
+            The customer gets a non-standard SLA
+          </label>
         </fieldset>
 
         <div className="grid gap-3 sm:grid-cols-2">

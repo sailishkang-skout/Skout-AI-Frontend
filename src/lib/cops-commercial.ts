@@ -18,12 +18,19 @@ export type BillingCadence = (typeof BILLING_CADENCES)[number];
 export const GATE_POLICIES = ["trial_approval_only", "signature", "payment", "signature+payment", "manual_override"] as const;
 export type GatePolicy = (typeof GATE_POLICIES)[number];
 
+/** COPS-08: what a line's price covers. Contract value brings every line to the full term. */
+export const PRICE_BASES = ["per_month", "per_term", "one_time"] as const;
+export type PriceBasis = (typeof PRICE_BASES)[number];
+export const PRICE_BASIS_LABEL: Record<PriceBasis, string> = { per_month: "per month", per_term: "for the term", one_time: "one-time" };
+export const defaultPriceBasis = (kind: LineKind): PriceBasis => (kind === "fee" ? "one_time" : "per_term");
+
 export interface LineItemInput {
   kind: LineKind;
   description: string;
   quantity: number;
   unit_amount_minor: number;
   discount_pct: number;
+  price_basis?: PriceBasis;
 }
 
 export interface ProposalTermsInput {
@@ -33,6 +40,11 @@ export interface ProposalTermsInput {
   discount_pct: number;
   tax_pct: number;
   notes?: string | null;
+  /** COPS-08 terms the approval rules read. Left out, the API takes the standard ones. */
+  payment_terms_net_days?: number;
+  free_credits?: number;
+  custom_clauses?: boolean;
+  non_standard_sla?: boolean;
   line_items: LineItemInput[];
 }
 
@@ -52,6 +64,10 @@ export interface ProposalVersion {
   discount_pct: number;
   tax_pct: number;
   notes: string | null;
+  payment_terms_net_days?: number;
+  free_credits?: number;
+  custom_clauses?: boolean;
+  non_standard_sla?: boolean;
   totals: Totals;
   line_items: Array<LineItemInput & { id: string; position: number; gross_minor: number; discount_minor: number; net_minor: number }>;
   sent_at: string | null;
