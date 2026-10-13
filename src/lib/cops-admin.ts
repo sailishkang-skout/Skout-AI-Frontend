@@ -7,7 +7,7 @@ import { newIdempotencyKey } from "./cops-provisioning";
  * COPS-07 frontend client: admin configuration, retention and operations.
  * Contract: Skout-AI-Backend docs/api/copos-07-admin.openapi.yaml.
  */
-export const CONFIG_KINDS = ["trial_template", "credit_package", "email_template", "retention_policy", "feature_flags"] as const;
+export const CONFIG_KINDS = ["trial_template", "credit_package", "email_template", "retention_policy", "feature_flags", "approval_policy", "dunning_policy", "price_book", "renewal_policy"] as const;
 export type ConfigKind = (typeof CONFIG_KINDS)[number];
 
 export const RETENTION_CATEGORIES = ["core_records", "communications", "attachments", "audit_logs", "diagnostics", "ai_traces", "tombstones"] as const;

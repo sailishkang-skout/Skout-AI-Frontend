@@ -7,6 +7,7 @@ import { ConfigEditor } from "@/components/cops-admin/config-editor";
 import { ActivationPanel, FeatureFlagsPanel, GatePolicyPanel, OpsPanel, RetentionPanel } from "@/components/cops-admin/admin-panels";
 import { CopsNotificationRoutesPanel } from "@/components/notifications/cops-notification-routes-panel";
 import { PipelinesPanel } from "@/components/cops-admin/pipelines-panel";
+import { CommercialPolicyPanel } from "@/components/cops-admin/commercial-policy-panel";
 
 const TABS = [
   { id: "trials", label: "Trial templates" },
@@ -14,6 +15,7 @@ const TABS = [
   { id: "emails", label: "Email templates" },
   { id: "activation", label: "Activation" },
   { id: "gate", label: "Gate policy" },
+  { id: "commercial", label: "Commercial policy" },
   { id: "routing", label: "Notification routing" },
   { id: "pipelines", label: "Pipelines" },
   { id: "modules", label: "Modules" },
@@ -70,6 +72,7 @@ export default function CopsAdminPage() {
             )}
             {tab === "activation" && <ActivationPanel canWrite={canWrite} />}
             {tab === "gate" && <GatePolicyPanel canWrite={canWrite} />}
+            {tab === "commercial" && <CommercialPolicyPanel canWrite={canWrite} />}
             {tab === "routing" && <CopsNotificationRoutesPanel />}
             {tab === "pipelines" && <PipelinesPanel canWrite={canWrite} />}
             {tab === "modules" && <FeatureFlagsPanel canWrite={canWrite} />}
