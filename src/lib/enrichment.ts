@@ -176,9 +176,12 @@ export function refreshJobs(queryClient: QueryClient) {
   void queryClient.refetchQueries({ queryKey: JOBS_QUERY_KEY });
 }
 
-/** Legacy override used by non-enrichment callers; enrichment follows the authenticated API workspace. */
-export const WORKSPACE_ID =
-  process.env.NEXT_PUBLIC_WORKSPACE_ID ?? "00000000-0000-4000-8000-000000000001";
+/**
+ * Optional explicit workspace override (NEXT_PUBLIC_WORKSPACE_ID). Unset by default: the API client then
+ * sends no X-Workspace-Id and the API uses the signed-in user's own workspace. It used to default to a
+ * fixed demo tenant id, which the API now refuses for anyone who is not a member of that tenant.
+ */
+export const WORKSPACE_ID: string | undefined = process.env.NEXT_PUBLIC_WORKSPACE_ID || undefined;
 
 interface ListEnvelope<T> {
   workspaceId: string;
