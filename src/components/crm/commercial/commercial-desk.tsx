@@ -20,7 +20,10 @@ import {
   type Proposal,
   type ProposalVersion,
 } from "@/lib/cops-commercial";
+import { advancedErrorMessage } from "@/lib/cops-commercial-advanced";
+import { ApprovalPanel } from "./approval-panel";
 import { ContractDialog } from "./contract-dialog";
+import { EnvelopePanel } from "./envelope-panel";
 import { PaymentLinkDialog } from "./payment-link-dialog";
 import { ProposalBuilderDialog } from "./proposal-builder-dialog";
 import { ReasonDialog } from "./reason-dialog";
@@ -113,7 +116,7 @@ export function CommercialDesk({
       toast({ title: `${what} sent`, variant: "success" });
       onChanged();
     } catch (err) {
-      toast({ title: `Could not send the ${what.toLowerCase()}`, description: commercialErrorMessage(err, "Please try again."), variant: "destructive" });
+      toast({ title: `Could not send the ${what.toLowerCase()}`, description: advancedErrorMessage(err, commercialErrorMessage(err, "Please try again.")), variant: "destructive" });
     } finally {
       setSending(null);
     }
@@ -193,6 +196,9 @@ export function CommercialDesk({
                   ))}
                 </div>
                 {p.status_reason && <p className="text-xs text-muted-foreground">Reason: {p.status_reason}</p>}
+                {latest && !["accepted", "declined", "expired"].includes(p.status) && (
+                  <ApprovalPanel proposalId={p.id} version={latest.version} canRequest={allowed("send")} onChanged={onChanged} />
+                )}
               </li>
             );
           })}
@@ -236,6 +242,7 @@ export function CommercialDesk({
                     {c.signed_at ? ` · signed ${new Date(c.signed_at).toLocaleDateString()}` : ""}
                   </p>
                 )}
+                {latest && <EnvelopePanel contractId={c.id} version={latest.version} contractTitle={CONTRACT_KIND_LABEL[c.kind]} canSend={allowed("send")} closed={closed} onChanged={onChanged} />}
               </li>
             );
           })}
