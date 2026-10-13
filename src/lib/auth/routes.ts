@@ -65,6 +65,8 @@ export const PROTECTED_ROUTE_SUFFIXES = [
   // signed-out at the middleware layer until these were added.
   "/cops(.*)",
   "/commercial(.*)",
+  "/approvals(.*)",
+  "/finance(.*)",
   "/follow-up(.*)",
   "/engineering(.*)",
 ];
@@ -75,6 +77,8 @@ export const DASHBOARD_ROUTE_GROUPS = [
   "ai",
   "analytics",
   "commercial",
+  "approvals",
+  "finance",
   "cops",
   "crm",
   "follow-up",

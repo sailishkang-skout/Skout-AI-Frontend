@@ -68,6 +68,7 @@ export function Alert({
   title,
   dismissible = false,
   onRetry,
+  "data-testid": testId,
 }: {
   children?: React.ReactNode;
   variant?: AlertVariant;
@@ -75,6 +76,8 @@ export function Alert({
   title?: string;
   dismissible?: boolean;
   onRetry?: () => void;
+  /** Passed to the container. Without this, a data-testid on an Alert was silently dropped. */
+  "data-testid"?: string;
 }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
@@ -84,6 +87,7 @@ export function Alert({
 
   return (
     <div
+      data-testid={testId}
       role="alert"
       className={cn(
         "flex items-start gap-3 rounded-xl border px-4 py-3.5 shadow-sm",
