@@ -56,7 +56,9 @@ export function SubscriptionPanel({ accountId }: { accountId: string }) {
       </Alert>
     );
   }
-  const sub = view.data?.data ?? null;
+  // Only a real subscription object counts; anything else (null, an empty list) means there is none.
+  const raw = view.data?.data;
+  const sub = raw && !Array.isArray(raw) && typeof raw.id === "string" && Array.isArray(raw.invoices) ? raw : null;
 
   async function copyLink(invoiceId: string) {
     try {

@@ -94,6 +94,12 @@ describe("SubscriptionPanel", () => {
     expect(screen.queryByRole("button", { name: "Create subscription" })).toBeNull();
   });
 
+  it("treats a response that is not a subscription as none, instead of breaking the tab", async () => {
+    api.subscription.mockResolvedValue({ data: [] });
+    wrap(<SubscriptionPanel accountId="acc1" />);
+    expect(await screen.findByText("No subscription yet")).toBeTruthy();
+  });
+
   it("creates a subscription against one of the account's opportunities", async () => {
     api.subscription.mockResolvedValue({ data: null });
     api.createSubscription.mockResolvedValue({ data: subscription() });
