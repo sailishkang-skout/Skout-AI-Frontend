@@ -26,7 +26,24 @@ vi.mock("@/lib/cops-commercial-advanced", async (original) => ({ ...(await origi
 vi.mock("@/lib/cops-commercial", async (original) => ({
   ...(await original<typeof import("@/lib/cops-commercial")>()),
   useMyPermissions: () => ({ permissions, loaded: true }),
-  useCopsCommercialApi: () => ({ accountCommercial: vi.fn().mockResolvedValue({ data: [{ opportunity: { id: "o1", name: "Acme annual", currency: "USD" } }] }) }),
+  useCopsCommercialApi: () => ({
+    accountCommercial: vi.fn().mockResolvedValue({
+      data: [
+        { opportunity: { id: "o1", name: "Acme annual", currency: "USD" } },
+        {
+          opportunity: { id: "o2", name: "Acme expansion", currency: "USD" },
+          proposals: [
+            {
+              id: "p2",
+              title: "Expansion plan",
+              status: "accepted",
+              versions: [{ version: 2, currency: "USD", term_months: 24, discount_pct: 25, sent_at: "2026-10-01T00:00:00Z", line_items: [{ kind: "seats", quantity: 10, price_basis: "per_term", net_minor: 1_896_000 }] }],
+            },
+          ],
+        },
+      ],
+    }),
+  }),
 }));
 vi.mock("@/components/ui/toast", () => ({ toast: vi.fn() }));
 
@@ -110,6 +127,25 @@ describe("SubscriptionPanel", () => {
     fireEvent.change(screen.getByLabelText("Seats"), { target: { value: "25" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Create subscription" }).at(-1) as HTMLElement);
     await waitFor(() => expect(api.createSubscription).toHaveBeenCalledWith("acc1", { opportunity_id: "o1", seats: 25, cadence: "annual", term_months: 12, billing: "payment_link" }));
+  });
+
+  it("bills the price agreed on the proposal, not the price book", async () => {
+    api.subscription.mockResolvedValue({ data: null });
+    api.createSubscription.mockResolvedValue({ data: subscription() });
+    wrap(<SubscriptionPanel accountId="acc1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Create subscription" }));
+    await screen.findByText("Acme expansion (USD)");
+    // Before a proposal is chosen, the price book applies and says so.
+    expect(screen.getByTestId("subscription-price-source").textContent).toContain("price book");
+    fireEvent.change(screen.getByLabelText("Opportunity"), { target: { value: "o2" } });
+    // $1,896 per seat for 24 months, 25% off: $59.25 per seat per month, with seats and term from the proposal.
+    await waitFor(() => expect((screen.getByLabelText("Price per seat per month") as HTMLInputElement).value).toBe("59.25"));
+    expect(screen.getByTestId("subscription-price-source").textContent).toContain('Agreed on "Expansion plan" v2');
+    expect((screen.getByLabelText("Term in months") as HTMLInputElement).value).toBe("24");
+    fireEvent.click(screen.getAllByRole("button", { name: "Create subscription" }).at(-1) as HTMLElement);
+    await waitFor(() =>
+      expect(api.createSubscription).toHaveBeenCalledWith("acc1", { opportunity_id: "o2", seats: 10, cadence: "annual", term_months: 24, billing: "payment_link", seat_month_minor: 5925 })
+    );
   });
 
   it("shows the state, how late the bill is, and the bill's actions", async () => {

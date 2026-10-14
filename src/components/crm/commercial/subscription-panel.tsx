@@ -14,7 +14,7 @@ import { toast } from "@/components/ui/toast";
 import { useAuthReady } from "@/lib/api-client";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { can, COMMERCIAL_POLL_MS, formatMoney, humanize, useCopsCommercialApi, useMyPermissions } from "@/lib/cops-commercial";
-import { ADVANCED_PERMS, advancedErrorMessage, dunningLine, SUBSCRIPTION_LABEL, subscriptionTone, useCopsAdvancedApi, type Subscription, type SubscriptionBilling } from "@/lib/cops-commercial-advanced";
+import { ADVANCED_PERMS, advancedErrorMessage, agreedSeatPrice, dunningLine, SUBSCRIPTION_LABEL, subscriptionTone, useCopsAdvancedApi, type Subscription, type SubscriptionBilling } from "@/lib/cops-commercial-advanced";
 import { Field } from "../form-field";
 import { ReasonDialog } from "./reason-dialog";
 
@@ -187,8 +187,10 @@ function CreateDialog({ open, onClose, accountId, onCreated }: { open: boolean; 
   const commercial = useCopsCommercialApi();
   const authReady = useAuthReady();
   const opportunities = useQuery({ queryKey: ["cops-commercial", accountId], queryFn: () => commercial.accountCommercial(accountId), enabled: authReady && open });
-  const list = opportunities.data?.data.map((s) => s.opportunity) ?? [];
+  const summaries = opportunities.data?.data ?? [];
+  const list = summaries.map((s) => s.opportunity);
   const [opportunityId, setOpportunityId] = useState("");
+  const [price, setPrice] = useState("");
   const [seats, setSeats] = useState("10");
   const [cadence, setCadence] = useState<"monthly" | "annual">("annual");
   const [term, setTerm] = useState("12");
@@ -203,13 +205,26 @@ function CreateDialog({ open, onClose, accountId, onCreated }: { open: boolean; 
     }
   }, [open]);
   const chosen = opportunityId || list[0]?.id || "";
-  const valid = Boolean(chosen) && Number.isInteger(Number(seats)) && Number(seats) >= 1 && Number.isInteger(Number(term)) && Number(term) >= 1;
+  const summary = summaries.find((s) => s.opportunity.id === chosen);
+  const agreed = summary ? agreedSeatPrice(summary.proposals ?? []) : null;
+  // Start from what the customer agreed to; the price book applies only when nothing was agreed.
+  useEffect(() => {
+    if (!open) return;
+    setPrice(agreed ? (agreed.seat_month_minor / 100).toFixed(2) : "");
+    if (agreed) {
+      setSeats(String(agreed.seats));
+      setTerm(String(agreed.term_months));
+    }
+  }, [open, chosen, agreed?.seat_month_minor, agreed?.seats, agreed?.term_months]); // eslint-disable-line react-hooks/exhaustive-deps
+  const priceMinor = price.trim() ? Math.round(Number(price) * 100) : undefined;
+  const priceOk = priceMinor === undefined || (Number.isFinite(priceMinor) && priceMinor >= 1);
+  const valid = Boolean(chosen) && priceOk && Number.isInteger(Number(seats)) && Number(seats) >= 1 && Number.isInteger(Number(term)) && Number(term) >= 1;
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      await api.createSubscription(accountId, { opportunity_id: chosen, seats: Number(seats), cadence, term_months: Number(term), billing });
+      await api.createSubscription(accountId, { opportunity_id: chosen, seats: Number(seats), cadence, term_months: Number(term), billing, ...(priceMinor !== undefined ? { seat_month_minor: priceMinor } : {}) });
       toast({ title: "Subscription created", variant: "success" });
       onCreated();
       onClose();
@@ -221,7 +236,7 @@ function CreateDialog({ open, onClose, accountId, onCreated }: { open: boolean; 
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Create subscription" description="The price per seat comes from the price book in the opportunity's currency. Nothing is converted.">
+    <Dialog open={open} onClose={onClose} title="Create subscription" description="The price per seat is the one agreed on the proposal; without one it comes from the price book. Nothing is converted.">
       <div className="space-y-4 text-left">
         {error && <Alert variant="error">{error}</Alert>}
         {opportunities.isSuccess && list.length === 0 && <Alert variant="default">This account has no opportunity to bill against yet.</Alert>}
@@ -247,6 +262,9 @@ function CreateDialog({ open, onClose, accountId, onCreated }: { open: boolean; 
               <option value="monthly">Monthly (with the month-to-month surcharge)</option>
             </Select>
           </Field>
+          <Field label={`Price per seat per month (${summary?.opportunity.currency ?? ""})`}>
+            <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} aria-label="Price per seat per month" placeholder="From the price book" />
+          </Field>
           <Field label="Collected by" required>
             <Select value={billing} onChange={(e) => setBilling(e.target.value as typeof billing)} aria-label="How it is collected">
               {(Object.keys(BILLING_LABEL) as Array<keyof typeof BILLING_LABEL>).map((b) => (
@@ -257,6 +275,11 @@ function CreateDialog({ open, onClose, accountId, onCreated }: { open: boolean; 
             </Select>
           </Field>
         </div>
+        <p className="text-xs text-muted-foreground" data-testid="subscription-price-source">
+          {agreed
+            ? `Agreed on "${agreed.proposal_title}" v${agreed.version}: ${formatMoney(agreed.seat_month_minor, agreed.currency)} per seat per month, discounts included. Change it only if the deal changed.`
+            : "No sent proposal with seats on this opportunity, so the price book price applies (with the month-to-month surcharge when billed monthly)."}
+        </p>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel

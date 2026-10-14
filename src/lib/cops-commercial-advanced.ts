@@ -1,6 +1,7 @@
 import { useApiFetch } from "@/lib/api-client";
 import { copsFetch, CopsRequestError } from "@/lib/cops-fetch";
 import { withCopsTracking } from "./cops-analytics";
+import type { Proposal } from "./cops-commercial";
 
 /**
  * COPS-08 client: approvals, e-signature, subscriptions and the Finance views.
@@ -231,7 +232,7 @@ export function useCopsAdvancedApi() {
       withCopsTracking("cops.envelope_sent", () => post<Envelope>(`/api/v1/contracts/${contractId}/envelopes`, body), { contract_id: contractId, signers: body.signers.length }),
 
     subscription: (accountId: string) => get<Subscription | null>(`/api/v1/accounts/${accountId}/subscription`),
-    createSubscription: (accountId: string, body: { opportunity_id: string; seats: number; cadence: "monthly" | "annual"; term_months: number; billing: SubscriptionBilling; payment_terms_net_days?: number }) =>
+    createSubscription: (accountId: string, body: { opportunity_id: string; seats: number; cadence: "monthly" | "annual"; term_months: number; billing: SubscriptionBilling; payment_terms_net_days?: number; seat_month_minor?: number }) =>
       withCopsTracking("cops.subscription_created", () => post<Subscription>(`/api/v1/accounts/${accountId}/subscription`, body), { account_id: accountId, seats: body.seats, cadence: body.cadence, billing: body.billing }),
     amendSubscription: (subscriptionId: string, body: { seats?: number; term_months?: number; reason: string }) =>
       withCopsTracking("cops.subscription_amended", () => post<Subscription>(`/api/v1/subscriptions/${subscriptionId}/amendments`, body), { subscription_id: subscriptionId, seats: body.seats != null, term: body.term_months != null }),
@@ -330,6 +331,27 @@ export function subscriptionTone(status: SubscriptionStatus): "success" | "warni
 }
 
 /** One line for Finance: how late the bill is and what happens next, automatically or not. */
+/**
+ * The seat price the customer agreed to, per seat per month: from the accepted proposal, or else
+ * the last one sent, on its latest sent version. Line and proposal discounts are both applied, and
+ * a price for the whole term is spread over its months. Null when no sent proposal has a seat line.
+ */
+export function agreedSeatPrice(
+  proposals: Proposal[]
+): { seat_month_minor: number; seats: number; term_months: number; currency: string; proposal_title: string; version: number } | null {
+  const candidates = [...proposals.filter((p) => p.status === "accepted"), ...proposals.filter((p) => p.status === "sent")];
+  for (const p of candidates) {
+    const v = [...p.versions].reverse().find((x) => x.sent_at);
+    const line = v?.line_items.find((l) => l.kind === "seats" && l.quantity > 0 && (l.price_basis ?? "per_term") !== "one_time");
+    if (!v || !line) continue;
+    const months = (line.price_basis ?? "per_term") === "per_term" ? Math.max(1, v.term_months) : 1;
+    const minor = Math.round((line.net_minor * (1 - v.discount_pct / 100)) / line.quantity / months);
+    if (minor < 1) continue;
+    return { seat_month_minor: minor, seats: line.quantity, term_months: v.term_months, currency: v.currency, proposal_title: p.title, version: v.version };
+  }
+  return null;
+}
+
 export function dunningLine(sub: Pick<Subscription, "dunning" | "billing">, formatDate: (iso: string) => string): string | null {
   if (!sub.dunning) return null;
   const late = sub.dunning.day === 0 ? "Due today" : `${sub.dunning.day} day${sub.dunning.day === 1 ? "" : "s"} overdue`;
