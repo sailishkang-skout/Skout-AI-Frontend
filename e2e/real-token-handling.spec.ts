@@ -7,6 +7,8 @@ import { test, expect } from "@playwright/test";
  * PLAYWRIGHT_REAL_TOKEN_TESTS=true pnpm playwright test --project=real-token-chromium
  */
 test.describe("Real token authentication flow", () => {
+  test.skip(process.env.PLAYWRIGHT_REAL_TOKEN_TESTS !== "true", "Needs a real sign-in: run with PLAYWRIGHT_REAL_TOKEN_TESTS=true");
+
   test("successfully obtains and passes access token to API", async ({ page }) => {
     // Navigate to the app (will trigger auth flow with custom adapter)
     await page.goto("/");

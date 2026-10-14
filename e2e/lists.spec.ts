@@ -5,13 +5,19 @@ test.describe("Lists", () => {
   test("lists index loads and create form is visible", async ({ page }) => {
     await gotoAppPage(page, "/lists", "page-lists");
     // Wait for button to be enabled (it starts disabled while page loads)
-    await expect(page.getByTestId("create-list-button")).toBeEnabled({ timeout: 45_000 });
     await expect(page.getByRole("heading", { name: "Lists", exact: true })).toBeVisible({ timeout: 45_000 });
+    // Create stays off until the list has a name.
+    // A manual list is the advanced path now, behind a collapsed section.
+    await page.getByText("Advanced: create a manual list").click();
+    await expect(page.getByTestId("create-list-button")).toBeDisabled();
+    await page.getByPlaceholder(/Seed SaaS/i).fill("Named list");
+    await expect(page.getByTestId("create-list-button")).toBeEnabled();
   });
 
   test("can create a list from the UI", async ({ page }) => {
     const listName = `E2E List ${Date.now()}`;
     await gotoAppPage(page, "/lists", "page-lists");
+    await page.getByText("Advanced: create a manual list").click();
     await page.getByPlaceholder(/Seed SaaS/i).fill(listName);
     await expect(page.getByTestId("create-list-button")).toBeEnabled();
     await waitForApiMutation(page, "/api/v1/lists", "POST", async () => {
@@ -31,7 +37,8 @@ test.describe("Lists API (stub auth)", () => {
         "content-type": "application/json",
         "x-stub-user-email": "e2e-api-lists@test.com",
       },
-      data: { name: listName },
+      // A plain POST makes a smart list (R10.1), which /lists does not return; the Lists page asks for static.
+      data: { name: listName, mode: "static" },
     });
     expect(createRes.status()).toBe(201);
 

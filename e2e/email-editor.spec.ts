@@ -22,54 +22,45 @@ async function waitForPost(page: Page, urlFragment: string, action: () => Promis
 }
 
 test.describe("Email editor — merge tokens", () => {
+  // The Variable menu is tall; at the default 720px its last tokens sit below the fold.
+  test.use({ viewport: { width: 1440, height: 1000 } });
   test("all 5 merge tokens insert correctly", async ({ page }) => {
-    // 1. Create a fresh sequence
+    // 1. Create a fresh sequence: Manually from scratch opens the visual builder on it.
     await gotoPage(page, "/sequences", "page-sequences");
-    const name = `Token Test ${Date.now()}`;
-    await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
+    await page.getByRole("button", { name: /Manually from scratch/ }).click();
+    await page.getByPlaceholder("e.g. Enterprise SaaS outbound").fill(`Token Test ${Date.now()}`);
     await waitForPost(page, "/api/v1/sequences", async () => {
-      await page.getByRole("button", { name: /blank sequence/i }).click();
+      await page.getByRole("button", { name: "Open visual builder" }).click();
     });
+    await page.waitForURL(/\/sequences\/[0-9a-f-]+$/, { timeout: 15_000, waitUntil: "commit" });
 
-    const card = page.locator(`[data-sequence-name="${name}"]`);
-    await expect(card).toBeVisible({ timeout: 15_000 });
-
-    // 2. Open the sequence detail page
-    await card.getByRole("link", { name: "Open sequence" }).click();
-    await page.waitForURL(/\/sequences\/[0-9a-f-]+$/, { timeout: 15_000 });
-
-    // 3. Add an email step
+    // 2. Add an email step from "Start with an action", then open it.
+    const main = page.locator("main").last();
     await waitForPost(page, "/steps", async () => {
-      await page.getByRole("button", { name: "Add step" }).click();
+      await main.getByRole("button", { name: "Email", exact: true }).first().click();
     });
+    await main.getByText("A/B testing", { exact: true }).first().click();
+    const drawer = page.getByRole("dialog").filter({ hasText: "Edit Email" });
+    await expect(drawer).toBeVisible({ timeout: 10_000 });
 
-    // 4. Open the email body editor modal
-    // Empty-state trigger reads "Click to open email editor…" (div[role=button]).
-    const trigger = page
-      .getByRole("button", { name: /open email editor|edit email body/i })
-      .first();
-    await expect(trigger).toBeVisible({ timeout: 10_000 });
-    await trigger.click();
+    // 3. Insert each token into the body from its Variable menu (the last one; the first is the subject's).
+    const editorEl = drawer.locator(".tiptap").first();
+    const insert = async (token: string) => {
+      await drawer.getByRole("button", { name: "Variable", exact: true }).last().click();
+      await page.getByRole("button", { name: new RegExp(token.replace(/[{}]/g, "\\$&")) }).first().click();
+    };
+    // The editor loads the step's saved body just after it opens, which can wipe a first insert.
+    await expect(async () => {
+      if (!(await editorEl.innerText()).includes(TOKENS[0])) await insert(TOKENS[0]);
+      await expect(editorEl).toContainText(TOKENS[0], { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    for (const token of TOKENS.slice(1)) await insert(token);
 
-    // Modal should open
-    const modal = page.locator("text=Email body").first();
-    await expect(modal).toBeVisible({ timeout: 5_000 });
-
-    // 5. Click each merge token button and verify insertion
-    for (const token of TOKENS) {
-      await page.getByRole("button", { name: token, exact: true }).click();
-    }
-
-    // 6. All tokens should be visible in the TipTap editor
-    const editorEl = page.locator(".tiptap").first();
+    // 4. All tokens are in the editor, and the step saves.
     for (const token of TOKENS) {
       await expect(editorEl).toContainText(token, { timeout: 3_000 });
     }
-
-    // 7. Apply changes — modal closes, preview shows content
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await expect(page.getByText("Edit email body")).toBeVisible({ timeout: 5_000 });
-
-    console.log("✓ All 5 merge tokens inserted and persisted correctly");
+    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(drawer).toBeHidden({ timeout: 10_000 });
   });
 });

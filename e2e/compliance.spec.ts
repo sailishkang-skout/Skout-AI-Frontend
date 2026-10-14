@@ -199,14 +199,15 @@ test.describe("Compliance center — DSAR", () => {
   test("a duplicate open request is refused with a friendly message", async ({ page }) => {
     await openCompliance(page);
     await submit(page, "dupe@example.com", "erasure");
-    const rows = page.locator("div.rounded-lg.border", { hasText: "dupe@example.com" });
-    await expect(rows.filter({ hasText: /erasure/i })).toHaveCount(1);
+    // One line per request shows its email; the card around the list matches "div.rounded-lg.border" too.
+    const rows = page.getByText("dupe@example.com", { exact: true });
+    await expect(rows).toHaveCount(1);
 
     await submit(page, "dupe@example.com", "erasure");
     await expect(
       page.getByText("An open request of this type already exists for this email.").first()
     ).toBeVisible();
-    await expect(rows.filter({ hasText: /erasure/i })).toHaveCount(1);
+    await expect(rows).toHaveCount(1);
   });
 
   test("Submit is disabled until an email is entered", async ({ page }) => {

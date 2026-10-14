@@ -39,8 +39,11 @@ export async function gotoAppPage(page: Page, path: string, testId: string) {
   // Add screenshot for debugging if element not found
   try {
     await expect(page.getByTestId(testId)).toBeVisible({ timeout: 45_000 });
+    // The shell is server-rendered: wait until React has hydrated it, or the first fill or
+    // click is lost and the test times out on a form that never opened.
+    await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true", { timeout: 45_000 });
   } catch (e) {
-    await page.screenshot({ path: `test-failure-${testId}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/test-failure-${testId}.png`, fullPage: true });
     throw e;
   }
 }
