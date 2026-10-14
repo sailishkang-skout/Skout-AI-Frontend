@@ -10,6 +10,8 @@ import { test, expect } from "@playwright/test";
  * automate blindly.
  */
 test("GTM-learning report renders real data after manual login", async ({ page }) => {
+  // Waits for a person to sign in, so it never runs unattended.
+  test.skip(Boolean(process.env.CI) || !process.env.SKOUT_TEST_EMAIL, "Manual check: run headed with SKOUT_TEST_EMAIL set");
   await page.goto("/");
 
   // Fill in the real Clerk sign-in form yourself if this pauses before you're done —

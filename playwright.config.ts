@@ -36,14 +36,19 @@ export default defineConfig({
         },
       },
     },
-    // Project for testing real token handling (no E2E_AUTH_BYPASS) - run locally with custom auth mode
-    {
-      name: "real-token-chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-      },
-      testIgnore: ["**/smoke.spec.ts", "**/*-bypass.spec.ts"], // Only run real-token tests here
-    },
+    // Real token handling (no E2E_AUTH_BYPASS), only when asked for: it needs a server started with
+    // custom auth, and otherwise just re-runs the whole suite against the stub server.
+    ...(process.env.PLAYWRIGHT_REAL_TOKEN_TESTS === "true"
+      ? [
+          {
+            name: "real-token-chromium",
+            use: {
+              ...devices["Desktop Chrome"],
+            },
+            testIgnore: ["**/smoke.spec.ts", "**/*-bypass.spec.ts"],
+          },
+        ]
+      : []),
   ],
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
