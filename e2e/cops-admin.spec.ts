@@ -152,6 +152,34 @@ test.describe("CustomerOps admin (COPS-07)", () => {
     expect(saved!.milestones.map((m) => m.weight)).toEqual([70, 30]);
   });
 
+  test("COPS-08: an e-sign template is added with its match rules, and only the rules filled in are saved", async ({ page }) => {
+    await mockApi(page, ["admin:read", "admin:admin"]);
+    let saved: { value: Record<string, unknown>; reason: string } | null = null;
+    await page.route("**/api/v1/admin/config/esign_template", (route) => json(route, { data: saved ? [version("esign_template", "msa_eu_enterprise", 1, saved.value)] : [] }));
+    await page.route("**/api/v1/admin/config/esign_template/msa_eu_enterprise", async (route) => {
+      saved = route.request().postDataJSON();
+      return json(route, { data: version("esign_template", "msa_eu_enterprise", 1, saved!.value) }, 201);
+    });
+
+    await gotoAppPage(page, "/cops/admin", "page-cops-admin");
+    await openTab(page, "esign");
+    await expect(page.getByTestId("config-empty-esign_template")).toContainText("No e-sign templates yet");
+    await page.getByTestId("config-new-esign_template").click();
+    const form = page.getByTestId("config-form");
+    await form.getByLabel("Key", { exact: true }).fill("msa_eu_enterprise");
+    await form.getByLabel("Name", { exact: true }).fill("EU enterprise MSA");
+    await form.getByLabel("Template id at the e-sign provider").fill("tpl_eu_ent_01");
+    await form.getByLabel("Only for region (optional)").fill("EU");
+    await form.getByLabel("Only for segment (optional)").fill("enterprise");
+    await expect(page.getByTestId("config-save")).toBeDisabled();
+    await form.getByLabel("Reason for this change").fill("First EU template");
+    await page.getByTestId("config-save").click();
+
+    await expect(page.getByTestId("config-row-msa_eu_enterprise")).toContainText("v1");
+    expect(saved!.reason).toBe("First EU template");
+    expect(saved!.value).toEqual({ name: "EU enterprise MSA", contract_kind: "msa", provider_template_id: "tpl_eu_ent_01", match: { region: "EU", segment: "enterprise" }, active: true });
+  });
+
   test("pipelines: a stage is added at the end and an existing stage is renamed", async ({ page }) => {
     await mockApi(page, ["admin:read", "admin:admin"]);
     const stages = [
