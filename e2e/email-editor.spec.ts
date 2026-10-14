@@ -45,10 +45,16 @@ test.describe("Email editor — merge tokens", () => {
 
     // 3. Insert each token into the body from its Variable menu (the last one; the first is the subject's).
     const editorEl = drawer.locator(".tiptap").first();
-    for (const token of TOKENS) {
+    const insert = async (token: string) => {
       await drawer.getByRole("button", { name: "Variable", exact: true }).last().click();
       await page.getByRole("button", { name: new RegExp(token.replace(/[{}]/g, "\\$&")) }).first().click();
-    }
+    };
+    // The editor loads the step's saved body just after it opens, which can wipe a first insert.
+    await expect(async () => {
+      if (!(await editorEl.innerText()).includes(TOKENS[0])) await insert(TOKENS[0]);
+      await expect(editorEl).toContainText(TOKENS[0], { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    for (const token of TOKENS.slice(1)) await insert(token);
 
     // 4. All tokens are in the editor, and the step saves.
     for (const token of TOKENS) {

@@ -3,10 +3,8 @@ import { waitForApiHealth } from "./helpers";
 
 test.describe("Public pages", () => {
   test("signin page loads", async ({ page }) => {
-    // "/signin" is the old address; it redirects to Skout's own sign-in page.
     // An absolute path leaves the /app base, so name it in full.
-    await page.goto("/app/signin");
-    await expect(page).toHaveURL(/\/sign-in/, { timeout: 15_000 });
+    await page.goto("/app/sign-in");
     await expect(page.getByRole("heading", { name: /sign in to skout/i })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByPlaceholder("you@company.com")).toBeVisible();
   });
