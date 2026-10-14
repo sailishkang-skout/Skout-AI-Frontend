@@ -209,6 +209,13 @@ function newIdempotencyKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+/** COPS-08: the account details that pick the contract template (stored as custom fields). */
+export interface AccountContractFields {
+  region?: string;
+  segment?: string;
+  legal_entity?: string;
+}
+
 export function useCopsAdvancedApi() {
   const request = useApiFetch();
   const get = <T>(path: string) => copsFetch<{ data: T }>(path, undefined, { request });
@@ -228,6 +235,9 @@ export function useCopsAdvancedApi() {
     attachNegotiatedVersion: (contractId: string, body: { document_url: string; file_name?: string; file_sha256: string; redline_status: RedlineStatus }) =>
       post<unknown>(`/api/v1/contracts/${contractId}/negotiated-versions`, body),
     envelopes: (contractId: string) => get<Envelope[]>(`/api/v1/contracts/${contractId}/envelopes`),
+    contractFields: (accountId: string) => get<AccountContractFields>(`/api/v1/accounts/${accountId}/contract-fields`),
+    setContractFields: (accountId: string, body: AccountContractFields) =>
+      copsFetch<{ data: AccountContractFields }>(`/api/v1/accounts/${accountId}/contract-fields`, { method: "PUT", body: JSON.stringify(body) }, { request }),
     sendEnvelope: (contractId: string, body: { signers: EnvelopeSigner[]; message?: string }) =>
       withCopsTracking("cops.envelope_sent", () => post<Envelope>(`/api/v1/contracts/${contractId}/envelopes`, body), { contract_id: contractId, signers: body.signers.length }),
 
