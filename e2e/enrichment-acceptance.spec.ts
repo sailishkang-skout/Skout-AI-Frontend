@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { test, expect as baseExpect, type Page, type Route } from "@playwright/test";
 
 /**
  * ENR-06 — the engineering handoff's manual acceptance cases, as UI flows. The API is mocked
@@ -9,6 +9,10 @@ import { test, expect, type Page, type Route } from "@playwright/test";
  * What these cannot cover is the extension reading a real LinkedIn page: cases 1–5 and 7 are
  * also run by hand on UAT before a release (docs/ops/enrichment-release-gates.md).
  */
+
+// These tests visit many routes, and on a cold dev server each one compiles on first visit, which
+// can take longer than the default 5s an assertion waits. Seen as flaky runs in CI and locally.
+const expect = baseExpect.configure({ timeout: 20_000 });
 
 const PERMS = ["enrichment:read", "enrichment:capture", "enrichment:enrich", "enrichment:export", "enrichment:delete", "enrichment:admin", "sequences:send"];
 const COMPANY = "11111111-1111-4111-8111-111111111111";
