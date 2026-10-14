@@ -20,7 +20,10 @@ import {
   type Proposal,
   type ProposalVersion,
 } from "@/lib/cops-commercial";
+import { advancedErrorMessage, REDLINE_LABEL } from "@/lib/cops-commercial-advanced";
+import { ApprovalPanel } from "./approval-panel";
 import { ContractDialog } from "./contract-dialog";
+import { EnvelopePanel } from "./envelope-panel";
 import { PaymentLinkDialog } from "./payment-link-dialog";
 import { ProposalBuilderDialog } from "./proposal-builder-dialog";
 import { ReasonDialog } from "./reason-dialog";
@@ -113,7 +116,7 @@ export function CommercialDesk({
       toast({ title: `${what} sent`, variant: "success" });
       onChanged();
     } catch (err) {
-      toast({ title: `Could not send the ${what.toLowerCase()}`, description: commercialErrorMessage(err, "Please try again."), variant: "destructive" });
+      toast({ title: `Could not send the ${what.toLowerCase()}`, description: advancedErrorMessage(err, commercialErrorMessage(err, "Please try again.")), variant: "destructive" });
     } finally {
       setSending(null);
     }
@@ -193,6 +196,9 @@ export function CommercialDesk({
                   ))}
                 </div>
                 {p.status_reason && <p className="text-xs text-muted-foreground">Reason: {p.status_reason}</p>}
+                {latest && !["accepted", "declined", "expired"].includes(p.status) && (
+                  <ApprovalPanel proposalId={p.id} version={latest.version} canRequest={allowed("send")} onChanged={onChanged} />
+                )}
               </li>
             );
           })}
@@ -207,6 +213,11 @@ export function CommercialDesk({
                   <Badge tone={statusTone(c.status)} className="capitalize">
                     {c.status}
                   </Badge>
+                  {c.redline_status && (
+                    <Badge tone={c.redline_status === "agreed" ? "success" : "warning"} data-testid="redline-status">
+                      {REDLINE_LABEL[c.redline_status]}
+                    </Badge>
+                  )}
                   {latest && (
                     <a href={latest.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                       v{latest.version} <ExternalLink className="h-3 w-3" aria-hidden />
@@ -236,6 +247,7 @@ export function CommercialDesk({
                     {c.signed_at ? ` · signed ${new Date(c.signed_at).toLocaleDateString()}` : ""}
                   </p>
                 )}
+                {latest && <EnvelopePanel contractId={c.id} version={latest.version} contractTitle={CONTRACT_KIND_LABEL[c.kind]} canSend={allowed("send")} closed={closed} onChanged={onChanged} />}
               </li>
             );
           })}

@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Field } from "../form-field";
+import { REDLINE_LABEL, REDLINE_STATUSES, useCopsAdvancedApi, type RedlineStatus } from "@/lib/cops-commercial-advanced";
 import {
   commercialErrorMessage,
   CONTRACT_KIND_LABEL,
@@ -40,6 +41,8 @@ export function ContractDialog({
   onSaved: () => void;
 }) {
   const api = useCopsCommercialApi();
+  const advanced = useCopsAdvancedApi();
+  const [redline, setRedline] = useState<RedlineStatus | "">("");
   const [kind, setKind] = useState<ContractKind>("msa");
   const [title, setTitle] = useState("");
   const [proposalId, setProposalId] = useState("");
@@ -54,6 +57,7 @@ export function ContractDialog({
     setKind("msa");
     setTitle("");
     setProposalId("");
+    setRedline("");
     setUrl("");
     setFile(null);
     setError(null);
@@ -79,7 +83,8 @@ export function ContractDialog({
     setError(null);
     const doc = { document_url: url.trim(), file_name: file.name, file_sha256: file.sha256 };
     try {
-      if (contract) await api.addContractVersion(contract.id, doc);
+      if (contract && redline) await advanced.attachNegotiatedVersion(contract.id, { ...doc, redline_status: redline });
+      else if (contract) await api.addContractVersion(contract.id, doc);
       else
         await api.createContract(opportunityId, {
           ...doc,
@@ -148,6 +153,18 @@ export function ContractDialog({
           <p className="break-all text-xs text-muted-foreground">
             SHA-256 of {file.name}: <code>{file.sha256}</code>
           </p>
+        )}
+        {contract && (
+          <Field label="Negotiation">
+            <Select value={redline} onChange={(e) => setRedline(e.target.value as RedlineStatus | "")} aria-label="Negotiation status">
+              <option value="">Not a negotiated version</option>
+              {REDLINE_STATUSES.map((r) => (
+                <option key={r} value={r}>
+                  Negotiated outside Skout: {REDLINE_LABEL[r].toLowerCase()}
+                </option>
+              ))}
+            </Select>
+          </Field>
         )}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={busy}>

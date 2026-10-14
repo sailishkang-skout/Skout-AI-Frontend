@@ -15,6 +15,7 @@ import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
 import { AccountEngineeringTab } from "./tickets/account-engineering-tab";
 import { CopsBillingTab } from "./provisioning/cops-billing-tab";
+import { SubscriptionPanel } from "./commercial/subscription-panel";
 import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 
@@ -238,7 +239,10 @@ export function CopsCustomer360({
           ) : tab === "engineering" ? (
             <AccountEngineeringTab accountId={accountId} accountName={data?.header?.name} />
           ) : tab === "billing" ? (
-            <CopsBillingTab accountId={accountId} />
+            <div className="space-y-6">
+              <SubscriptionPanel accountId={accountId} />
+              <CopsBillingTab accountId={accountId} />
+            </div>
           ) : "ships" in current ? (
             <EmptyTab id={current.id} label={current.label} ships={current.ships} />
           ) : view.isLoading ? (

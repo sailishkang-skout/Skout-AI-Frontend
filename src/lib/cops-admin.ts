@@ -7,7 +7,7 @@ import { newIdempotencyKey } from "./cops-provisioning";
  * COPS-07 frontend client: admin configuration, retention and operations.
  * Contract: Skout-AI-Backend docs/api/copos-07-admin.openapi.yaml.
  */
-export const CONFIG_KINDS = ["trial_template", "credit_package", "email_template", "retention_policy", "feature_flags"] as const;
+export const CONFIG_KINDS = ["trial_template", "credit_package", "email_template", "retention_policy", "feature_flags", "approval_policy", "dunning_policy", "price_book", "renewal_policy", "esign_template"] as const;
 export type ConfigKind = (typeof CONFIG_KINDS)[number];
 
 export const RETENTION_CATEGORIES = ["core_records", "communications", "attachments", "audit_logs", "diagnostics", "ai_traces", "tombstones"] as const;
@@ -75,7 +75,7 @@ export interface ActivationTemplate {
   created_at: string;
 }
 
-/** One editable field of a config kind. `list` is a comma-separated list of strings. */
+/** One editable field of a config kind. `list` is a comma-separated list of strings. A dotted name ("match.region") is a field of a nested object. */
 export interface ConfigField {
   name: string;
   label: string;
@@ -84,7 +84,18 @@ export interface ConfigField {
   help?: string;
 }
 
-export const CONFIG_FIELDS: Record<"trial_template" | "credit_package" | "email_template", ConfigField[]> = {
+export const CONFIG_FIELDS: Record<"trial_template" | "credit_package" | "email_template" | "esign_template", ConfigField[]> = {
+  // COPS-08: the contract template the e-sign provider uses. The most specific match wins.
+  esign_template: [
+    { name: "name", label: "Name", type: "text", required: true },
+    { name: "contract_kind", label: "Contract kind", type: "text", required: true, help: "msa, order_form or dpa" },
+    { name: "provider_template_id", label: "Template id at the e-sign provider", type: "text", required: true },
+    { name: "match.region", label: "Only for region (optional)", type: "text", help: "Leave empty to match any" },
+    { name: "match.segment", label: "Only for segment (optional)", type: "text" },
+    { name: "match.legal_entity", label: "Only for legal entity (optional)", type: "text" },
+    { name: "match.deal_type", label: "Only for deal type (optional)", type: "text" },
+    { name: "active", label: "In use", type: "boolean" },
+  ],
   trial_template: [
     { name: "name", label: "Name", type: "text", required: true },
     { name: "plan", label: "Plan", type: "text", required: true },
@@ -106,7 +117,8 @@ export const CONFIG_FIELDS: Record<"trial_template" | "credit_package" | "email_
   ],
 };
 
-export const CONFIG_EMPTY: Record<"trial_template" | "credit_package" | "email_template", Record<string, unknown>> = {
+export const CONFIG_EMPTY: Record<"trial_template" | "credit_package" | "email_template" | "esign_template", Record<string, unknown>> = {
+  esign_template: { name: "", contract_kind: "msa", provider_template_id: "", match: {}, active: true },
   trial_template: { name: "", plan: "trial", trial_days: 14, credits: 500, integrations: ["crm", "email"] },
   credit_package: { name: "", credits: 1000, price_minor: 0, currency: "USD", active: true },
   email_template: { subject: "", intro: "" },
@@ -152,10 +164,13 @@ export function formToValue(fields: ConfigField[], form: Record<string, string |
   const out: Record<string, unknown> = {};
   for (const f of fields) {
     const raw = form[f.name];
-    if (f.type === "boolean") out[f.name] = Boolean(raw);
-    else if (f.type === "number") out[f.name] = raw === "" || raw === undefined ? undefined : Number(raw);
-    else if (f.type === "list") out[f.name] = String(raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-    else if (String(raw ?? "").trim() !== "" || f.required) out[f.name] = String(raw ?? "").trim();
+    // A nested field lives in its parent object, which is sent even when every field in it is empty.
+    const [parent, child] = f.name.includes(".") ? (f.name.split(".", 2) as [string, string]) : [null, f.name];
+    const target = parent ? ((out[parent] ??= {}) as Record<string, unknown>) : out;
+    if (f.type === "boolean") target[child] = Boolean(raw);
+    else if (f.type === "number") target[child] = raw === "" || raw === undefined ? undefined : Number(raw);
+    else if (f.type === "list") target[child] = String(raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    else if (String(raw ?? "").trim() !== "" || f.required) target[child] = String(raw ?? "").trim();
   }
   return out;
 }
@@ -163,7 +178,8 @@ export function formToValue(fields: ConfigField[], form: Record<string, string |
 export function valueToForm(fields: ConfigField[], value: Record<string, unknown>): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
   for (const f of fields) {
-    const v = value[f.name];
+    const [parent, child] = f.name.includes(".") ? (f.name.split(".", 2) as [string, string]) : [null, f.name];
+    const v = parent ? (value[parent] as Record<string, unknown> | undefined)?.[child] : value[child];
     out[f.name] = f.type === "boolean" ? v !== false : Array.isArray(v) ? v.join(", ") : v === undefined || v === null ? "" : String(v);
   }
   return out;

@@ -51,6 +51,17 @@ describe("COPS-07 admin helpers", () => {
     expect(formToValue(fields, { ...form, trial_days: "21", integrations: "crm , calendar" })).toEqual({ name: "Standard trial", plan: "trial", trial_days: 21, credits: 500, integrations: ["crm", "calendar"] });
   });
 
+  it("an e-sign template keeps its match rules nested, and leaves out the ones left empty", () => {
+    const fields = CONFIG_FIELDS.esign_template;
+    const stored = { name: "EU enterprise MSA", contract_kind: "msa", provider_template_id: "tpl_123", match: { region: "EU", segment: "enterprise" }, active: true };
+    const form = valueToForm(fields, stored);
+    expect(form["match.region"]).toBe("EU");
+    expect(form["match.deal_type"]).toBe("");
+    expect(formToValue(fields, form)).toEqual(stored);
+    // A template with no match rules still sends an empty match, which the API reads as "any".
+    expect(formToValue(fields, { ...form, "match.region": "", "match.segment": " " })).toEqual({ ...stored, match: {} });
+  });
+
   it("formats metrics for people", () => {
     expect(formatMetric({ value: null, unit: "ms" })).toBe("No data");
     expect(formatMetric({ value: 5900, unit: "ms" })).toBe("5.9 s");

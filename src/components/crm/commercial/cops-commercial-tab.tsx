@@ -11,6 +11,7 @@ import { CopsRequestError } from "@/lib/cops-fetch";
 import { cn } from "@/lib/utils";
 import { COMMERCIAL_POLL_MS, humanize, statusTone, useCopsCommercialApi, useMyPermissions } from "@/lib/cops-commercial";
 import { CommercialDesk } from "./commercial-desk";
+import { ContractFieldsCard } from "./contract-fields-card";
 
 /**
  * Customer 360 Commercial (and Documents) tab. Polls the account's commercial summary so proposal,
@@ -88,6 +89,7 @@ export function CopsCommercialTab({ accountId, mode = "commercial" }: { accountI
         </div>
       )}
       <CommercialDesk summary={current} permissions={permissions} onChanged={refresh} documentsOnly={mode === "documents"} />
+      <ContractFieldsCard accountId={accountId} permissions={permissions} />
       <p className="text-right text-xs text-muted-foreground" aria-live="polite">
         Updates automatically{view.isFetching ? " · refreshing…" : ""}
       </p>
