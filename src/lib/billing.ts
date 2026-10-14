@@ -48,10 +48,25 @@ function loadRazorpayScript(): Promise<void> {
   });
 }
 
+/** COPS-08: the customer's own subscription, as GET /api/v1/billing/subscription returns it. */
+export interface CustomerSubscription {
+  status: "active" | "past_due" | "restricted" | "suspended" | "closed";
+  billing: "payment_link" | "invoiced" | "provider";
+  currency: string;
+  cadence: "monthly" | "annual";
+  seats: number;
+  renews_at: string;
+  invoices: Array<{ id: string; period_start: string; period_end: string; due_at: string; amount_minor: number; currency: string; status: string; paid_at: string | null }>;
+  dunning: { overdue_invoice_id: string; due_at: string; day: number; next_status: CustomerSubscription["status"] | null; next_status_at: string | null } | null;
+}
+
 export function useBillingApi() {
   const fetchApi = useApiFetch();
   return {
     getConfig: () => fetchApi<{ data: BillingConfig }>("/api/v1/billing/config"),
+    subscription: () => fetchApi<{ data: CustomerSubscription | null }>("/api/v1/billing/subscription"),
+    payInvoice: (invoiceId: string) =>
+      fetchApi<{ data: { checkout_url: string; status: string } }>(`/api/v1/billing/subscription/invoices/${invoiceId}/pay`, { method: "POST", body: "{}" }),
     createOrder: (packId: string) =>
       fetchApi<{ data: RazorpayOrderResponse }>("/api/v1/billing/razorpay/order", {
         method: "POST",

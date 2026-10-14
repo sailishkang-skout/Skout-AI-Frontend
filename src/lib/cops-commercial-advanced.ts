@@ -379,6 +379,7 @@ export function advancedErrorMessage(error: unknown, fallback: string): string {
     if (env.code === "VALIDATION_FAILED" && details.fields?.length) return details.fields.map((f) => f.message).join("; ");
     if (env.code === "PROVIDER_UNAVAILABLE") return "This is not configured for this workspace yet.";
     if ((env.code as string) === "subscription_restricted") return "This workspace has an unpaid subscription bill. Pay it on the billing page to continue.";
+    if ((env.code as string) === "subscription_suspended") return "This workspace is suspended for an unpaid bill. Pay it on Settings > Workspace to use Skout again.";
     if (env.code === "PROVIDER_ERROR") return "The provider did not accept the request. Try again in a moment.";
     return env.message;
   }
