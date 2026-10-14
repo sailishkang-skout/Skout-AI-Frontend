@@ -16,6 +16,7 @@ const TABS = [
   { id: "activation", label: "Activation" },
   { id: "gate", label: "Gate policy" },
   { id: "commercial", label: "Commercial policy" },
+  { id: "esign", label: "E-sign templates" },
   { id: "routing", label: "Notification routing" },
   { id: "pipelines", label: "Pipelines" },
   { id: "modules", label: "Modules" },
@@ -73,6 +74,9 @@ export default function CopsAdminPage() {
             {tab === "activation" && <ActivationPanel canWrite={canWrite} />}
             {tab === "gate" && <GatePolicyPanel canWrite={canWrite} />}
             {tab === "commercial" && <CommercialPolicyPanel canWrite={canWrite} />}
+            {tab === "esign" && (
+              <ConfigEditor kind="esign_template" title="E-sign templates" canWrite={canWrite} keyHint="for example msa_eu_enterprise" emptyTitle="No e-sign templates yet" emptyHint="Without a template a contract goes out as the uploaded document alone. Add one per contract kind, and more specific ones per region, segment, legal entity or deal type." />
+            )}
             {tab === "routing" && <CopsNotificationRoutesPanel />}
             {tab === "pipelines" && <PipelinesPanel canWrite={canWrite} />}
             {tab === "modules" && <FeatureFlagsPanel canWrite={canWrite} />}
