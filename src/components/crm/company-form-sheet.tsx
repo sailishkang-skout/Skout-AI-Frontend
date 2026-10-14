@@ -65,6 +65,8 @@ export function CompanyFormSheet({
     },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ["crm", "companies"] });
+      // The accounts table on /crm/companies reads its own query (COPS-02); refresh it too.
+      queryClient.invalidateQueries({ queryKey: ["cops-accounts"] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["crm", "companies", company!.id] });
       onSaved?.(saved);
       onClose();
