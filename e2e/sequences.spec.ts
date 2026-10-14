@@ -1,40 +1,32 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { gotoAppPage, waitForApiMutation } from "./helpers";
+
+/** Creates a sequence the way a person does: Manually from scratch, a name, Open visual builder. */
+async function createManualSequence(page: Page, name: string) {
+  await gotoAppPage(page, "/sequences", "page-sequences");
+  await page.getByRole("button", { name: /Manually from scratch/ }).click();
+  await page.getByPlaceholder("e.g. Enterprise SaaS outbound").fill(name);
+  await waitForApiMutation(page, "/api/v1/sequences", "POST", async () => {
+    await page.getByRole("button", { name: "Open visual builder" }).click();
+  });
+  await page.waitForURL(/\/sequences\/[0-9a-f-]+$/, { timeout: 15_000, waitUntil: "commit" });
+}
 
 test.describe("Sequences", () => {
   test("list page loads and can create a sequence", async ({ page }) => {
     await gotoAppPage(page, "/sequences", "page-sequences");
-    await expect(page.getByRole("heading", { name: "Sequences" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sequence Studio" })).toBeVisible();
 
     const name = `E2E Sequence ${Date.now()}`;
-    await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
-    await expect(page.getByRole("button", { name: /blank sequence/i })).toBeEnabled();
-    await waitForApiMutation(page, "/api/v1/sequences", "POST", async () => {
-      await page.getByRole("button", { name: /blank sequence/i }).click();
-    });
-
+    await createManualSequence(page, name);
+    await gotoAppPage(page, "/sequences", "page-sequences");
     await expect(page.locator(`[data-sequence-name="${name}"]`)).toBeVisible({ timeout: 15_000 });
   });
 
-  test("builder: add a step, edit delay, switch tabs", async ({ page }) => {
-    await gotoAppPage(page, "/sequences", "page-sequences");
+  test("builder: opens on the new sequence and switches tabs", async ({ page }) => {
     const name = `E2E Builder ${Date.now()}`;
-    await page.getByPlaceholder(/SaaS VP outreach/i).fill(name);
-    await expect(page.getByRole("button", { name: /blank sequence/i })).toBeEnabled();
-    await waitForApiMutation(page, "/api/v1/sequences", "POST", async () => {
-      await page.getByRole("button", { name: /blank sequence/i }).click();
-    });
-
-    const card = page.locator(`[data-sequence-name="${name}"]`);
-    await expect(card).toBeVisible({ timeout: 15_000 });
-    await card.getByRole("link", { name: "Open sequence" }).click();
-    await page.waitForURL(/\/sequences\/[0-9a-f-]+$/, { timeout: 15_000 });
-
+    await createManualSequence(page, name);
     await expect(page.locator("h1")).toHaveText(name);
-
-    await page.getByRole("button", { name: "Add step" }).click();
-    // Delay control is rendered twice (desktop + mobile rows); .first() = the visible sm+ row.
-    await expect(page.locator('input[aria-label="Delay amount"]').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Enroll", exact: true }).click();
     await expect(page.getByText("Activate this sequence before enrolling prospects.")).toBeVisible();

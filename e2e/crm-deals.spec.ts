@@ -6,8 +6,9 @@ test.describe("CRM Deals board", () => {
     test.skip(!(await isCrmApiHealthy(request)), "CRM API not running");
 
     await gotoAppPage(page, "/crm/deals", "page-crm-deals");
-    await expect(page.getByText("New", { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Qualified", { exact: true })).toBeVisible();
+    // The default pipeline (crm pipelines.service DEFAULT_STAGES) starts at Qualified.
+    await expect(page.getByText("Qualified", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Payment/Procurement", { exact: true })).toBeVisible();
     await expect(page.getByText("Closed Won", { exact: true })).toBeVisible();
     await expect(page.getByText("Closed Lost", { exact: true })).toBeVisible();
   });
@@ -33,8 +34,8 @@ test.describe("CRM Deals board", () => {
     await expect(page.getByText(companyName, { exact: true })).toBeVisible({ timeout: 15_000 });
 
     await gotoAppPage(page, "/crm/deals", "page-crm-deals");
-    await page.getByLabel("Add deal to New").click();
-    await expect(page.getByText("Add deal to New")).toBeVisible();
+    await page.getByLabel("Add deal to Qualified").click();
+    await expect(page.getByText("Add deal to Qualified")).toBeVisible();
 
     const dealName = `Quick Deal ${Date.now()}`;
     await page.getByPlaceholder("Acme — Annual Contract").fill(dealName);
@@ -45,7 +46,7 @@ test.describe("CRM Deals board", () => {
 });
 
 test.describe("CRM Deals API (stub auth)", () => {
-  test("default pipeline auto-seeds with 6 stages; deal lands in first stage", async ({ request }) => {
+  test("default pipeline auto-seeds with 8 stages; deal lands in first stage", async ({ request }) => {
     test.skip(!(await isCrmApiHealthy(request)), "CRM API not running");
 
     const email = `e2e-crm-deals-api-${Date.now()}@test.com`;
@@ -56,8 +57,8 @@ test.describe("CRM Deals API (stub auth)", () => {
     });
     const pipelines = await pipelinesRes.json();
     expect(pipelines.total).toBe(1);
-    expect(pipelines.data[0].stages).toHaveLength(6);
     const sortedStages = [...pipelines.data[0].stages].sort((a: { orderIndex: number }, b: { orderIndex: number }) => a.orderIndex - b.orderIndex);
+    expect(sortedStages.map((s: { name: string }) => s.name)).toEqual(["Qualified", "Discovery", "Demo", "Commercial", "Contracting", "Payment/Procurement", "Closed Won", "Closed Lost"]);
 
     const companyRes = await request.post(`${crmApiURL}/api/v1/companies`, { headers, data: { name: "Deal Co" } });
     const company = await companyRes.json();
