@@ -6,7 +6,7 @@ import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, isRetryableAuthError } from "@/lib/api-client";
 import { createClientLogger, logAndCapture } from "@/lib/logger";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -49,6 +49,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  // Marks the page as interactive once React has hydrated it. Browser tests wait for this before
+  // typing or clicking: input on the server-rendered page before then is silently lost.
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = "true";
+  }, []);
 
   return (
     <ThemeProvider>
