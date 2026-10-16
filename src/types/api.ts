@@ -1312,7 +1312,8 @@ export interface CsvExportResponse {
 // ── Deliverability ────────────────────────────────────────────────────────────
 
 export type InboxProvider = "smtp" | "google" | "microsoft";
-export type InboxStatus = "active" | "warming" | "paused" | "error" | "pending_verification";
+/** needs_reauth: the Google or Microsoft grant was revoked or expired; nothing is sent until it is reconnected. */
+export type InboxStatus = "active" | "warming" | "paused" | "error" | "pending_verification" | "needs_reauth";
 export type InboxHealth = "healthy" | "degraded" | "error";
 export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
 
