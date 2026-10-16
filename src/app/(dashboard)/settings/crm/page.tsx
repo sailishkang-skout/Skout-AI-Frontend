@@ -23,6 +23,7 @@ import { CrmHealthDashboard } from "@/components/crm/sync/crm-health-dashboard";
 import { CrmMappingEditor } from "@/components/crm/sync/crm-mapping-editor";
 import { CrmConflictQueue } from "@/components/crm/sync/crm-conflict-queue";
 import { CrmDlqHistory } from "@/components/crm/sync/crm-dlq-history";
+import { CrmSyncSettings } from "@/components/crm/sync/crm-sync-settings";
 
 const CHECKPOINT_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "muted" | "info"> = {
   succeeded: "success",
@@ -303,6 +304,8 @@ function CrmSettingsContent() {
           )}
         </CardContent>
       </Card>
+
+      {hubspotConnected && <CrmSyncSettings provider="hubspot" />}
 
       {hubspotConnected && <CrmHealthDashboard provider="hubspot" />}
 
