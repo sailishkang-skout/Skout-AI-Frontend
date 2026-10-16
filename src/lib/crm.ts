@@ -4,6 +4,7 @@ import type {
   CrmConflictItem,
   CrmInboundHistoryRow,
   CrmRecordHistoryItem,
+  CrmStageMapResponse,
   CrmConnectionsResponse,
   CrmExportJob,
   CrmHealthCheckResult,
@@ -142,6 +143,16 @@ export function useCrmApi() {
         ok: true;
         data: Record<"contact" | "deal", { driftDetected: boolean; missingFields: string[] }>;
       }>(`/api/v1/crm/${provider}/schema-drift`, { method: "POST", workspaceId: WORKSPACE_ID }),
+
+    getStageMap: (provider = "hubspot") =>
+      fetchApi<{ data: CrmStageMapResponse }>(`/api/v1/crm/${provider}/stage-map`, { workspaceId: WORKSPACE_ID }),
+
+    saveStageMap: (provider = "hubspot", map: Record<string, string>) =>
+      fetchApi<{ ok: true; data: { map: Record<string, string> } }>(`/api/v1/crm/${provider}/stage-map`, {
+        method: "PUT",
+        body: JSON.stringify({ map }),
+        workspaceId: WORKSPACE_ID,
+      }),
 
     getRecordSyncHistory: (entityType: "contact" | "deal", entityId: string) =>
       fetchApi<{ data: CrmRecordHistoryItem[] }>(`/api/v1/crm/records/${entityType}/${entityId}/history`, {

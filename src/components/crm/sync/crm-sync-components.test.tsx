@@ -8,6 +8,7 @@ import { CrmMappingEditor } from "./crm-mapping-editor";
 import { CrmSyncSettings } from "./crm-sync-settings";
 import { CrmRecordSyncHistory } from "./crm-record-sync-history";
 import { CrmInboundHistory } from "./crm-inbound-history";
+import { CrmStageMapEditor } from "./crm-stage-map-editor";
 import { ApiError } from "@/lib/api-client";
 
 const mockGetConnectorHealth = vi.fn();
@@ -20,6 +21,8 @@ const mockSaveMappings = vi.fn();
 const mockTriggerPoll = vi.fn();
 const mockRunInitialImport = vi.fn();
 const mockGetOptIn = vi.fn();
+const mockGetStageMap = vi.fn();
+const mockSaveStageMap = vi.fn();
 const mockGetRecordSyncHistory = vi.fn();
 const mockListInboundHistory = vi.fn();
 const mockUpdateOptIn = vi.fn();
@@ -36,6 +39,8 @@ vi.mock("@/lib/crm", () => ({
     triggerPoll: mockTriggerPoll,
     runInitialImport: mockRunInitialImport,
     getOptIn: mockGetOptIn,
+    getStageMap: mockGetStageMap,
+    saveStageMap: mockSaveStageMap,
     getRecordSyncHistory: mockGetRecordSyncHistory,
     listInboundHistory: mockListInboundHistory,
     updateOptIn: mockUpdateOptIn,
@@ -301,6 +306,35 @@ describe("CRM Sync Frontend Components (COPS-09)", () => {
       expect(await screen.findByText("held: title")).toBeTruthy();
       fireEvent.change(screen.getByLabelText("Outcome"), { target: { value: "skipped_invalid" } });
       await waitFor(() => expect(mockListInboundHistory).toHaveBeenLastCalledWith({ outcome: "skipped_invalid", limit: 50 }));
+    });
+  });
+
+  describe("CrmStageMapEditor", () => {
+    it("maps a HubSpot stage to a Skout stage and saves the map", async () => {
+      mockGetStageMap.mockResolvedValue({
+        data: {
+          map: {},
+          providerPipelines: [{ id: "default", label: "Sales Pipeline", stages: [{ id: "closedwon", label: "Closed won" }] }],
+          skoutStages: [
+            { pipelineId: "p1", pipelineName: "Sales", isDefault: true, stageId: "s-new", stageName: "New", orderIndex: 0 },
+            { pipelineId: "p1", pipelineName: "Sales", isDefault: true, stageId: "s-won", stageName: "Won", orderIndex: 5 },
+          ],
+        },
+      });
+      mockSaveStageMap.mockResolvedValue({ ok: true, data: { map: { closedwon: "s-won" } } });
+
+      renderWithClient(<CrmStageMapEditor provider="hubspot" />);
+      const select = await screen.findByLabelText("Skout stage for Closed won");
+      fireEvent.change(select, { target: { value: "s-won" } });
+      fireEvent.click(screen.getByRole("button", { name: /Save stages/i }));
+      await waitFor(() => expect(mockSaveStageMap).toHaveBeenCalledWith("hubspot", { closedwon: "s-won" }));
+    });
+
+    it("explains when HubSpot's pipelines cannot be read", async () => {
+      mockGetStageMap.mockResolvedValue({ data: { map: {}, providerPipelines: null, skoutStages: [] } });
+      renderWithClient(<CrmStageMapEditor provider="hubspot" />);
+      expect(await screen.findByText(/could not be read right now/)).toBeTruthy();
+      expect((screen.getByRole("button", { name: /Save stages/i }) as HTMLButtonElement).disabled).toBe(true);
     });
   });
 });

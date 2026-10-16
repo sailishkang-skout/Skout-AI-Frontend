@@ -1200,6 +1200,22 @@ export interface CrmOutboundWriteItem {
   updatedAt: string;
 }
 
+export interface CrmSkoutStage {
+  pipelineId: string;
+  pipelineName: string;
+  isDefault: boolean;
+  stageId: string;
+  stageName: string;
+  orderIndex: number;
+}
+
+export interface CrmStageMapResponse {
+  map: Record<string, string>;
+  /** Null when HubSpot could not be read. */
+  providerPipelines: Array<{ id: string; label: string; stages: Array<{ id: string; label: string }> }> | null;
+  skoutStages: CrmSkoutStage[];
+}
+
 export interface CrmRecordHistoryItem {
   at: string;
   direction: "inbound" | "outbound" | "conflict";
