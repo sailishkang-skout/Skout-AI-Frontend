@@ -27,7 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError } from "@/lib/api-client";
-import { CountryCombobox, IndustryCombobox } from "@/components/tam/country-combobox";
+import { CountryCombobox, IndustryCombobox, FALLBACK_GLOBAL_COUNTRIES } from "@/components/tam/country-combobox";
 import {
   useRegionalBriefApi,
   type CountryItem,
@@ -876,7 +876,18 @@ export default function RegionalBriefPage() {
   });
 
   const canEditGlobal = adminCheck.data?.platformAdmin ?? false;
-  const countries = countriesQuery.data?.data ?? [];
+  const apiCountries = countriesQuery.data?.data ?? [];
+  const countries = useMemo(() => {
+    if (!apiCountries || apiCountries.length === 0) return FALLBACK_GLOBAL_COUNTRIES;
+    const map = new Map<string, CountryItem>();
+    for (const c of FALLBACK_GLOBAL_COUNTRIES) {
+      map.set(c.isoCode.toUpperCase(), c);
+    }
+    for (const c of apiCountries) {
+      map.set(c.isoCode.toUpperCase(), c);
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [apiCountries]);
 
   return (
     <PageShell data-testid="page-regional-brief">
