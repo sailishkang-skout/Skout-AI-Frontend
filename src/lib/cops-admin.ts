@@ -144,9 +144,18 @@ export function useCopsAdminApi() {
     modules: () => get<{ data: Record<string, boolean> }>("/api/v1/cops/modules"),
     activationTemplates: () => get<{ data: ActivationTemplate[] }>("/api/v1/admin/activation-templates"),
     newActivationVersion: (key: string, body: { segment?: string | null; milestones: unknown; reason: string }) =>
-      write<{ data: ActivationTemplate }>("POST", `/api/v1/admin/activation-templates/${key}/versions`, body),
+      withCopsTracking(
+        "cops.admin_config_saved",
+        () => write<{ data: ActivationTemplate }>("POST", `/api/v1/admin/activation-templates/${key}/versions`, body),
+        { kind: "activation_template", key }
+      ),
     gatePolicies: () => get<{ data: { deal_type: string; policy: string }[] }>("/api/v1/commercial/gate-policies"),
-    setGatePolicy: (dealType: string, policy: string) => write<{ data: unknown }>("PUT", "/api/v1/commercial/gate-policies", { deal_type: dealType, policy }),
+    setGatePolicy: (dealType: string, policy: string) =>
+      withCopsTracking("cops.admin_config_saved", () => write<{ data: unknown }>("PUT", "/api/v1/commercial/gate-policies", { deal_type: dealType, policy }), {
+        kind: "gate_policy",
+        key: dealType,
+        policy,
+      }),
     inventory: () => get<{ data: InventoryRow[] }>("/api/v1/admin/data-inventory"),
     retentionRuns: () => get<{ data: RetentionRun[]; targets: { table: string; category: string }[] }>("/api/v1/admin/retention/runs"),
     retentionRun: (body: { mode: "dry_run" | "apply"; dry_run_id?: string; reason?: string }) =>
