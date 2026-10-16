@@ -135,6 +135,18 @@ export function useCrmApi() {
         workspaceId: WORKSPACE_ID,
       }),
 
+    checkSchemaDrift: (provider = "hubspot") =>
+      fetchApi<{
+        ok: true;
+        data: Record<"contact" | "deal", { driftDetected: boolean; missingFields: string[] }>;
+      }>(`/api/v1/crm/${provider}/schema-drift`, { method: "POST", workspaceId: WORKSPACE_ID }),
+
+    getMappingHistory: (provider = "hubspot", entityType: "contact" | "deal") =>
+      fetchApi<{ data: Array<{ version: number; replacedAt: string; mapping: CrmObjectMapping }> }>(
+        `/api/v1/crm/${provider}/mappings/history?entityType=${entityType}`,
+        { workspaceId: WORKSPACE_ID }
+      ),
+
     // Opt-In & Initial Import
     getOptIn: (provider = "hubspot") =>
       fetchApi<{ data: CrmSyncOptInSettings }>(`/api/v1/crm/${provider}/opt-in`, {

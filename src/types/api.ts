@@ -1114,7 +1114,7 @@ export interface CrmSyncStatus {
 export interface CrmHealthCheckResult {
   connected: boolean;
   provider: string;
-  authStatus: "connected" | "needs_reauth" | "disconnected" | "expired";
+  authStatus: "connected" | "needs_reauth" | "disconnected";
   lastSyncAt: string | null;
   backlog: number;
   failedRecords: number;
@@ -1134,25 +1134,23 @@ export interface CrmHealthCheckResult {
   }>;
 }
 
-export type CrmFieldTransform =
-  | "none"
-  | "lowercase"
-  | "uppercase"
-  | "trim"
-  | "cents_to_dollars"
-  | "dollars_to_cents"
-  | "iso_date";
+/** COPS-09 mapping contract, as the API validates it (apps/api crm-mapping.service.ts). */
+export type CrmFieldTransform = "none" | "trim" | "lowercase" | "uppercase" | "number";
 
-export type CrmNullBehaviour = "skip" | "overwrite_with_null" | "default_value";
+/** A blank provider value: "overwrite" clears the Skout field; "preserve" and "ignore" keep it. */
+export type CrmNullBehavior = "preserve" | "ignore" | "overwrite";
+
+export type CrmSyncDirection = "inbound" | "outbound" | "bidirectional";
 
 export type CrmConflictPolicy = "skout_wins" | "external_wins" | "most_recent" | "manual_review";
 
 export interface CrmFieldMapping {
+  id: string;
   internalField: string;
   externalField: string;
-  direction: "inbound" | "outbound" | "bi-directional";
+  direction: CrmSyncDirection;
   transform?: CrmFieldTransform;
-  nullBehaviour?: CrmNullBehaviour;
+  nullBehavior?: CrmNullBehavior;
   conflictPolicy?: CrmConflictPolicy;
   isProtected?: boolean;
 }
@@ -1160,8 +1158,9 @@ export interface CrmFieldMapping {
 export interface CrmObjectMapping {
   version: number;
   entityType: "contact" | "deal";
+  externalObjectType: string;
   fields: CrmFieldMapping[];
-  defaultConflictPolicy?: CrmConflictPolicy;
+  lastValidatedAt?: string;
 }
 
 export interface CrmConflictItem {
@@ -1194,7 +1193,7 @@ export interface CrmOutboundWriteItem {
   patch: Record<string, unknown>;
   skoutChangedAt: string;
   idempotencyKey: string;
-  status: "pending" | "leased" | "succeeded" | "failed";
+  status: "pending" | "claimed" | "succeeded" | "failed";
   attemptCount: number;
   lastError: string | null;
   createdAt: string;
