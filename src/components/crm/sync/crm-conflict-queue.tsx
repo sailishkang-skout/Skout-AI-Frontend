@@ -176,11 +176,10 @@ export function CrmConflictQueue() {
                   {isSelectedCustom && (
                     <div className="flex items-center gap-2 pt-2">
                       <Input
-                        size="sm"
                         placeholder="Enter custom value…"
                         value={customValue}
                         onChange={(e) => setCustomValue(e.target.value)}
-                        className="text-xs"
+                        className="text-xs h-8"
                       />
                       <Button
                         size="sm"

@@ -305,7 +305,6 @@ export function CrmMappingEditor({ provider = "hubspot" }: { provider?: string }
                       <tr key={index} className="hover:bg-muted/20">
                         <td className="p-2.5">
                           <Input
-                            size="sm"
                             value={field.internalField}
                             onChange={(e) => updateField(index, { internalField: e.target.value })}
                             disabled={isProtected}
@@ -316,7 +315,6 @@ export function CrmMappingEditor({ provider = "hubspot" }: { provider?: string }
 
                         <td className="p-2.5">
                           <Input
-                            size="sm"
                             value={field.externalField}
                             onChange={(e) => updateField(index, { externalField: e.target.value })}
                             placeholder="externalField"
