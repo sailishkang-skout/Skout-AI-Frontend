@@ -13,6 +13,7 @@ import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
 import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
+import { CopsUsageTab } from "./onboarding/cops-usage-tab";
 import { AccountEngineeringTab } from "./tickets/account-engineering-tab";
 import { CopsBillingTab } from "./provisioning/cops-billing-tab";
 import { SubscriptionPanel } from "./commercial/subscription-panel";
@@ -25,7 +26,7 @@ const TABS = [
   { id: "contacts", label: "Contacts" },
   { id: "commercial", label: "Commercial" },
   { id: "onboarding", label: "Onboarding" },
-  { id: "usage", label: "Usage", ships: "COPS-05 (activation tracking)" },
+  { id: "usage", label: "Usage" },
   { id: "success", label: "Success", ships: "COPS-11 (customer success)" },
   { id: "engineering", label: "Engineering" },
   { id: "billing", label: "Billing" },
@@ -236,6 +237,8 @@ export function CopsCustomer360({
             <CopsCommercialTab accountId={accountId} mode={tab} />
           ) : tab === "onboarding" ? (
             <CopsOnboardingTab accountId={accountId} accountName={data?.header?.name} />
+          ) : tab === "usage" ? (
+            <CopsUsageTab accountId={accountId} />
           ) : tab === "engineering" ? (
             <AccountEngineeringTab accountId={accountId} accountName={data?.header?.name} />
           ) : tab === "billing" ? (
