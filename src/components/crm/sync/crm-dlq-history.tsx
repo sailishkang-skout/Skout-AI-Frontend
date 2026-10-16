@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, History, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +15,12 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "muted" | "
   succeeded: "success",
   completed: "success",
   pending: "info",
-  leased: "warning",
+  claimed: "warning",
   failed: "danger",
 };
+
+/** Writes the worker held back for a conflict: the conflict queue decides them, replay would not. */
+const HELD_BY_CONFLICT = ["conflict_hubspot_newer", "blocked_by_pending_conflict"];
 
 export function CrmDlqHistory() {
   const crmApi = useCrmApi();
@@ -100,6 +104,11 @@ export function CrmDlqHistory() {
       </CardHeader>
 
       <CardContent>
+        {replayMutation.isError && (
+          <Alert variant="error" className="mb-3">
+            {replayMutation.error instanceof Error ? replayMutation.error.message : "Replay failed"}
+          </Alert>
+        )}
         {writesQuery.isLoading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
@@ -134,7 +143,7 @@ export function CrmDlqHistory() {
                       <span className="text-muted-foreground">
                         {timeAgoShort(write.createdAt)}
                       </span>
-                      {isFailed && (
+                      {isFailed && !HELD_BY_CONFLICT.includes(write.lastError ?? "") && (
                         <Button
                           size="sm"
                           variant="outline"

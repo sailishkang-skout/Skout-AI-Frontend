@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Edit3, Loader2, RefreshCw, ShieldAlert, User, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,11 @@ export function CrmConflictQueue() {
       </CardHeader>
 
       <CardContent>
+        {resolveMutation.isError && (
+          <Alert variant="error" className="mb-3">
+            {resolveMutation.error instanceof Error ? resolveMutation.error.message : "The conflict was not resolved"}
+          </Alert>
+        )}
         {conflictsQuery.isLoading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />

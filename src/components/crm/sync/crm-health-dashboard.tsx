@@ -2,9 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Clock, Play, RefreshCw, RotateCcw, ShieldAlert, Zap } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiError } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
 import { timeAgoShort } from "@/lib/signals";
 import type { CrmHealthCheckResult } from "@/types/api";
@@ -14,8 +16,7 @@ const AUTH_STATUS_CONFIG: Record<
   { label: string; tone: "success" | "warning" | "danger" | "muted" }
 > = {
   connected: { label: "Healthy & Connected", tone: "success" },
-  needs_reauth: { label: "Re-authentication Required", tone: "warning" },
-  expired: { label: "Grant Expired", tone: "danger" },
+  needs_reauth: { label: "Reconnect HubSpot", tone: "danger" },
   disconnected: { label: "Disconnected", tone: "muted" },
 };
 
@@ -44,7 +45,13 @@ export function CrmHealthDashboard({ provider = "hubspot" }: { provider?: string
     },
   });
 
+  const driftMutation = useMutation({ mutationFn: () => crmApi.checkSchemaDrift(provider) });
+
   const health: CrmHealthCheckResult | undefined = healthQuery.data?.data;
+  const actionError = [pollMutation.error, importMutation.error, driftMutation.error].find(Boolean);
+  const missing = driftMutation.data?.data
+    ? [...driftMutation.data.data.contact.missingFields.map((f) => `contact: ${f}`), ...driftMutation.data.data.deal.missingFields.map((f) => `deal: ${f}`)]
+    : [];
   const statusInfo = AUTH_STATUS_CONFIG[health?.authStatus ?? "disconnected"] ?? {
     label: health?.authStatus ?? "Unknown",
     tone: "muted",
@@ -209,7 +216,37 @@ export function CrmHealthDashboard({ provider = "hubspot" }: { provider?: string
               <CheckCircle2 className="h-3.5 w-3.5" /> Initial import batch complete
             </span>
           )}
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => driftMutation.mutate()}
+            disabled={driftMutation.isPending || health?.authStatus !== "connected"}
+          >
+            <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+            Check HubSpot schema
+          </Button>
+          {driftMutation.isSuccess && missing.length === 0 && (
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Every mapped property exists in HubSpot
+            </span>
+          )}
         </div>
+
+        {missing.length > 0 && (
+          <Alert variant="warning">
+            Mapped properties HubSpot no longer has (not synced until the mapping is fixed): {missing.join(", ")}
+          </Alert>
+        )}
+        {actionError && (
+          <Alert variant="error">
+            {actionError instanceof ApiError && actionError.message === "crm_sync_not_enabled"
+              ? "Sync is turned off. Turn it on in Sync settings first."
+              : actionError instanceof Error
+                ? actionError.message
+                : "The request failed"}
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );
