@@ -6,6 +6,8 @@ import { CrmConflictQueue } from "./crm-conflict-queue";
 import { CrmDlqHistory } from "./crm-dlq-history";
 import { CrmMappingEditor } from "./crm-mapping-editor";
 import { CrmSyncSettings } from "./crm-sync-settings";
+import { CrmRecordSyncHistory } from "./crm-record-sync-history";
+import { CrmInboundHistory } from "./crm-inbound-history";
 import { ApiError } from "@/lib/api-client";
 
 const mockGetConnectorHealth = vi.fn();
@@ -18,6 +20,8 @@ const mockSaveMappings = vi.fn();
 const mockTriggerPoll = vi.fn();
 const mockRunInitialImport = vi.fn();
 const mockGetOptIn = vi.fn();
+const mockGetRecordSyncHistory = vi.fn();
+const mockListInboundHistory = vi.fn();
 const mockUpdateOptIn = vi.fn();
 
 vi.mock("@/lib/crm", () => ({
@@ -32,6 +36,8 @@ vi.mock("@/lib/crm", () => ({
     triggerPoll: mockTriggerPoll,
     runInitialImport: mockRunInitialImport,
     getOptIn: mockGetOptIn,
+    getRecordSyncHistory: mockGetRecordSyncHistory,
+    listInboundHistory: mockListInboundHistory,
     updateOptIn: mockUpdateOptIn,
   }),
 }));
@@ -262,6 +268,39 @@ describe("CRM Sync Frontend Components (COPS-09)", () => {
 
       await waitFor(() => expect(mockUpdateOptIn).toHaveBeenCalledWith("hubspot", { syncEnabled: true }));
       expect(await screen.findByText("On")).toBeTruthy();
+    });
+  });
+
+  describe("CRM sync history", () => {
+    it("shows one record's pulls, pushes and conflicts", async () => {
+      mockGetRecordSyncHistory.mockResolvedValue({
+        data: [
+          { id: "c1", at: new Date().toISOString(), direction: "conflict", status: "pending", fields: ["title"], detail: 'Skout "VP" vs HubSpot "Head"' },
+          { id: "w1", at: new Date().toISOString(), direction: "outbound", status: "failed", fields: ["phone"], detail: "HubSpot API x failed: 500" },
+          { id: "i1", at: new Date().toISOString(), direction: "inbound", status: "created", fields: ["email"], detail: null },
+        ],
+      });
+      renderWithClient(<CrmRecordSyncHistory entityType="contact" entityId="00000000-0000-4000-8000-000000000001" />);
+      expect(await screen.findByText("HubSpot API x failed: 500")).toBeTruthy();
+      expect(screen.getByText("Skout to HubSpot")).toBeTruthy();
+      expect(screen.getByText("HubSpot to Skout")).toBeTruthy();
+    });
+
+    it("renders nothing for a viewer who may not see it", async () => {
+      mockGetRecordSyncHistory.mockRejectedValue(new ApiError("Forbidden", 403));
+      const { container } = renderWithClient(<CrmRecordSyncHistory entityType="deal" entityId="00000000-0000-4000-8000-000000000002" />);
+      await waitFor(() => expect(mockGetRecordSyncHistory).toHaveBeenCalled());
+      await waitFor(() => expect(container.textContent).toBe(""));
+    });
+
+    it("lists what recent pulls did, filterable by outcome", async () => {
+      mockListInboundHistory.mockResolvedValue({
+        data: [{ id: "h1", entityType: "contact", entityId: null, externalId: "501", outcome: "held_by_conflict", fields: [], heldFields: ["title"], detail: null, createdAt: new Date().toISOString() }],
+      });
+      renderWithClient(<CrmInboundHistory />);
+      expect(await screen.findByText("held: title")).toBeTruthy();
+      fireEvent.change(screen.getByLabelText("Outcome"), { target: { value: "skipped_invalid" } });
+      await waitFor(() => expect(mockListInboundHistory).toHaveBeenLastCalledWith({ outcome: "skipped_invalid", limit: 50 }));
     });
   });
 });

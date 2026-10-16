@@ -1200,6 +1200,27 @@ export interface CrmOutboundWriteItem {
   updatedAt: string;
 }
 
+export interface CrmRecordHistoryItem {
+  at: string;
+  direction: "inbound" | "outbound" | "conflict";
+  status: string;
+  fields: string[];
+  detail: string | null;
+  id: string;
+}
+
+export interface CrmInboundHistoryRow {
+  id: string;
+  entityType: "contact" | "deal";
+  entityId: string | null;
+  externalId: string;
+  outcome: string;
+  fields: string[];
+  heldFields: string[];
+  detail: string | null;
+  createdAt: string;
+}
+
 export interface CrmSyncOptInSettings {
   syncEnabled: boolean;
   accountScope?: string[];

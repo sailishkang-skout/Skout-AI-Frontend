@@ -2,6 +2,8 @@ import { useApiFetch } from "./api-client";
 import { WORKSPACE_ID } from "./enrichment";
 import type {
   CrmConflictItem,
+  CrmInboundHistoryRow,
+  CrmRecordHistoryItem,
   CrmConnectionsResponse,
   CrmExportJob,
   CrmHealthCheckResult,
@@ -140,6 +142,19 @@ export function useCrmApi() {
         ok: true;
         data: Record<"contact" | "deal", { driftDetected: boolean; missingFields: string[] }>;
       }>(`/api/v1/crm/${provider}/schema-drift`, { method: "POST", workspaceId: WORKSPACE_ID }),
+
+    getRecordSyncHistory: (entityType: "contact" | "deal", entityId: string) =>
+      fetchApi<{ data: CrmRecordHistoryItem[] }>(`/api/v1/crm/records/${entityType}/${entityId}/history`, {
+        workspaceId: WORKSPACE_ID,
+      }),
+
+    listInboundHistory: (opts?: { outcome?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (opts?.outcome) q.set("outcome", opts.outcome);
+      if (opts?.limit) q.set("limit", String(opts.limit));
+      const qs = q.toString() ? `?${q.toString()}` : "";
+      return fetchApi<{ data: CrmInboundHistoryRow[] }>(`/api/v1/crm/inbound-history${qs}`, { workspaceId: WORKSPACE_ID });
+    },
 
     getMappingHistory: (provider = "hubspot", entityType: "contact" | "deal") =>
       fetchApi<{ data: Array<{ version: number; replacedAt: string; mapping: CrmObjectMapping }> }>(

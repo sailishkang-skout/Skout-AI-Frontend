@@ -24,6 +24,7 @@ import { CrmMappingEditor } from "@/components/crm/sync/crm-mapping-editor";
 import { CrmConflictQueue } from "@/components/crm/sync/crm-conflict-queue";
 import { CrmDlqHistory } from "@/components/crm/sync/crm-dlq-history";
 import { CrmSyncSettings } from "@/components/crm/sync/crm-sync-settings";
+import { CrmInboundHistory } from "@/components/crm/sync/crm-inbound-history";
 
 const CHECKPOINT_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "muted" | "info"> = {
   succeeded: "success",
@@ -550,7 +551,10 @@ function CrmSettingsContent() {
       )}
 
       {hubspotConnected && activeTab === "dlq" && (
-        <CrmDlqHistory />
+        <>
+          <CrmDlqHistory />
+          <CrmInboundHistory />
+        </>
       )}
     </PageShell>
   );
