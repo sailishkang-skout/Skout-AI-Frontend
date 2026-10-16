@@ -13,6 +13,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { AuditLogTimeline } from "@/components/crm/audit-log-timeline";
+import { CrmRecordSyncHistory } from "@/components/crm/sync/crm-record-sync-history";
 import { CallButton } from "@/components/crm/call-button";
 import { FieldSourceBadge } from "@/components/crm/field-source-badge";
 import { CallCopilotPanel } from "@/components/crm/call-copilot-panel";
@@ -225,6 +226,9 @@ export default function ContactDetailPage() {
             <h2 className="mb-3 text-sm font-semibold">Audit history</h2>
             {/* Cosmetic-only role gate: useWorkspaceRole is a client-side hint and the backend audit-log GET route currently lacks a requireRole check, so a member could still call the endpoint directly. */}
             <AuditLogTimeline entityType="contact" entityId={id} />
+            <div className="mt-5 border-t border-border pt-4">
+              <CrmRecordSyncHistory entityType="contact" entityId={id} />
+            </div>
           </CardContent>
         </Card>
       ) : null}
