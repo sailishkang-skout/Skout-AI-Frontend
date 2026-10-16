@@ -18,6 +18,34 @@ vi.mock("@/lib/crm", () => ({
     listHubSpotLists: vi.fn().mockResolvedValue({ data: [], total: 0 }),
     importFromHubSpot: vi.fn(),
     getSyncStatus: mockGetSyncStatus,
+    getConnectorHealth: vi.fn().mockResolvedValue({
+      data: {
+        connected: true,
+        provider: "hubspot",
+        authStatus: "connected",
+        lastSyncAt: null,
+        backlog: 0,
+        failedRecords: 0,
+        pendingConflicts: 0,
+        rateLimitState: null,
+        checkpoints: [],
+      },
+    }),
+    getMappings: vi.fn().mockResolvedValue({
+      data: {
+        provider: "hubspot",
+        mappings: {
+          contact: { version: 1, entityType: "contact", fields: [] },
+          deal: { version: 1, entityType: "deal", fields: [] },
+        },
+      },
+    }),
+    saveMappings: vi.fn().mockResolvedValue({ ok: true }),
+    testMapping: vi.fn().mockResolvedValue({ data: {} }),
+    listConflicts: vi.fn().mockResolvedValue({ data: [], limit: 50, offset: 0 }),
+    resolveConflict: vi.fn().mockResolvedValue({ ok: true }),
+    listOutboundWrites: vi.fn().mockResolvedValue({ data: [], limit: 50, offset: 0 }),
+    replayOutboundWrite: vi.fn().mockResolvedValue({ ok: true }),
   }),
 }));
 

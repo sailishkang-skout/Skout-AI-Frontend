@@ -1,0 +1,225 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CrmHealthDashboard } from "./crm-health-dashboard";
+import { CrmConflictQueue } from "./crm-conflict-queue";
+import { CrmDlqHistory } from "./crm-dlq-history";
+import { CrmMappingEditor } from "./crm-mapping-editor";
+
+const mockGetConnectorHealth = vi.fn();
+const mockListConflicts = vi.fn();
+const mockResolveConflict = vi.fn();
+const mockListOutboundWrites = vi.fn();
+const mockReplayOutboundWrite = vi.fn();
+const mockGetMappings = vi.fn();
+const mockSaveMappings = vi.fn();
+const mockTriggerPoll = vi.fn();
+const mockRunInitialImport = vi.fn();
+
+vi.mock("@/lib/crm", () => ({
+  useCrmApi: () => ({
+    getConnectorHealth: mockGetConnectorHealth,
+    listConflicts: mockListConflicts,
+    resolveConflict: mockResolveConflict,
+    listOutboundWrites: mockListOutboundWrites,
+    replayOutboundWrite: mockReplayOutboundWrite,
+    getMappings: mockGetMappings,
+    saveMappings: mockSaveMappings,
+    triggerPoll: mockTriggerPoll,
+    runInitialImport: mockRunInitialImport,
+  }),
+}));
+
+function renderWithClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+    },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
+describe("CRM Sync Frontend Components (COPS-09)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  describe("CrmHealthDashboard", () => {
+    it("renders healthy auth status, backlog, and checkpoint indicators", async () => {
+      mockGetConnectorHealth.mockResolvedValue({
+        data: {
+          connected: true,
+          provider: "hubspot",
+          authStatus: "connected",
+          lastSyncAt: "2026-10-15T12:00:00.000Z",
+          backlog: 4,
+          failedRecords: 2,
+          pendingConflicts: 1,
+          rateLimitState: null,
+          checkpoints: [
+            {
+              entityType: "contact",
+              lastRunStatus: "succeeded",
+              lastRunCompletedAt: "2026-10-15T12:00:00.000Z",
+              lastError: null,
+              cursor: null,
+            },
+          ],
+        },
+      });
+
+      renderWithClient(<CrmHealthDashboard provider="hubspot" />);
+
+      await screen.findByText("Connector Observability & Health");
+      await screen.findByText("Healthy & Connected");
+      await screen.findByText("4 queued");
+      expect(screen.getByText("2")).toBeDefined();
+      expect(screen.getByText("1")).toBeDefined();
+    });
+
+    it("displays rate limit banner when rate limit is active", async () => {
+      mockGetConnectorHealth.mockResolvedValue({
+        data: {
+          connected: true,
+          provider: "hubspot",
+          authStatus: "connected",
+          lastSyncAt: null,
+          backlog: 0,
+          failedRecords: 0,
+          pendingConflicts: 0,
+          rateLimitState: {
+            isRateLimited: true,
+            lastRateLimitedAt: "2026-10-15T12:00:00.000Z",
+            limitedUntil: "2026-10-15T12:05:00.000Z",
+          },
+          checkpoints: [],
+        },
+      });
+
+      renderWithClient(<CrmHealthDashboard provider="hubspot" />);
+
+      await screen.findByText(/Rate limit active:/);
+    });
+  });
+
+  describe("CrmConflictQueue", () => {
+    it("displays side-by-side values and allows resolution", async () => {
+      mockListConflicts.mockResolvedValue({
+        data: [
+          {
+            id: "conf-1",
+            workspaceId: "ws-1",
+            connectionId: "conn-1",
+            entityType: "contact",
+            entityId: "cont-1",
+            externalId: "ext-1",
+            fieldName: "title",
+            skoutValue: "VP Engineering",
+            externalValue: "CTO",
+            policy: "manual_review",
+            status: "pending",
+            createdAt: "2026-10-15T10:00:00.000Z",
+          },
+        ],
+        limit: 50,
+        offset: 0,
+      });
+
+      mockResolveConflict.mockResolvedValue({ ok: true });
+
+      renderWithClient(<CrmConflictQueue />);
+
+      await screen.findByText("Conflict Resolution Queue");
+      await screen.findByText("VP Engineering");
+      await screen.findByText("CTO");
+
+      const keepSkoutBtn = screen.getByRole("button", { name: "Keep Skout" });
+      fireEvent.click(keepSkoutBtn);
+
+      await waitFor(() => {
+        expect(mockResolveConflict).toHaveBeenCalledWith("conf-1", { choice: "skout" });
+      });
+    });
+  });
+
+  describe("CrmDlqHistory", () => {
+    it("lists failed records in the DLQ and triggers replay", async () => {
+      mockListOutboundWrites.mockResolvedValue({
+        data: [
+          {
+            id: "write-1",
+            workspaceId: "ws-1",
+            connectionId: "conn-1",
+            entityType: "contact",
+            entityId: "c-1",
+            patch: { email: "test@example.com" },
+            status: "failed",
+            attemptCount: 3,
+            lastError: "HubSpot 429 Too Many Requests",
+            createdAt: "2026-10-15T11:00:00.000Z",
+          },
+        ],
+        limit: 50,
+        offset: 0,
+      });
+
+      mockReplayOutboundWrite.mockResolvedValue({ ok: true });
+
+      renderWithClient(<CrmDlqHistory />);
+
+      await screen.findByText("Sync History & Dead Letter Queue (DLQ)");
+      await screen.findByText(/HubSpot 429 Too Many Requests/);
+
+      const replayBtn = screen.getByRole("button", { name: /Replay/i });
+      fireEvent.click(replayBtn);
+
+      await waitFor(() => {
+        expect(mockReplayOutboundWrite).toHaveBeenCalledWith("write-1");
+      });
+    });
+  });
+
+  describe("CrmMappingEditor", () => {
+    it("renders field mappings and enables adding new fields", async () => {
+      mockGetMappings.mockResolvedValue({
+        data: {
+          provider: "hubspot",
+          mappings: {
+            contact: {
+              version: 1,
+              entityType: "contact",
+              fields: [
+                {
+                  internalField: "skout_email",
+                  externalField: "hs_email",
+                  direction: "bi-directional",
+                  conflictPolicy: "most_recent",
+                  transform: "lowercase",
+                },
+              ],
+            },
+            deal: {
+              version: 1,
+              entityType: "deal",
+              fields: [],
+            },
+          },
+        },
+      });
+
+      renderWithClient(<CrmMappingEditor provider="hubspot" />);
+
+      await screen.findByText("Field Mapping & Conflict Policy Engine");
+      await screen.findByDisplayValue("skout_email");
+
+      const addBtn = screen.getByRole("button", { name: /Add Field Mapping/i });
+      fireEvent.click(addBtn);
+
+      expect(screen.getAllByPlaceholderText("internalField").length).toBe(2);
+    });
+  });
+});

@@ -1111,6 +1111,106 @@ export interface CrmSyncStatus {
   recentOutboundWrites: CrmOutboundWriteStatus[];
 }
 
+export interface CrmHealthCheckResult {
+  connected: boolean;
+  provider: string;
+  authStatus: "connected" | "needs_reauth" | "disconnected" | "expired";
+  lastSyncAt: string | null;
+  backlog: number;
+  failedRecords: number;
+  pendingConflicts: number;
+  rateLimitState: {
+    isRateLimited: boolean;
+    lastRateLimitedAt: string | null;
+    limitedUntil?: string | null;
+    retryAfterMs?: number | null;
+  } | null;
+  checkpoints: Array<{
+    entityType: string;
+    lastRunStatus: string | null;
+    lastRunCompletedAt: string | null;
+    lastError: string | null;
+    cursor: string | null;
+  }>;
+}
+
+export type CrmFieldTransform =
+  | "none"
+  | "lowercase"
+  | "uppercase"
+  | "trim"
+  | "cents_to_dollars"
+  | "dollars_to_cents"
+  | "iso_date";
+
+export type CrmNullBehaviour = "skip" | "overwrite_with_null" | "default_value";
+
+export type CrmConflictPolicy = "skout_wins" | "external_wins" | "most_recent" | "manual_review";
+
+export interface CrmFieldMapping {
+  internalField: string;
+  externalField: string;
+  direction: "inbound" | "outbound" | "bi-directional";
+  transform?: CrmFieldTransform;
+  nullBehaviour?: CrmNullBehaviour;
+  conflictPolicy?: CrmConflictPolicy;
+  isProtected?: boolean;
+}
+
+export interface CrmObjectMapping {
+  version: number;
+  entityType: "contact" | "deal";
+  fields: CrmFieldMapping[];
+  defaultConflictPolicy?: CrmConflictPolicy;
+}
+
+export interface CrmConflictItem {
+  id: string;
+  workspaceId: string;
+  connectionId: string;
+  entityType: "contact" | "deal";
+  entityId: string;
+  externalId: string;
+  fieldName: string;
+  skoutValue: string | null;
+  externalValue: string | null;
+  skoutUpdatedAt: string | null;
+  externalUpdatedAt: string | null;
+  policy: CrmConflictPolicy;
+  status: "pending" | "resolved_skout" | "resolved_external" | "resolved_custom";
+  resolvedValue: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CrmOutboundWriteItem {
+  id: string;
+  workspaceId: string;
+  connectionId: string;
+  entityType: string;
+  entityId: string;
+  patch: Record<string, unknown>;
+  skoutChangedAt: string;
+  idempotencyKey: string;
+  status: "pending" | "leased" | "succeeded" | "failed";
+  attemptCount: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CrmSyncOptInSettings {
+  syncEnabled: boolean;
+  accountScope?: string[];
+  objectScope?: {
+    contacts?: boolean;
+    deals?: boolean;
+  };
+  pollIntervalMinutes?: number;
+}
+
 export interface ManualProspectInput {
   // Contact
   fullName: string;
