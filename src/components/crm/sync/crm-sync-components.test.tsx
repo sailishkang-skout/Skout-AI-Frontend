@@ -5,6 +5,8 @@ import { CrmHealthDashboard } from "./crm-health-dashboard";
 import { CrmConflictQueue } from "./crm-conflict-queue";
 import { CrmDlqHistory } from "./crm-dlq-history";
 import { CrmMappingEditor } from "./crm-mapping-editor";
+import { CrmSyncSettings } from "./crm-sync-settings";
+import { ApiError } from "@/lib/api-client";
 
 const mockGetConnectorHealth = vi.fn();
 const mockListConflicts = vi.fn();
@@ -15,6 +17,8 @@ const mockGetMappings = vi.fn();
 const mockSaveMappings = vi.fn();
 const mockTriggerPoll = vi.fn();
 const mockRunInitialImport = vi.fn();
+const mockGetOptIn = vi.fn();
+const mockUpdateOptIn = vi.fn();
 
 vi.mock("@/lib/crm", () => ({
   useCrmApi: () => ({
@@ -27,6 +31,8 @@ vi.mock("@/lib/crm", () => ({
     saveMappings: mockSaveMappings,
     triggerPoll: mockTriggerPoll,
     runInitialImport: mockRunInitialImport,
+    getOptIn: mockGetOptIn,
+    updateOptIn: mockUpdateOptIn,
   }),
 }));
 
@@ -184,42 +190,78 @@ describe("CRM Sync Frontend Components (COPS-09)", () => {
   });
 
   describe("CrmMappingEditor", () => {
-    it("renders field mappings and enables adding new fields", async () => {
+    const contactMapping = {
+      version: 3,
+      entityType: "contact",
+      externalObjectType: "contacts",
+      fields: [
+        {
+          id: "contact_email",
+          internalField: "email",
+          externalField: "email",
+          direction: "bidirectional",
+          conflictPolicy: "skout_wins",
+          transform: "lowercase",
+          nullBehavior: "ignore",
+        },
+      ],
+    };
+
+    it("edits only the fields the sync owns and saves with the API's contract values", async () => {
       mockGetMappings.mockResolvedValue({
         data: {
           provider: "hubspot",
-          mappings: {
-            contact: {
-              version: 1,
-              entityType: "contact",
-              fields: [
-                {
-                  internalField: "skout_email",
-                  externalField: "hs_email",
-                  direction: "bi-directional",
-                  conflictPolicy: "most_recent",
-                  transform: "lowercase",
-                },
-              ],
-            },
-            deal: {
-              version: 1,
-              entityType: "deal",
-              fields: [],
-            },
-          },
+          mappings: { contact: contactMapping, deal: { version: 1, entityType: "deal", externalObjectType: "deals", fields: [] } },
         },
       });
+      mockSaveMappings.mockResolvedValue({ ok: true, data: {} });
 
       renderWithClient(<CrmMappingEditor provider="hubspot" />);
 
-      await screen.findByText("Field Mapping & Conflict Policy Engine");
-      await screen.findByDisplayValue("skout_email");
+      await screen.findByText("v3");
+      fireEvent.click(screen.getByRole("button", { name: /Add field/i }));
 
-      const addBtn = screen.getByRole("button", { name: /Add Field Mapping/i });
-      fireEvent.click(addBtn);
+      // The new row offers only unmapped syncable fields, never a free-text column name.
+      const skoutFields = screen.getAllByLabelText("Skout field") as HTMLSelectElement[];
+      expect(skoutFields).toHaveLength(2);
+      expect(Array.from(skoutFields[1]!.options).map((o) => o.value)).toEqual(["firstName", "lastName", "phone", "title"]);
 
-      expect(screen.getAllByPlaceholderText("internalField").length).toBe(2);
+      fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+      await waitFor(() => expect(mockSaveMappings).toHaveBeenCalled());
+      const saved = mockSaveMappings.mock.calls[0]![1].contact;
+      expect(saved.fields[1]).toMatchObject({ internalField: "firstName", direction: "bidirectional", nullBehavior: "ignore", transform: "none" });
+    });
+
+    it("lists the API's reasons when a save is refused", async () => {
+      mockGetMappings.mockResolvedValue({
+        data: { provider: "hubspot", mappings: { contact: contactMapping, deal: contactMapping } },
+      });
+      mockSaveMappings.mockRejectedValue(
+        new ApiError("Invalid mapping configuration", 422, { details: ["contact: hubspot has no property jobtitlee"] })
+      );
+
+      renderWithClient(<CrmMappingEditor provider="hubspot" />);
+      await screen.findByText("v3");
+      fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+
+      expect(await screen.findByText("contact: hubspot has no property jobtitlee")).toBeTruthy();
+    });
+  });
+
+  describe("CrmSyncSettings", () => {
+    it("shows sync as off by default and turns it on", async () => {
+      const off = { syncEnabled: false, accountScope: ["*"], objectScope: { contacts: true, deals: true }, pollIntervalMinutes: 30 };
+      mockGetOptIn.mockResolvedValue({ data: off });
+      mockUpdateOptIn.mockResolvedValue({ ok: true, data: { ...off, syncEnabled: true } });
+
+      renderWithClient(<CrmSyncSettings provider="hubspot" />);
+
+      expect(await screen.findByText("Off")).toBeTruthy();
+      await screen.findByLabelText("Poll interval"); // the settings have loaded
+      fireEvent.click(screen.getByRole("button", { name: /Turn sync on/i }));
+
+      await waitFor(() => expect(mockUpdateOptIn).toHaveBeenCalledWith("hubspot", { syncEnabled: true }));
+      expect(await screen.findByText("On")).toBeTruthy();
     });
   });
 });
