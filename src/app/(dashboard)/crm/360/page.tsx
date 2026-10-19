@@ -20,6 +20,7 @@ import { useEnrichmentApi } from "@/lib/enrichment";
 import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 import type { RegionalBriefFieldCategory, ResolvedBriefEntry, ResolvedBrief } from "@/lib/regional-brief";
+import { formatMoney } from "@/lib/crm-display";
 
 // Evidence ledger interface from existing implementation
 interface EvidenceRow {
@@ -649,11 +650,13 @@ export default function Account360Page() {
                 <CardTitle className="text-base">Associated Deals ({data.deals.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {data.deals.map((d: { id?: string; name?: string; amount?: number; stage?: string }) => (
+                {data.deals.map((d: { id?: string; name?: string; amount?: number | string | null; currency?: string | null; stage?: string }) => (
                   <div key={String(d.id)} className="flex items-center justify-between rounded border p-2.5 text-xs">
                     <span className="font-semibold">{String(d.name ?? d.id)}</span>
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-muted px-2 py-0.5 font-mono">${d.amount ?? 0}</span>
+                      <span className="rounded bg-muted px-2 py-0.5 font-mono">
+                        {d.amount == null || d.amount === "" ? "—" : formatMoney(Number(d.amount), d.currency ?? "USD")}
+                      </span>
                       <span className="rounded bg-primary/10 px-2 py-0.5 text-primary font-medium">{d.stage ?? "Open"}</span>
                     </div>
                   </div>

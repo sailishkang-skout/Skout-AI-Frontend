@@ -19,6 +19,13 @@ import { useCrmApi } from "@/lib/crm";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { timeAgoShort } from "@/lib/signals";
 import type { CrmOutboundWriteStatus, CrmSyncCheckpointStatus } from "@/types/api";
+import { CrmHealthDashboard } from "@/components/crm/sync/crm-health-dashboard";
+import { CrmMappingEditor } from "@/components/crm/sync/crm-mapping-editor";
+import { CrmConflictQueue } from "@/components/crm/sync/crm-conflict-queue";
+import { CrmDlqHistory } from "@/components/crm/sync/crm-dlq-history";
+import { CrmSyncSettings } from "@/components/crm/sync/crm-sync-settings";
+import { CrmInboundHistory } from "@/components/crm/sync/crm-inbound-history";
+import { CrmStageMapEditor } from "@/components/crm/sync/crm-stage-map-editor";
 
 const CHECKPOINT_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "muted" | "info"> = {
   succeeded: "success",
@@ -56,6 +63,7 @@ function CrmSettingsContent() {
   const [targetMode, setTargetMode] = useState<"new" | "existing">("new");
   const [newListName, setNewListName] = useState("HubSpot import");
   const [targetListId, setTargetListId] = useState("");
+  const [activeTab, setActiveTab] = useState<"overview" | "mappings" | "conflicts" | "dlq">("overview");
 
   const connections = useQuery({
     queryKey: ["crm", "connections"],
@@ -184,9 +192,60 @@ function CrmSettingsContent() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">HubSpot connection</CardTitle>
+      {hubspotConnected && (
+        <div className="flex border-b border-border space-x-4 mb-4 text-sm font-medium">
+          <button
+            type="button"
+            className={`pb-2 border-b-2 transition-colors ${
+              activeTab === "overview"
+                ? "border-primary text-foreground font-semibold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("overview")}
+          >
+            Overview & Health
+          </button>
+          <button
+            type="button"
+            className={`pb-2 border-b-2 transition-colors ${
+              activeTab === "mappings"
+                ? "border-primary text-foreground font-semibold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("mappings")}
+          >
+            Field Mappings
+          </button>
+          <button
+            type="button"
+            className={`pb-2 border-b-2 transition-colors ${
+              activeTab === "conflicts"
+                ? "border-primary text-foreground font-semibold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("conflicts")}
+          >
+            Conflict Queue
+          </button>
+          <button
+            type="button"
+            className={`pb-2 border-b-2 transition-colors ${
+              activeTab === "dlq"
+                ? "border-primary text-foreground font-semibold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab("dlq")}
+          >
+            DLQ & Outbound History
+          </button>
+        </div>
+      )}
+
+      {(!hubspotConnected || activeTab === "overview") && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg">HubSpot connection</CardTitle>
           <CardDescription>
             Export: 1 credit per contact pushed to HubSpot. Import from HubSpot is free (up to 500 contacts per run).
           </CardDescription>
@@ -247,6 +306,10 @@ function CrmSettingsContent() {
           )}
         </CardContent>
       </Card>
+
+      {hubspotConnected && <CrmSyncSettings provider="hubspot" />}
+
+      {hubspotConnected && <CrmHealthDashboard provider="hubspot" />}
 
       {hubspotConnected && (
         <Card>
@@ -476,6 +539,26 @@ function CrmSettingsContent() {
             )}
           </CardContent>
         </Card>
+      )}
+        </>
+      )}
+
+      {hubspotConnected && activeTab === "mappings" && (
+        <>
+          <CrmMappingEditor provider="hubspot" />
+          <CrmStageMapEditor provider="hubspot" />
+        </>
+      )}
+
+      {hubspotConnected && activeTab === "conflicts" && (
+        <CrmConflictQueue />
+      )}
+
+      {hubspotConnected && activeTab === "dlq" && (
+        <>
+          <CrmDlqHistory />
+          <CrmInboundHistory />
+        </>
       )}
     </PageShell>
   );

@@ -1111,6 +1111,142 @@ export interface CrmSyncStatus {
   recentOutboundWrites: CrmOutboundWriteStatus[];
 }
 
+export interface CrmHealthCheckResult {
+  connected: boolean;
+  provider: string;
+  authStatus: "connected" | "needs_reauth" | "disconnected";
+  lastSyncAt: string | null;
+  backlog: number;
+  failedRecords: number;
+  pendingConflicts: number;
+  rateLimitState: {
+    isRateLimited: boolean;
+    lastRateLimitedAt: string | null;
+    limitedUntil?: string | null;
+    retryAfterMs?: number | null;
+  } | null;
+  checkpoints: Array<{
+    entityType: string;
+    lastRunStatus: string | null;
+    lastRunCompletedAt: string | null;
+    lastError: string | null;
+    cursor: string | null;
+  }>;
+}
+
+/** COPS-09 mapping contract, as the API validates it (apps/api crm-mapping.service.ts). */
+export type CrmFieldTransform = "none" | "trim" | "lowercase" | "uppercase" | "number";
+
+/** A blank provider value: "overwrite" clears the Skout field; "preserve" and "ignore" keep it. */
+export type CrmNullBehavior = "preserve" | "ignore" | "overwrite";
+
+export type CrmSyncDirection = "inbound" | "outbound" | "bidirectional";
+
+export type CrmConflictPolicy = "skout_wins" | "external_wins" | "most_recent" | "manual_review";
+
+export interface CrmFieldMapping {
+  id: string;
+  internalField: string;
+  externalField: string;
+  direction: CrmSyncDirection;
+  transform?: CrmFieldTransform;
+  nullBehavior?: CrmNullBehavior;
+  conflictPolicy?: CrmConflictPolicy;
+  isProtected?: boolean;
+}
+
+export interface CrmObjectMapping {
+  version: number;
+  entityType: "contact" | "deal";
+  externalObjectType: string;
+  fields: CrmFieldMapping[];
+  lastValidatedAt?: string;
+}
+
+export interface CrmConflictItem {
+  id: string;
+  workspaceId: string;
+  connectionId: string;
+  entityType: "contact" | "deal";
+  entityId: string;
+  externalId: string;
+  fieldName: string;
+  skoutValue: string | null;
+  externalValue: string | null;
+  skoutUpdatedAt: string | null;
+  externalUpdatedAt: string | null;
+  policy: CrmConflictPolicy;
+  status: "pending" | "resolved_skout" | "resolved_external" | "resolved_custom";
+  resolvedValue: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CrmOutboundWriteItem {
+  id: string;
+  workspaceId: string;
+  connectionId: string;
+  entityType: string;
+  entityId: string;
+  patch: Record<string, unknown>;
+  skoutChangedAt: string;
+  idempotencyKey: string;
+  status: "pending" | "claimed" | "succeeded" | "failed";
+  attemptCount: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CrmSkoutStage {
+  pipelineId: string;
+  pipelineName: string;
+  isDefault: boolean;
+  stageId: string;
+  stageName: string;
+  orderIndex: number;
+}
+
+export interface CrmStageMapResponse {
+  map: Record<string, string>;
+  /** Null when HubSpot could not be read. */
+  providerPipelines: Array<{ id: string; label: string; stages: Array<{ id: string; label: string }> }> | null;
+  skoutStages: CrmSkoutStage[];
+}
+
+export interface CrmRecordHistoryItem {
+  at: string;
+  direction: "inbound" | "outbound" | "conflict";
+  status: string;
+  fields: string[];
+  detail: string | null;
+  id: string;
+}
+
+export interface CrmInboundHistoryRow {
+  id: string;
+  entityType: "contact" | "deal";
+  entityId: string | null;
+  externalId: string;
+  outcome: string;
+  fields: string[];
+  heldFields: string[];
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface CrmSyncOptInSettings {
+  syncEnabled: boolean;
+  accountScope?: string[];
+  objectScope?: {
+    contacts?: boolean;
+    deals?: boolean;
+  };
+  pollIntervalMinutes?: number;
+}
+
 export interface ManualProspectInput {
   // Contact
   fullName: string;
@@ -1176,7 +1312,8 @@ export interface CsvExportResponse {
 // ── Deliverability ────────────────────────────────────────────────────────────
 
 export type InboxProvider = "smtp" | "google" | "microsoft";
-export type InboxStatus = "active" | "warming" | "paused" | "error" | "pending_verification";
+/** needs_reauth: the Google or Microsoft grant was revoked or expired; nothing is sent until it is reconnected. */
+export type InboxStatus = "active" | "warming" | "paused" | "error" | "pending_verification" | "needs_reauth";
 export type InboxHealth = "healthy" | "degraded" | "error";
 export type DnsStatus = "pass" | "fail" | "missing" | "unknown";
 
