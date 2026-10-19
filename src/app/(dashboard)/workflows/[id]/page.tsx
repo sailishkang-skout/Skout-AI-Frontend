@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Pencil, Play, RotateCcw, Rocket, Save } from "lucide-react";
+import { ArrowLeft, Ban, Check, History, Pencil, Play, Repeat, RotateCcw, Rocket, Save, X } from "lucide-react";
 import { AutomationCanvas } from "@/components/automations/automation-canvas";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
-import type { AutomationGraph, AutomationRun, AutomationRunStep, AutomationVersion } from "@/lib/automations";
+import type { AutomationGraph, AutomationRun, AutomationRunStep, AutomationVersion, RunHistoryFilters } from "@/lib/automations";
 import { useAutomationsApi } from "@/lib/automations";
 
 function runStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
@@ -24,6 +24,7 @@ function runStatusTone(status: string): NonNullable<BadgeProps["tone"]> {
     case "failed": return "danger";
     case "running": return "info";
     case "awaiting_approval": return "warning";
+    case "outcome_unknown": return "danger";
     case "cancelled": return "muted";
     default: return "muted";
   }
@@ -125,10 +126,14 @@ export default function AutomationDetailPage() {
     enabled: authReady && Boolean(automationId),
   });
 
+  // COPS-10: run history per version and status; refreshes while a run is still moving.
+  const [runFilter, setRunFilter] = useState<RunHistoryFilters>({});
   const runs = useQuery({
-    queryKey: ["automations", automationId, "runs"],
-    queryFn: () => api.listRuns(automationId),
+    queryKey: ["automations", automationId, "runs", runFilter],
+    queryFn: () => api.listRuns(automationId, runFilter),
     enabled: authReady && Boolean(automationId),
+    refetchInterval: (q) =>
+      (q.state.data?.data ?? []).some((r) => r.status === "pending" || r.status === "running") ? 3000 : false,
   });
 
   // Seed the canvas exactly once, and only once the versions fetch has actually resolved —
@@ -206,6 +211,20 @@ export default function AutomationDetailPage() {
     onError: (err) => setActionError(formatQueryError(err, "Couldn't publish this automation.")),
   });
 
+  // COPS-10 "simulate before activate": Publish opens only once the canvas as it is now has had a
+  // simulation that succeeded. Editing the canvas afterwards asks for a new simulation.
+  const [lastSimulation, setLastSimulation] = useState<{ runId: string; graph: AutomationGraph } | null>(null);
+
+  const rollback = useMutation({
+    mutationFn: (version: number) => api.rollback(automationId, version),
+    onSuccess: (res) => {
+      setActionError(null);
+      setGraph(res.data.graph);
+      invalidateAll();
+    },
+    onError: (err) => setActionError(formatQueryError(err, "Couldn't roll back to that version.")),
+  });
+
   // Simulate always reflects what's on screen, not whatever was last saved — save the current
   // canvas as the draft first, then run it, instead of relying on the user to click Save draft.
   async function handleSimulate() {
@@ -216,11 +235,22 @@ export default function AutomationDetailPage() {
       setActionError(formatQueryError(err, "Couldn't save this draft."));
       return;
     }
-    run.mutate(true);
+    const snapshot = graph;
+    run.mutate(true, { onSuccess: (res) => setLastSimulation({ runId: res.data.id, graph: snapshot }) });
   }
 
   const data = automation.data?.data;
   const runData = runs.data?.data ?? [];
+  const simulationRun = lastSimulation ? runData.find((r) => r.id === lastSimulation.runId) : undefined;
+  const simulatedCurrentGraph = lastSimulation !== null && graphsMatch(graph, lastSimulation.graph);
+  const publishBlockedReason = !simulatedCurrentGraph
+    ? "Simulate the workflow as it is now before publishing it"
+    : simulationRun?.status !== "succeeded"
+      ? simulationRun?.status === "failed" || simulationRun?.status === "cancelled"
+        ? "The last simulation did not succeed: fix it and simulate again"
+        : "Waiting for the simulation to finish"
+      : null;
+  const publishedVersions = (versions.data?.data ?? []).filter((v) => v.status === "published");
 
   return (
     <PageShell width="full" data-testid="page-automation-detail">
@@ -250,7 +280,13 @@ export default function AutomationDetailPage() {
               <Play className="h-4 w-4" />
               Simulate
             </Button>
-            <Button variant="outline" onClick={() => publish.mutate()} disabled={publish.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending || publishBlockedReason !== null}
+              title={publishBlockedReason ?? undefined}
+              data-testid="publish-button"
+            >
               <Rocket className="h-4 w-4" />
               Publish
             </Button>
@@ -295,20 +331,99 @@ export default function AutomationDetailPage() {
         </Alert>
       )}
 
+      {publishBlockedReason && hydrated && (
+        <p className="text-xs text-muted-foreground" data-testid="publish-hint">
+          {publishBlockedReason}.
+        </p>
+      )}
+
       {hydrated ? (
         <AutomationCanvas graph={graph} onChange={setGraph} />
       ) : (
         <Skeleton className="h-[560px] w-full rounded-md" />
       )}
 
-      <Card>
+      <Card data-testid="version-history">
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-4 w-4" /> Version history
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {versions.isError && <Alert variant="error">{formatQueryError(versions.error, "Could not load versions.")}</Alert>}
+          {publishedVersions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing published yet. Simulate, then publish to make version 1.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {publishedVersions.map((v) => {
+                const current = v.version === data?.currentVersion;
+                return (
+                  <li key={v.id} className="flex items-center justify-between gap-2 py-2">
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">v{v.version}</span>
+                      {current && <Badge tone="success">live</Badge>}
+                      <span className="text-xs text-muted-foreground">{v.publishedAt ? new Date(v.publishedAt).toLocaleString() : ""}</span>
+                    </span>
+                    {!current && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={rollback.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Make v${v.version} live again? Runs already in progress keep their own version.`)) rollback.mutate(v.version);
+                        }}
+                        data-testid={`rollback-v${v.version}`}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Roll back to v{v.version}
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle>Run history</CardTitle>
+          <div className="flex gap-2">
+            <select
+              aria-label="Filter runs by version"
+              className="h-8 rounded-md border bg-background px-2 text-sm"
+              value={runFilter.version ?? ""}
+              onChange={(e) => setRunFilter((f) => ({ ...f, version: e.target.value === "" ? undefined : Number(e.target.value) }))}
+            >
+              <option value="">All versions</option>
+              <option value="0">Draft (simulations)</option>
+              {publishedVersions.map((v) => (
+                <option key={v.id} value={v.version}>
+                  v{v.version}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter runs by status"
+              className="h-8 rounded-md border bg-background px-2 text-sm"
+              value={runFilter.status ?? ""}
+              onChange={(e) => setRunFilter((f) => ({ ...f, status: (e.target.value || undefined) as RunHistoryFilters["status"] }))}
+            >
+              <option value="">Any status</option>
+              {["pending", "running", "awaiting_approval", "succeeded", "failed", "cancelled"].map((st) => (
+                <option key={st} value={st}>
+                  {st.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
           {runs.isError && <Alert variant="error">{formatQueryError(runs.error, "Could not load runs.")}</Alert>}
           {runData.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No runs yet. Simulate or publish and run to see history here.</p>
+            <p className="text-sm text-muted-foreground">
+              {runFilter.version !== undefined || runFilter.status ? "No runs match these filters." : "No runs yet. Simulate or publish and run to see history here."}
+            </p>
           ) : (
             <ul className="divide-y divide-border">
               {runData.map((r) => (
@@ -342,13 +457,20 @@ function RunStepRow({ step }: { step: AutomationRunStep }) {
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono font-medium">{step.nodeId}</span>
         <span className="flex items-center gap-1.5">
-          {step.attempt > 1 && <span className="text-muted-foreground">attempt {step.attempt}</span>}
+          {(step.attemptCount ?? step.attempt) > 1 && <span className="text-muted-foreground">attempt {step.attemptCount ?? step.attempt}</span>}
           <Badge tone={runStatusTone(step.status)} className="capitalize">
-            {step.status}
+            {step.status === "pending" && step.runAfter ? "waiting" : step.status.replaceAll("_", " ")}
           </Badge>
         </span>
       </div>
 
+      {step.status === "pending" && step.runAfter && (
+        <p className="mt-1.5 text-muted-foreground">Delay: runs at {new Date(step.runAfter).toLocaleString()}</p>
+      )}
+      {step.status === "awaiting_approval" && <p className="mt-1.5 text-amber-700 dark:text-amber-400">Waiting for an admin to approve or reject.</p>}
+      {step.status === "outcome_unknown" && (
+        <p className="mt-1.5 text-red-600 dark:text-red-400">The provider&apos;s result is unknown: check it before replaying.</p>
+      )}
       {step.error && <p className="mt-1.5 text-red-600 dark:text-red-400">{step.error}</p>}
 
       {input && (
@@ -393,6 +515,23 @@ function RunRow({ run, automationId }: { run: AutomationRun; automationId: strin
     onError: (err) => setRetryError(formatQueryError(err, "Couldn't retry this run.")),
   });
 
+  // COPS-10 run controls.
+  const control = useMutation({
+    mutationFn: async (action: "cancel" | "approve" | "reject" | "replay"): Promise<unknown> => {
+      if (action === "cancel") return api.cancelRun(run.id);
+      if (action === "replay") return api.replayRun(run.id, "same");
+      const reason = action === "reject" ? window.prompt("Why reject this step?") ?? undefined : undefined;
+      return api.decideApproval(run.id, action, reason);
+    },
+    onSuccess: () => {
+      setRetryError(null);
+      queryClient.invalidateQueries({ queryKey: ["automations", automationId, "runs"] });
+      queryClient.invalidateQueries({ queryKey: ["automations", "runs", run.id] });
+    },
+    onError: (err) => setRetryError(formatQueryError(err, "Couldn't do that to this run.")),
+  });
+  const open = run.status === "pending" || run.status === "running" || run.status === "awaiting_approval";
+
   return (
     <li className="py-2">
       <div className="flex w-full items-center justify-between gap-2 text-sm">
@@ -406,6 +545,12 @@ function RunRow({ run, automationId }: { run: AutomationRun; automationId: strin
             {run.status.replaceAll("_", " ")}
           </Badge>
           <span className="text-muted-foreground">{run.triggerType}</span>
+          {run.version !== undefined && <span className="text-xs text-muted-foreground">{run.version === 0 ? "draft" : `v${run.version}`}</span>}
+          {run.subjectType === "account" && run.subjectId && (
+            <Link href={`/crm/360?mode=account&id=${run.subjectId}`} className="text-xs text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+              account
+            </Link>
+          )}
           {run.isSimulation && <Badge tone="muted">simulation</Badge>}
         </button>
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -422,6 +567,26 @@ function RunRow({ run, automationId }: { run: AutomationRun; automationId: strin
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Retry
+            </Button>
+          )}
+          {run.status === "awaiting_approval" && (
+            <>
+              <Button size="sm" variant="outline" disabled={control.isPending} onClick={() => control.mutate("approve")} data-testid="run-approve">
+                <Check className="h-3.5 w-3.5" /> Approve
+              </Button>
+              <Button size="sm" variant="outline" disabled={control.isPending} onClick={() => control.mutate("reject")} data-testid="run-reject">
+                <X className="h-3.5 w-3.5" /> Reject
+              </Button>
+            </>
+          )}
+          {open && (
+            <Button size="sm" variant="outline" disabled={control.isPending} onClick={() => control.mutate("cancel")} data-testid="run-cancel">
+              <Ban className="h-3.5 w-3.5" /> Cancel
+            </Button>
+          )}
+          {!open && (
+            <Button size="sm" variant="outline" disabled={control.isPending} onClick={() => control.mutate("replay")} data-testid="run-replay" title="Run again with the same trigger and version">
+              <Repeat className="h-3.5 w-3.5" /> Replay
             </Button>
           )}
           {new Date(run.createdAt).toLocaleString()}
