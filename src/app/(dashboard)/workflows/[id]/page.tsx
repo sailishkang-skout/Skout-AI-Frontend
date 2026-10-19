@@ -45,8 +45,16 @@ function normalizeForComparison(graph: AutomationGraph) {
   };
 }
 
+/** JSON with object keys sorted at every level: Postgres jsonb hands a saved graph back with its
+ * config keys reordered, so plain JSON.stringify called an unchanged canvas "unpublished". */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, v) =>
+    v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v
+  );
+}
+
 function graphsMatch(a: AutomationGraph, b: AutomationGraph): boolean {
-  return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
+  return stableStringify(normalizeForComparison(a)) === stableStringify(normalizeForComparison(b));
 }
 
 function EditableTitle({ name, onSave, saving }: { name: string; onSave: (name: string) => void; saving: boolean }) {

@@ -110,4 +110,19 @@ describe("Workflow builder page (COPS-10)", () => {
     fireEvent.click(screen.getByTestId("run-replay"));
     await waitFor(() => expect(api.replayRun).toHaveBeenCalledWith("r-done", "same"));
   });
+
+  it("does not call an unchanged canvas unpublished when the saved graph's keys come back reordered", async () => {
+    // Postgres jsonb returns object keys in its own order; the draft keeps the order the canvas wrote.
+    const draft = { nodes: [{ id: "t", type: "trigger", config: { kind: "event", eventType: "TicketCreated", stopOn: ["CustomerActivated"] } }], edges: [] };
+    const published = { nodes: [{ config: { stopOn: ["CustomerActivated"], kind: "event", eventType: "TicketCreated" }, type: "trigger", id: "t" }], edges: [] };
+    api.listVersions.mockResolvedValue({
+      data: [
+        { id: "v-0", automationId: "auto-1", version: 0, graph: draft, status: "draft", publishedAt: null },
+        { id: "v-2", automationId: "auto-1", version: 2, graph: published, status: "published", publishedAt: new Date().toISOString() },
+      ],
+    });
+    renderPage();
+    await screen.findByTestId("canvas-stub");
+    expect(screen.queryByText(/changes that aren.t published yet/)).toBeNull();
+  });
 });
