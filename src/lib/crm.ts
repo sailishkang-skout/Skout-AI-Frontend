@@ -190,7 +190,8 @@ export function useCrmApi() {
       provider = "hubspot",
       body?: { resetCheckpoint?: boolean; maxBatches?: number; batchSize?: number }
     ) =>
-      fetchApi<{ ok: true; data: any }>(`/api/v1/crm/${provider}/import`, {
+      // COPS-09: /initial-import, not /import (that is the older HubSpot list import).
+      fetchApi<{ ok: true; data: any }>(`/api/v1/crm/${provider}/initial-import`, {
         method: "POST",
         body: JSON.stringify(body ?? {}),
         workspaceId: WORKSPACE_ID,
