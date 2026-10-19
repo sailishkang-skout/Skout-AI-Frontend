@@ -36,7 +36,6 @@ import {
 import {
   CountryCombobox,
   IndustryCombobox,
-  FALLBACK_GLOBAL_COUNTRIES,
 } from "@/components/tam/country-combobox";
 
 // Standard Global Currencies
@@ -86,18 +85,7 @@ export function MarketIntelligenceSuggestions({
     queryFn: () => api.listCountries(),
   });
 
-  const countries: CountryItem[] = useMemo(() => {
-    const apiCountries = countriesQuery.data?.data ?? [];
-    if (apiCountries.length === 0) return FALLBACK_GLOBAL_COUNTRIES;
-    const map = new Map<string, CountryItem>();
-    for (const c of FALLBACK_GLOBAL_COUNTRIES) {
-      map.set(c.isoCode.toUpperCase(), c);
-    }
-    for (const c of apiCountries) {
-      map.set(c.isoCode.toUpperCase(), c);
-    }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [countriesQuery.data]);
+  const countries: CountryItem[] = countriesQuery.data?.data ?? [];
 
   const resolvedBrief = useQuery({
     queryKey: ["regional-brief", "resolve", selectedCountry, selectedIndustry],

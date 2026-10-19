@@ -3,21 +3,6 @@
 import { Check, ChevronDown, Globe, Layers, Search } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { CountryItem } from "@/lib/regional-brief";
-import globalCountriesData from "@/data/global_countries.json";
-
-export const FALLBACK_GLOBAL_COUNTRIES: CountryItem[] = Object.values(
-  globalCountriesData as Record<
-    string,
-    { name: string; isoAlpha3: string; isoCode: string; region?: string }
-  >
-).map((c) => ({
-  id: c.isoAlpha3,
-  name: c.name,
-  isoCode: c.isoCode,
-  isoAlpha3: c.isoAlpha3,
-  regionId: c.region ?? null,
-  currencyCode: null,
-}));
 
 // ── Standard NAICS Sectors ─────────────────────────────────────────────────────
 export const NAICS_SECTORS = [
@@ -79,41 +64,24 @@ export function CountryCombobox({
     }
   }, [open]);
 
-  // Ensure all 250 countries are always present even if DB/API only returned partial or empty
-  const allCountries = useMemo(() => {
-    if (!countries || countries.length === 0) {
-      return FALLBACK_GLOBAL_COUNTRIES;
-    }
-    const map = new Map<string, CountryItem>();
-    // First populate fallback 250 countries
-    for (const c of FALLBACK_GLOBAL_COUNTRIES) {
-      map.set(c.isoCode.toUpperCase(), c);
-    }
-    // Then override/supplement with any live server data
-    for (const c of countries) {
-      map.set(c.isoCode.toUpperCase(), c);
-    }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [countries]);
-
   const selectedCountry = useMemo(() => {
-    return allCountries.find(
+    return countries.find(
       (c) =>
         c.isoCode.toUpperCase() === value.toUpperCase() ||
         c.isoAlpha3.toUpperCase() === value.toUpperCase()
     );
-  }, [allCountries, value]);
+  }, [countries, value]);
 
   const filteredCountries = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allCountries;
-    return allCountries.filter(
+    if (!q) return countries;
+    return countries.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.isoCode.toLowerCase().includes(q) ||
         c.isoAlpha3.toLowerCase().includes(q)
     );
-  }, [allCountries, search]);
+  }, [countries, search]);
 
   return (
     <div className={`relative ${className || "w-full"}`} ref={dropdownRef}>
