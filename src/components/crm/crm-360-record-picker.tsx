@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useAuthReady } from "@/lib/api-client";
+import { Alert } from "@/components/ui/alert";
+import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { useContactsApi } from "@/lib/crm/contacts";
 
@@ -70,7 +71,8 @@ export function Crm360RecordPicker({
       }));
   }, [companies.data, contacts.data, mode, query]);
 
-  const isLoading = mode === "account" ? companies.isLoading : contacts.isLoading;
+  const active = mode === "account" ? companies : contacts;
+  const isLoading = active.isLoading;
 
   return (
     <div className="space-y-3">
@@ -86,6 +88,11 @@ export function Crm360RecordPicker({
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading records…</p>
+      ) : active.isError ? (
+        // A failed load is not an empty CRM: say so and offer a retry.
+        <Alert variant="error" onRetry={() => active.refetch()}>
+          {formatQueryError(active.error, "Could not load records.")}
+        </Alert>
       ) : results.length ? (
         <ul className="max-h-56 divide-y divide-border overflow-y-auto rounded-md border">
           {results.map((row) => (
