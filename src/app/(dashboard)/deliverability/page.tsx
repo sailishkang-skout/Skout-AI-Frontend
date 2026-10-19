@@ -57,7 +57,7 @@ function statusTone(s: InboxStatus) {
   if (s === "active") return "success";
   if (s === "warming") return "warning";
   if (s === "paused") return "muted";
-  if (s === "error") return "danger";
+  if (s === "error" || s === "needs_reauth") return "danger";
   return "muted";
 }
 
@@ -498,7 +498,7 @@ function InboxCard({
           </button>
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <Badge tone={statusTone(inbox.status)} className="capitalize">
-              {inbox.status === "pending_verification" ? "unverified" : inbox.status}
+              {inbox.status === "pending_verification" ? "unverified" : inbox.status === "needs_reauth" ? "reconnect needed" : inbox.status}
             </Badge>
             {inbox.health === "healthy" && inbox.status === "active" && (
               <span title="Healthy"><CheckCircle2 className="h-4 w-4 text-emerald-500" /></span>
@@ -680,6 +680,13 @@ function InboxCard({
         {inbox.lastUsedAt && !detailsOpen && (
           <p className="mt-3 text-[10px] text-muted-foreground">
             Last used {new Date(inbox.lastUsedAt).toLocaleString()}
+          </p>
+        )}
+
+        {inbox.status === "needs_reauth" && (
+          <p className="mt-3 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+            Access to this inbox was revoked or has expired, so nothing is sent from it. Disconnect it and connect it
+            again to resume sending.
           </p>
         )}
 

@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
 import { useGoogleCalendarApi } from "@/lib/google-calendar";
+import { useCrmApi } from "@/lib/crm";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
 
 function GoogleCalendarCard() {
@@ -62,6 +63,53 @@ function GoogleCalendarCard() {
             </Link>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HubSpotCrmCard() {
+  const authReady = useAuthReady();
+  const crmApi = useCrmApi();
+
+  const connections = useQuery({
+    queryKey: ["crm", "connections"],
+    queryFn: crmApi.listConnections,
+    enabled: authReady,
+  });
+
+  const hubspot = connections.data?.data.find((c) => c.provider === "hubspot");
+  const isConnected = hubspot?.status === "connected";
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base sm:text-lg">HubSpot CRM Sync</CardTitle>
+            <CardDescription>
+              Bi-directional sync, versioned field mappings, conflict queue, health dashboard, and DLQ.
+            </CardDescription>
+          </div>
+          {connections.isLoading ? null : isConnected ? (
+            <Badge tone="success">Connected</Badge>
+          ) : (
+            <Badge tone="muted">Not connected</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Plug className="h-4 w-4" />
+            {isConnected ? `Portal ${hubspot?.externalAccountId ?? "Active"}` : "Connect your HubSpot portal"}
+          </div>
+          <Link href="/settings/crm">
+            <Button variant={isConnected ? "outline" : "default"} size="sm">
+              {isConnected ? "Configure & Monitor" : "Connect"}
+            </Button>
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -334,6 +382,7 @@ export default function IntegrationsSettingsPage() {
       )}
 
       <GoogleCalendarCard />
+      <HubSpotCrmCard />
 
       {messaging.length > 0 && (
         <div className="space-y-3">

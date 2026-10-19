@@ -71,6 +71,12 @@ jobs:
         working-directory: backend
         run: pnpm db:migrate
 
+      # Seeds the system roles and their permissions. Without them a new stub user gets no
+      # workspace_member_roles row, so the permission-checked routes return 403 and the CRM nav is hidden.
+      - name: Seed RBAC roles
+        working-directory: backend
+        run: pnpm --filter @skout/db backfill-rbac
+
       - name: Start API (stub auth)
         working-directory: backend
         run: |
