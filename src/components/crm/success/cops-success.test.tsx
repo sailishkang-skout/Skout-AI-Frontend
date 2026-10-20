@@ -72,7 +72,7 @@ describe("COPS-11 health breakdown and Customer Success screen", () => {
       data: {
         distribution: { healthy: 4, watch: 1, at_risk: 1, unscored: 0 },
         renewalExposure: [],
-        adoption: { total: 6, activated: 4, signedIn: 5, under50: 1, avgPct: 70 },
+        adoption: { total: 6, activated: 4, signedIn: 5, under50: 1, avgPct: 70, milestones: [{ key: "first_search", label: "First search", reached: 4, total: 6 }] },
         atRisk: [
           { accountId: "a1", name: "Acme", score: 32, state: "at_risk", renewalRisk: "high", reasons: ["Subscription past due", "2 open ticket(s)"], nextAction: null },
           { accountId: "a2", name: "Beta", score: 55, state: "watch", renewalRisk: "low", reasons: ["Quiet for 30 days"], nextAction: { title: "Call Beta", dueDate: "2026-10-22T00:00:00Z" } },
@@ -89,6 +89,7 @@ describe("COPS-11 health breakdown and Customer Success screen", () => {
     expect(list.textContent).toContain("no open task: plan the next step");
     expect(list.textContent).toContain("Next: Call Beta");
     expect(screen.getByTestId("cs-expansion").textContent).toContain("New funding round signal");
+    expect(screen.getByTestId("cs-milestones").textContent).toContain("First search4/6");
     fireEvent.click(await screen.findByTestId("cs-install-playbooks"));
     await waitFor(() => expect(api.installPlaybooks).toHaveBeenCalled());
   });

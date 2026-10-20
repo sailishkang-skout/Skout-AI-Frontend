@@ -48,7 +48,15 @@ export interface PlaybookEnrollment {
 export interface CustomerSuccessOverview {
   distribution: { healthy: number; watch: number; at_risk: number; unscored: number };
   renewalExposure: { accountId: string; name: string; termEnd: string; healthState: HealthState | null; renewalRisk: string | null }[];
-  adoption: { total: number; activated: number; signedIn: number; under50: number; avgPct: number };
+  adoption: {
+    total: number;
+    activated: number;
+    signedIn: number;
+    under50: number;
+    avgPct: number;
+    /** Each onboarding milestone and how many accounts reached it. */
+    milestones?: { key: string; label: string; reached: number; total: number }[];
+  };
   atRisk: {
     accountId: string;
     name: string;

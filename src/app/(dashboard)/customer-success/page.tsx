@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
+import { withCopsTracking } from "@/lib/cops-analytics";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { HEALTH_STATE_LABEL, HEALTH_STATE_TONE, useCopsSuccessApi, type HealthState } from "@/lib/cops-success";
 
@@ -38,7 +39,7 @@ export default function CustomerSuccessPage() {
   const overview = useQuery({ queryKey: ["cs-overview"], queryFn: () => api.overview(), enabled: authReady, retry: false });
   const playbooks = useQuery({ queryKey: ["cs-playbooks"], queryFn: () => api.playbooks(), enabled: authReady, retry: false });
   const install = useMutation({
-    mutationFn: () => api.installPlaybooks(),
+    mutationFn: () => withCopsTracking("cops.success_playbooks_installed", () => api.installPlaybooks(), (r) => ({ installed_count: r.data.installed.length })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cs-playbooks"] }),
   });
   const o = overview.data?.data;
@@ -132,6 +133,21 @@ export default function CustomerSuccessPage() {
                   <Tile label="Average activation" value={`${o.adoption.avgPct}%`} />
                 </div>
                 {o.adoption.under50 > 0 && <p className="mt-2 text-xs text-muted-foreground">{o.adoption.under50} account(s) below 50% activation.</p>}
+                {(o.adoption.milestones ?? []).length > 0 && (
+                  <ul className="mt-3 space-y-1.5 text-sm" data-testid="cs-milestones">
+                    {(o.adoption.milestones ?? []).map((m) => (
+                      <li key={m.key} className="flex items-center gap-2">
+                        <span className="w-40 truncate">{m.label}</span>
+                        <span className="h-2 flex-1 rounded bg-muted">
+                          <span className="block h-2 rounded bg-primary" style={{ width: `${m.total ? Math.round((m.reached / m.total) * 100) : 0}%` }} />
+                        </span>
+                        <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                          {m.reached}/{m.total}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 

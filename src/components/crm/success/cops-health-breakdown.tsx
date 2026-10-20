@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
+import { withCopsTracking } from "@/lib/cops-analytics";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { HEALTH_DIMENSIONS, HEALTH_STATE_LABEL, HEALTH_STATE_TONE, useCopsSuccessApi } from "@/lib/cops-success";
 import { useTeamApi } from "@/lib/team";
@@ -32,8 +33,14 @@ export function CopsHealthBreakdown({ accountId }: { accountId: string }) {
     qc.invalidateQueries({ queryKey: ["cs-health", accountId] });
     qc.invalidateQueries({ queryKey: ["cs-health-history", accountId] });
   };
-  const recompute = useMutation({ mutationFn: () => api.recompute(accountId), onSuccess: refresh });
-  const setCsm = useMutation({ mutationFn: (id: string | null) => api.setCsm(accountId, id), onSuccess: refresh });
+  const recompute = useMutation({
+    mutationFn: () => withCopsTracking("cops.health_recomputed", () => api.recompute(accountId), (r) => ({ state: r.data.state })),
+    onSuccess: refresh,
+  });
+  const setCsm = useMutation({
+    mutationFn: (id: string | null) => withCopsTracking("cops.csm_assigned", () => api.setCsm(accountId, id), { cleared: id === null }),
+    onSuccess: refresh,
+  });
 
   if (health.isLoading) return <Skeleton className="h-40 w-full rounded-md" />;
   if (health.isError) return <Alert variant="error" onRetry={() => health.refetch()}>{errorText(health.error, "Could not load the account's health.")}</Alert>;
