@@ -23,7 +23,7 @@ export const WORKFLOW_EVENT_TYPES = [
   "ProvisioningRequested", "WorkspaceProvisioned", "CreditsGranted", "WelcomeEmailSent", "SequenceEnrolled",
   "TaskCreated", "TaskCompleted", "ActivityRecorded", "FirstLogin", "ActivationMilestoneCompleted", "CustomerActivated",
   "TicketCreated", "TicketEscalated", "TicketResolved", "LifecycleTransitioned", "ApprovalRequested", "ApprovalDecided",
-  "SubscriptionStatusChanged", "RenewalOpened",
+  "SubscriptionStatusChanged", "RenewalOpened", "HealthSignalDetected",
 ] as const;
 export const STATE_CHANGE_EVENTS = ["LifecycleTransitioned", "SubscriptionStatusChanged"] as const;
 export const MIN_SCHEDULE_MINUTES = 5;
