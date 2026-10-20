@@ -332,6 +332,15 @@ describe("AUTH-FE-02 auth error classification", () => {
     });
   });
 
+  describe("formatQueryError — network failures", () => {
+    it("names the host the browser could not reach when it is not the main API", () => {
+      expect(formatQueryError(new TypeError("Failed to fetch (localhost:3002)"), "x")).toBe("Could not reach localhost:3002 — ensure that service is running.");
+    });
+    it("keeps the API message for a plain fetch failure", () => {
+      expect(formatQueryError(new TypeError("Failed to fetch"), "x")).toMatch(/^Could not reach the API at /);
+    });
+  });
+
   describe("formatQueryError — 401 messages", () => {
     it("uses code-specific copy when code is present", () => {
       expect(
