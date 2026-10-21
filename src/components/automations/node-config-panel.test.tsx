@@ -22,7 +22,7 @@ describe("NodeConfigPanel", () => {
     expect(onChange).toHaveBeenCalledWith({ seconds: 30 });
   });
 
-  it("renders condition's four fields and merges a change without dropping the others", () => {
+  it("opens an older single-rule condition as a one-rule group and saves the group", () => {
     const onChange = vi.fn();
     render(
       <NodeConfigPanel
@@ -31,11 +31,14 @@ describe("NodeConfigPanel", () => {
         priorNodes={[{ id: "n0", label: "trigger · n0" }]}
       />
     );
-    fireEvent.change(screen.getByTestId("config-value"), { target: { value: "paused" } });
-    expect(onChange).toHaveBeenCalledWith({ sourceNodeId: "n0", field: "status", op: "equals", value: "paused" });
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "paused" } });
+    expect(onChange).toHaveBeenCalledWith({
+      match: "all",
+      rules: [{ sourceNodeId: "n0", field: "status", op: "equals", value: "paused", type: "string" }],
+    });
   });
 
-  it("condition's source-node dropdown lists priorNodes and reports the selected id", () => {
+  it("a rule's step dropdown lists priorNodes and reports the selected id", () => {
     const onChange = vi.fn();
     render(
       <NodeConfigPanel
@@ -47,19 +50,36 @@ describe("NodeConfigPanel", () => {
         ]}
       />
     );
-    const select = screen.getByTestId("config-sourceNodeId") as HTMLSelectElement;
+    const select = screen.getByLabelText("Step") as HTMLSelectElement;
     expect(Array.from(select.options).map((o) => o.value)).toEqual(expect.arrayContaining(["n1", "n0"]));
     fireEvent.change(select, { target: { value: "n1" } });
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sourceNodeId: "n1" }));
+    expect(onChange.mock.calls.at(-1)![0].rules[0]).toMatchObject({ sourceNodeId: "n1" });
   });
 
-  it("shows a saved sourceNodeId as '(not connected)' when it's no longer an ancestor", () => {
-    render(
-      <NodeConfigPanel node={node("condition", { sourceNodeId: "n9" })} onChange={vi.fn()} priorNodes={[]} />
-    );
-    const select = screen.getByTestId("config-sourceNodeId") as HTMLSelectElement;
-    expect(select.value).toBe("n9");
+  it("shows a saved step as '(not connected)' when it's no longer an ancestor", () => {
+    render(<NodeConfigPanel node={node("condition", { sourceNodeId: "n9" })} onChange={vi.fn()} priorNodes={[]} />);
+    expect((screen.getByLabelText("Step") as HTMLSelectElement).value).toBe("n9");
     expect(screen.getByText(/n9 \(not connected\)/)).toBeTruthy();
+  });
+
+  it("switches a group to OR, and a number rule offers ordering operators", () => {
+    const onChange = vi.fn();
+    const config = { match: "all", rules: [{ sourceNodeId: "n0", field: "seats", op: "gte", value: "100", type: "number" }] };
+    render(<NodeConfigPanel node={node("condition", config)} onChange={onChange} priorNodes={[{ id: "n0", label: "trigger · n0" }]} />);
+    const ops = Array.from((screen.getByLabelText("Operator") as HTMLSelectElement).options).map((o) => o.value);
+    expect(ops).toEqual(expect.arrayContaining(["gt", "gte", "lt", "lte"]));
+    expect(ops).not.toContain("contains");
+    fireEvent.change(screen.getByLabelText("Match all or any"), { target: { value: "any" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ match: "any" }));
+  });
+
+  it("the trigger selector sets an event trigger and its stop events", () => {
+    const onChange = vi.fn();
+    render(<NodeConfigPanel node={node("trigger", {})} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("config-trigger-kind"), { target: { value: "event" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "event", eventType: "TicketCreated" }));
+    fireEvent.click(screen.getByRole("button", { name: "Customer activated" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ stopOn: ["CustomerActivated"] }));
   });
 
   it("renders action_http's url/method/body fields", () => {

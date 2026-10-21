@@ -106,6 +106,10 @@ export interface Account360 {
     owner_id: string | null;
     lifecycle: { account: string | null; health: string | null; support: string | null };
     health: string | null;
+    /** COPS-11: the explainable score behind the health state, and the Success fields. */
+    health_score?: number | null;
+    renewal_risk?: string | null;
+    csm_id?: string | null;
     commercial_state: string | null;
     onboarding_pct: number | null;
     plan: string | null;

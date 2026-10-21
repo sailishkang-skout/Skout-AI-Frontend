@@ -230,6 +230,12 @@ export function formatQueryError(error: unknown, fallback: string): string {
     if (error.message) return error.message;
   }
   if (error instanceof TypeError && error.message.includes("fetch")) {
+    // The browser names the host it could not reach ("Failed to fetch (localhost:3002)"); that may
+    // be the CRM service rather than the main API, so say which one instead of always the API URL.
+    const host = /\(([^)\s]+)\)/.exec(error.message)?.[1];
+    if (host && !(getApiBase() || API_URL).includes(host)) {
+      return `Could not reach ${host} — ensure that service is running.`;
+    }
     return `Could not reach the API at ${getApiBase() || API_URL} — ensure the backend is running and NEXT_PUBLIC_API_URL matches.`;
   }
   return fallback;
