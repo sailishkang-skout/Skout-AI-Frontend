@@ -22,6 +22,7 @@ import { CopsBillingTab } from "./provisioning/cops-billing-tab";
 import { SubscriptionPanel } from "./commercial/subscription-panel";
 import { isRiskSignal, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
+import { RecommendationRail } from "./recommendation-rail";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -109,11 +110,12 @@ function Contacts({ data }: { data: Account360 }) {
   );
 }
 
-function RightRail({ data, signals }: { data: Account360; signals: Signal[] }) {
+function RightRail({ data, signals, accountId }: { data: Account360; signals: Signal[]; accountId: string }) {
   const actions = data.next_actions ?? [];
   const risks = data.risks ?? [];
   return (
     <div className="space-y-4">
+      <RecommendationRail accountId={accountId} />
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Next actions</CardTitle>
@@ -265,7 +267,7 @@ export function CopsCustomer360({
           ) : null}
         </CardContent>
       </Card>
-      {data && <RightRail data={data} signals={signals} />}
+      {data && <RightRail data={data} signals={signals} accountId={accountId} />}
     </div>
   );
 }

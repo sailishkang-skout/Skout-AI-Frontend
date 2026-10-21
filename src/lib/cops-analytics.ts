@@ -70,6 +70,12 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.ticket_release_recorded",
   "cops.incident_ticket_linked",
   "cops.incident_customer_update_published",
+  // COPS-13 dashboards and AI recommendations
+  "cops.dashboard_viewed",
+  "cops.kpi_drilled",
+  "cops.recommendations_generated",
+  "cops.recommendation_approved",
+  "cops.recommendation_dismissed",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];
