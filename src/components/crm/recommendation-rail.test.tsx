@@ -76,7 +76,7 @@ describe("COPS-13 recommendation rail", () => {
     const links = screen.getByTestId("recommendation-evidence").querySelectorAll("a");
     expect(links).toHaveLength(2);
     expect(links[0]!.getAttribute("href")).toBe("/crm/360?mode=account&id=a1&tab=engineering");
-    expect(item.textContent).toContain("nothing happens until you approve");
+    expect(item.textContent).toContain("runs only if you approve");
     fireEvent.click(screen.getByTestId("recommendation-approve"));
     await waitFor(() => expect(api.approve).toHaveBeenCalledWith("r1"));
   });
@@ -107,5 +107,14 @@ describe("COPS-13 recommendation rail", () => {
     await screen.findByTestId("recommendation");
     expect(screen.queryByTestId("recommendation-approve")).toBeNull();
     expect(screen.queryByTestId("recommendations-generate")).toBeNull();
+  });
+
+  it("stays compact: three recommendations, then 'Show N more'", async () => {
+    api.recommendations.mockResolvedValue({ data: [1, 2, 3, 4, 5].map((i) => rec({ id: `r${i}` })) });
+    wrap(<RecommendationRail accountId="a1" />);
+    expect(await screen.findAllByTestId("recommendation")).toHaveLength(3);
+    expect(screen.getAllByTestId("recommendation-rationale")[0]!.className).toContain("line-clamp-3");
+    fireEvent.click(screen.getByTestId("recommendations-show-all"));
+    expect(screen.getAllByTestId("recommendation")).toHaveLength(5);
   });
 });

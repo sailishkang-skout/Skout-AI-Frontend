@@ -16,13 +16,18 @@ import { CopsRequestError } from "@/lib/cops-fetch";
 import { confidenceText, confidenceTone, evidenceHref, RECOMMENDATION_LABEL, useCopsInsightsApi, type Recommendation } from "@/lib/cops-insights";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof CopsRequestError ? err.message : fallback);
-const ACTION_LABEL: Record<string, string> = { create_task: "Create the task", start_playbook: "Start the playbook", renewal_prep_task: "Create the renewal prep task" };
+const ACTION_LABEL: Record<string, string> = { create_task: "Create task", start_playbook: "Start playbook", renewal_prep_task: "Create renewal task" };
+/** The rail is narrow: a few recommendations, three lines of rationale and three evidence links until expanded. */
+const RECS_SHOWN = 3;
+const EVIDENCE_SHOWN = 3;
 
 function RecommendationItem({ rec, accountId, canAct, onDone }: { rec: Recommendation; accountId: string; canAct: boolean; onDone: () => void }) {
   const api = useCopsInsightsApi();
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const evidence = expanded ? rec.evidence_refs : rec.evidence_refs.slice(0, EVIDENCE_SHOWN);
   const approve = useMutation({
     mutationFn: () => withCopsTracking("cops.recommendation_approved", () => api.approve(rec.id), (r) => ({ recommendation_type: rec.type, effect: r.data.effect?.kind ?? null })),
     onSuccess: onDone,
@@ -36,20 +41,22 @@ function RecommendationItem({ rec, accountId, canAct, onDone }: { rec: Recommend
   const busy = approve.isPending || dismiss.isPending;
 
   return (
-    <li className="space-y-1.5 rounded-md border p-2" data-testid="recommendation" data-type={rec.type}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Badge tone="info">{RECOMMENDATION_LABEL[rec.type] ?? rec.type}</Badge>
-        <Badge tone={confidenceTone(rec.confidence)} title="How strongly the evidence supports it" data-testid="recommendation-confidence">
+    <li className="min-w-0 space-y-1 rounded-md border p-2" data-testid="recommendation" data-type={rec.type}>
+      <div className="flex items-center justify-between gap-1.5">
+        <Badge tone="info" className="truncate">{RECOMMENDATION_LABEL[rec.type] ?? rec.type}</Badge>
+        <Badge tone={confidenceTone(rec.confidence)} title="Confidence: how strongly the evidence supports it" className="shrink-0" data-testid="recommendation-confidence">
           {confidenceText(rec.confidence)} confidence
         </Badge>
       </div>
-      <p className="text-sm font-medium">{rec.headline}</p>
-      <p className="text-xs text-muted-foreground">{rec.rationale}</p>
+      <p className="break-words text-sm font-medium leading-snug">{rec.headline}</p>
+      <p className={`break-words text-xs text-muted-foreground ${expanded ? "" : "line-clamp-3"}`} data-testid="recommendation-rationale">
+        {rec.rationale}
+      </p>
       <ul className="space-y-0.5" data-testid="recommendation-evidence" aria-label="Evidence">
-        {rec.evidence_refs.map((e) => {
+        {evidence.map((e) => {
           const href = evidenceHref(e, accountId);
           return (
-            <li key={`${e.kind}:${e.id}`} className="text-xs">
+            <li key={`${e.kind}:${e.id}`} className="truncate text-xs" title={e.label}>
               {href ? (
                 <Link href={href} className="text-primary hover:underline">
                   {e.label}
@@ -61,9 +68,10 @@ function RecommendationItem({ rec, accountId, canAct, onDone }: { rec: Recommend
           );
         })}
       </ul>
-      <p className="text-[11px] text-muted-foreground">
-        {rec.source === "llm" ? "Rationale written by AI from this evidence" : "Rationale from the rule"} · nothing happens until you approve
-      </p>
+      <button type="button" className="text-[11px] text-primary hover:underline" onClick={() => setExpanded((x) => !x)} data-testid="recommendation-expand">
+        {expanded ? "Less" : rec.evidence_refs.length > EVIDENCE_SHOWN ? `More (+${rec.evidence_refs.length - EVIDENCE_SHOWN} evidence)` : "More"}
+      </button>
+      <p className="text-[11px] text-muted-foreground">{rec.source === "llm" ? "AI-written from this evidence" : "From the rule"} · runs only if you approve</p>
       {error && <Alert variant="error">{error}</Alert>}
       {canAct &&
         (dismissing ? (
@@ -87,11 +95,11 @@ function RecommendationItem({ rec, accountId, canAct, onDone }: { rec: Recommend
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" disabled={busy} onClick={() => approve.mutate()} data-testid="recommendation-approve">
+          <div className="flex items-center gap-1">
+            <Button size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => approve.mutate()} data-testid="recommendation-approve">
               {rec.suggested_action ? ACTION_LABEL[rec.suggested_action.kind] ?? "Approve" : "Approve"}
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDismissing(true)} data-testid="recommendation-dismiss">
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={busy} onClick={() => setDismissing(true)} data-testid="recommendation-dismiss">
               Dismiss
             </Button>
           </div>
@@ -124,15 +132,18 @@ export function RecommendationRail({ accountId }: { accountId: string }) {
     qc.invalidateQueries({ queryKey: ["cops-360", accountId] });
   };
   const recs = list.data?.data ?? [];
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? recs : recs.slice(0, RECS_SHOWN);
 
   return (
     <Card data-testid="recommendation-rail">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <CardTitle className="flex items-center gap-1.5 text-sm">
-          <Sparkles className="h-3.5 w-3.5" /> AI recommendations
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+        <CardTitle className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" /> AI recommendations
+          {recs.length > 0 && <Badge tone="muted">{recs.length}</Badge>}
         </CardTitle>
         {canAct && (
-          <Button size="sm" variant="outline" disabled={generate.isPending} onClick={() => generate.mutate()} data-testid="recommendations-generate">
+          <Button size="sm" variant="outline" className="h-7 shrink-0 px-2 text-xs" disabled={generate.isPending} onClick={() => generate.mutate()} data-testid="recommendations-generate">
             {generate.isPending ? "Checking…" : "Check now"}
           </Button>
         )}
@@ -150,11 +161,18 @@ export function RecommendationRail({ accountId }: { accountId: string }) {
             {generate.isSuccess ? "Nothing to recommend right now." : "No open recommendations."}
           </p>
         ) : (
-          <ul className="space-y-2">
-            {recs.map((r) => (
-              <RecommendationItem key={r.id} rec={r} accountId={accountId} canAct={canAct} onDone={refresh} />
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-2">
+              {shown.map((r) => (
+                <RecommendationItem key={r.id} rec={r} accountId={accountId} canAct={canAct} onDone={refresh} />
+              ))}
+            </ul>
+            {recs.length > RECS_SHOWN && (
+              <button type="button" className="w-full text-center text-xs text-primary hover:underline" onClick={() => setShowAll((x) => !x)} data-testid="recommendations-show-all">
+                {showAll ? "Show fewer" : `Show ${recs.length - RECS_SHOWN} more`}
+              </button>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
