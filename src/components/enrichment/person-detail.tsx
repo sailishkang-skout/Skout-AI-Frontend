@@ -80,6 +80,7 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
   const { hasPermission } = useWorkspaceRole();
   const [attachUrl, setAttachUrl] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmExport, setConfirmExport] = useState(false);
   const [notice, setNotice] = useState("");
 
   const detail = useQuery({
@@ -108,7 +109,10 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
   });
   const csv = useMutation({
     mutationFn: () => api.personCsv(prospectId),
-    onSuccess: (blob) => downloadBlob(blob, `person-${prospectId.slice(0, 12)}.csv`),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `person-${prospectId.slice(0, 12)}.csv`);
+      setConfirmExport(false);
+    },
   });
   const remove = useMutation({
     mutationFn: () => api.deletePerson(prospectId),
@@ -159,7 +163,7 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
         actions={
           <div className="flex flex-wrap gap-2">
             {hasPermission("enrichment:export") && (
-              <Button variant="outline" disabled={csv.isPending} onClick={() => csv.mutate()}>
+              <Button variant="outline" disabled={csv.isPending} onClick={() => setConfirmExport(true)}>
                 <Download className="h-4 w-4" />
                 CSV
               </Button>
@@ -383,6 +387,22 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
         </CardContent>
       </Card>
 
+      <Dialog
+        open={confirmExport}
+        onClose={() => setConfirmExport(false)}
+        title={`Export ${person.fullName ?? "this person"}?`}
+        description="Downloads this person's captured facts as CSV, with the source and capture time of each. The export will be recorded in the audit log."
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmExport(false)}>
+            Cancel
+          </Button>
+          <Button disabled={csv.isPending} onClick={() => csv.mutate()}>
+            {csv.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Export CSV
+          </Button>
+        </div>
+      </Dialog>
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
