@@ -61,6 +61,10 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.envelope_sent",
   "cops.subscription_created",
   "cops.subscription_amended",
+  // COPS-12 ticket SLA, incidents and release tracking
+  "cops.ticket_release_recorded",
+  "cops.incident_ticket_linked",
+  "cops.incident_customer_update_published",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];

@@ -23,6 +23,7 @@ import {
   type TicketStatus,
   type TicketVisibility,
 } from "@/lib/cops-tickets";
+import { IncidentLink, ReleasePanel, SlaPanel } from "./ticket-sla";
 
 const TEXTAREA = "flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -106,6 +107,7 @@ export function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; o
   const [error, setError] = useState<string | null>(null);
   const [escalateTo, setEscalateTo] = useState<TicketSeverity | "">("");
   const [escalateReason, setEscalateReason] = useState("");
+  const [reopenReason, setReopenReason] = useState("");
 
   const query = useQuery({
     queryKey: ["cops-ticket", ticketId],
@@ -151,6 +153,11 @@ export function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; o
                 {t.priority.toUpperCase()} · {humanizeTicket(t.category)} · {t.environment}
               </span>
             </div>
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">SLA</h3>
+              <SlaPanel clocks={t.sla?.clocks ?? []} />
+            </section>
 
             <section className="space-y-1 text-sm" data-testid="ticket-customer-context">
               <h3 className="text-sm font-medium">Customer</h3>
@@ -203,13 +210,39 @@ export function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; o
                   {next.length === 0 ? (
                     <p className="text-xs text-muted-foreground">This ticket is closed.</p>
                   ) : (
-                    next.map((to: TicketStatus) => (
-                      <Button key={to} size="sm" variant="outline" onClick={() => quiet(act(() => api.transition(t.id, to), "Could not change the status."))} data-testid={`ticket-move-${to}`}>
-                        Move to {humanizeTicket(to)}
-                      </Button>
-                    ))
+                    next.map((to: TicketStatus) => {
+                      // COPS-12: a reopen (resolved or verified back to in progress) needs a reason.
+                      const reopen = (t.status === "resolved" || t.status === "verified") && to === "in_progress";
+                      return (
+                        <Button
+                          key={to}
+                          size="sm"
+                          variant="outline"
+                          disabled={reopen && !reopenReason.trim()}
+                          title={reopen && !reopenReason.trim() ? "Give a reason to reopen" : undefined}
+                          onClick={() => quiet(act(() => (reopen ? api.transition(t.id, to, reopenReason.trim()) : api.transition(t.id, to)), "Could not change the status.").then(() => setReopenReason("")))}
+                          data-testid={`ticket-move-${to}`}
+                        >
+                          {reopen ? "Reopen" : `Move to ${humanizeTicket(to)}`}
+                        </Button>
+                      );
+                    })
                   )}
                 </div>
+                {(t.status === "resolved" || t.status === "verified") && (
+                  <input
+                    value={reopenReason}
+                    onChange={(e) => setReopenReason(e.target.value)}
+                    aria-label="Reopen reason"
+                    placeholder="Reason to reopen (required to reopen)"
+                    maxLength={1000}
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    data-testid="ticket-reopen-reason"
+                  />
+                )}
+                {t.status === "resolved" && (!t.release?.qa_verified_at || !t.release?.customer_verified_at) && (
+                  <p className="text-xs text-muted-foreground">Verified needs QA and customer verification below.</p>
+                )}
                 {higher.length > 0 && next.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
                     <Select value={escalateTo} onChange={(e) => setEscalateTo(e.target.value as TicketSeverity | "")} aria-label="Escalate to" className="w-36">
@@ -248,6 +281,21 @@ export function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; o
                 )}
               </section>
             )}
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">Release and verification</h3>
+              {t.release && <ReleasePanel key={`${t.id}-${t.updated_at}`} release={t.release} canWrite={canWrite} onSave={(patch) => act(() => api.release(t.id, patch), "Could not save the release.")} />}
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">Incident</h3>
+              <IncidentLink
+                incident={t.incident}
+                canWrite={canWrite}
+                onLink={(incidentId) => act(() => api.linkTicket(incidentId, t.id), "Could not link the incident.")}
+                onUnlink={(incidentId) => act(() => api.unlinkTicket(incidentId, t.id), "Could not unlink the incident.")}
+              />
+            </section>
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">Notes and updates</h3>
