@@ -138,9 +138,10 @@ export function RecommendationRail({ accountId }: { accountId: string }) {
   return (
     <Card data-testid="recommendation-rail">
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <CardTitle className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm">
-          <Sparkles className="h-3.5 w-3.5 shrink-0" /> AI recommendations
-          {recs.length > 0 && <Badge tone="muted">{recs.length}</Badge>}
+        <CardTitle className="flex min-w-0 flex-1 items-center gap-1.5 text-sm" title="AI recommendations">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">AI recommendations</span>
+          {recs.length > 0 && <Badge tone="muted" className="shrink-0">{recs.length}</Badge>}
         </CardTitle>
         {canAct && (
           <Button size="sm" variant="outline" className="h-7 shrink-0 px-2 text-xs" disabled={generate.isPending} onClick={() => generate.mutate()} data-testid="recommendations-generate">
