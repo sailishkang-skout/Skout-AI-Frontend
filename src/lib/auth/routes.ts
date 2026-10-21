@@ -69,6 +69,7 @@ export const PROTECTED_ROUTE_SUFFIXES = [
   "/finance(.*)",
   "/follow-up(.*)",
   "/engineering(.*)",
+  "/customer-success(.*)",
 ];
 
 /** Top-level segments under `src/app/(dashboard)/` — kept in sync with the app tree for tests. */
@@ -83,6 +84,7 @@ export const DASHBOARD_ROUTE_GROUPS = [
   "crm",
   "follow-up",
   "engineering",
+  "customer-success",
   "dashboard",
   "decisions",
   "deliverability",
