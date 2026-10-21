@@ -1,6 +1,8 @@
 "use client";
 
-import type { AutomationNode, AutomationNodeType } from "@/lib/automations";
+import { toConditionGroup, type AutomationNode, type AutomationNodeType } from "@/lib/automations";
+import { ConditionGroupEditor } from "./condition-group-editor";
+import { TriggerConfig } from "./trigger-config";
 import type { EnrichField } from "@/types/api";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -95,72 +97,17 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
 
   switch (node.type) {
     case "trigger":
-      return (
-        <div className="space-y-3">
-          <Field label="Trigger type">
-            <Select
-              data-testid="config-triggerType"
-              value={(config.triggerType as string) ?? "manual"}
-              onChange={(e) => set({ triggerType: e.target.value })}
-            >
-              <option value="manual">Manual (Run now)</option>
-              <option value="webhook">Inbound webhook</option>
-            </Select>
-          </Field>
-          <p className="text-xs text-muted-foreground">
-            Event and schedule triggers aren&apos;t wired yet — this automation currently runs via
-            a manual click or its webhook URL.
-          </p>
-        </div>
-      );
+      return <TriggerConfig config={config} set={set} />;
 
-    case "condition": {
-      const sourceNodeId = (config.sourceNodeId as string) ?? "";
-      const knownSource = priorNodes.some((n) => n.id === sourceNodeId);
+    case "condition":
+      // COPS-10: AND/OR groups of typed rules; an older single-rule config opens as a one-rule group.
       return (
-        <div className="space-y-3">
-          <Field label="Source node">
-            <Select
-              data-testid="config-sourceNodeId"
-              value={sourceNodeId}
-              onChange={(e) => set({ sourceNodeId: e.target.value })}
-            >
-              <option value="" disabled>
-                {priorNodes.length ? "Select an earlier step" : "Connect an earlier step first"}
-              </option>
-              {priorNodes.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.label}
-                </option>
-              ))}
-              {sourceNodeId && !knownSource && <option value={sourceNodeId}>{sourceNodeId} (not connected)</option>}
-            </Select>
-          </Field>
-          <Field label="Field">
-            <Input
-              data-testid="config-field"
-              value={(config.field as string) ?? ""}
-              onChange={(e) => set({ field: e.target.value })}
-              placeholder="status"
-            />
-          </Field>
-          <Field label="Operator">
-            <Select data-testid="config-op" value={(config.op as string) ?? "equals"} onChange={(e) => set({ op: e.target.value })}>
-              <option value="equals">Equals</option>
-              <option value="not_equals">Not equals</option>
-            </Select>
-          </Field>
-          <Field label="Value">
-            <Input
-              data-testid="config-value"
-              value={(config.value as string) ?? ""}
-              onChange={(e) => set({ value: e.target.value })}
-              placeholder="active"
-            />
-          </Field>
-        </div>
+        <ConditionGroupEditor
+          group={toConditionGroup(config)}
+          onChange={(group) => onChange({ match: group.match, rules: group.rules })}
+          priorNodes={priorNodes}
+        />
       );
-    }
 
     case "delay":
       return (
@@ -448,6 +395,82 @@ export function NodeConfigPanel({ node, onChange, priorNodes = [] }: NodeConfigP
         </div>
       );
 
+    case "action_create_task":
+      return (
+        <div className="space-y-3">
+          <Field label="Title">
+            <Input data-testid="config-task-title" value={(config.title as string) ?? ""} placeholder="Call {{trigger.account_id}} about the renewal" onChange={(e) => set({ title: e.target.value })} />
+          </Field>
+          <Field label="Type">
+            <Select value={(config.type as string) ?? "follow_up"} onChange={(e) => set({ type: e.target.value })}>
+              {["follow_up", "call", "email", "meeting", "review", "approval", "onboarding_check", "renewal_action", "ticket_follow_up"].map((t) => (
+                <option key={t} value={t}>
+                  {t.replace(/_/g, " ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Priority">
+            <Select value={(config.priority as string) ?? "medium"} onChange={(e) => set({ priority: e.target.value })}>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </Select>
+          </Field>
+          <Field label="Due in (hours)">
+            <Input type="number" min={0} value={String(config.dueInHours ?? 24)} onChange={(e) => set({ dueInHours: Number(e.target.value) })} />
+          </Field>
+          <p className="text-xs text-muted-foreground">For the run&apos;s account, assigned to its owner. Made once, even if the step is retried.</p>
+        </div>
+      );
+
+    case "action_create_ticket":
+      return (
+        <div className="space-y-3">
+          <Field label="Title">
+            <Input data-testid="config-ticket-title" value={(config.title as string) ?? ""} onChange={(e) => set({ title: e.target.value })} />
+          </Field>
+          <Field label="Severity">
+            <Select value={(config.severity as string) ?? "medium"} onChange={(e) => set({ severity: e.target.value })}>
+              {["low", "medium", "high", "critical"].map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Description (optional)">
+            <TextArea value={(config.description as string) ?? ""} onChange={(e) => set({ description: e.target.value })} />
+          </Field>
+          <p className="text-xs text-muted-foreground">An engineering ticket for the run&apos;s account, raised on behalf of whoever published this version.</p>
+        </div>
+      );
+
+    case "action_update_fields": {
+      const fields = (config.fields as Record<string, unknown> | undefined) ?? {};
+      const [field = "", value = ""] = Object.entries(fields)[0] ?? [];
+      return (
+        <div className="space-y-3">
+          <Field label="Record">
+            <Select value={(config.entityType as string) ?? "contact"} onChange={(e) => set({ entityType: e.target.value })}>
+              <option value="contact">Contact</option>
+              <option value="deal">Deal</option>
+            </Select>
+          </Field>
+          <Field label="Record ID (blank: the run's record)">
+            <Input value={(config.entityId as string) ?? ""} onChange={(e) => set({ entityId: e.target.value || undefined })} />
+          </Field>
+          <Field label="Field">
+            <Input data-testid="config-update-field" value={field} placeholder="title" onChange={(e) => set({ fields: { [e.target.value]: value } })} />
+          </Field>
+          <Field label="New value">
+            <Input data-testid="config-update-value" value={String(value)} onChange={(e) => set({ fields: { [field]: e.target.value } })} />
+          </Field>
+          <p className="text-xs text-muted-foreground">Only fields the CRM sync owns can be set; the change goes to a connected CRM like any edit.</p>
+        </div>
+      );
+    }
+
     default: {
       const _exhaustive: never = node.type;
       return <p className="text-xs text-muted-foreground">Unknown node type: {String(_exhaustive)}</p>;
@@ -466,5 +489,8 @@ export const ALL_NODE_TYPES: { type: AutomationNodeType; label: string }[] = [
   { type: "action_ai", label: "AI draft" },
   { type: "action_enrichment", label: "Enrichment" },
   { type: "action_crm_sync", label: "CRM push-back" },
+  { type: "action_create_task", label: "Create task" },
+  { type: "action_create_ticket", label: "Create ticket" },
+  { type: "action_update_fields", label: "Update fields" },
   { type: "approval", label: "Approval" },
 ];
