@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
 import { withCopsTracking } from "@/lib/cops-analytics";
+import { formatMoney } from "@/lib/cops-commercial";
 import { CopsRequestError } from "@/lib/cops-fetch";
+import { useTeamApi } from "@/lib/team";
 import { HEALTH_STATE_LABEL, HEALTH_STATE_TONE, useCopsSuccessApi, type HealthState } from "@/lib/cops-success";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof CopsRequestError ? err.message : fallback);
@@ -37,6 +39,12 @@ export default function CustomerSuccessPage() {
   const authReady = useAuthReady();
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: ["cs-overview"], queryFn: () => api.overview(), enabled: authReady, retry: false });
+  const teamApi = useTeamApi();
+  const members = useQuery({ queryKey: ["team", "members"], queryFn: () => teamApi.listMembers(), enabled: authReady });
+  const memberName = (id: string | null | undefined) => {
+    const m = (members.data?.data ?? []).find((x) => x.userId === id);
+    return m ? m.fullName || m.email : null;
+  };
   const playbooks = useQuery({ queryKey: ["cs-playbooks"], queryFn: () => api.playbooks(), enabled: authReady, retry: false });
   const install = useMutation({
     mutationFn: () => withCopsTracking("cops.success_playbooks_installed", () => api.installPlaybooks(), (r) => ({ installed_count: r.data.installed.length })),
@@ -44,6 +52,15 @@ export default function CustomerSuccessPage() {
   });
   const o = overview.data?.data;
   const missing = (playbooks.data?.data ?? []).filter((p) => !p.automationId).length;
+  // Renewal exposure by currency: the annual value of the subscriptions renewing in 90 days.
+  const exposure = Object.entries(
+    (o?.renewalExposure ?? []).reduce<Record<string, number>>((acc, r) => {
+      if (r.currency && r.arrMinor) acc[r.currency] = (acc[r.currency] ?? 0) + r.arrMinor;
+      return acc;
+    }, {})
+  )
+    .map(([cur, minor]) => formatMoney(minor, cur))
+    .join(" + ");
 
   return (
     <PageShell data-testid="page-customer-success">
@@ -65,6 +82,7 @@ export default function CustomerSuccessPage() {
             <Tile label="At risk" value={o.distribution.at_risk} tone="text-red-600" />
             <Tile label="Not scored yet" value={o.distribution.unscored} />
           </div>
+          {exposure && <p className="text-sm text-muted-foreground" data-testid="cs-renewal-exposure">Renewal exposure (90 days): <span className="font-medium text-foreground">{exposure}</span></p>}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -86,6 +104,7 @@ export default function CustomerSuccessPage() {
                           <span className="ml-auto tabular-nums text-muted-foreground">{a.score ?? "—"}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">Why: {a.reasons.join("; ") || "—"}</p>
+                        <p className="text-xs text-muted-foreground">CSM: {memberName(a.csmId) ?? "not assigned"}</p>
                         <p className="text-xs">
                           Next: {a.nextAction ? `${a.nextAction.title} (due ${day(a.nextAction.dueDate)})` : <span className="text-amber-700 dark:text-amber-400">no open task: plan the next step</span>}
                         </p>
@@ -112,7 +131,8 @@ export default function CustomerSuccessPage() {
                         </Link>
                         {r.healthState && <Badge tone={HEALTH_STATE_TONE[r.healthState]}>{HEALTH_STATE_LABEL[r.healthState]}</Badge>}
                         <span className="ml-auto text-xs text-muted-foreground">
-                          {day(r.termEnd)} · risk {r.renewalRisk ?? "—"}
+                          {day(r.termEnd)}
+                          {r.arrMinor && r.currency ? ` · ${formatMoney(r.arrMinor, r.currency)}/yr` : ""} · risk {r.renewalRisk ?? "—"}
                         </span>
                       </li>
                     ))}

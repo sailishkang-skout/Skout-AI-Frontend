@@ -73,7 +73,8 @@ function Overview({ data, accountId }: { data: Account360; accountId: string }) 
               trackCops("cops.health_breakdown_opened", { surface_area: "customer_360" });
             }}
           >
-            {humanize(h?.health)} · why?
+            {humanize(h?.health)}
+            {h?.health_score != null ? ` · ${h.health_score}` : ""} · why?
           </button>
         }
       />

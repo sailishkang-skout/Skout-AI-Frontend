@@ -47,7 +47,16 @@ export interface PlaybookEnrollment {
 
 export interface CustomerSuccessOverview {
   distribution: { healthy: number; watch: number; at_risk: number; unscored: number };
-  renewalExposure: { accountId: string; name: string; termEnd: string; healthState: HealthState | null; renewalRisk: string | null }[];
+  renewalExposure: {
+    accountId: string;
+    name: string;
+    termEnd: string;
+    healthState: HealthState | null;
+    renewalRisk: string | null;
+    /** Annual value up for renewal, in minor units of `currency`. */
+    arrMinor?: number;
+    currency?: string;
+  }[];
   adoption: {
     total: number;
     activated: number;
@@ -63,6 +72,7 @@ export interface CustomerSuccessOverview {
     score: number | null;
     state: HealthState;
     renewalRisk: string | null;
+    csmId?: string | null;
     reasons: string[];
     nextAction: { title: string; dueDate: string | null } | null;
   }[];
