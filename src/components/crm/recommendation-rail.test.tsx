@@ -63,6 +63,7 @@ describe("COPS-13 helpers", () => {
     expect(rowValueText("percent", { counted: true } as never)).toBe("Counted");
     expect(confidenceText(0.654)).toBe("65%");
     expect(evidenceHref({ kind: "ticket", id: "t1", label: "x" }, "a1")).toBe("/crm/360?mode=account&id=a1&tab=engineering");
+    expect(evidenceHref({ kind: "credit_ledger", id: "ct1", label: "x" }, "a1")).toBe("/crm/360?mode=account&id=a1&tab=usage");
   });
 });
 

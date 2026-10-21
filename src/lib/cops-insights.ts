@@ -92,7 +92,7 @@ export interface FunnelData {
 
 export type RecommendationStatus = "pending" | "approved" | "dismissed" | "expired";
 export interface EvidenceRef {
-  kind: "health_score" | "ticket" | "subscription" | "invoice" | "provisioning" | "onboarding_signal" | "sla_clock" | "timeline_event";
+  kind: "health_score" | "ticket" | "subscription" | "invoice" | "provisioning" | "onboarding_signal" | "sla_clock" | "timeline_event" | "credit_ledger";
   id: string;
   label: string;
 }
@@ -169,6 +169,7 @@ export const RECOMMENDATION_LABEL: Record<string, string> = {
   payment_past_due: "Payment past due",
   expansion_signal: "Expansion",
   stalled_onboarding: "Onboarding stalled",
+  credits_running_low: "Low credits",
 };
 
 /** Where an evidence reference opens, when it has a page. */
@@ -187,6 +188,8 @@ export function evidenceHref(e: EvidenceRef, accountId: string): string | null {
       return `/crm/360?mode=account&id=${accountId}&tab=onboarding`;
     case "timeline_event":
       return `/crm/360?mode=account&id=${accountId}&tab=timeline`;
+    case "credit_ledger":
+      return `/crm/360?mode=account&id=${accountId}&tab=usage`;
     default:
       return null;
   }
