@@ -200,6 +200,8 @@ export default function IncidentsPage() {
     },
   });
   const items = list.data?.data ?? [];
+  // Open the newest incident when none is picked, so the page never starts empty.
+  const shown = selected ?? items[0]?.id ?? null;
 
   return (
     <div className="space-y-4 p-6" data-testid="page-cops-incidents">
@@ -251,7 +253,7 @@ export default function IncidentsPage() {
               <ul className="divide-y text-sm" data-testid="incident-list">
                 {items.map((i) => (
                   <li key={i.id}>
-                    <button type="button" onClick={() => setSelected(i.id)} className={`flex w-full items-center gap-2 py-2 text-left ${selected === i.id ? "font-medium" : ""}`}>
+                    <button type="button" onClick={() => setSelected(i.id)} className={`flex w-full items-center gap-2 py-2 text-left ${shown === i.id ? "font-medium" : ""}`}>
                       <Badge tone={severityTone(i.severity)}>{i.severity}</Badge>
                       <span className="truncate">{i.title}</span>
                       <span className="ml-auto text-xs text-muted-foreground">{i.status}</span>
@@ -263,7 +265,7 @@ export default function IncidentsPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">{selected ? <IncidentDetail key={selected} id={selected} /> : <p className="text-sm text-muted-foreground">Select an incident.</p>}</CardContent>
+          <CardContent className="pt-6">{shown ? <IncidentDetail key={shown} id={shown} /> : <p className="text-sm text-muted-foreground">Select an incident.</p>}</CardContent>
         </Card>
       </div>
     </div>

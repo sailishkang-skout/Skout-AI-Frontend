@@ -240,6 +240,9 @@ export function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; o
                     data-testid="ticket-reopen-reason"
                   />
                 )}
+                {(t.status === "resolved" || t.status === "verified") && (t.release?.qa_verified_at || t.release?.customer_verified_at) && (
+                  <p className="text-xs text-muted-foreground" data-testid="ticket-reopen-clears">Reopening clears the QA and customer verification. Record both again after the next fix.</p>
+                )}
                 {t.status === "resolved" && (!t.release?.qa_verified_at || !t.release?.customer_verified_at) && (
                   <p className="text-xs text-muted-foreground">Verified needs QA and customer verification below.</p>
                 )}

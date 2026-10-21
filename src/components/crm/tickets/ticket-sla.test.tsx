@@ -108,6 +108,12 @@ describe("COPS-12 ticket drawer", () => {
     await waitFor(() => expect(api.transition).toHaveBeenCalledWith("t1", "in_progress", "Customer still sees it"));
   });
 
+  it("warns that reopening clears recorded verification", async () => {
+    api.get.mockResolvedValue(detail({ release: { ...release, qa_verified_at: "2026-10-20T06:00:00Z", qa_evidence: "Suite green" } }));
+    wrap(<TicketDrawer ticketId="t1" onClose={() => {}} />);
+    expect((await screen.findByTestId("ticket-reopen-clears")).textContent).toMatch(/Reopening clears the QA and customer verification/);
+  });
+
   it("records QA and customer verification evidence and links an incident", async () => {
     api.get.mockResolvedValue(detail());
     api.release.mockResolvedValue({ data: release });
