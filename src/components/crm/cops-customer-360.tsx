@@ -5,15 +5,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthReady } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { trackCops } from "@/lib/cops-analytics";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { useCopsAccountApi, type Account360 } from "@/lib/cops-crm";
 import { CopsAccountTimeline } from "./cops-account-timeline";
 import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
 import { CopsUsageTab } from "./onboarding/cops-usage-tab";
+import { CopsHealthBreakdown } from "./success/cops-health-breakdown";
 import { AccountEngineeringTab } from "./tickets/account-engineering-tab";
 import { CopsBillingTab } from "./provisioning/cops-billing-tab";
 import { SubscriptionPanel } from "./commercial/subscription-panel";
@@ -27,7 +30,7 @@ const TABS = [
   { id: "commercial", label: "Commercial" },
   { id: "onboarding", label: "Onboarding" },
   { id: "usage", label: "Usage" },
-  { id: "success", label: "Success", ships: "COPS-11 (customer success)" },
+  { id: "success", label: "Success" },
   { id: "engineering", label: "Engineering" },
   { id: "billing", label: "Billing" },
   { id: "documents", label: "Documents" },
@@ -52,32 +55,33 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 /** Appendix G wording where the Bible gives one; the action itself ships with the named ticket. */
 const APPENDIX_G: Partial<Record<TabId, { title: string; action: string }>> = {};
 
-function EmptyTab({ id, label, ships }: { id: TabId; label: string; ships: string }) {
-  const g = APPENDIX_G[id];
-  return (
-    <div className="rounded-md border border-dashed p-8 text-center" data-testid={`empty-tab-${id}`}>
-      <p className="text-sm font-medium">{g?.title ?? `${label} is not available yet`}</p>
-      {g && (
-        <button
-          type="button"
-          disabled
-          title={`Available with ${ships}`}
-          className="mt-3 rounded-md border px-3 py-1.5 text-sm font-medium opacity-60"
-        >
-          {g.action}
-        </button>
-      )}
-      <p className="mt-2 text-xs text-muted-foreground">{g ? "This action" : "It"} arrives with {ships}.</p>
-    </div>
-  );
-}
-
-function Overview({ data }: { data: Account360 }) {
+function Overview({ data, accountId }: { data: Account360; accountId: string }) {
   const h = data.header;
+  const [healthOpen, setHealthOpen] = useState(false);
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <Field label="Account state" value={humanize(h?.lifecycle.account)} />
-      <Field label="Health" value={humanize(h?.health)} />
+      <Field
+        label="Health"
+        value={
+          <button
+            type="button"
+            className="capitalize text-primary hover:underline"
+            data-testid="open-health-drawer"
+            onClick={() => {
+              setHealthOpen(true);
+              trackCops("cops.health_breakdown_opened", { surface_area: "customer_360" });
+            }}
+          >
+            {humanize(h?.health)}
+            {h?.health_score != null ? ` · ${h.health_score}` : ""} · why?
+          </button>
+        }
+      />
+      {/* COPS-11: the health factor breakdown drawer (Bible p.49: every score is explained). */}
+      <Sheet open={healthOpen} onClose={() => setHealthOpen(false)} title="Account health" description="Every factor behind the score, leading and lagging.">
+        {healthOpen && <CopsHealthBreakdown accountId={accountId} />}
+      </Sheet>
       <Field label="Support" value={humanize(h?.lifecycle.support)} />
       <Field label="Contacts" value={data.contacts?.length ?? 0} />
       <Field label="Commercial state" value={humanize(h?.commercial_state)} />
@@ -239,6 +243,8 @@ export function CopsCustomer360({
             <CopsOnboardingTab accountId={accountId} accountName={data?.header?.name} />
           ) : tab === "usage" ? (
             <CopsUsageTab accountId={accountId} />
+          ) : tab === "success" ? (
+            <CopsHealthBreakdown accountId={accountId} />
           ) : tab === "engineering" ? (
             <AccountEngineeringTab accountId={accountId} accountName={data?.header?.name} />
           ) : tab === "billing" ? (
@@ -246,8 +252,6 @@ export function CopsCustomer360({
               <SubscriptionPanel accountId={accountId} />
               <CopsBillingTab accountId={accountId} />
             </div>
-          ) : "ships" in current ? (
-            <EmptyTab id={current.id} label={current.label} ships={current.ships} />
           ) : view.isLoading ? (
             <Skeleton className="h-24 w-full rounded-md" />
           ) : view.isError ? (
@@ -257,7 +261,7 @@ export function CopsCustomer360({
                 : "Could not load this account."}
             </Alert>
           ) : data ? (
-            tab === "overview" ? <Overview data={data} /> : <Contacts data={data} />
+            tab === "overview" ? <Overview data={data} accountId={accountId} /> : <Contacts data={data} />
           ) : null}
         </CardContent>
       </Card>

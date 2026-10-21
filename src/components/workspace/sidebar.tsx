@@ -162,6 +162,7 @@ export const pipelineNav: NavGroup[] = [
       { href: "/approvals", label: "Approvals", icon: ShieldCheck, requiredPermission: ["commercial:approve", "legal:approve"], copsModule: "commercial" },
       { href: "/finance", label: "Finance", icon: Landmark, requiredPermission: "billing:read", copsModule: "commercial" },
       { href: "/follow-up", label: "Follow-up", icon: ListChecks, requiredPermission: ["onboarding:write", "crm:write"], copsModule: "onboarding" },
+      { href: "/customer-success", label: "Customer success", icon: HeartPulse, requiredPermission: "crm:read" },
       { href: "/engineering", label: "Engineering", icon: Wrench, requiredPermission: "tickets:read", copsModule: "tickets" },
       { href: "/crm/tasks", label: "Tasks", icon: CheckSquare, requiredPermission: CRM_NAV_PERMISSION },
       { href: "/crm/meetings", label: "Meetings", icon: CalendarClock, requiredPermission: CRM_NAV_PERMISSION },

@@ -52,7 +52,9 @@ export function CrmSyncSettings({ provider = "hubspot" }: { provider?: string })
               <Badge tone={enabled ? "success" : "muted"}>{enabled ? "On" : "Off"}</Badge>
             </CardTitle>
             <CardDescription>
-              Two-way sync with HubSpot is off until you turn it on. Nothing is pulled or pushed while it is off.
+              {enabled
+                ? "Skout and HubSpot keep the chosen records in step, both ways. Turn it off to stop all pulls and pushes."
+                : "Two-way sync with HubSpot is off until you turn it on. Nothing is pulled or pushed while it is off."}
             </CardDescription>
           </div>
           <Button

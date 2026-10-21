@@ -22,7 +22,7 @@ import ReactFlow, {
   type OnNodesDelete,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Bell, Clock, Database, GitBranch, Globe, Layers, LayoutGrid, RefreshCw, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
+import { Bell, Clock, Database, GitBranch, Globe, Layers, LayoutGrid, LifeBuoy, ListChecks, PencilLine, RefreshCw, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
@@ -43,6 +43,9 @@ const NODE_COLORS: Record<AutomationNodeType, string> = {
   action_ai: "#a855f7",
   action_enrichment: "#14b8a6",
   action_crm_sync: "#f59e0b",
+  action_create_task: "#0ea5e9",
+  action_create_ticket: "#dc2626",
+  action_update_fields: "#84cc16",
   approval: "#ef4444",
 };
 
@@ -57,6 +60,9 @@ const NODE_ICONS: Record<AutomationNodeType, React.ComponentType<{ className?: s
   action_ai: Sparkles,
   action_enrichment: Layers,
   action_crm_sync: RefreshCw,
+  action_create_task: ListChecks,
+  action_create_ticket: LifeBuoy,
+  action_update_fields: PencilLine,
   approval: ShieldCheck,
 };
 

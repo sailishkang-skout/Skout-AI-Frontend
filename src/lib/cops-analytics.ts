@@ -61,6 +61,11 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.envelope_sent",
   "cops.subscription_created",
   "cops.subscription_amended",
+  // COPS-11 customer success
+  "cops.health_recomputed",
+  "cops.csm_assigned",
+  "cops.success_playbooks_installed",
+  "cops.health_breakdown_opened",
   // COPS-12 ticket SLA, incidents and release tracking
   "cops.ticket_release_recorded",
   "cops.incident_ticket_linked",
