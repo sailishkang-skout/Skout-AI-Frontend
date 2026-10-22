@@ -275,6 +275,7 @@ export const intelligenceNav: NavGroup[] = [
         ],
       },
       { href: "/admin/competitive", label: "Win / loss", icon: Trophy, tourId: "nav-competitive", requiredPermission: "admin:read" },
+      { href: "/executive", label: "Executive dashboard", icon: BarChart3, requiredPermission: ["analytics:read", "billing:read"] },
       { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting", requiredPermission: "admin:read" },
       { href: "/admin/gtm-learning", label: "GTM-learning report", icon: TrendingUp, tourId: "nav-gtm-learning", requiredPermission: "admin:read" },
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot", requiredPermission: "admin:read" },
