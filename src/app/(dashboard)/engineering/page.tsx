@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,8 @@ import { TicketDrawer } from "@/components/crm/tickets/ticket-drawer";
 import { useAuthReady } from "@/lib/api-client";
 import { CopsRequestError } from "@/lib/cops-fetch";
 import { humanizeTicket, severityTone, TICKET_SEVERITIES, TICKET_STATUSES, TICKET_TIERS, useCopsTicketsApi } from "@/lib/cops-tickets";
+import { SlaChip, slaRowClass } from "@/components/crm/tickets/ticket-sla";
+import { EngineeringDashboard } from "@/components/crm/tickets/engineering-dashboard";
 
 const QUEUE_POLL_MS = 30_000;
 
@@ -28,6 +31,7 @@ export default function EngineeringQueuePage() {
   const [assignee, setAssignee] = useState("");
   const [tier, setTier] = useState("");
   const [team, setTeam] = useState("");
+  const [slaRisk, setSlaRisk] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const queue = useInfiniteQuery({
@@ -47,7 +51,9 @@ export default function EngineeringQueuePage() {
     refetchInterval: (q) => (q.state.error instanceof CopsRequestError && q.state.error.envelope?.code === "FORBIDDEN" ? false : QUEUE_POLL_MS),
     refetchIntervalInBackground: false,
   });
-  const items = queue.data?.pages.flatMap((p) => p.data) ?? [];
+  const all = queue.data?.pages.flatMap((p) => p.data) ?? [];
+  // COPS-12: "SLA risk" narrows the queue to tickets with a clock at risk or breached.
+  const items = slaRisk ? all.filter((t) => t.sla?.state === "at_risk" || t.sla?.state === "breached") : all;
   const forbidden = queue.error instanceof CopsRequestError && queue.error.envelope?.code === "FORBIDDEN";
   // COPS-07: an admin turned the module off; say so instead of blaming the role.
   const moduleOff = forbidden && ((queue.error as CopsRequestError).envelope?.details as { reason?: string } | null | undefined)?.reason === "module_disabled";
@@ -91,8 +97,17 @@ export default function EngineeringQueuePage() {
             ))}
           </Select>
           <Input aria-label="Team" value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team" className="w-32" />
+          <label className="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" checked={slaRisk} onChange={(e) => setSlaRisk(e.target.checked)} data-testid="filter-sla-risk" />
+            SLA risk only
+          </label>
+          <Link href="/engineering/incidents" className="self-center text-sm text-primary hover:underline" data-testid="link-incidents">
+            Incidents
+          </Link>
         </div>
       </div>
+
+      <EngineeringDashboard tier={tier} />
 
       <Card>
         <CardHeader className="pb-2">
@@ -117,7 +132,7 @@ export default function EngineeringQueuePage() {
           ) : (
             <ul className="divide-y" data-testid="engineering-queue">
               {items.map((t) => (
-                <li key={t.id} data-testid="engineering-row">
+                <li key={t.id} data-testid="engineering-row" className={slaRowClass(t.sla?.state)}>
                   <button type="button" onClick={() => setOpenId(t.id)} className="flex w-full flex-col gap-1 py-3 text-left hover:bg-accent/40 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -133,7 +148,10 @@ export default function EngineeringQueuePage() {
                         <span>Opened {new Date(t.created_at).toLocaleDateString()}</span>
                       </p>
                     </div>
-                    <Badge>{humanizeTicket(t.status)}</Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {t.sla && <SlaChip state={t.sla.state} dueAt={t.sla.due_at} />}
+                      <Badge>{humanizeTicket(t.status)}</Badge>
+                    </div>
                   </button>
                 </li>
               ))}

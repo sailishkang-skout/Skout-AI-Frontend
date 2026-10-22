@@ -66,6 +66,10 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.csm_assigned",
   "cops.success_playbooks_installed",
   "cops.health_breakdown_opened",
+  // COPS-12 ticket SLA, incidents and release tracking
+  "cops.ticket_release_recorded",
+  "cops.incident_ticket_linked",
+  "cops.incident_customer_update_published",
 ] as const;
 
 export type CopsAnalyticsEvent = (typeof COPS_ANALYTICS_EVENTS)[number];

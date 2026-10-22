@@ -61,11 +61,92 @@ export interface Ticket {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  /** COPS-12 */
+  first_response_at?: string | null;
+  reopen_count?: number;
+  release?: TicketRelease;
+  sla?: TicketSla;
 }
 
-export interface TicketListItem extends Ticket {
+/** COPS-12 SLA (docs/api/copos-12-ticket-sla.openapi.yaml). */
+export type SlaState = "running" | "paused" | "at_risk" | "met" | "breached";
+export interface SlaClock {
+  kind: "response" | "resolution";
+  target_minutes: number;
+  calendar: "24x7" | "business";
+  started_at: string;
+  due_at: string | null;
+  paused: boolean;
+  used_minutes: number;
+  state: SlaState;
+  met_at: string | null;
+  breached_at: string | null;
+  policy_version: number;
+}
+export interface TicketSla {
+  priority: string;
+  tier: string;
+  clocks: SlaClock[];
+}
+export interface TicketRelease {
+  release_id: string | null;
+  fixed_in_version: string | null;
+  deployed_at: string | null;
+  qa_verified_at: string | null;
+  qa_verified_by: string | null;
+  qa_evidence: string | null;
+  customer_verified_at: string | null;
+  customer_verified_by: string | null;
+  customer_evidence: string | null;
+}
+export interface ReleasePatch {
+  release_id?: string | null;
+  fixed_in_version?: string | null;
+  deployed_at?: string | null;
+  qa_evidence?: string;
+  customer_evidence?: string;
+}
+export interface TicketMetrics {
+  window_days: number;
+  open: number;
+  aged: number;
+  mtta_minutes: number | null;
+  mttr_minutes: number | null;
+  reopen_rate: number | null;
+  breach_rate: number | null;
+  incident_linked: number;
+  at_risk: number;
+  definitions: Record<string, string>;
+}
+export interface IncidentFollowUp {
+  text: string;
+  done: boolean;
+}
+export interface Incident {
+  id: string;
+  title: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "open" | "investigating" | "resolved";
+  source?: string;
+  description?: string | null;
+  owner_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  workaround: string | null;
+  root_cause: string | null;
+  follow_ups: IncidentFollowUp[];
+  customer_update: string | null;
+  customer_update_at: string | null;
+  tickets: { id: string; title: string; status: string; severity: string; assignee_id: string | null; account_id: string; account_name: string }[];
+  affected_accounts: { id: string; name: string }[];
+}
+export type IncidentPatch = Partial<Pick<Incident, "title" | "severity" | "status" | "owner_id" | "started_at" | "ended_at" | "workaround" | "root_cause" | "follow_ups">>;
+
+export interface TicketListItem extends Omit<Ticket, "sla"> {
   account_name: string;
   assignee_email: string | null;
+  /** COPS-12: the ticket's worst SLA clock. */
+  sla?: { state: SlaState; due_at: string | null } | null;
 }
 
 export interface TicketComment {
@@ -79,6 +160,8 @@ export interface TicketComment {
 }
 
 export interface TicketDetail extends Ticket {
+  /** COPS-12: the incident this ticket is linked to. */
+  incident?: { id: string; title: string; status: string; owner_id: string | null } | null;
   context: {
     account: { id: string; name: string; domain: string | null; tier: string } | null;
     contact: { id: string; name: string; email: string | null } | null;
@@ -133,7 +216,7 @@ export interface TicketFilters {
 
 export function useCopsTicketsApi() {
   const request = useApiFetch();
-  const send = <T>(method: "POST" | "PATCH", path: string, body: unknown, key?: string) =>
+  const send = <T>(method: "POST" | "PATCH" | "DELETE", path: string, body: unknown, key?: string) =>
     copsFetch<T>(path, { method, headers: key ? { "Idempotency-Key": key } : undefined, body: JSON.stringify(body ?? {}) }, { request });
   return {
     list: (f: TicketFilters) => {
@@ -164,6 +247,32 @@ export function useCopsTicketsApi() {
     escalate: (id: string, severity: TicketSeverity, reason: string) =>
       withCopsTracking("cops.ticket_escalated", () => send<{ data: Ticket }>("POST", `/api/v1/tickets/${id}/escalate`, { severity, reason }), { ticket_id: id, severity }),
     update: (id: string, body: { assignee_id?: string | null; team?: string | null; priority?: string }) => send<{ data: Ticket }>("PATCH", `/api/v1/tickets/${id}`, body),
+    // ---- COPS-12 ----
+    release: (id: string, body: ReleasePatch) =>
+      withCopsTracking("cops.ticket_release_recorded", () => send<{ data: TicketRelease }>("PATCH", `/api/v1/tickets/${id}/release`, body), {
+        ticket_id: id,
+        qa: Boolean(body.qa_evidence),
+        customer: Boolean(body.customer_evidence),
+      }),
+    metrics: (days = 30, tier?: string) => {
+      const q = new URLSearchParams({ days: String(days) });
+      if (tier) q.set("tier", tier);
+      return copsFetch<{ data: TicketMetrics }>(`/api/v1/tickets/metrics?${q.toString()}`, undefined, { request });
+    },
+    incidents: (status?: string) => copsFetch<{ data: Incident[] }>(`/api/v1/incidents${status ? `?status=${status}` : ""}`, undefined, { request }),
+    incident: (id: string) => copsFetch<{ data: Incident }>(`/api/v1/incidents/${id}/detail`, undefined, { request }),
+    createIncident: (body: { title: string; severity: Incident["severity"]; description?: string }) =>
+      send<{ data: { id: string } }>("POST", "/api/v1/incidents", { ...body, source: "manual" }),
+    updateIncident: (id: string, body: IncidentPatch) => send<{ data: Incident }>("PATCH", `/api/v1/incidents/${id}`, body),
+    linkTicket: (incidentId: string, ticketId: string) =>
+      withCopsTracking("cops.incident_ticket_linked", () => send<{ data: unknown }>("POST", `/api/v1/incidents/${incidentId}/tickets`, { ticket_id: ticketId }), { incident_id: incidentId }),
+    unlinkTicket: (incidentId: string, ticketId: string) => send<null>("DELETE", `/api/v1/incidents/${incidentId}/tickets/${ticketId}`, undefined),
+    incidentCustomerUpdate: (incidentId: string, body: string) =>
+      withCopsTracking(
+        "cops.incident_customer_update_published",
+        () => send<{ data: { ticketsUpdated: number } }>("POST", `/api/v1/incidents/${incidentId}/customer-update`, { body }),
+        (r) => ({ incident_id: incidentId, tickets: r.data.ticketsUpdated })
+      ),
     comment: (id: string, body: string, visibility: TicketVisibility, key: string = newIdempotencyKey()) =>
       withCopsTracking(
         visibility === "customer" ? "cops.ticket_customer_update_published" : "cops.ticket_internal_note_added",
@@ -201,6 +310,32 @@ export function ticketErrorMessage(error: unknown, fallback: string): string {
     const required = (env.details as { required_permission?: string } | null)?.required_permission;
     return required === "tickets:send" ? "Only Customer Success can publish updates to the customer." : "You do not have permission for this action.";
   }
+  if (env.code === "VERIFICATION_REQUIRED") return "Record QA and customer verification (with evidence) before marking the ticket verified.";
+  if (env.code === "REASON_REQUIRED") return "Reopening a ticket needs a reason.";
+  if (env.code === "TICKET_ALREADY_LINKED") return "This ticket is already linked to another incident. Unlink it there first.";
   if (env.code === "BUSINESS_STATE_CONFLICT" || env.code === "VALIDATION_FAILED" || env.code === "NOT_FOUND") return env.message || fallback;
   return fallback;
 }
+
+// ---- COPS-12 SLA display helpers ----
+
+export const SLA_STATE_LABEL: Record<SlaState, string> = { running: "On track", paused: "Paused", at_risk: "At risk", met: "Met", breached: "Breached" };
+export const SLA_STATE_TONE: Record<SlaState, "success" | "warning" | "danger" | "muted" | "info"> = {
+  running: "info",
+  paused: "muted",
+  at_risk: "warning",
+  met: "success",
+  breached: "danger",
+};
+
+/** "in 2h 5m" / "3h 10m overdue" relative to now, or null without a due time. */
+export function slaDueText(dueAt: string | null | undefined, now: Date = new Date()): string | null {
+  if (!dueAt) return null;
+  const ms = new Date(dueAt).getTime() - now.getTime();
+  const mins = Math.round(Math.abs(ms) / 60_000);
+  const text = mins >= 1440 ? `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h` : mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  return ms >= 0 ? `in ${text}` : `${text} overdue`;
+}
+
+export const minutesText = (m: number | null | undefined) => (m == null ? "—" : m >= 1440 ? `${(m / 1440).toFixed(1)}d` : m >= 60 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m)}m`);
+export const percentText = (r: number | null | undefined) => (r == null ? "—" : `${Math.round(r * 1000) / 10}%`);
