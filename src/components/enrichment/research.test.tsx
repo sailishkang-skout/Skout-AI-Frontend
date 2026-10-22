@@ -257,7 +257,10 @@ describe("PersonDetailView", () => {
     expect(JSON.parse(String(mockApiFetch.mock.calls.find(([url]) => String(url).endsWith("/enrich"))![1].body)).prospect).toMatchObject({ prospectId: "p1", companyDomain: "initech.example" });
 
     fireEvent.click(screen.getByRole("button", { name: /CSV/ }));
+    expect(mockApiFetchBlob).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Export CSV" }));
     await waitFor(() => expect(mockApiFetchBlob).toHaveBeenCalledWith("/api/v1/enrichment/people/p1/export.csv"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
     expect(mockApiFetch).not.toHaveBeenCalledWith("/api/v1/enrichment/people/p1", expect.objectContaining({ method: "DELETE" }));

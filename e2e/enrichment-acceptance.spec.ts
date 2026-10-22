@@ -327,6 +327,7 @@ test.describe("Enrichment acceptance cases (ENR-06)", () => {
 
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "CSV" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Export CSV" }).click();
     expect((await download).suggestedFilename()).toMatch(/^person-.*\.csv$/);
 
     const reEnrich = page.getByTestId("re-enrich");
