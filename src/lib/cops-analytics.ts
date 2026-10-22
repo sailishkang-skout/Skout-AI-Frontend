@@ -22,6 +22,7 @@ export const COPS_ANALYTICS_EVENTS = [
   "cops.opportunity_stage_move_refused",
   "cops.saved_view_saved",
   "cops.records_bulk_reassigned",
+  "cops.accounts_merged",
   // COPS-03
   "cops.proposal_created",
   "cops.proposal_sent",

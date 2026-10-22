@@ -16,6 +16,9 @@ import { CopsAccountTimeline } from "./cops-account-timeline";
 import { CopsCommercialTab } from "./commercial/cops-commercial-tab";
 import { CopsOnboardingTab } from "./provisioning/cops-onboarding-tab";
 import { CopsUsageTab } from "./onboarding/cops-usage-tab";
+import { Button } from "@/components/ui/button";
+import { AccountMergeDialog } from "./account-merge-dialog";
+import { can, useMyPermissions } from "@/lib/cops-commercial";
 import { CopsHealthBreakdown } from "./success/cops-health-breakdown";
 import { AccountEngineeringTab } from "./tickets/account-engineering-tab";
 import { CopsBillingTab } from "./provisioning/cops-billing-tab";
@@ -112,8 +115,18 @@ function Contacts({ data }: { data: Account360 }) {
 function RightRail({ data, signals }: { data: Account360; signals: Signal[] }) {
   const actions = data.next_actions ?? [];
   const risks = data.risks ?? [];
+  const { permissions } = useMyPermissions();
+  const [merging, setMerging] = useState(false);
   return (
     <div className="space-y-4">
+      {can(permissions, ["crm:admin"]) && data.header && (
+        <>
+          <Button size="sm" variant="outline" className="w-full" onClick={() => setMerging(true)} data-testid="account-merge-open">
+            Merge a duplicate account
+          </Button>
+          <AccountMergeDialog open={merging} onClose={() => setMerging(false)} survivorId={data.header.id} survivorName={data.header.name} />
+        </>
+      )}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Next actions</CardTitle>
