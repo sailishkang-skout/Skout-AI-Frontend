@@ -123,9 +123,29 @@ export interface Account360 {
 }
 
 /** COPS-02 Customer 360 reads: GET /accounts/:id/360 and the cursor-paginated timeline. */
+export interface MergeConflict {
+  field: string;
+  survivor_value: unknown;
+  duplicate_value: unknown;
+}
+export type MergeResult =
+  | { status: "review_required"; conflicts: MergeConflict[] }
+  | { status: "merged"; survivor_id: string; duplicate_id: string; conflicts_resolved_to_survivor: MergeConflict[] };
+
 export function useCopsAccountApi() {
   const request = useApiFetch();
   return {
+    /**
+     * COPS-02 account merge (crm:admin). Without confirm the server only reports conflicts; with
+     * confirm the survivor keeps its values and the duplicate's references move to it.
+     */
+    mergeAccounts(body: { survivor_id: string; duplicate_id: string; reason: string; confirm?: boolean }) {
+      return copsFetch<{ data: MergeResult }>(
+        "/api/v1/accounts/merge",
+        { method: "POST", body: JSON.stringify(body), headers: { "Idempotency-Key": newIdempotencyKey() } },
+        { request }
+      );
+    },
     get360(accountId: string) {
       return copsFetch<{ data: Account360 }>(`/api/v1/accounts/${accountId}/360`, undefined, { request });
     },
