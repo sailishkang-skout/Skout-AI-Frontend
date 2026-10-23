@@ -148,7 +148,7 @@ export function CampaignDetailView({ campaignId }: { campaignId: string }) {
   const api = useCampaignApi();
   const authReady = useAuthReady();
   const queryClient = useQueryClient();
-  const { hasPermission } = useWorkspaceRole();
+  const { hasPermission, userId } = useWorkspaceRole();
   const canBuild = hasPermission("enrichment:enrich");
   const canApprove = hasPermission("sequences:send");
   const [comment, setComment] = useState("");
@@ -213,6 +213,8 @@ export function CampaignDetailView({ campaignId }: { campaignId: string }) {
 
   const detail = query.data;
   const { campaign, counts } = detail;
+  // A second person approves: the creator or submitter may reject, not approve, their own campaign.
+  const ownWork = !!userId && (campaign.createdBy === userId || campaign.submittedBy === userId);
   const status = campaignStatus(campaign.status);
   const editable = canBuild && EDITABLE.has(campaign.status);
   const blocked = sendBlockedReason(detail);
@@ -333,8 +335,17 @@ export function CampaignDetailView({ campaignId }: { campaignId: string }) {
                     <Input className="max-w-sm" value={consentBasis} onChange={(event) => setConsentBasis(event.target.value)} placeholder="e.g. legitimate_interest" />
                   </label>
                 )}
+                {ownWork && (
+                  <p className="text-sm text-muted-foreground" data-testid="self-approval-note">
+                    You {campaign.createdBy === userId ? "created" : "submitted"} this campaign, so someone else with the send permission must approve it. You can still reject it.
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  <Button disabled={review.isPending || (needsBasis && !consentBasis.trim())} onClick={() => review.mutate("approved")}>
+                  <Button
+                    disabled={ownWork || review.isPending || (needsBasis && !consentBasis.trim())}
+                    title={ownWork ? "Someone other than the person who created or submitted this campaign must approve it" : undefined}
+                    onClick={() => review.mutate("approved")}
+                  >
                     {review.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                     Approve recipients and copy
                   </Button>
