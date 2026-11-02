@@ -12,7 +12,6 @@ import { PageShell } from "@/components/layout/page-shell";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskFormSheet } from "@/components/crm/task-form-sheet";
-import { CrmRecommendedAction } from "@/components/crm/crm-recommended-action";
 import { CallButton } from "@/components/crm/call-button";
 import { useTasksApi } from "@/lib/crm/tasks";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
@@ -184,8 +183,7 @@ export default function TasksPage() {
             <div className="rounded-full bg-muted p-4">
               <CheckSquare className="h-8 w-8 text-muted-foreground" />
             </div>
-            <p className="font-medium">No tasks yet</p>
-            <CrmRecommendedAction />
+            <p className="font-medium">No tasks</p>
           </CardContent>
         </Card>
       ) : (

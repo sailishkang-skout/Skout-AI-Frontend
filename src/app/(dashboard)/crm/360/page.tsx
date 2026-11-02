@@ -13,14 +13,12 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CopsCustomer360 } from "@/components/crm/cops-customer-360";
 import { formatQueryError, useAuthReady, useApiFetch } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { signalIcon, signalLabel, signalReasonText, timeAgoShort } from "@/lib/signals";
 import type { Signal } from "@/types/api";
 import type { RegionalBriefFieldCategory, ResolvedBriefEntry, ResolvedBrief } from "@/lib/regional-brief";
-import { formatMoney } from "@/lib/crm-display";
 
 // Evidence ledger interface from existing implementation
 interface EvidenceRow {
@@ -650,13 +648,11 @@ export default function Account360Page() {
                 <CardTitle className="text-base">Associated Deals ({data.deals.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {data.deals.map((d: { id?: string; name?: string; amount?: number | string | null; currency?: string | null; stage?: string }) => (
+                {data.deals.map((d: { id?: string; name?: string; amount?: number; stage?: string }) => (
                   <div key={String(d.id)} className="flex items-center justify-between rounded border p-2.5 text-xs">
                     <span className="font-semibold">{String(d.name ?? d.id)}</span>
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-muted px-2 py-0.5 font-mono">
-                        {d.amount == null || d.amount === "" ? "—" : formatMoney(Number(d.amount), d.currency ?? "USD")}
-                      </span>
+                      <span className="rounded bg-muted px-2 py-0.5 font-mono">${d.amount ?? 0}</span>
                       <span className="rounded bg-primary/10 px-2 py-0.5 text-primary font-medium">{d.stage ?? "Open"}</span>
                     </div>
                   </div>
@@ -665,11 +661,7 @@ export default function Account360Page() {
             </Card>
           )}
 
-          {/* COPS-02 Customer 360: tabs, the account timeline, next actions and risks. */}
-          {mode === "account" && lookupId && <CopsCustomer360 accountId={lookupId} signals={signals} initialTab={searchParams.get("tab")} />}
-
-          {/* Universal Chronological Timeline Feed (person view; accounts use the COPS timeline above) */}
-          {mode !== "account" && (
+          {/* Universal Chronological Timeline Feed */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Universal Activity &amp; Intent Timeline</CardTitle>
@@ -699,7 +691,6 @@ export default function Account360Page() {
               )}
             </CardContent>
           </Card>
-          )}
         </div>
       )}
     </PageShell>

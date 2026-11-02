@@ -13,7 +13,6 @@ import {
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { SubscriptionStatusBanner } from "@/components/billing/customer-subscription";
 import { authQueryOptions, useAuthReady } from "@/lib/api-client";
 import { useIcpApi } from "@/lib/icp";
 import { isOnboardingComplete } from "@/lib/scoring";
@@ -94,7 +93,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             "flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
           )}
         >
-          <SubscriptionStatusBanner />
           {children}
         </main>
       </div>

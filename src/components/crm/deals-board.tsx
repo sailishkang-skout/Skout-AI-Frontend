@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ import { useCompaniesApi } from "@/lib/crm/companies";
 import { useDealsApi } from "@/lib/crm/deals";
 import { usePipelinesApi } from "@/lib/crm/pipelines";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
-import { nextActionByDeal, stageMoveErrorMessage, useCopsCrmApi, useCopsTasksApi } from "@/lib/cops-crm";
 import type { CrmListEnvelope, CurrencyValue, Deal } from "@/types/crm";
 import { DealStageColumn } from "./deal-stage-column";
 import { DealQuickCreateDialog } from "./deal-quick-create-dialog";
@@ -28,9 +26,6 @@ export function DealsBoard() {
   const companiesApi = useCompaniesApi();
   const dealsApi = useDealsApi();
   const pipelinesApi = usePipelinesApi();
-  const copsCrmApi = useCopsCrmApi();
-  const copsTasksApi = useCopsTasksApi();
-  const [moveError, setMoveError] = useState<string | null>(null);
   const authReady = useAuthReady();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -127,18 +122,8 @@ export function DealsBoard() {
     return { openDeals, valueByCurrency };
   }, [openStages, summaryByStage]);
 
-  const dealTasks = useQuery({
-    queryKey: ["cops-tasks", "open-deal"],
-    queryFn: () => copsTasksApi.openDealTasks(),
-    enabled: authReady,
-  });
-  const nextActions = useMemo(() => nextActionByDeal(dealTasks.data?.data ?? []), [dealTasks.data]);
-
   const moveStage = useMutation({
-    // COPS-02: stage changes go through the lifecycle transition service (not a plain update), so
-    // an illegal move is refused with the allowed next moves instead of being saved.
-    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) =>
-      copsCrmApi.moveOpportunityStage(dealId, stageId, "Moved on the pipeline board"),
+    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) => dealsApi.update(dealId, { stageId }),
     onMutate: async ({ dealId, stageId }) => {
       await queryClient.cancelQueries({ queryKey: DEALS_QUERY_KEY });
       const previous = queryClient.getQueryData<CrmListEnvelope<Deal>>(DEALS_QUERY_KEY);
@@ -147,12 +132,9 @@ export function DealsBoard() {
       );
       return { previous };
     },
-    onError: (err, vars, context) => {
+    onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(DEALS_QUERY_KEY, context.previous);
-      const dealName = context?.previous?.data.find((d) => d.id === vars.dealId)?.name;
-      setMoveError(stageMoveErrorMessage(err, dealName));
     },
-    onSuccess: () => setMoveError(null),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: DEALS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["crm", "deals", "summary"] });
@@ -190,10 +172,8 @@ export function DealsBoard() {
 
   return (
     <div className="space-y-5">
-      {moveError && (
-        <div data-testid="stage-move-error">
-          <Alert variant="error">{moveError}</Alert>
-        </div>
+      {moveStage.isError && (
+        <Alert variant="error">{formatQueryError(moveStage.error, "Could not move this deal.")}</Alert>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -229,28 +209,8 @@ export function DealsBoard() {
         </div>
       </div>
 
-      {pipeline && (deals.data?.data ?? []).every((d) => d.pipelineId !== pipeline.id) && (
-        <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm" data-testid="board-empty-state">
-          <p className="font-medium">No opportunities in this pipeline yet</p>
-          <p className="text-muted-foreground">
-            Create your first opportunity or import existing deals. Each deal then moves stage by stage from Qualified to Closed.
-          </p>
-          <div className="mt-2 flex gap-2">
-            {openStages[0] && (
-              <Button size="sm" onClick={() => setQuickCreateStageId(openStages[0]!.id)}>
-                <Plus className="h-4 w-4" />
-                Create opportunity
-              </Button>
-            )}
-            <Link href="/import" className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent">
-              Import deals
-            </Link>
-          </div>
-        </div>
-      )}
-
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="scrollbar-hidden flex w-full gap-4 overflow-x-auto pb-2">
+        <div className="flex w-full gap-4 overflow-x-auto pb-2">
           {openStages.map((stage) => (
             <DealStageColumn
               key={stage.id}
@@ -259,12 +219,9 @@ export function DealsBoard() {
               stage={stage}
               deals={dealsByStage.get(stage.id) ?? []}
               companiesById={companiesById}
-              nextActions={nextActions}
               summary={summaryByStage.get(stage.id)}
               onAddDeal={() => setQuickCreateStageId(stage.id)}
-              // Columns fill the row and never go below 260px; when they do not fit, the row scrolls
-              // sideways with the scrollbar hidden (trackpad, shift + wheel or touch).
-              className="flex-1 basis-0 min-w-[260px] shrink-0"
+              className="flex-1 basis-64"
             />
           ))}
         </div>
@@ -281,7 +238,6 @@ export function DealsBoard() {
                   stage={stage}
                   deals={dealsByStage.get(stage.id) ?? []}
                   companiesById={companiesById}
-              nextActions={nextActions}
                   summary={summaryByStage.get(stage.id)}
                   onAddDeal={() => setQuickCreateStageId(stage.id)}
                   layout="row"

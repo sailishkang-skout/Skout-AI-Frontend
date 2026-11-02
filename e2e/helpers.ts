@@ -16,9 +16,7 @@ export async function gotoAppPage(page: Page, path: string, testId: string) {
   });
 
   // Next.js uses basePath="/app", so ensure path routes under /app
-  // "/approvals" also starts with "/app", so match the whole first segment.
-  const underBase = path === "/app" || path.startsWith("/app/");
-  const target = underBase ? path : `/app${path.startsWith("/") ? path : `/${path}`}`;
+  const target = path.startsWith("/app") ? path : `/app${path.startsWith("/") ? path : `/${path}`}`;
   await page.goto(target, { 
     waitUntil: "domcontentloaded",
     timeout: 45_000
