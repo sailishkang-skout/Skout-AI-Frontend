@@ -74,6 +74,8 @@ const campaign = (overrides: Partial<Campaign> = {}): Campaign => ({
   recipientCount: 3,
   consentBasis: null,
   reviewComment: null,
+  createdBy: null,
+  submittedBy: null,
   submittedAt: null,
   approvedBy: null,
   approvedAt: null,

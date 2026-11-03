@@ -55,6 +55,9 @@ export interface Campaign {
   recipientCount: number;
   consentBasis: string | null;
   reviewComment: string | null;
+  /** Who created the campaign; null for one created from a job change. */
+  createdBy: string | null;
+  submittedBy: string | null;
   submittedAt: string | null;
   approvedBy: string | null;
   approvedAt: string | null;

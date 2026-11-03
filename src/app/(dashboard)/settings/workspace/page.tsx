@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { formatQueryError, useAuthReady, useApiFetchBlob } from "@/lib/api-client";
 import { useWorkspaceRole, isForbiddenError } from "@/lib/workspace-role";
 import { openRazorpayCheckout } from "@/lib/billing";
-import { CustomerSubscriptionCard } from "@/components/billing/customer-subscription";
 import {
   WORKSPACE_CURRENT_QUERY_KEY,
   refreshCredits,
@@ -203,8 +202,6 @@ export default function WorkspaceSettingsPage() {
           </Button>
         </CardContent>
       </Card>
-
-      <CustomerSubscriptionCard />
 
       <Card>
         <CardHeader>

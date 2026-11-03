@@ -29,21 +29,14 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
   afterEach(() => cleanup());
 
   it("renders the Command Center's own grouping, with every route folded in exactly once", async () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    // Permission-gated groups only render for a user who holds the keys (see cops-nav.ts).
-    queryClient.setQueryData(["me"], { role: "admin", permissions: ["crm:read", "admin:read"] });
-    const { container, findByText } = render(
-      <QueryClientProvider client={queryClient}>
-        <SidebarPanel />
-      </QueryClientProvider>
-    );
+    const { container, findByText } = renderSidebar([]);
     await findByText("Skout AI");
 
     const labels = groupLabels(container);
     expect(labels).toEqual([
       "Home",
-      "Pipeline",
       "Prospects",
+      "Pipeline",
       "Engage",
       "Workflows",
       "Intelligence",
