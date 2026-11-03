@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { rememberInvite } from "@/lib/auth/invite-return";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthAdapter, AUTH_ENABLED, resolvedAuthMode } from "@/lib/auth";
 import { confirmInviteSetPassword } from "@/lib/auth/custom-auth-adapter";
@@ -57,13 +58,15 @@ export default function AcceptInvitePage() {
 
   const [otpStep, setOtpStep] = useState<OtpStep>("idle");
 
-  // After SSO login redirects back here — auto-send to dashboard
-  // so resolveOrProvisionUser runs and auto-accepts the pending invite
+  // Someone already signed in accepts this exact invite (the API checks the email matches);
+  // a refusal comes back here as ?error= and is shown instead of bouncing to the dashboard.
+  const acceptError = useSearchParams().get("error");
   useEffect(() => {
-    if (AUTH_ENABLED && isLoaded && isSignedIn && otpStep === "idle") {
-      router.replace("/dashboard");
+    if (AUTH_ENABLED && isLoaded && isSignedIn && otpStep === "idle" && !acceptError) {
+      rememberInvite(token);
+      window.location.assign("/app/api/auth/invite-accept");
     }
-  }, [isLoaded, isSignedIn, otpStep, router]);
+  }, [isLoaded, isSignedIn, otpStep, acceptError, token]);
   const [otpValue, setOtpValue] = useState("");
   const [otpEmail, setOtpEmail] = useState("");
   const [sessionToken, setSessionToken] = useState("");
@@ -123,8 +126,8 @@ export default function AcceptInvitePage() {
 
   const inviteData = invite.data;
 
-  // /signin was the old Clerk page and 404s. The sign-in page offers Google/Microsoft SSO; signing in
-  // with the invited email accepts the pending invite on the server (resolveOrProvisionUser).
+  // /signin was the old Clerk page and 404s. The invite is remembered so that after signing in
+  // (SSO or password) the callback accepts this exact invite and reports an email mismatch.
   const ssoSignInUrl = "/login";
 
   return (
@@ -178,10 +181,17 @@ export default function AcceptInvitePage() {
               </div>
               <h1 className="text-xl font-semibold">You&apos;re invited!</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Join <strong>{inviteData.workspaceName}</strong> as a <strong className="capitalize">Team Member</strong>.
+                Join <strong>{inviteData.workspaceName}</strong> as {inviteData.role === "owner" || inviteData.role === "admin" ? "an" : "a"}{" "}
+                <strong className="capitalize">{inviteData.role === "member" || !inviteData.role ? "team member" : inviteData.role}</strong>.
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">Sent to {inviteData.email}</p>
             </div>
+
+            {acceptError && (
+              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {acceptError}
+              </div>
+            )}
 
             {/* Step: Account created — sign in to continue */}
             {otpStep === "done" && (
@@ -264,6 +274,7 @@ export default function AcceptInvitePage() {
                 </div>
                 <Link
                   href={ssoSignInUrl}
+                  onClick={() => rememberInvite(token)}
                   className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
                 >
                   Sign in with SSO
