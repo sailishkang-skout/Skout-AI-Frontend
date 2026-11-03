@@ -180,7 +180,6 @@ export function formatQueryError(error: unknown, fallback: string): string {
     const body = error.body as
       | {
           message?: string;
-          code?: string;
           error?:
             | string
             | {
@@ -195,16 +194,6 @@ export function formatQueryError(error: unknown, fallback: string): string {
           issues?: Array<{ path?: string; message?: string }>;
         }
       | undefined;
-    if (body?.code === "VALIDATION_FAILED") {
-      const fields = (body.details as { fields?: Array<{ path?: string; message?: string }> } | undefined)?.fields;
-      if (fields?.length) {
-        const detail = fields
-          .slice(0, 4)
-          .map((field) => (field.path ? `${field.path}: ${field.message}` : field.message))
-          .join("; ");
-        return `${body.message ?? "Request validation failed"} — ${detail}`;
-      }
-    }
     if (body?.issues?.length) {
       const detail = body.issues
         .slice(0, 3)
@@ -230,12 +219,6 @@ export function formatQueryError(error: unknown, fallback: string): string {
     if (error.message) return error.message;
   }
   if (error instanceof TypeError && error.message.includes("fetch")) {
-    // The browser names the host it could not reach ("Failed to fetch (localhost:3002)"); that may
-    // be the CRM service rather than the main API, so say which one instead of always the API URL.
-    const host = /\(([^)\s]+)\)/.exec(error.message)?.[1];
-    if (host && !(getApiBase() || API_URL).includes(host)) {
-      return `Could not reach ${host} — ensure that service is running.`;
-    }
     return `Could not reach the API at ${getApiBase() || API_URL} — ensure the backend is running and NEXT_PUBLIC_API_URL matches.`;
   }
   return fallback;
@@ -294,39 +277,17 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const retrySafe =
-    ["GET", "HEAD", "OPTIONS"].includes(method) ||
-    (headers.has("Idempotency-Key") && (body === undefined || typeof body === "string"));
   let res: Response;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      res = await fetch(`${getApiBase()}${path}`, {
-        ...init,
-        body,
-        headers,
-        credentials: "include",
-      });
-    } catch (err) {
-      logApiFailure(method, path, err, { workspaceId });
-      throw err;
-    }
-
-    if (res.ok || !retrySafe || attempt >= 3) break;
-    const retryEnvelope = (await res.clone().json().catch(() => undefined)) as
-      | { retryable?: unknown; details?: { retry_after_seconds?: unknown } }
-      | undefined;
-    if (retryEnvelope?.retryable !== true) break;
-
-    const advertisedSeconds = retryEnvelope.details?.retry_after_seconds;
-    const retryAfterValue = res.headers.get("retry-after");
-    const retryAfterHeader = retryAfterValue === null ? Number.NaN : Number(retryAfterValue);
-    const retryDelay =
-      typeof advertisedSeconds === "number" && Number.isFinite(advertisedSeconds) && advertisedSeconds >= 0
-        ? advertisedSeconds * 1_000
-        : Number.isFinite(retryAfterHeader) && retryAfterHeader >= 0
-          ? retryAfterHeader * 1_000
-          : 100 * 2 ** (attempt - 1);
-    await new Promise((resolve) => setTimeout(resolve, retryDelay));
+  try {
+    res = await fetch(`${getApiBase()}${path}`, {
+      ...init,
+      body,
+      headers,
+      credentials: "include",
+    });
+  } catch (err) {
+    logApiFailure(method, path, err, { workspaceId });
+    throw err;
   }
 
   if (!res.ok) {
