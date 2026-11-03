@@ -8,6 +8,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/server";
+import { APP_BASE_PATH } from "@/lib/app-url";
 import { INVITE_RETURN_COOKIE, isInviteToken } from "@/lib/auth/invite-return";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,12 @@ export const dynamic = "force-dynamic";
 const API_URL = process.env.AUTH_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001";
 
 function go(request: NextRequest, pathname: string, error?: string) {
-  const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = error ? `?error=${encodeURIComponent(error)}` : "";
+  // Build from the Host the browser used and the /app base path: nextUrl in a route handler drops
+  // the base path and, in dev, reports localhost, which sent people to a 404.
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host;
+  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  const url = new URL(`${APP_BASE_PATH}${pathname}`, `${proto}://${host}`);
+  if (error) url.searchParams.set("error", error);
   const res = NextResponse.redirect(url);
   res.cookies.set(INVITE_RETURN_COOKIE, "", { path: "/", maxAge: 0 });
   return res;
