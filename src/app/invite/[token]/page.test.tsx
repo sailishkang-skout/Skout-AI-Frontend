@@ -8,6 +8,7 @@ const replace = vi.fn();
 vi.mock("next/navigation", () => ({
   useParams: () => ({ token: "inv_test_token" }),
   useRouter: () => ({ push, replace }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/team", () => ({
