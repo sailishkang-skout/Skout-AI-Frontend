@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -122,9 +123,9 @@ export default function AcceptInvitePage() {
 
   const inviteData = invite.data;
 
-  const ssoSignInUrl = `/signin?redirect_url=${encodeURIComponent(
-    typeof window !== "undefined" ? window.location.href : `/invite/${token}`
-  )}`;
+  // /signin was the old Clerk page and 404s. The sign-in page offers Google/Microsoft SSO; signing in
+  // with the invited email accepts the pending invite on the server (resolveOrProvisionUser).
+  const ssoSignInUrl = "/login";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -261,12 +262,12 @@ export default function AcceptInvitePage() {
                   <span className="mx-3 text-xs text-muted-foreground">or</span>
                   <div className="flex-grow border-t border-border" />
                 </div>
-                <a
+                <Link
                   href={ssoSignInUrl}
                   className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
                 >
                   Sign in with SSO
-                </a>
+                </Link>
               </div>
             )}
 
