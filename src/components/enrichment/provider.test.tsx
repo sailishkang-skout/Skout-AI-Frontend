@@ -348,6 +348,22 @@ describe("ContactDataPanel", () => {
     expect(screen.getByText(/Last contact lookup: done/)).toBeTruthy();
   });
 
+  it("labels LinkedIn-captured contact values as sourced but unverified", async () => {
+    mockApiFetch.mockResolvedValue({
+      contactData: contactData({
+        email: value({
+          provenance: { kind: "linkedin_profile", provider: "linkedin_contact_info", jobId: null, correlationId: null, confidence: 0.9, observedAt: "2026-10-12T09:00:00.000Z" },
+          verification: { status: "unverified", provider: null, verifiedAt: null, deliverabilityScore: null },
+        }),
+      }),
+    });
+    renderWithClient(panel());
+    const email = await screen.findByTestId("contact-email");
+    expect(email.textContent).toContain("Captured from LinkedIn Contact Info");
+    expect(email.textContent).toContain("Nobody has verified this value.");
+    expect(email.textContent).not.toContain("provider confidence");
+  });
+
   it("leaves absent data absent", async () => {
     mockApiFetch.mockResolvedValue({ contactData: contactData() });
     renderWithClient(panel());

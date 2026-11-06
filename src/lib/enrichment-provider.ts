@@ -81,7 +81,7 @@ export type VerificationStatus = "valid" | "invalid" | "catch_all" | "risky" | "
 export interface ContactValue {
   value: string;
   provenance: {
-    kind: "provider" | "workspace_record" | "pattern_verified" | "manual" | "crm_record";
+    kind: "provider" | "workspace_record" | "pattern_verified" | "manual" | "linkedin_profile" | "crm_record";
     provider: string;
     jobId: string | null;
     correlationId: string | null;
@@ -200,6 +200,7 @@ const PROVENANCE: Record<ContactValue["provenance"]["kind"], (provider: string) 
   workspace_record: () => "Already on this workspace's record",
   pattern_verified: () => "Built from a name pattern, then confirmed by verification",
   manual: () => "Entered by a teammate",
+  linkedin_profile: () => "Captured from LinkedIn Contact Info",
   crm_record: () => "On the CRM contact, source not recorded",
 };
 
