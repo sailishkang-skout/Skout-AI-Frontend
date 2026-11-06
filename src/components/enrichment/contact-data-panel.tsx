@@ -37,7 +37,10 @@ function ContactRow({ label, value, absentText }: { label: string; value: Contac
       </div>
       <p className="text-xs text-muted-foreground">
         {provenanceLabel(value.provenance)}
-        {value.provenance.confidence !== null && ` · ${Math.round(value.provenance.confidence * 100)}% provider confidence`}
+        {value.provenance.confidence !== null &&
+          ` · ${Math.round(value.provenance.confidence * 100)}% ${
+            value.provenance.kind === "provider" ? "provider confidence" : "confidence"
+          }`}
         {value.provenance.observedAt && ` · ${formatDateTime(value.provenance.observedAt)}`}
         {ageDays !== null && ` (${ageDays === 0 ? "today" : `${ageDays} day${ageDays === 1 ? "" : "s"} ago`})`}
       </p>
