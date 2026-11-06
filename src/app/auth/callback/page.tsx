@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { INVITE_RETURN_COOKIE, isInviteToken } from "@/lib/auth/invite-return";
 import { getServerSession } from "@/lib/auth/server";
 import { isOnboardingComplete } from "@/lib/scoring";
 import type { IcpConfig } from "@/types/api";
@@ -10,6 +12,12 @@ export default async function AuthCallbackPage() {
 
   if (!userId) {
     redirect("/sign-in");
+  }
+
+  // Signed in while accepting an invite (SSO or password): accept that invite first.
+  const pendingInvite = (await cookies()).get(INVITE_RETURN_COOKIE)?.value ?? "";
+  if (isInviteToken(pendingInvite)) {
+    redirect("/api/auth/invite-accept");
   }
 
   let destination = "/onboarding";
