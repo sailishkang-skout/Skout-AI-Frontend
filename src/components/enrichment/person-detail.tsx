@@ -149,9 +149,15 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
   const facts = factsByAttribute(person.facts);
   const mutationError = attach.error ?? findContact.error ?? csv.error ?? remove.error;
   const relationship = person.relationshipContext ?? {};
+  const mutualConnections = Array.isArray(relationship.mutualConnections)
+    ? relationship.mutualConnections
+        .map((connection) => (connection && typeof connection === "object" ? str(connection.name) : ""))
+        .filter(Boolean)
+    : [];
   const relationshipLines = [
     typeof relationship.degree === "number" ? `${relationship.degree}${["st", "nd", "rd"][relationship.degree - 1] ?? "th"}-degree connection` : "",
     str(relationship.mutualConnectionsText),
+    mutualConnections.length ? `Mutual connections: ${mutualConnections.join(", ")}` : "",
     str(relationship.sharedCompanyText),
   ].filter(Boolean);
 

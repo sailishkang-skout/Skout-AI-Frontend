@@ -78,7 +78,11 @@ const person = (overrides: Partial<PersonDetail> = {}): PersonDetail => ({
   summary: "Runs revenue operations.",
   connectionsCount: 500,
   followersCount: 1200,
-  relationshipContext: { degree: 2, mutualConnectionsText: "12 mutual connections" },
+  relationshipContext: {
+    degree: 2,
+    mutualConnectionsText: "12 mutual connections",
+    mutualConnections: [{ name: "Alex Kim", profileUrl: "https://www.linkedin.com/in/alex-kim/" }],
+  },
   experience: {
     current: [{ name: "Initech", title: "Head of Revenue", dates: "Mar 2024 - Present" }],
     previous: [{ name: "Hooli", title: "Sales Manager", dates: "2020 - 2024" }],
@@ -200,6 +204,7 @@ describe("PersonDetailView", () => {
     expect(screen.getByText("Sales Manager")).toBeTruthy();
     expect(screen.getByText("IIT Bombay")).toBeTruthy();
     expect(screen.getByText("12 mutual connections")).toBeTruthy();
+    expect(screen.getByText("Mutual connections: Alex Kim")).toBeTruthy();
 
     const badges = screen.getAllByTestId("evidence-badge");
     // 4 header facts, About, Experience (current, past), Education, Skills, Relationship, and 2 evidence rows.
