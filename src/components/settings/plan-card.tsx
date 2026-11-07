@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { CalendarClock, CreditCard, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
@@ -56,6 +58,21 @@ export function PlanCard() {
   const trialEnds = trial?.ends_at ? new Date(trial.ends_at) : null;
   const trialDaysLeft = trialEnds ? Math.ceil((trialEnds.getTime() - Date.now()) / 86_400_000) : null;
   const openBills = (s?.invoices ?? []).filter((b) => b.status !== "paid");
+  const [paying, setPaying] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+  // Opens the same hosted checkout Finance would send; paying it lifts any restriction.
+  const pay = async (billId: string) => {
+    setPaying(billId);
+    setPayError(null);
+    try {
+      const res = await fetchApi<{ data: { checkout_url: string } }>(`/api/v1/billing/subscription/invoices/${billId}/pay`, { method: "POST" });
+      window.open(res.data.checkout_url, "_blank", "noopener");
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Could not open the payment page. Ask your account manager.");
+    } finally {
+      setPaying(null);
+    }
+  };
 
   if (ents.isPending || sub.isPending) return null;
   if (!planKey && !s) return null;
@@ -89,11 +106,19 @@ export function PlanCard() {
                 {s.seats} seat{s.seats === 1 ? "" : "s"} · renews {dateText(s.renews_at)}
               </span>
             </div>
-            {openBills.length > 0 && (
-              <p className="text-muted-foreground">
-                Open bills: {openBills.map((b) => `${money(b.amount_minor, b.currency)} due ${dateText(b.due_at)}`).join(", ")}
-              </p>
-            )}
+            {openBills.map((b) => (
+              <div key={b.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span>
+                  {money(b.amount_minor, b.currency)} <span className="text-muted-foreground">due {dateText(b.due_at)}</span>
+                </span>
+                {s.billing !== "invoiced" && (
+                  <Button size="sm" disabled={paying === b.id} onClick={() => void pay(b.id)}>
+                    {paying === b.id ? "Opening…" : "Pay"}
+                  </Button>
+                )}
+              </div>
+            ))}
+            {payError && <p className="text-destructive">{payError}</p>}
           </>
         )}
       </CardContent>
