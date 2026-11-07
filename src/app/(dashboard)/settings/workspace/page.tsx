@@ -7,6 +7,7 @@ import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
+import { PlanCard } from "@/components/settings/plan-card";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -168,6 +169,8 @@ export default function WorkspaceSettingsPage() {
           We couldn&apos;t load your workspace details. Please try again.
         </Alert>
       )}
+
+      <PlanCard />
 
       <Card>
         <CardHeader>
