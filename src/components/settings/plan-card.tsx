@@ -19,6 +19,10 @@ interface CustomerSubscription {
   cadence: string;
   seats: number;
   renews_at: string;
+  /** Set when the subscription was cancelled: the day it ends (or ended). */
+  cancel_at?: string | null;
+  /** What is billed each month, as the proposal named it. */
+  items?: { description: string; kind: string; quantity: number }[];
   invoices: { id: string; period_start: string; period_end: string; amount_minor: number; currency: string; status: string; due_at: string }[];
 }
 
@@ -103,9 +107,20 @@ export function PlanCard() {
             <div className="flex items-center gap-2">
               <Users className="size-4 text-muted-foreground" />
               <span>
-                {s.seats} seat{s.seats === 1 ? "" : "s"} · renews {dateText(s.renews_at)}
+                {s.seats} seat{s.seats === 1 ? "" : "s"} ·{" "}
+                {s.status === "closed" ? "ended" : s.cancel_at ? `ends ${dateText(s.cancel_at)} (cancelled, will not renew)` : `renews ${dateText(s.renews_at)}`}
               </span>
             </div>
+            {(s.items ?? []).length > 0 && (
+              <ul className="space-y-1 rounded-md border px-3 py-2">
+                {(s.items ?? []).map((i) => (
+                  <li key={`${i.description}-${i.quantity}`} className="flex justify-between gap-3">
+                    <span>{i.description}</span>
+                    <span className="text-muted-foreground">× {i.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {openBills.map((b) => (
               <div key={b.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                 <span>
