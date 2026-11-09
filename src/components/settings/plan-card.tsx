@@ -58,13 +58,13 @@ export function PlanCard() {
   const byKey = new Map((ents.data ?? []).map((e) => [e.key, e.value ?? {}]));
   const trial = byKey.get("trial") as { starts_at?: string; ends_at?: string } | undefined;
   const s = sub.data;
-  // Once a paid subscription runs, CustomerOps writes the bought plan to plan.code; the "plan"
-  // entitlement still says "trial" from provisioning, so prefer plan.code while it is live.
+  // Once a subscription exists, CustomerOps writes the bought plan to plan.code; the "plan"
+  // entitlement still says "trial" from provisioning, so prefer plan.code whenever there is one.
   const paidPlan = byKey.get("plan.code") as unknown;
-  const planKey = String((s && s.status !== "closed" && typeof paidPlan === "string" && paidPlan) || byKey.get("plan")?.name || "");
+  const planKey = String((s && typeof paidPlan === "string" && paidPlan) || byKey.get("plan")?.name || "");
   const trialEnds = trial?.ends_at ? new Date(trial.ends_at) : null;
   const trialDaysLeft = trialEnds ? Math.ceil((trialEnds.getTime() - Date.now()) / 86_400_000) : null;
-  const openBills = (s?.invoices ?? []).filter((b) => b.status !== "paid");
+  const openBills = (s?.invoices ?? []).filter((b) => b.status === "open");
   const [paying, setPaying] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
   // Opens the same hosted checkout Finance would send; paying it lifts any restriction.
