@@ -236,6 +236,21 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
               )}
             </Fact>
             <Fact label="Location" fact={facts.locationName}>{person.location ?? "Not captured"}</Fact>
+            <Fact label="Email" fact={facts.email}>
+              {person.email ? <a href={`mailto:${person.email}`} className="text-primary underline-offset-4 hover:underline">{person.email}</a> : "Not captured"}
+            </Fact>
+            <Fact label="Phone" fact={facts.phone}>
+              {person.phone ? <a href={`tel:${person.phone.replace(/[^\d+]/g, "")}`} className="text-primary underline-offset-4 hover:underline">{person.phone}</a> : "Not captured"}
+            </Fact>
+            <Fact label="LinkedIn" fact={facts.linkedinUrl}>
+              {person.linkedinUrl ? (
+                <a href={person.linkedinUrl} target="_blank" rel="noreferrer" className="break-all text-primary underline-offset-4 hover:underline">
+                  {person.linkedinUrl.replace(/^https:\/\/(www\.)?/, "")}
+                </a>
+              ) : (
+                "Not captured"
+              )}
+            </Fact>
           </dl>
         </CardContent>
       </Card>

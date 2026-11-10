@@ -27,6 +27,9 @@ export interface PersonSummary {
   companyId: string | null;
   companyName: string | null;
   location: string | null;
+  /** From the CRM contact, e.g. read from the person's LinkedIn Contact info. Older APIs omit them. */
+  email?: string | null;
+  phone?: string | null;
   linkedinUrl: string | null;
   salesNavigatorLeadUrl: string | null;
   identity: "public_profile" | "sales_lead" | "none";
