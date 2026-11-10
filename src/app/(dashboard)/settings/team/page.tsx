@@ -224,7 +224,10 @@ export default function TeamPage() {
                   member={member}
                   myRole={myRole}
                   onChangeRole={(role) => changeRole.mutate({ userId: member.userId, role })}
-                  onRemove={() => removeMember.mutate(member.userId)}
+                  onRemove={() => {
+                    // One click used to remove a teammate at once; ask first (they lose access and their seat).
+                    if (window.confirm(`Remove ${member.fullName ?? member.email} from this workspace? They lose access right away.`)) removeMember.mutate(member.userId);
+                  }}
                   isChangingRole={changeRole.isPending && changeRole.variables?.userId === member.userId}
                   isRemoving={removeMember.isPending && removeMember.variables === member.userId}
                 />
@@ -333,6 +336,7 @@ function MemberRow({
             onClick={onRemove}
             disabled={isRemoving}
             title="Remove member"
+            aria-label={`Remove ${member.fullName ?? member.email}`}
             className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-3.5 w-3.5" />
