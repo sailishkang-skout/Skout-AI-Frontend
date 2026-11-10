@@ -71,11 +71,13 @@ const summary = (overrides: Partial<PersonSummary> = {}): PersonSummary => ({
   ...overrides,
 });
 
-const DISPLAYED = ["fullName", "headline", "employment", "locationName", "summary", "currentCompanies", "previousCompanies", "educations", "skills", "relationshipContext"];
+const DISPLAYED = ["fullName", "headline", "employment", "locationName", "email", "phone", "linkedinUrl", "summary", "currentCompanies", "previousCompanies", "educations", "skills", "relationshipContext"];
 
 const person = (overrides: Partial<PersonDetail> = {}): PersonDetail => ({
   ...summary(),
   summary: "Runs revenue operations.",
+  email: "priya@initech.example",
+  phone: "+91 98765 43210",
   connectionsCount: 500,
   followersCount: 1200,
   relationshipContext: {
@@ -207,8 +209,11 @@ describe("PersonDetailView", () => {
     expect(screen.getByText("Mutual connections: Alex Kim")).toBeTruthy();
 
     const badges = screen.getAllByTestId("evidence-badge");
-    // 4 header facts, About, Experience (current, past), Education, Skills, Relationship, and 2 evidence rows.
-    expect(badges.length).toBe(12);
+    // 7 header facts (name, headline, employer, location, email, phone, LinkedIn), About,
+    // Experience (current, past), Education, Skills, Relationship, and 2 evidence rows.
+    expect(badges.length).toBe(15);
+    expect(screen.getByRole("link", { name: "priya@initech.example" }).getAttribute("href")).toBe("mailto:priya@initech.example");
+    expect(screen.getByRole("link", { name: "+91 98765 43210" }).getAttribute("href")).toBe("tel:+919876543210");
     expect(badges.every((badge) => badge.getAttribute("data-state") !== "missing")).toBe(true);
     expect(badges.every((badge) => /captured .*2026/.test(badge.textContent ?? ""))).toBe(true);
     expect(screen.getByText("Verified employee")).toBeTruthy();
