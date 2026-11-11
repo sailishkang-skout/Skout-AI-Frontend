@@ -17,7 +17,7 @@ import { formatCaptureDate, useResearchApi, type JobChange } from "@/lib/enrichm
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { Pagination } from "./evidence-badge";
 
-const role = (value: JobChange["from"]) => [value.title, value.company].filter(Boolean).join(" at ") || "not captured";
+const role = (value: JobChange["from"]) => [value.title, value.company].filter(Boolean).join(" at ") || "Previous company not captured";
 
 /** One detected job change. `onReview` is omitted for people who cannot mark it reviewed. */
 export function JobChangeRow({ change, onReview, reviewing }: { change: JobChange; onReview?: () => void; reviewing?: boolean }) {
@@ -32,7 +32,10 @@ export function JobChangeRow({ change, onReview, reviewing }: { change: JobChang
             <span className="text-muted-foreground">{role(change.from)}</span> → <span className="font-medium">{role(change.to)}</span>
           </p>
           <p className="text-xs text-muted-foreground">
-            Detected {formatCaptureDate(change.detectedAt)} by comparing two captures of their profile
+            Detected {formatCaptureDate(change.detectedAt)}{" "}
+            {change.detectedBy === "work_history"
+              ? "from a recent move in their LinkedIn work history"
+              : "by comparing two captures of their profile"}
             {change.sourceUrl ? (
               <>
                 {" · "}
@@ -82,7 +85,7 @@ export function JobChanges() {
     <PageShell>
       <PageHeader
         title="Job changes"
-        description="People whose current company or role differs between two captures of their profile."
+        description="People whose current company or role changed: found by comparing two captures of their profile, or from a recent move (the last 90 days) in their LinkedIn work history."
       />
       <Alert variant="default">
         A job change is a prompt to review the person and their sequences. Skout does not message anyone or change an enrollment because of one.
