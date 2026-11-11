@@ -21,7 +21,7 @@ function Stat({ label, value, href, note }: { label: string; value: number; href
   );
 }
 
-/** Research summary and the job-change feed, shown at the top of the Enrichment overview. */
+/** Research summary and the job-change feed, shown on the LinkedIn Enrichment overview. */
 export function ResearchOverview() {
   const api = useResearchApi();
   const authReady = useAuthReady();

@@ -55,6 +55,8 @@ import {
   RefreshCw,
   X,
   Zap,
+  Linkedin,
+  Table2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiFetch, useAuthReady } from "@/lib/api-client";
@@ -107,6 +109,22 @@ export type NavGroup = {
   items: NavItem[];
 };
 
+/** Drops items the user cannot open; a submenu (at any depth) with nothing left is dropped too. */
+function filterNavItem(item: NavItem, granted: readonly string[]): NavItem | null {
+  if (!hasNavPermission(item.requiredPermission, granted)) return null;
+  if (!item.children) return item;
+  const children = item.children
+    .map((child) => filterNavItem(child, granted))
+    .filter((child): child is NavItem => child !== null);
+  return children.length ? { ...item, children } : null;
+}
+
+/** Whether the current path is any link inside this item, at any depth. */
+function containsPath(item: NavItem, pathname: string): boolean {
+  if (item.children?.length) return item.children.some((child) => containsPath(child, pathname));
+  return pathname === item.href || (!item.exact && pathname.startsWith(`${item.href}/`));
+}
+
 function filterNavGroups(
   groups: NavGroup[],
   granted: readonly string[]
@@ -115,15 +133,8 @@ function filterNavGroups(
     .map((group) => ({
       ...group,
       items: group.items
-        .filter((item) => hasNavPermission(item.requiredPermission, granted))
-        .map((item) => {
-          if (!item.children) return item;
-          const children = item.children.filter((child) =>
-            hasNavPermission(child.requiredPermission, granted)
-          );
-          return { ...item, children };
-        })
-        .filter((item) => !item.children || item.children.length > 0),
+        .map((item) => filterNavItem(item, granted))
+        .filter((item): item is NavItem => item !== null),
     }))
     .filter((group) => group.items.length > 0);
 }
@@ -171,14 +182,26 @@ export const prospectsNav: NavGroup[] = [
         icon: Zap,
         tourId: "nav-enrichment",
         children: [
+          // Normal enrichment: email, phone and firmographic lookups through providers.
           { href: "/enrichment", label: "Overview", icon: LayoutDashboard, exact: true, requiredPermission: "enrichment:read" },
-          { href: "/enrichment/people", label: "People", icon: Users2, requiredPermission: "enrichment:read" },
-          { href: "/enrichment/companies", label: "Companies", icon: Building2, requiredPermission: "enrichment:read" },
-          { href: "/enrichment/job-changes", label: "Job changes", icon: Activity, requiredPermission: "enrichment:read" },
-          { href: "/enrichment/capture", label: "Capture", icon: UserPlus, requiredPermission: "enrichment:capture" },
-          { href: "/enrichment/add", label: "Add profile", icon: Link2, requiredPermission: "enrichment:enrich" },
+          { href: "/enrichment/workbooks", label: "Workbooks", icon: Table2, requiredPermission: "enrichment:read" },
           { href: "/enrichment/providers", label: "Providers", icon: Plug, requiredPermission: "enrichment:admin" },
-          { href: "/enrichment/campaigns", label: "Campaigns", icon: Mail, requiredPermission: "enrichment:read" },
+          // LinkedIn Enrichment: profiles captured with the Skout extension.
+          {
+            href: "/enrichment/linkedin",
+            label: "LinkedIn Enrichment",
+            icon: Linkedin,
+            tourId: "nav-linkedin-enrichment",
+            children: [
+              { href: "/enrichment/linkedin", label: "Overview", icon: LayoutDashboard, exact: true, requiredPermission: "enrichment:read" },
+              { href: "/enrichment/people", label: "People", icon: Users2, requiredPermission: "enrichment:read" },
+              { href: "/enrichment/companies", label: "Companies", icon: Building2, requiredPermission: "enrichment:read" },
+              { href: "/enrichment/job-changes", label: "Job changes", icon: Activity, requiredPermission: "enrichment:read" },
+              { href: "/enrichment/capture", label: "Capture", icon: UserPlus, requiredPermission: "enrichment:capture" },
+              { href: "/enrichment/add", label: "Add LinkedIn link", icon: Link2, requiredPermission: "enrichment:enrich" },
+              { href: "/enrichment/campaigns", label: "Campaigns", icon: Mail, requiredPermission: "enrichment:read" },
+            ],
+          },
         ],
       },
       { href: "/import", label: "Import", icon: Upload, tourId: "nav-import" },
@@ -372,9 +395,7 @@ function NavLinkGroup({
 }) {
   const pathname = usePathname();
   const children = item.children ?? [];
-  const childActive = children.some(
-    (child) => pathname === child.href || pathname.startsWith(`${child.href}/`)
-  );
+  const childActive = children.some((child) => containsPath(child, pathname));
   const [open, setOpen] = useState(childActive);
 
   // Auto-expand when navigation lands on a child route (e.g. deep link or client nav).
@@ -411,9 +432,13 @@ function NavLinkGroup({
       </button>
       {open && (
         <div className="ml-4 mt-0.5 space-y-1 border-l pl-3">
-          {children.map((child) => (
-            <NavLink key={child.href} {...child} onNavigate={onNavigate} />
-          ))}
+          {children.map((child) =>
+            child.children && child.children.length > 0 ? (
+              <NavLinkGroup key={`group:${child.href}`} item={child} onNavigate={onNavigate} />
+            ) : (
+              <NavLink key={child.href} {...child} onNavigate={onNavigate} />
+            )
+          )}
         </div>
       )}
     </div>
