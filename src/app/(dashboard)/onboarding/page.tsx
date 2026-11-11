@@ -27,7 +27,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { formatQueryError, useAuthReady } from "@/lib/api-client";
+import { formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
+import { WORKSPACE_CURRENT_QUERY_KEY } from "@/lib/enrichment";
 import { useEmailIntelApi } from "@/lib/email-intel";
 import { useIcpApi } from "@/lib/icp";
 import { isOnboardingComplete } from "@/lib/scoring";
@@ -594,6 +595,15 @@ function generateIcpHypothesis(companyIndustry: string, companySize: string, hqC
 
 type Phase = "welcome" | "questions" | "finish";
 
+/** Personal mailboxes: their domain is not the company's website. */
+const FREE_MAIL_DOMAINS = new Set(["gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.in", "outlook.com", "hotmail.com", "live.com", "msn.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "rediffmail.com", "yandex.com", "gmx.com", "mail.com"]);
+
+/** The website guessed from a work email (riya@acme.com -> acme.com); empty for a personal mailbox. */
+function websiteFromEmail(email: string | null | undefined): string {
+  const domain = (email ?? "").split("@")[1]?.trim().toLowerCase() ?? "";
+  return domain && domain.includes(".") && !FREE_MAIL_DOMAINS.has(domain) ? domain : "";
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -678,6 +688,34 @@ export default function OnboardingPage() {
     queryFn: icpApi.get,
     enabled: authReady,
   });
+
+  // Start the company step from what Skout already knows: the workspace is named after the company
+  // when Skout sets it up, and a work email gives the website. Only empty fields are filled.
+  const apiFetch = useApiFetch();
+  const workspaceQ = useQuery<{ data?: { name?: string } }>({
+    queryKey: WORKSPACE_CURRENT_QUERY_KEY,
+    queryFn: () => apiFetch("/api/v1/workspaces/current"),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+  const meQ = useQuery<{ email?: string | null }>({
+    queryKey: ["me"],
+    queryFn: () => apiFetch("/api/v1/me"),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (prefilled || !workspaceQ.isSuccess || !meQ.isSuccess) return;
+    setPrefilled(true);
+    const name = workspaceQ.data?.data?.name?.trim() ?? "";
+    const site = websiteFromEmail(meQ.data?.email);
+    setState((prev) => ({
+      ...prev,
+      companyName: prev.companyName || name,
+      website: prev.website || site,
+    }));
+  }, [prefilled, workspaceQ.isSuccess, workspaceQ.data, meQ.isSuccess, meQ.data]);
 
   // Already finished: skip straight to the completion screen instead of restarting.
   useEffect(() => {
