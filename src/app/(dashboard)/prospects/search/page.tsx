@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, SlidersHorizontal, Target, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, Search as SearchIcon, SlidersHorizontal, Target, UserPlus, X, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
 import { GuideLink } from "@/components/guides/guide-link";
@@ -25,6 +25,7 @@ import { useEnrichmentApi, syncCreditsAfterEnrich, upsertJobFromEnrichResponse }
 import { useIcpApi, useRedirectToIcpSetup } from "@/lib/icp";
 import { EMPTY_FILTER_DRAFT, countActiveFilters, type FilterDraft } from "@/lib/search-constants";
 import { buildApiFilters } from "@/lib/build-api-filters";
+import { clearFilterField, describeSearch, type SearchChip } from "@/lib/search-summary";
 import { isIcpConfigured } from "@/lib/scoring";
 import { ProspectFilterSidebar } from "@/components/prospects/prospect-filter-sidebar";
 import { ProspectDetailSheet } from "@/components/prospects/prospect-detail-sheet";
@@ -41,25 +42,50 @@ export default function ProspectSearchPage() {
   const { showInsufficientCredits } = useCreditsModal();
   const requireCredits = useCreditGuard();
   const queryClient = useQueryClient();
+  // Nothing is sent to the API while the user types or ticks filters. `query` and `draftFilters`
+  // are edit buffers; `submitted` is what the last Search actually ran with, and it is the only
+  // thing the search query is keyed on. Every search can cost provider credits, so it only runs
+  // when the user presses Search (or Enter).
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState<FilterDraft>(EMPTY_FILTER_DRAFT);
+  const [draftFilters, setDraftFilters] = useState<FilterDraft>(EMPTY_FILTER_DRAFT);
+  const [submitted, setSubmitted] = useState<{ query: string; filters: FilterDraft }>({
+    query: "",
+    filters: EMPTY_FILTER_DRAFT,
+  });
+  // Filters the server inferred from the free-text query and mirrored into the sidebar. They are
+  // part of the search that already ran, so they must not count as unapplied edits.
+  const [syncedFilters, setSyncedFilters] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string; failed?: boolean }>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const filterCount = countActiveFilters(appliedFilters);
+  const filterCount = countActiveFilters(draftFilters);
 
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedQuery(query), 400);
-    return () => clearTimeout(id);
-  }, [query]);
-
-  // Reset to page 1 when query or filters change
-  useEffect(() => {
+  const runSearch = (nextQuery: string, nextFilters: FilterDraft) => {
+    setSubmitted({ query: nextQuery.trim(), filters: nextFilters });
+    setSyncedFilters(null);
     setPage(1);
-  }, [debouncedQuery, appliedFilters]);
+  };
+  const submitSearch = () => runSearch(query, draftFilters);
+  const clearSearch = () => {
+    setQuery("");
+    setDraftFilters(EMPTY_FILTER_DRAFT);
+    runSearch("", EMPTY_FILTER_DRAFT);
+  };
+  const removeChip = (key: SearchChip["key"]) => {
+    if (key === "query") {
+      setQuery("");
+      runSearch("", submitted.filters);
+      return;
+    }
+    setDraftFilters((curr) => clearFilterField(curr, key));
+    runSearch(submitted.query, clearFilterField(submitted.filters, key));
+  };
+  const chips = describeSearch(submitted.query, submitted.filters);
+  const isDirty =
+    query.trim() !== submitted.query ||
+    JSON.stringify(draftFilters) !== (syncedFilters ?? JSON.stringify(submitted.filters));
 
   const [detailProspect, setDetailProspect] = useState<ProspectSummary | null>(null);
   const searchParams = useSearchParams();
@@ -71,7 +97,9 @@ export default function ProspectSearchPage() {
   // existing companyDomain filter once on mount rather than requiring the user to re-enter it.
   useEffect(() => {
     if (!deepLinkCompanyDomain) return;
-    setAppliedFilters((curr) => ({ ...curr, companyDomain: deepLinkCompanyDomain }));
+    const next = { ...EMPTY_FILTER_DRAFT, companyDomain: deepLinkCompanyDomain };
+    setDraftFilters(next);
+    setSubmitted({ query: "", filters: next });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkCompanyDomain]);
 
@@ -105,59 +133,60 @@ export default function ProspectSearchPage() {
   const icpReady = isIcpConfigured(icp.data?.config);
 
   const search = useQuery({
-    queryKey: ["prospects", "search", debouncedQuery, appliedFilters, page, pageSize],
+    queryKey: ["prospects", "search", submitted, page, pageSize],
     queryFn: () =>
       api<SearchProspectsResponse>("/api/v1/search/prospects", {
         method: "POST",
         body: JSON.stringify({
-          query: debouncedQuery || undefined,
-          filters: buildApiFilters(appliedFilters),
+          query: submitted.query || undefined,
+          filters: buildApiFilters(submitted.filters),
           page,
           pageSize,
         }),
       }),
     enabled: authReady,
     placeholderData: (prev) => prev,
+    // A refocus must not re-run a search that may already have cost provider credits.
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
   });
 
-  // Synchronize NL-translated filters back to the sidebar state
+  // Mirror filters the server inferred from free text back into the sidebar (display only: the
+  // search that produced them already ran, so this must not trigger another one).
   useEffect(() => {
     const parsed = search.data?.filters;
     if (!parsed) return;
 
-    setAppliedFilters((curr) => {
-      const next = { ...curr };
-      let changed = false;
+    const next = { ...draftFilters };
+    let changed = false;
 
-      for (const [key, val] of Object.entries(parsed)) {
-        if (val == null) continue;
+    for (const [key, val] of Object.entries(parsed)) {
+      if (val == null) continue;
 
-        const frontendKey = key === "employeeBuckets" ? "companySizes" : (key as keyof FilterDraft);
-        if (!(frontendKey in EMPTY_FILTER_DRAFT)) continue;
+      const frontendKey = key === "employeeBuckets" ? "companySizes" : (key as keyof FilterDraft);
+      if (!(frontendKey in EMPTY_FILTER_DRAFT)) continue;
 
-        const defaultValue = EMPTY_FILTER_DRAFT[frontendKey];
-        if (Array.isArray(defaultValue) && Array.isArray(val)) {
-          const currArr = next[frontendKey] as string[];
-          if (val.length !== currArr.length || !val.every((item) => currArr.includes(item))) {
-            (next[frontendKey] as string[]) = [...val];
-            changed = true;
-          }
-        } else {
-          const normalized = typeof defaultValue === "boolean" ? Boolean(val) : String(val);
-          if (next[frontendKey] !== normalized) {
-            (next as any)[frontendKey] = normalized;
-            changed = true;
-          }
+      const defaultValue = EMPTY_FILTER_DRAFT[frontendKey];
+      if (Array.isArray(defaultValue) && Array.isArray(val)) {
+        const currArr = next[frontendKey] as string[];
+        if (val.length !== currArr.length || !val.every((item) => currArr.includes(item))) {
+          (next[frontendKey] as string[]) = [...val];
+          changed = true;
+        }
+      } else {
+        const normalized = typeof defaultValue === "boolean" ? Boolean(val) : String(val);
+        if (next[frontendKey] !== normalized) {
+          (next as any)[frontendKey] = normalized;
+          changed = true;
         }
       }
+    }
 
-      if (changed) {
-        setQuery("");
-        setDebouncedQuery("");
-        return next;
-      }
-      return curr;
-    });
+    if (changed) {
+      setDraftFilters(next);
+      setSyncedFilters(JSON.stringify(next));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.data?.filters]);
 
   const lists = useQuery({
@@ -358,7 +387,17 @@ export default function ProspectSearchPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="hidden w-full shrink-0 lg:block lg:w-72 xl:w-80">
-          <ProspectFilterSidebar value={appliedFilters} onChange={setAppliedFilters} />
+          <ProspectFilterSidebar
+            value={draftFilters}
+            onChange={setDraftFilters}
+            onSubmit={submitSearch}
+            footer={
+              <Button type="button" className="w-full" onClick={submitSearch} disabled={search.isFetching}>
+                {search.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />}
+                Search{isDirty ? " (changes pending)" : ""}
+              </Button>
+            }
+          />
         </div>
 
         <div className="min-w-0 flex-1 space-y-6">
@@ -368,13 +407,24 @@ export default function ProspectSearchPage() {
           <CardDescription>Keyword search combined with filters on the left.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <form
+            className="flex flex-col gap-2 sm:flex-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitSearch();
+            }}
+          >
             <Input
               placeholder="e.g. VP Sales, fintech, Series B…"
               className="min-w-0 flex-1"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search prospects"
             />
+            <Button type="submit" disabled={search.isFetching}>
+              {search.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />}
+              Search
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -384,7 +434,38 @@ export default function ProspectSearchPage() {
               <SlidersHorizontal className="h-4 w-4" />
               Filters{filterCount > 0 ? ` (${filterCount})` : ""}
             </Button>
-          </div>
+          </form>
+
+          {chips.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="active-search">
+              <span className="text-xs font-medium text-muted-foreground">Showing results for</span>
+              {chips.map((c) => (
+                <span
+                  key={c.key}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-xs"
+                >
+                  <span className="text-muted-foreground">{c.label}:</span>
+                  <span className="truncate font-medium">{c.value}</span>
+                  <button
+                    type="button"
+                    className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                    onClick={() => removeChip(c.key)}
+                    aria-label={`Remove ${c.label} ${c.value}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={clearSearch}>
+                Clear all
+              </Button>
+            </div>
+          )}
+          {isDirty && (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400" role="status">
+              Your search or filters changed — press Search to update the results.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -721,13 +802,20 @@ export default function ProspectSearchPage() {
 
       <Sheet open={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} title="Filters">
         <ProspectFilterSidebar
-          value={appliedFilters}
-          onChange={setAppliedFilters}
-          onClear={() => setAppliedFilters(EMPTY_FILTER_DRAFT)}
+          value={draftFilters}
+          onChange={setDraftFilters}
+          onClear={() => setDraftFilters(EMPTY_FILTER_DRAFT)}
           className="border-0"
         />
         <div className="mt-4 flex justify-end">
-          <Button onClick={() => setMobileFiltersOpen(false)}>Apply filters</Button>
+          <Button
+            onClick={() => {
+              setMobileFiltersOpen(false);
+              submitSearch();
+            }}
+          >
+            Search
+          </Button>
         </div>
       </Sheet>
 
