@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, Search as SearchIcon, SlidersHorizontal, Target, UserPlus, X, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Mail, Phone, RefreshCw, Search as SearchIcon, SlidersHorizontal, Target, UserPlus, X, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
 import { GuideLink } from "@/components/guides/guide-link";
@@ -56,7 +56,9 @@ export default function ProspectSearchPage() {
   // part of the search that already ran, so they must not count as unapplied edits.
   const [syncedFilters, setSyncedFilters] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [enriched, setEnriched] = useState<Record<string, { email?: string; status?: string; failed?: boolean }>>({});
+  const [enriched, setEnriched] = useState<
+    Record<string, { email?: string; status?: string; phone?: string; failed?: boolean; tried?: { email?: boolean; phone?: boolean } }>
+  >({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -287,6 +289,46 @@ export default function ProspectSearchPage() {
       setEnriched((cur) => ({ ...cur, [p.prospectId]: { failed: true } }));
     },
   });
+
+  // Snov-style reveal: contact details are only looked up (and billed) when the user asks for one.
+  const reveal = useMutation({
+    mutationFn: ({ p, kind }: { p: ProspectSummary; kind: "email" | "phone" }) =>
+      enrichmentApi.enrichProspect(
+        p.prospectId,
+        toSnapshot(p),
+        kind === "email" ? ["email", "validation"] : ["phone"]
+      ),
+    onSuccess: (data, { p, kind }) => {
+      const fields: ("email" | "validation" | "phone")[] = kind === "email" ? ["email", "validation"] : ["phone"];
+      syncCreditsAfterEnrich(queryClient, data.creditsUsed);
+      upsertJobFromEnrichResponse(queryClient, data, p.prospectId, fields);
+      const value = data.results.find((r) => r.field === kind)?.value;
+      setEnriched((cur) => {
+        const prev = cur[p.prospectId];
+        return {
+          ...cur,
+          [p.prospectId]: {
+            ...prev,
+            ...(kind === "email"
+              ? { email: value ?? prev?.email, status: data.results.find((r) => r.field === "email_status")?.value ?? prev?.status }
+              : { phone: value ?? prev?.phone }),
+            failed: false,
+            tried: { ...prev?.tried, [kind]: true },
+          },
+        };
+      });
+    },
+    onError: (err, { p }) => {
+      if (handleCreditsError(err, showInsufficientCredits)) return;
+      setEnriched((cur) => ({ ...cur, [p.prospectId]: { ...cur[p.prospectId], failed: true } }));
+    },
+  });
+
+  const handleReveal = (p: ProspectSummary, kind: "email" | "phone") => {
+    if (redirectToIcpSetup("/prospects/search")) return;
+    if (!requireCredits(1)) return;
+    reveal.mutate({ p, kind });
+  };
 
   const handleEnrich = (p: ProspectSummary) => {
     if (redirectToIcpSetup("/prospects/search")) return;
@@ -594,6 +636,8 @@ export default function ProspectSearchPage() {
                 const e = enriched[p.prospectId];
                 const pendingEnrich =
                   enrich.isPending && enrich.variables?.prospectId === p.prospectId;
+                const revealing = reveal.isPending && reveal.variables?.p.prospectId === p.prospectId;
+                const isPerson = p.recordType !== "company";
                 const pendingScore =
                   scoreLead.isPending && scoreLead.variables?.prospectId === p.prospectId;
                 const isSelected = selected.has(p.prospectId);
@@ -644,6 +688,38 @@ export default function ProspectSearchPage() {
                               <Target className="h-4 w-4" />
                             )}
                             Score
+                          </Button>
+                        )}
+                        {isPerson && !e?.email && !e?.tried?.email && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReveal(p, "email")}
+                            disabled={revealing || pendingEnrich}
+                            className="w-full sm:w-auto"
+                          >
+                            {revealing && reveal.variables?.kind === "email" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="h-4 w-4" />
+                            )}
+                            Get email
+                          </Button>
+                        )}
+                        {isPerson && !e?.phone && !e?.tried?.phone && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReveal(p, "phone")}
+                            disabled={revealing || pendingEnrich}
+                            className="w-full sm:w-auto"
+                          >
+                            {revealing && reveal.variables?.kind === "phone" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Phone className="h-4 w-4" />
+                            )}
+                            Get phone
                           </Button>
                         )}
                         <Button
@@ -726,7 +802,19 @@ export default function ProspectSearchPage() {
                             {e.status && <Badge tone={statusTone(e.status)}>{e.status}</Badge>}
                           </p>
                         )}
-                        {e?.failed && !pendingEnrich && (
+                        {e?.phone && (
+                          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span className="break-all">{e.phone}</span>
+                          </p>
+                        )}
+                        {e?.tried?.email && !e.email && (
+                          <p className="mt-1 text-xs text-muted-foreground">No email found for this person.</p>
+                        )}
+                        {e?.tried?.phone && !e.phone && (
+                          <p className="mt-1 text-xs text-muted-foreground">No phone number found for this person.</p>
+                        )}
+                        {e?.failed && !pendingEnrich && !revealing && (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                             Enrichment failed — try again
                           </p>
