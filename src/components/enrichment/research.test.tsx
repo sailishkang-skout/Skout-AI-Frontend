@@ -356,6 +356,24 @@ describe("JobChanges", () => {
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/job-changes/22222222-2222-4222-8222-222222222222/review", expect.objectContaining({ method: "POST" }))
     );
+    expect(screen.getByText(/^Detected .* by comparing two captures of their profile/)).toBeTruthy();
+  });
+
+  it("shows the previous company for a move found in the work history", async () => {
+    mockApiFetch.mockResolvedValue({
+      jobChanges: [
+        jobChange({ detectedBy: "work_history", from: { company: "EY Technology Solutions", title: "Senior Consultant" }, to: { company: "Skout AI", title: "AI Forward Deployed Engineer" } }),
+        jobChange({ id: "33333333-3333-4333-8333-333333333333", fullName: "Alex Kim", from: { company: null, title: null } }),
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 25,
+    });
+    renderWithClient(<JobChanges />);
+    expect(await screen.findByText("Senior Consultant at EY Technology Solutions")).toBeTruthy();
+    expect(screen.getByText("AI Forward Deployed Engineer at Skout AI")).toBeTruthy();
+    expect(screen.getByText(/from a recent move in their LinkedIn work history/)).toBeTruthy();
+    expect(screen.getByText("Previous company not captured")).toBeTruthy();
   });
 });
 

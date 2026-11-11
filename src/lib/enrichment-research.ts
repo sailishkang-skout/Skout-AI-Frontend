@@ -120,6 +120,8 @@ export interface JobChange extends ChangeEvent {
   sourceUrl: string | null;
   from: { company: string | null; title: string | null };
   to: { company: string | null; title: string | null };
+  /** How it was found: two captures differ, or one capture's work history shows a recent move. Older APIs omit it. */
+  detectedBy?: "capture_comparison" | "work_history";
   requiresReview: boolean;
 }
 
