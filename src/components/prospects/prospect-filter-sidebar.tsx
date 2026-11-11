@@ -111,11 +111,17 @@ export function ProspectFilterSidebar({
   value,
   onChange,
   onClear,
+  onSubmit,
+  footer,
   className,
 }: {
   value: FilterDraft;
   onChange: (draft: FilterDraft) => void;
   onClear?: () => void;
+  /** Called when the user presses Enter inside a filter input. */
+  onSubmit?: () => void;
+  /** Rendered under the filter list, e.g. the Search button. */
+  footer?: ReactNode;
   className?: string;
 }) {
   // Multiple sections can be open at once so users can compare filters.
@@ -452,7 +458,16 @@ export function ProspectFilterSidebar({
   ];
 
   return (
-    <aside className={cn("flex flex-col rounded-lg border border-border bg-card", className)} data-testid="prospect-filter-sidebar">
+    <aside
+      className={cn("flex flex-col rounded-lg border border-border bg-card", className)}
+      data-testid="prospect-filter-sidebar"
+      onKeyDown={(e) => {
+        if (onSubmit && e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
+    >
       <div className="flex items-center justify-between border-b px-3 py-2.5">
         <p className="text-sm font-semibold">Filters</p>
         {activeCount > 0 && (
@@ -481,6 +496,7 @@ export function ProspectFilterSidebar({
           </FilterSection>
         ))}
       </div>
+      {footer && <div className="border-t p-3">{footer}</div>}
     </aside>
   );
 }
