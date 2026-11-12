@@ -236,6 +236,8 @@ export default function ProspectSearchPage() {
     industry: p.industry,
     country: p.country,
     companyDomain: p.companyDomain,
+    companyName: p.companyName,
+    linkedinUrl: p.linkedinUrl,
     employeeCount: p.employeeCount,
   });
 
@@ -702,6 +704,7 @@ export default function ProspectSearchPage() {
                             </a>
                           )}
                           {p.recordType === "company" && <Badge tone="info">Company</Badge>}
+                          {p.origin === "extension" && <Badge tone="info">From extension</Badge>}
                         </div>
                         <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                           <span className="truncate">{p.title || "—"}</span>
