@@ -4,12 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Mail, Phone, RefreshCw, Search as SearchIcon, SlidersHorizontal, Target, UserPlus, X, Zap } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Linkedin, Loader2, Mail, Phone, RefreshCw, Search as SearchIcon, SlidersHorizontal, Target, UserPlus, X, Zap } from "lucide-react";
 import { ScorePill } from "@/components/scoring/score-badge";
 import { SignalBadges } from "@/components/signals/signal-badges";
 import { GuideLink } from "@/components/guides/guide-link";
 import { DemoBanner } from "@/components/layout/demo-banner";
-import { ListRow } from "@/components/layout/list-row";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -583,9 +582,10 @@ export default function ProspectSearchPage() {
                 const { total, page: p, pageSize: ps, cached } = search.data;
                 const from = Math.min((p - 1) * ps + 1, total);
                 const to = Math.min(p * ps, total);
+                void cached;
                 return total > 0
-                  ? `Showing ${from}–${to} of ${total.toLocaleString()} · ${cached ? "cached" : "live"}`
-                  : `${total.toLocaleString()} matches`;
+                  ? `${total.toLocaleString()} ${total === 1 ? "person" : "people"} · showing ${from}–${to}`
+                  : "No matches";
               })()}
             </CardDescription>
           </div>
@@ -631,7 +631,16 @@ export default function ProspectSearchPage() {
               ))}
             </ul>
           ) : results.length ? (
-            <ul>
+            <div data-testid="prospect-results">
+              <div className="hidden items-center gap-4 border-b px-2 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[1.25rem_minmax(0,2.4fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.9fr)_auto]">
+                <span />
+                <span>Person</span>
+                <span>Company</span>
+                <span>Location</span>
+                <span>Contact</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <ul>
               {results.map((p) => {
                 const e = enriched[p.prospectId];
                 const pendingEnrich =
@@ -642,189 +651,207 @@ export default function ProspectSearchPage() {
                   scoreLead.isPending && scoreLead.variables?.prospectId === p.prospectId;
                 const isSelected = selected.has(p.prospectId);
                 const score = scores?.[p.prospectId]?.score;
+                const realDomain = p.companyDomain && !p.companyDomain.endsWith("linkedin-capture.local") ? p.companyDomain : "";
+                const companyLabel = p.companyName || realDomain;
+                const initials = p.fullName
+                  .split(/\s+/)
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((w) => w[0]?.toUpperCase())
+                  .join("");
+                const location = [p.city, p.country].filter(Boolean).join(", ");
                 return (
-                  <ListRow
+                  <li
                     key={p.prospectId}
-                    actions={
-                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    className={`grid grid-cols-1 items-center gap-3 border-b px-2 py-3 last:border-b-0 hover:bg-muted/40 lg:grid-cols-[1.25rem_minmax(0,2.4fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.9fr)_auto] lg:gap-4 ${isSelected ? "bg-primary/5" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 rounded border-border"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(p.prospectId)}
+                      aria-label={`Select ${p.fullName}`}
+                    />
+
+                    {/* Person */}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+                        aria-hidden="true"
+                      >
+                        {initials || "?"}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="truncate text-left text-sm font-medium hover:text-primary hover:underline"
+                            onClick={() => setDetailProspect(p)}
+                          >
+                            {p.fullName}
+                          </button>
+                          {p.linkedinUrl && (
+                            <a
+                              href={p.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 text-muted-foreground hover:text-primary"
+                              aria-label={`${p.fullName} on LinkedIn`}
+                            >
+                              <Linkedin className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                          {p.recordType === "company" && <Badge tone="info">Company</Badge>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                          <span className="truncate">{p.title || "—"}</span>
+                          {isPerson && (
+                            <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="title" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Company */}
+                    <div className="min-w-0 text-sm">
+                      <p className="truncate font-medium">{companyLabel || "—"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[p.industry, p.employeeCount ? `${p.employeeCount.toLocaleString()} emp.` : ""]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {p.signals && p.signals.length > 0 && (
+                        <SignalBadges entityId={p.companyId} entityType="company" signals={p.signals} className="mt-1" />
+                      )}
+                      {p.techStack && p.techStack.length > 0 && (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          Tech: {p.techStack.slice(0, 3).map((t) => t.technology).join(", ")}
+                          {p.techStack.length > 3 ? "…" : ""}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Location */}
+                    <p className="truncate text-sm text-muted-foreground">{location || "—"}</p>
+
+                    {/* Contact: revealed only when the user asks (credits are spent per reveal) */}
+                    <div className="min-w-0 space-y-1.5 text-xs">
+                      {e?.email && (
+                        <p className="flex flex-wrap items-center gap-1.5">
+                          <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="break-all font-medium">{e.email}</span>
+                          <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="email" />
+                          {e.status && <Badge tone={statusTone(e.status)}>{e.status}</Badge>}
+                        </p>
+                      )}
+                      {e?.phone && (
+                        <p className="flex items-center gap-1.5 font-medium">
+                          <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="break-all">{e.phone}</span>
+                        </p>
+                      )}
+                      {e?.tried?.email && !e.email && <p className="text-muted-foreground">No email found</p>}
+                      {e?.tried?.phone && !e.phone && <p className="text-muted-foreground">No phone found</p>}
+                      {e?.failed && !pendingEnrich && !revealing && (
+                        <p className="text-red-600 dark:text-red-400">Lookup failed — try again</p>
+                      )}
+                      {isPerson && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {!e?.email && !e?.tried?.email && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleReveal(p, "email")}
+                              disabled={revealing || pendingEnrich}
+                            >
+                              {revealing && reveal.variables?.kind === "email" ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5" />
+                              )}
+                              Get email
+                            </Button>
+                          )}
+                          {!e?.phone && !e?.tried?.phone && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleReveal(p, "phone")}
+                              disabled={revealing || pendingEnrich}
+                            >
+                              {revealing && reveal.variables?.kind === "phone" ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Phone className="h-3.5 w-3.5" />
+                              )}
+                              Get phone
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                      {/* SS-11: fit and timing scores if available, else the single composite score */}
+                      {p.fitScore != null && p.timingScore != null ? (
+                        <div className="flex gap-2">
+                          <div className="flex flex-col items-center">
+                            <ScorePill score={p.fitScore} className="justify-center" />
+                            <span className="mt-0.5 text-[10px] text-muted-foreground">ICP Match</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <ScorePill score={p.timingScore} className="justify-center" />
+                            <span className="mt-0.5 text-[10px] text-muted-foreground">Signal Timing</span>
+                          </div>
+                        </div>
+                      ) : score != null ? (
+                        <ScorePill score={score} className="justify-center" />
+                      ) : (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setDetailProspect(p)}
-                          className="w-full sm:w-auto"
-                          aria-label={`View details for ${p.fullName}`}
+                          onClick={() => handleScore(p)}
+                          disabled={pendingScore || !icpReady}
+                          aria-label={`Score ${p.fullName}`}
                         >
-                          <ExternalLink className="h-4 w-4" />
-                          Details
+                          {pendingScore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+                          Score
                         </Button>
-                        {/* SS-11: Render fit and timing scores if available, else single composite score */}
-                        {p.fitScore != null && p.timingScore != null ? (
-                          <div className="flex gap-2 justify-center sm:self-center">
-                            <div className="flex flex-col items-center">
-                              <ScorePill score={p.fitScore} className="justify-center" />
-                              <span className="text-[10px] text-muted-foreground mt-0.5">ICP Match</span>
-                            </div>
-                            <div className="flex flex-col items-center">
-                              <ScorePill score={p.timingScore} className="justify-center" />
-                              <span className="text-[10px] text-muted-foreground mt-0.5">Signal Timing</span>
-                            </div>
-                          </div>
-                        ) : score != null ? (
-                          <ScorePill
-                            score={score}
-                            className="justify-center sm:self-center"
-                          />
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleScore(p)}
-                            disabled={pendingScore || !icpReady}
-                            className="w-full sm:w-auto"
-                          >
-                            {pendingScore ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Target className="h-4 w-4" />
-                            )}
-                            Score
-                          </Button>
-                        )}
-                        {isPerson && !e?.email && !e?.tried?.email && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReveal(p, "email")}
-                            disabled={revealing || pendingEnrich}
-                            className="w-full sm:w-auto"
-                          >
-                            {revealing && reveal.variables?.kind === "email" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Mail className="h-4 w-4" />
-                            )}
-                            Get email
-                          </Button>
-                        )}
-                        {isPerson && !e?.phone && !e?.tried?.phone && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReveal(p, "phone")}
-                            disabled={revealing || pendingEnrich}
-                            className="w-full sm:w-auto"
-                          >
-                            {revealing && reveal.variables?.kind === "phone" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Phone className="h-4 w-4" />
-                            )}
-                            Get phone
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEnrich(p)}
-                          disabled={pendingEnrich}
-                          className="w-full sm:w-auto"
-                        >
-                          {pendingEnrich ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : e?.failed ? (
-                            <RefreshCw className="h-4 w-4" />
-                          ) : (
-                            <Zap className="h-4 w-4" />
-                          )}
-                          {e?.failed ? "Retry" : "Enrich"}
-                        </Button>
-                      </div>
-                    }
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-border"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(p.prospectId)}
-                        aria-label={`Select ${p.fullName}`}
-                      />
-                      <button
-                        type="button"
-                        className="min-w-0 text-left"
-                        onClick={() => setDetailProspect(p)}
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEnrich(p)}
+                        disabled={pendingEnrich}
+                        aria-label={`Enrich ${p.fullName}`}
                       >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium hover:text-primary hover:underline">{p.fullName}</p>
-                          {p.recordType === "company" ? (
-                            <Badge tone="info">Company</Badge>
-                          ) : p.title ? (
-                            <Badge tone="muted">Contact</Badge>
-                          ) : null}
-                          {p.employeeCount != null && p.employeeCount > 0 && (
-                            <Badge tone="muted">{p.employeeCount.toLocaleString()} emp.</Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground sm:text-sm mt-0.5">
-                          {p.recordType === "company" ? (
-                            <span>{p.companyDomain}{p.country ? ` · ${p.country}` : ""}</span>
-                          ) : (
-                            <span className="flex items-center gap-1 flex-wrap">
-                              <span className="font-medium text-foreground">{p.title || "—"}</span>
-                              <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="title" />
-                              <span className="ml-1">· {p.companyDomain} · {p.country}</span>
-                            </span>
-                          )}
-                        </div>
-                        {p.industry && (
-                          <p className="mt-0.5 text-xs text-muted-foreground">{p.industry}</p>
+                        {pendingEnrich ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : e?.failed ? (
+                          <RefreshCw className="h-4 w-4" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
                         )}
-                        {p.signals && p.signals.length > 0 && (
-                          <SignalBadges
-                             entityId={p.companyId}
-                             entityType="company"
-                             signals={p.signals}
-                             className="mt-1.5"
-                          />
-                        )}
-                        {p.techStack && p.techStack.length > 0 && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Tech: {p.techStack.slice(0, 4).map((t) => t.technology).join(", ")}
-                            {p.techStack.length > 4 ? "…" : ""}
-                          </p>
-                        )}
-                        {e?.email && (
-                          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="break-all font-medium flex items-center gap-1 flex-wrap">
-                              <span>{e.email}</span>
-                              <FieldEvidenceBadge entityId={p.prospectId} entityType="prospect" attribute="email" />
-                            </span>
-                            {e.status && <Badge tone={statusTone(e.status)}>{e.status}</Badge>}
-                          </p>
-                        )}
-                        {e?.phone && (
-                          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <span className="break-all">{e.phone}</span>
-                          </p>
-                        )}
-                        {e?.tried?.email && !e.email && (
-                          <p className="mt-1 text-xs text-muted-foreground">No email found for this person.</p>
-                        )}
-                        {e?.tried?.phone && !e.phone && (
-                          <p className="mt-1 text-xs text-muted-foreground">No phone number found for this person.</p>
-                        )}
-                        {e?.failed && !pendingEnrich && !revealing && (
-                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                            Enrichment failed — try again
-                          </p>
-                        )}
-                      </button>
+                        {e?.failed ? "Retry" : "Enrich"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDetailProspect(p)}
+                        aria-label={`View details for ${p.fullName}`}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Details
+                      </Button>
                     </div>
-                  </ListRow>
+                  </li>
                 );
               })}
-            </ul>
+              </ul>
+            </div>
           ) : (
             !search.error && (
               <div className="flex flex-col items-center gap-2 py-12 text-center">
