@@ -48,9 +48,10 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
     const readOnly = renderSidebar(["enrichment:read"]);
     await readOnly.findByText("Skout AI");
     fireEvent.click(readOnly.getByRole("button", { name: "Enrichment" }));
-    // Normal enrichment sits directly under Enrichment; LinkedIn pages sit in their own section.
+    // Enrichment holds only provider enrichment; LinkedIn Enrichment is its own Prospects item.
     expect(readOnly.getByText("Workbooks")).toBeTruthy();
     expect(readOnly.queryByText("People")).toBeNull();
+    fireEvent.click(readOnly.getByRole("button", { name: "Enrichment" }));
     fireEvent.click(readOnly.getByRole("button", { name: "LinkedIn Enrichment" }));
     expect(readOnly.getByText("People")).toBeTruthy();
     expect(readOnly.getByText("Companies")).toBeTruthy();
@@ -61,7 +62,6 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
 
     const canCapture = renderSidebar(["enrichment:read", "enrichment:capture"]);
     await canCapture.findByText("Skout AI");
-    fireEvent.click(canCapture.getByRole("button", { name: "Enrichment" }));
     fireEvent.click(canCapture.getByRole("button", { name: "LinkedIn Enrichment" }));
     expect(canCapture.getByText("Capture")).toBeTruthy();
     canCapture.unmount();
@@ -70,5 +70,6 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
     const none = renderSidebar([]);
     await none.findByText("Skout AI");
     expect(none.queryByRole("button", { name: "Enrichment" })).toBeNull();
+    expect(none.queryByRole("button", { name: "LinkedIn Enrichment" })).toBeNull();
   });
 });
