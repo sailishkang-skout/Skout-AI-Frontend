@@ -83,6 +83,9 @@ export interface ProspectSummary {
   industry: string;
   companyDomain: string;
   companyName?: string;
+  /** Public LinkedIn profile URL, when the source provided one. */
+  linkedinUrl?: string;
+  city?: string;
   recordType?: "person" | "company";
   employeeCount?: number;
   /** §8.2 SS-04 — fit (ICP/firmographic match) and timing (signal-stacking score) shown as
