@@ -121,6 +121,18 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
+    id: "linkedin-enrichment",
+    target: "nav-linkedin-enrichment",
+    href: "/enrichment/linkedin",
+    title: "LinkedIn Enrichment",
+    body: "Review people and companies captured from LinkedIn with the Skout extension, and spot job changes.",
+    details: [
+      "Capture a profile or company with the extension, or add a LinkedIn link",
+      "Job changes show where a person moved from and to",
+      "Captured facts are marked verified or discovered",
+    ],
+  },
+  {
     id: "workbooks",
     target: "nav-workbooks",
     href: "/enrichment/workbooks",
