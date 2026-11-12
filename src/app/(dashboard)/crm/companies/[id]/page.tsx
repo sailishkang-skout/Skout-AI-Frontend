@@ -1,5 +1,6 @@
 "use client";
 
+import { leadSourceLabel } from "@/lib/crm/lead-source";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -150,6 +151,12 @@ export default function CompanyDetailPage() {
               <span className="flex items-center gap-1.5">
                 {data.location}
                 <FieldSourceBadge field="location" fieldSources={data.fieldSources} />
+              </span>
+            )}
+            {data.leadSource && (
+              <span title="Where this company came from">
+                Source: {leadSourceLabel(data.leadSource)}
+                {data.leadSourceDetail ? ` · ${data.leadSourceDetail}` : ""}
               </span>
             )}
           </div>

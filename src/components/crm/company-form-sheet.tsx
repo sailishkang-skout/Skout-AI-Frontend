@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { useCompaniesApi } from "@/lib/crm/companies";
 import { formatQueryError } from "@/lib/api-client";
 import { Field } from "./form-field";
+import { LEAD_SOURCES, leadSourceDetailHint } from "@/lib/crm/lead-source";
 import type { Company, CompanyStatus } from "@/types/crm";
 
 const STATUS_OPTIONS: CompanyStatus[] = ["active", "customer", "churned"];
@@ -38,6 +39,8 @@ export function CompanyFormSheet({
   const [revenue, setRevenue] = useState("");
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState<CompanyStatus>("active");
+  const [leadSource, setLeadSource] = useState("");
+  const [leadSourceDetail, setLeadSourceDetail] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +51,8 @@ export function CompanyFormSheet({
     setRevenue(company?.revenue != null ? String(company.revenue) : "");
     setLocation(company?.location ?? "");
     setStatus(company?.status ?? "active");
+    setLeadSource(company?.leadSource ?? "");
+    setLeadSourceDetail(company?.leadSourceDetail ?? "");
   }, [open, company]);
 
   const save = useMutation({
@@ -60,6 +65,9 @@ export function CompanyFormSheet({
         revenue: revenue ? Number(revenue) : undefined,
         location: location.trim() || undefined,
         status,
+        // Edit sends null to clear it; create leaves it out when not picked.
+        leadSource: leadSource || (isEdit ? null : undefined),
+        leadSourceDetail: leadSource ? leadSourceDetail.trim() || null : isEdit ? null : undefined,
       };
       return isEdit ? companiesApi.update(company!.id, input) : companiesApi.create(input);
     },
@@ -108,6 +116,27 @@ export function CompanyFormSheet({
         <Field label="Location" fieldSource={company?.fieldSources.location}>
           <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Austin, TX" />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Source">
+            <Select value={leadSource} onChange={(e) => setLeadSource(e.target.value)}>
+              <option value="">Not set</option>
+              {LEAD_SOURCES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Source detail">
+            <Input
+              value={leadSourceDetail}
+              onChange={(e) => setLeadSourceDetail(e.target.value)}
+              placeholder={leadSourceDetailHint(leadSource)}
+              disabled={!leadSource}
+              maxLength={255}
+            />
+          </Field>
+        </div>
         <Field label="Status">
           <Select value={status} onChange={(e) => setStatus(e.target.value as CompanyStatus)}>
             {STATUS_OPTIONS.map((s) => (

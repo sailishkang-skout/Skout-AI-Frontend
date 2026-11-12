@@ -14,6 +14,7 @@ import { usePipelinesApi } from "@/lib/crm/pipelines";
 import { useAuthReady, formatQueryError } from "@/lib/api-client";
 import { CURRENCY_OPTIONS } from "@/lib/crm-display";
 import { Field } from "./form-field";
+import { LEAD_SOURCES, leadSourceDetailHint } from "@/lib/crm/lead-source";
 import type { Deal, DealStatus } from "@/types/crm";
 
 const STATUS_OPTIONS: DealStatus[] = ["open", "won", "lost"];
@@ -46,6 +47,9 @@ export function DealFormSheet({
   const [pipelineId, setPipelineId] = useState("");
   const [stageId, setStageId] = useState("");
   const [status, setStatus] = useState<DealStatus>("open");
+  // Empty on a new deal = the company's source (the API copies it).
+  const [leadSource, setLeadSource] = useState("");
+  const [leadSourceDetail, setLeadSourceDetail] = useState("");
 
   const companies = useQuery({
     queryKey: ["crm", "companies", { forPicker: true }],
@@ -70,6 +74,8 @@ export function DealFormSheet({
     setCloseDate(deal?.closeDate ? deal.closeDate.slice(0, 10) : "");
     setStageId(deal?.stageId ?? "");
     setStatus(deal?.status ?? "open");
+    setLeadSource(deal?.leadSource ?? "");
+    setLeadSourceDetail(deal?.leadSourceDetail ?? "");
   }, [open, deal, defaultCompanyId]);
 
   // Defaults to the deal's existing pipeline when editing, or the workspace default when
@@ -98,6 +104,8 @@ export function DealFormSheet({
           closeDate: closeDate || undefined,
           stageId: stageId || undefined,
           status,
+          leadSource: leadSource || null,
+          leadSourceDetail: leadSource ? leadSourceDetail.trim() || null : null,
         });
       }
       return dealsApi.create({
@@ -108,6 +116,7 @@ export function DealFormSheet({
         closeDate: closeDate || undefined,
         pipelineId: pipelineId || undefined,
         stageId: stageId || undefined,
+        ...(leadSource ? { leadSource, leadSourceDetail: leadSourceDetail.trim() || null } : {}),
       });
     },
     onSuccess: (saved) => {
@@ -158,6 +167,27 @@ export function DealFormSheet({
                 </option>
               ))}
             </Select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Source">
+            <Select value={leadSource} onChange={(e) => setLeadSource(e.target.value)}>
+              <option value="">{isEdit ? "Not set" : "Same as company"}</option>
+              {LEAD_SOURCES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Source detail">
+            <Input
+              value={leadSourceDetail}
+              onChange={(e) => setLeadSourceDetail(e.target.value)}
+              placeholder={leadSourceDetailHint(leadSource)}
+              disabled={!leadSource}
+              maxLength={255}
+            />
           </Field>
         </div>
         <Field label="Close date">
