@@ -38,6 +38,9 @@ export interface Company {
   status: CompanyStatus;
   contractEndDate: string | null;
   sourceProspectCompanyId: string | null;
+  /** Where the company came from (lib/crm/lead-source). */
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
   fieldSources: FieldSourcesMap;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +56,8 @@ export interface CompanyInput {
   ownerId?: string;
   status?: CompanyStatus;
   contractEndDate?: string;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
 }
 
 export type CompanyPatch = Partial<CompanyInput>;
@@ -122,6 +127,8 @@ export interface Deal {
   closeDate: string | null;
   probability: number | null;
   status: DealStatus;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,6 +143,8 @@ export interface DealInput {
   currency?: string;
   closeDate?: string;
   probability?: number;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
 }
 
 export interface DealPatch {
@@ -149,6 +158,8 @@ export interface DealPatch {
   closeDate?: string;
   probability?: number;
   status?: DealStatus;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
 }
 
 export interface CurrencyValue {
