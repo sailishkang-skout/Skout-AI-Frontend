@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { ApiError, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { downloadBlob, factsByAttribute, formatCaptureDate, useResearchApi, type PeopleFilters } from "@/lib/enrichment-research";
+import { safeWebUrl, websiteLabel } from "@/lib/safe-url";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { EvidenceBadge, Fact, IdentityBadge, Pagination } from "./evidence-badge";
 import { ReEnrichControl } from "./provider-jobs";
@@ -215,7 +216,18 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
           <dl className="grid gap-4 sm:grid-cols-2">
             <Fact label="Name" fact={facts.name}>{company.name}</Fact>
-            <Fact label="Website" fact={facts.website ?? facts.domain}>{company.capture.website ?? company.domain ?? "Not captured"}</Fact>
+            <Fact label="Website" fact={facts.website ?? facts.domain}>
+              {safeWebUrl(company.capture.website) ? (
+                <a href={safeWebUrl(company.capture.website)!} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline-offset-4 hover:underline">
+                  {websiteLabel(company.capture.website!)}
+                </a>
+              ) : (
+                company.capture.website ?? company.domain ?? "Not captured"
+              )}
+            </Fact>
+            <Fact label="Followers" fact={facts.followers}>
+              {company.capture.followers != null ? company.capture.followers.toLocaleString() : "Not captured"}
+            </Fact>
             <Fact label="Industry" fact={facts.industry}>{company.industry ?? "Not captured"}</Fact>
             <Fact label="Headquarters" fact={facts.headquarter}>{company.capture.headquarter ?? company.location ?? "Not captured"}</Fact>
             <Fact label="Company size" fact={facts.size}>{company.capture.size ?? "Not captured"}</Fact>

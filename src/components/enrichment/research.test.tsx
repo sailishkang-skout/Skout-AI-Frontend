@@ -71,7 +71,7 @@ const summary = (overrides: Partial<PersonSummary> = {}): PersonSummary => ({
   ...overrides,
 });
 
-const DISPLAYED = ["fullName", "headline", "employment", "locationName", "email", "phone", "linkedinUrl", "summary", "currentCompanies", "previousCompanies", "educations", "skills", "relationshipContext"];
+const DISPLAYED = ["fullName", "headline", "employment", "locationName", "email", "phone", "website", "followersCount", "linkedinUrl", "summary", "currentCompanies", "previousCompanies", "educations", "skills", "relationshipContext"];
 
 const person = (overrides: Partial<PersonDetail> = {}): PersonDetail => ({
   ...summary(),
@@ -80,6 +80,8 @@ const person = (overrides: Partial<PersonDetail> = {}): PersonDetail => ({
   phone: "+91 98765 43210",
   connectionsCount: 500,
   followersCount: 1200,
+  website: "https://priya.example/work",
+  websites: [{ url: "https://priya.example/work", label: "Portfolio" }, { url: "https://blog.priya.example", label: "Blog" }],
   relationshipContext: {
     degree: 2,
     mutualConnectionsText: "12 mutual connections",
@@ -138,7 +140,7 @@ const company = (): CompanyDetail => ({
     sections: ["about"],
   },
   people: { visibleAssociatedMembers: 412, verifiedEmployees: 1, discoveryCandidates: 20 },
-  facts: ["name", "website", "industry", "headquarter", "size", "employeesOnLi", "overview"].map((attribute) =>
+  facts: ["name", "website", "followers", "industry", "headquarter", "size", "employeesOnLi", "overview"].map((attribute) =>
     fact(attribute, { source: "linkedin_company_page", confidence: 0.85, sourceUrl: "https://www.linkedin.com/company/initech/about/" })
   ),
   evidence: [],
@@ -209,10 +211,15 @@ describe("PersonDetailView", () => {
     expect(screen.getByText("Mutual connections: Alex Kim")).toBeTruthy();
 
     const badges = screen.getAllByTestId("evidence-badge");
-    // 7 header facts (name, headline, employer, location, email, phone, LinkedIn), About,
+    // 9 header facts (name, headline, employer, location, email, phone, website, followers, LinkedIn), About,
     // Experience (current, past), Education, Skills, Relationship, and 2 evidence rows.
-    expect(badges.length).toBe(15);
+    expect(badges.length).toBe(17);
     expect(screen.getByRole("link", { name: "priya@initech.example" }).getAttribute("href")).toBe("mailto:priya@initech.example");
+    const site = screen.getByRole("link", { name: "priya.example/work" });
+    expect(site.getAttribute("href")).toBe("https://priya.example/work");
+    expect(site.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(screen.getByRole("link", { name: "blog.priya.example" }).getAttribute("href")).toBe("https://blog.priya.example/");
+    expect(screen.getByText("1,200")).toBeTruthy();
     expect(screen.getByRole("link", { name: "+91 98765 43210" }).getAttribute("href")).toBe("tel:+919876543210");
     expect(badges.every((badge) => badge.getAttribute("data-state") !== "missing")).toBe(true);
     expect(badges.every((badge) => /captured .*2026/.test(badge.textContent ?? ""))).toBe(true);
@@ -322,7 +329,7 @@ describe("CompanyDetailView", () => {
     expect(screen.getByText("412")).toBeTruthy();
     expect(screen.getByText(/not the number of records that can be captured/)).toBeTruthy();
     const badges = screen.getAllByTestId("evidence-badge");
-    expect(badges.length).toBe(7);
+    expect(badges.length).toBe(8);
     expect(badges.every((badge) => /LinkedIn company page · captured/.test(badge.textContent ?? ""))).toBe(true);
     expect(screen.getByText(/at most 10 pages or 250 leads/)).toBeTruthy();
   });
