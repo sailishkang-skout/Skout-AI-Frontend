@@ -83,6 +83,11 @@ export interface ProspectSummary {
   industry: string;
   companyDomain: string;
   companyName?: string;
+  /** Public LinkedIn profile URL, when the source provided one. */
+  linkedinUrl?: string;
+  city?: string;
+  /** Set when the person was captured by this workspace's Chrome extension. */
+  origin?: "extension";
   recordType?: "person" | "company";
   employeeCount?: number;
   /** §8.2 SS-04 — fit (ICP/firmographic match) and timing (signal-stacking score) shown as
@@ -608,6 +613,7 @@ export interface ProspectSnapshotInput {
   companyDomain: string;
   email?: string;
   linkedinUrl?: string;
+  companyName?: string;
   employeeCount?: number;
   signals?: string[];
 }

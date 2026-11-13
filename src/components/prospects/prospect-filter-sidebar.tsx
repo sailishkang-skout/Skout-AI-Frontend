@@ -107,28 +107,52 @@ function FilterSection({
   );
 }
 
-export function ProspectFilterSidebar({
-  value,
-  onChange,
-  onClear,
-  onSubmit,
-  footer,
-  className,
-}: {
-  value: FilterDraft;
-  onChange: (draft: FilterDraft) => void;
-  onClear?: () => void;
-  /** Called when the user presses Enter inside a filter input. */
-  onSubmit?: () => void;
-  /** Rendered under the filter list, e.g. the Search button. */
-  footer?: ReactNode;
-  className?: string;
-}) {
-  // Multiple sections can be open at once so users can compare filters.
-  const [open, setOpen] = useState<Set<string>>(() => new Set(["Person Name"]));
-  const set = (patch: Partial<FilterDraft>) => onChange({ ...value, ...patch });
-  const activeCount = countActiveFilters(value);
+export type FilterCategory = "person" | "company" | "signals";
 
+export interface FilterSectionDef {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  body: ReactNode;
+  category: FilterCategory;
+  /** The FilterDraft fields this section edits (used for summaries, tokens and clearing). */
+  keys: (keyof FilterDraft)[];
+}
+
+const SECTION_META: Record<string, { category: FilterCategory; keys: (keyof FilterDraft)[] }> = {
+  "Person Name": { category: "person", keys: ["fullName"] },
+  Company: { category: "company", keys: ["companyName", "companyDomain"] },
+  "Job Title": { category: "person", keys: ["jobTitle", "seniority", "department", "jobFunction"] },
+  Location: { category: "person", keys: ["country", "state", "city"] },
+  "Contact Details": { category: "person", keys: ["emailAvailable", "phoneAvailable", "linkedInAvailable"] },
+  "Duplicate Control": { category: "signals", keys: ["excludeDuplicates"] },
+  "Employee Headcount": { category: "company", keys: ["companySizes"] },
+  "Industry & Keyword": { category: "company", keys: ["industries", "keyword", "subIndustry"] },
+  "Buying Intent": { category: "signals", keys: ["buyingIntent", "companySignals"] },
+  Revenue: { category: "company", keys: ["revenueRange"] },
+  "Job Change": { category: "person", keys: ["jobChangeOnly", "contactSignals"] },
+  Funding: { category: "company", keys: ["companyStage", "lastFundingRound"] },
+  Technologies: { category: "company", keys: ["tech"] },
+  "Select Per Company": { category: "signals", keys: ["maxPerCompany"] },
+  "Total Years of Experience": { category: "person", keys: ["minTotalYearsExperience"] },
+  "Time in Current Role": { category: "person", keys: ["minYearsInRole"] },
+  "Time in Current Company": { category: "person", keys: ["minYearsAtCompany", "previousCompany"] },
+  "Founded Year": { category: "company", keys: ["minFoundedYear", "maxFoundedYear"] },
+  "Headcount Growth": { category: "company", keys: ["headcountGrowth"] },
+  "Company Attributes": { category: "company", keys: ["subIndustry"] },
+  "Job Posting": { category: "signals", keys: ["currentlyHiring"] },
+  "Headcount by Department": { category: "company", keys: ["hiringDepartments"] },
+  "Company Email Provider": { category: "company", keys: ["companyEmailProvider"] },
+};
+
+const slug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/**
+ * Every prospect-search filter group, with its editor. Shared by the sidebar (mobile), the
+ * filter dock and the All filters dialog so they always offer exactly the same filters.
+ */
+export function buildFilterSections(value: FilterDraft, onChange: (draft: FilterDraft) => void): FilterSectionDef[] {
+  const set = (patch: Partial<FilterDraft>) => onChange({ ...value, ...patch });
   const sections: { title: string; icon: LucideIcon; body: ReactNode }[] = [
     {
       title: "Person Name",
@@ -456,6 +480,35 @@ export function ProspectFilterSidebar({
       ),
     },
   ];
+
+  return sections.map((s) => {
+    const meta = SECTION_META[s.title] ?? { category: "company" as const, keys: [] };
+    return { ...s, id: slug(s.title), category: meta.category, keys: meta.keys };
+  });
+}
+
+export function ProspectFilterSidebar({
+  value,
+  onChange,
+  onClear,
+  onSubmit,
+  footer,
+  className,
+}: {
+  value: FilterDraft;
+  onChange: (draft: FilterDraft) => void;
+  onClear?: () => void;
+  /** Called when the user presses Enter inside a filter input. */
+  onSubmit?: () => void;
+  /** Rendered under the filter list, e.g. the Search button. */
+  footer?: ReactNode;
+  className?: string;
+}) {
+  // Multiple sections can be open at once so users can compare filters.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(["Person Name"]));
+  const sections = buildFilterSections(value, onChange);
+  const activeCount = countActiveFilters(value);
+
 
   return (
     <aside

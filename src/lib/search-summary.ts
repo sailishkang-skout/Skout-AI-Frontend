@@ -1,4 +1,45 @@
-import { EMPTY_FILTER_DRAFT, type FilterDraft } from "@/lib/search-constants";
+import {
+  BUYING_INTENT_OPTIONS,
+  COMPANY_SIGNALS,
+  COMPANY_SIZE_BUCKETS,
+  COMPANY_STAGE_OPTIONS,
+  CONTACT_SIGNALS,
+  COUNTRIES,
+  EMAIL_PROVIDER_OPTIONS,
+  EMPTY_FILTER_DRAFT,
+  HEADCOUNT_GROWTH_OPTIONS,
+  LAST_FUNDING_ROUND_OPTIONS,
+  MAX_PER_COMPANY_OPTIONS,
+  REVENUE_RANGES,
+  SENIORITY_OPTIONS,
+  YEARS_OPTIONS,
+  type FilterDraft,
+} from "@/lib/search-constants";
+
+type Option = { label: string; value: string };
+
+/** Stored values are codes (e.g. "c_level", "1m_10m"); show the label the filter UI shows. */
+const OPTION_LABELS: Partial<Record<keyof FilterDraft, Option[]>> = {
+  seniority: SENIORITY_OPTIONS,
+  country: COUNTRIES,
+  revenueRange: REVENUE_RANGES,
+  companyStage: COMPANY_STAGE_OPTIONS,
+  lastFundingRound: LAST_FUNDING_ROUND_OPTIONS,
+  buyingIntent: BUYING_INTENT_OPTIONS,
+  headcountGrowth: HEADCOUNT_GROWTH_OPTIONS,
+  companyEmailProvider: EMAIL_PROVIDER_OPTIONS,
+  maxPerCompany: MAX_PER_COMPANY_OPTIONS,
+  minYearsAtCompany: YEARS_OPTIONS,
+  minYearsInRole: YEARS_OPTIONS,
+  minTotalYearsExperience: YEARS_OPTIONS,
+  companySizes: COMPANY_SIZE_BUCKETS,
+  contactSignals: CONTACT_SIGNALS,
+  companySignals: COMPANY_SIGNALS,
+};
+
+export function labelFor(key: keyof FilterDraft, value: string): string {
+  return OPTION_LABELS[key]?.find((o) => o.value === value)?.label ?? value;
+}
 
 export type SearchChip = {
   /** Stable id: the FilterDraft field this chip comes from, or "query" for the free-text box. */
@@ -61,11 +102,11 @@ export function describeSearch(query: string, filters: FilterDraft): SearchChip[
 
   for (const [key, label] of Object.entries(TEXT_LABELS) as [keyof FilterDraft, string][]) {
     const v = filters[key];
-    if (typeof v === "string" && v.trim()) chips.push({ key, label, value: v.trim() });
+    if (typeof v === "string" && v.trim()) chips.push({ key, label, value: labelFor(key, v.trim()) });
   }
   for (const [key, label] of Object.entries(LIST_LABELS) as [keyof FilterDraft, string][]) {
     const v = filters[key];
-    if (Array.isArray(v) && v.length) chips.push({ key, label, value: v.join(", ") });
+    if (Array.isArray(v) && v.length) chips.push({ key, label, value: v.map((x) => labelFor(key, x)).join(", ") });
   }
   for (const [key, label] of Object.entries(FLAG_LABELS) as [keyof FilterDraft, string][]) {
     if (filters[key] === true) chips.push({ key, label, value: "Yes" });
