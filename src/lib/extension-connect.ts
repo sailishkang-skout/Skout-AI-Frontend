@@ -5,7 +5,7 @@ declare global {
         sendMessage: (
           extensionId: string,
           message: unknown,
-          responseCallback: (response: { ok?: boolean; error?: string; version?: string; captureQueue?: boolean }) => void
+          responseCallback: (response: { ok?: boolean; error?: string; version?: string}) => void
         ) => void;
         lastError?: { message?: string };
       };
@@ -210,34 +210,5 @@ export async function waitForExtensionDetection(timeoutMs = 15000): Promise<bool
     const pingInterval = window.setInterval(pingExtensionPostMessage, 1200);
 
     const timeout = window.setTimeout(() => finish(false), timeoutMs);
-  });
-}
-
-/**
- * Asks the Skout extension to read the next batch of a company's people (LinkedIn Enrichment →
- * Capture queue → Continue). Rejects with "extension-unavailable" when the extension is not
- * installed or not reachable from this page; the caller then opens LinkedIn instead.
- */
-export function continueCaptureQueueInExtension(companyPublicId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const extensionId = resolveExtensionId();
-    if (!extensionId || !canUseExternalMessaging()) {
-      reject(new Error("extension-unavailable"));
-      return;
-    }
-    try {
-      window.chrome!.runtime!.sendMessage(extensionId, { type: "capture-queue-continue", companyId: companyPublicId }, (response) => {
-        const lastError = window.chrome?.runtime?.lastError;
-        if (lastError) {
-          reject(new Error("extension-unavailable"));
-          return;
-        }
-        if (response?.ok) resolve();
-        else if (response?.error === "unknown_message") reject(new Error("extension-outdated"));
-        else reject(new Error(response?.error || "The extension could not continue this capture."));
-      });
-    } catch {
-      reject(new Error("extension-unavailable"));
-    }
   });
 }
