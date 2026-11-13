@@ -59,6 +59,9 @@ export interface PersonDetail extends PersonSummary {
   summary: string | null;
   connectionsCount: number | null;
   followersCount: number | null;
+  /** The person's own site from their LinkedIn Contact info, plus any other links listed there. */
+  website?: string | null;
+  websites?: Array<{ url: string; label?: string }>;
   relationshipContext: Record<string, unknown> | null;
   experience: { current: CapturedItem[]; previous: CapturedItem[] };
   educations: CapturedItem[];

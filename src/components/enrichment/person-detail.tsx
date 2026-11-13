@@ -26,6 +26,7 @@ import {
   type EvidenceFact,
 } from "@/lib/enrichment-research";
 import { useWorkspaceRole } from "@/lib/workspace-role";
+import { safeWebUrl, websiteLabel } from "@/lib/safe-url";
 import { ContactDataPanel } from "./contact-data-panel";
 import { EmploymentBadge, EvidenceBadge, Fact, IdentityBadge } from "./evidence-badge";
 import { ReEnrichControl } from "./provider-jobs";
@@ -241,6 +242,28 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
             </Fact>
             <Fact label="Phone" fact={facts.phone}>
               {person.phone ? <a href={`tel:${person.phone.replace(/[^\d+]/g, "")}`} className="text-primary underline-offset-4 hover:underline">{person.phone}</a> : "Not captured"}
+            </Fact>
+            <Fact label="Website / portfolio" fact={facts.website}>
+              {safeWebUrl(person.website) ? (
+                <a href={safeWebUrl(person.website)!} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline-offset-4 hover:underline">
+                  {websiteLabel(person.website!)}
+                </a>
+              ) : (
+                "Not captured"
+              )}
+              {(person.websites ?? [])
+                .filter((link) => safeWebUrl(link.url) && link.url !== person.website)
+                .map((link) => (
+                  <span key={link.url} className="block text-xs text-muted-foreground">
+                    {link.label ? `${link.label}: ` : "Also: "}
+                    <a href={safeWebUrl(link.url)!} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline-offset-4 hover:underline">
+                      {websiteLabel(link.url)}
+                    </a>
+                  </span>
+                ))}
+            </Fact>
+            <Fact label="Followers" fact={facts.followersCount}>
+              {person.followersCount != null ? person.followersCount.toLocaleString() : "Not captured"}
             </Fact>
             <Fact label="LinkedIn" fact={facts.linkedinUrl}>
               {person.linkedinUrl ? (
