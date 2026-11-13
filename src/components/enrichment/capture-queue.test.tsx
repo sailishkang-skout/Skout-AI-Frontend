@@ -119,6 +119,18 @@ describe("CaptureQueuePage", () => {
     expect(screen.queryByRole("button", { name: /Continue capturing/ })).toBeNull();
   });
 
+  it("explains a server without the queue instead of showing a raw 404", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url === "/enrichment/capture/queue") throw new ApiError("Request failed (404)", 404);
+      return { enabled: true, caps: { maxLeadsPerRun: 250, dailyLeadLimit: 1000 }, usage: { remainingToday: 500 } };
+    });
+    renderPage();
+    expect(await screen.findByText("Capture queue isn't available on this server yet")).toBeTruthy();
+    expect(screen.getByText(/continue from its side panel/)).toBeTruthy();
+    expect(screen.queryByText(/Request failed/)).toBeNull();
+  });
+
   it("explains an empty queue", async () => {
     serve([]);
     renderPage();

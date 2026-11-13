@@ -110,6 +110,8 @@ export function CaptureQueuePage() {
   const status = statusQuery.data;
   const dailyLimitReached = status ? status.usage.remainingToday <= 0 : false;
   const forbidden = queueQuery.error instanceof ApiError && queueQuery.error.status === 403;
+  // 404: this server was not updated with the capture queue yet (it ships with the backend release).
+  const unavailable = queueQuery.error instanceof ApiError && (queueQuery.error.status === 404 || queueQuery.error.status === 501);
 
   return (
     <PageShell>
@@ -133,10 +135,16 @@ export function CaptureQueuePage() {
       )}
 
       {queueQuery.isError ? (
-        <Alert variant={forbidden ? "warning" : "error"} onRetry={forbidden ? undefined : () => queueQuery.refetch()}>
+        <Alert
+          variant={forbidden || unavailable ? "warning" : "error"}
+          title={unavailable ? "Capture queue isn't available on this server yet" : undefined}
+          onRetry={forbidden ? undefined : () => queueQuery.refetch()}
+        >
           {forbidden
             ? "You don't have permission to view LinkedIn Enrichment in this workspace."
-            : formatQueryError(queueQuery.error, "Could not load the capture queue.")}
+            : unavailable
+              ? "The server hasn't been updated with the capture queue. Your captures are safe: the Skout extension still remembers where each company stopped, and you can continue from its side panel (Continue capturing queue). This page will work once the backend update is deployed."
+              : formatQueryError(queueQuery.error, "Could not load the capture queue.")}
         </Alert>
       ) : queueQuery.isPending ? (
         <div className="space-y-3" aria-label="Loading capture queue">
