@@ -36,3 +36,10 @@ describe("clearFilterField", () => {
     expect(next.emailAvailable).toBe(true);
   });
 });
+
+describe("describeSearch labels", () => {
+  it("shows option labels instead of stored codes", () => {
+    const chips = describeSearch("", { ...EMPTY_FILTER_DRAFT, seniority: "c_level", companySizes: ["11-50"], revenueRange: "1m_10m" });
+    expect(chips.map((c) => c.value)).toEqual(["C-Level", "$1M–$10M", "11–50"]);
+  });
+});
