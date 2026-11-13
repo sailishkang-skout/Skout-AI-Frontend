@@ -265,6 +265,9 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
             <Fact label="Followers" fact={facts.followersCount}>
               {person.followersCount != null ? person.followersCount.toLocaleString() : "Not captured"}
             </Fact>
+            <Fact label="Connections" fact={facts.connectionsCount}>
+              {person.connectionsCount != null ? `${person.connectionsCount.toLocaleString()}${person.connectionsCount === 500 ? "+" : ""}` : "Not captured"}
+            </Fact>
             <Fact label="LinkedIn" fact={facts.linkedinUrl}>
               {person.linkedinUrl ? (
                 <a href={person.linkedinUrl} target="_blank" rel="noreferrer" className="break-all text-primary underline-offset-4 hover:underline">

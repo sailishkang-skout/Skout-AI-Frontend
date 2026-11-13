@@ -56,6 +56,8 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
     expect(readOnly.getByText("People")).toBeTruthy();
     expect(readOnly.getByText("Companies")).toBeTruthy();
     expect(readOnly.getByText("Job changes")).toBeTruthy();
+    // Anyone who can read LinkedIn Enrichment sees what is left to capture.
+    expect(readOnly.getByText("Capture queue")).toBeTruthy();
     expect(readOnly.queryByText("Capture")).toBeNull();
     expect(readOnly.queryByText("Providers")).toBeNull();
     readOnly.unmount();
