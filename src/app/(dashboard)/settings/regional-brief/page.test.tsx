@@ -196,6 +196,73 @@ describe("RegionalBriefPage", () => {
     expect(await screen.findByText(/Data not yet loaded for this market/i)).toBeTruthy();
   });
 
+  it("requests slots from the API one page of 10 at a time", async () => {
+    window.scrollTo = vi.fn();
+    const slots = Array.from({ length: 25 }, (_, i) => ({
+      id: `slot-${i}`,
+      layerType: "country",
+      regionId: null,
+      countryId: "c-2",
+      industry: null,
+      workspaceId: null,
+      fieldCategory: "market_economics",
+      scopeKey: `country:GBR:${String(i).padStart(2, "0")}`,
+      currentVersionId: null,
+    }));
+    mockListSlots.mockImplementation(async (f: { limit: number; offset: number }) => ({
+      data: slots.slice(f.offset, f.offset + f.limit),
+      total: slots.length,
+    }));
+    mockListVersions.mockResolvedValue({ data: [], total: 0 });
+
+    renderPage();
+
+    expect((await screen.findAllByText(/Showing 1–10 of 25/)).length).toBeGreaterThan(0);
+    expect(mockListSlots).toHaveBeenCalledWith({ limit: 10, offset: 0 });
+    await waitFor(() => expect(mockListVersions).toHaveBeenCalledTimes(10));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]!);
+    expect((await screen.findAllByText(/Showing 11–20 of 25/)).length).toBeGreaterThan(0);
+    expect(mockListSlots).toHaveBeenCalledWith({ limit: 10, offset: 10 });
+    await waitFor(() => expect(mockListVersions).toHaveBeenCalledWith("slot-10"));
+    expect(mockListVersions).not.toHaveBeenCalledWith("slot-20");
+  });
+
+  it("pages locally when an older API ignores limit and returns every slot", async () => {
+    window.scrollTo = vi.fn();
+    const slots = Array.from({ length: 25 }, (_, i) => ({
+      id: `slot-${i}`,
+      layerType: "country",
+      regionId: null,
+      countryId: "c-2",
+      industry: null,
+      workspaceId: null,
+      fieldCategory: "market_economics",
+      scopeKey: `country:GBR:${String(i).padStart(2, "0")}`,
+      currentVersionId: null,
+    }));
+    mockListSlots.mockResolvedValue({ data: slots, total: slots.length });
+    mockListVersions.mockResolvedValue({ data: [], total: 0 });
+
+    renderPage();
+
+    expect((await screen.findAllByText(/Showing 1–10 of 25/)).length).toBeGreaterThan(0);
+    // Country slots show the country name, not the raw id
+    expect((await screen.findAllByText("United Kingdom")).length).toBeGreaterThan(0);
+    await waitFor(() => expect(mockListVersions).toHaveBeenCalledTimes(10));
+    expect(mockListVersions).toHaveBeenCalledWith("slot-0");
+    expect(mockListVersions).not.toHaveBeenCalledWith("slot-10");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]!);
+    expect((await screen.findAllByText(/Showing 11–20 of 25/)).length).toBeGreaterThan(0);
+    await waitFor(() => expect(mockListVersions).toHaveBeenCalledWith("slot-10"));
+    expect(mockListVersions).not.toHaveBeenCalledWith("slot-20");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]!);
+    expect((await screen.findAllByText(/Showing 21–25 of 25/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Next" })[0]!.hasAttribute("disabled")).toBe(true);
+  });
+
   it("allows approving a pending version when authorized", async () => {
     mockAdminCheck.mockResolvedValue({ platformAdmin: true });
     mockListSlots.mockResolvedValue({

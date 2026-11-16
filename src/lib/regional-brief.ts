@@ -172,10 +172,12 @@ export function useRegionalBriefApi() {
         body: JSON.stringify(input),
       }),
 
-    listSlots: (filter?: { layerType?: string; status?: string }) => {
+    listSlots: (filter?: { layerType?: string; status?: string; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (filter?.layerType) q.set("layerType", filter.layerType);
       if (filter?.status) q.set("status", filter.status);
+      if (filter?.limit !== undefined) q.set("limit", String(filter.limit));
+      if (filter?.offset) q.set("offset", String(filter.offset));
       const qs = q.toString();
       return fetchApi<{ data: RegionalBriefSlot[]; total: number }>(
         `/api/v1/regional-brief/slots${qs ? `?${qs}` : ""}`

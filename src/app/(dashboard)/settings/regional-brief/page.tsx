@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   Calculator,
@@ -67,7 +67,9 @@ const LAYER_ORDER: RegionalBriefLayerType[] = [
   "outcome_learning",
 ];
 
-const FIELD_CATEGORIES: { label: string; value: RegionalBriefFieldCategory }[] = [
+const SLOTS_PER_PAGE = 10;
+
+const FIELD_CATEGORIES:{ label: string; value: RegionalBriefFieldCategory }[] = [
   { label: "Market Economics", value: "market_economics" },
   { label: "Business Practice & Etiquette", value: "business_practice" },
   { label: "Channel & Outreach Policy", value: "channel_policy" },
@@ -99,8 +101,9 @@ const ALL_NAICS_SECTORS = [
   { code: "92", title: "Public Administration (Government & Defense)", category: "Public Sector" },
 ];
 
-function slotScopeLabel(slot: RegionalBriefSlot): string {
-  return slot.countryId ?? slot.regionId ?? slot.industry ?? slot.workspaceId ?? "—";
+function slotScopeLabel(slot: RegionalBriefSlot, countryNames: Map<string, string>): string {
+  if (slot.countryId) return countryNames.get(slot.countryId) ?? slot.countryId;
+  return slot.regionId ?? slot.industry ?? slot.workspaceId ?? "—";
 }
 
 // ── Multi-Currency Support ──
@@ -870,13 +873,81 @@ export default function RegionalBriefPage() {
     queryFn: () => api.listCountries(),
   });
 
+  // One page of slots at a time. Only the visible page mounts SlotVersions (one request per slot),
+  // so this also keeps the page from firing a versions request for every market at once.
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [statusFilter]);
+
   const slots = useQuery({
-    queryKey: ["regional-brief", "slots", statusFilter],
-    queryFn: () => api.listSlots(statusFilter === "all" ? undefined : { status: statusFilter }),
+    queryKey: ["regional-brief", "slots", statusFilter, page],
+    queryFn: () =>
+      api.listSlots({
+        ...(statusFilter === "all" ? {} : { status: statusFilter }),
+        limit: SLOTS_PER_PAGE,
+        offset: page * SLOTS_PER_PAGE,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const canEditGlobal = adminCheck.data?.platformAdmin ?? false;
   const countries = countriesQuery.data?.data ?? [];
+  const countryNames = useMemo(
+    () => new Map((countriesQuery.data?.data ?? []).map((c) => [c.id, c.name] as const)),
+    [countriesQuery.data]
+  );
+
+  const totalSlots = slots.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalSlots / SLOTS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount - 1);
+
+  const pageSlots = useMemo(() => {
+    const rows = slots.data?.data ?? [];
+    // The API pages in a stable order. An older API ignores `limit` and returns every slot; page locally then.
+    if (rows.length <= SLOTS_PER_PAGE) return rows;
+    return [...rows]
+      .sort(
+        (a, b) =>
+          LAYER_ORDER.indexOf(a.layerType) - LAYER_ORDER.indexOf(b.layerType) ||
+          a.scopeKey.localeCompare(b.scopeKey)
+      )
+      .slice(currentPage * SLOTS_PER_PAGE, (currentPage + 1) * SLOTS_PER_PAGE);
+  }, [slots.data, currentPage]);
+
+  const goToPage = (next: number) => {
+    setPage(Math.max(0, Math.min(next, pageCount - 1)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const pager =
+    totalSlots > SLOTS_PER_PAGE ? (
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">
+          Showing {currentPage * SLOTS_PER_PAGE + 1}–
+          {Math.min((currentPage + 1) * SLOTS_PER_PAGE, totalSlots)} of {totalSlots}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 0}
+          >
+            Previous
+          </Button>
+          <span className="tabular-nums text-muted-foreground">
+            Page {currentPage + 1} of {pageCount}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= pageCount - 1}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    ) : null;
 
   return (
     <PageShell data-testid="page-regional-brief">
@@ -918,13 +989,14 @@ export default function RegionalBriefPage() {
 
       <div className="grid gap-4 lg:grid-cols-[2fr,1.3fr]">
         <div className="space-y-4">
-          {slots.data?.data.map((slot) => (
+          {pager}
+          {pageSlots.map((slot) => (
             <Card key={slot.id}>
               <CardHeader>
                 <CardTitle className="text-base">
                   {slot.fieldCategory.replace(/_/g, " ")}
                   <span className="ml-2 font-normal text-sm text-muted-foreground">
-                    {slotScopeLabel(slot)}
+                    {slotScopeLabel(slot, countryNames)}
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -933,6 +1005,7 @@ export default function RegionalBriefPage() {
               </CardContent>
             </Card>
           ))}
+          {pager}
 
           <CreateDraftForm canEditGlobal={canEditGlobal} countries={countries} />
         </div>
