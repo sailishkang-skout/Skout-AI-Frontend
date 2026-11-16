@@ -218,7 +218,7 @@ export async function waitForExtensionDetection(timeoutMs = 15000): Promise<bool
  * Capture queue → Continue). Rejects with "extension-unavailable" when the extension is not
  * installed or not reachable from this page; the caller then opens LinkedIn instead.
  */
-export function continueCaptureQueueInExtension(companyPublicId: string): Promise<void> {
+export function continueCaptureQueueInExtension(companyPublicId: string, companyName?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const extensionId = resolveExtensionId();
     if (!extensionId || !canUseExternalMessaging()) {
@@ -226,7 +226,7 @@ export function continueCaptureQueueInExtension(companyPublicId: string): Promis
       return;
     }
     try {
-      window.chrome!.runtime!.sendMessage(extensionId, { type: "capture-queue-continue", companyId: companyPublicId }, (response) => {
+      window.chrome!.runtime!.sendMessage(extensionId, { type: "capture-queue-continue", companyId: companyPublicId, name: companyName }, (response) => {
         const lastError = window.chrome?.runtime?.lastError;
         if (lastError) {
           reject(new Error("extension-unavailable"));
