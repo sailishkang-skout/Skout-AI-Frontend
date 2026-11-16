@@ -3,10 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CaptureQueuePage,
-  actionForState,
+  actionForJob,
   companyPageUrl,
   queueProgress,
   tabForState,
+  type CapturableCompany,
   type CaptureJobState,
   type CaptureQueueItem,
 } from "./capture-queue";
@@ -52,9 +53,21 @@ const job = (state: CaptureJobState, overrides: Partial<CaptureQueueItem> = {}):
   ...overrides,
 });
 
-function serve(items: CaptureQueueItem[], remainingToday = 500) {
+const company = (id: string, overrides: Partial<CapturableCompany> = {}): CapturableCompany => ({
+  companyPublicId: id, name: `Co ${id}`, peopleSaved: 12, peopleFound: 0, expectedPeople: null, complete: null, status: null, mode: null, ...overrides,
+});
+
+function serve(items: CaptureQueueItem[], remainingToday = 500, { companies = [] as CapturableCompany[], auto = { available: true, reason: null, accountName: "Owner" } as unknown } = {}) {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === "/enrichment/capture/queue") return { items };
+    if (url === "/enrichment/capture/companies") return { companies };
+    if (url === "/enrichment/capture/auto" && init?.method === "POST") {
+      const ids = JSON.parse(String(init.body)).companyPublicIds as string[];
+      return { queued: ids.filter((id) => id !== "nope"), skipped: ids.includes("nope") ? [{ companyPublicId: "nope", reason: "Capture this company first" }] : [] };
+    }
+    if (url === "/enrichment/capture/auto") return auto;
+    if (url.endsWith("/pause") && init?.method === "POST") return { item: {} };
+    if (url.startsWith("/enrichment/capture/queue/") && init?.method === "PUT") return { item: {} };
     if (url === "/enrichment/capture/status") return { enabled: true, caps: { maxLeadsPerRun: 250, dailyLeadLimit: 1000 }, usage: { remainingToday } };
     if (url.endsWith("/resume") && init?.method === "POST") return { item: {} };
     if (url.startsWith("/enrichment/capture/queue/") && init?.method === "DELETE") return null;
@@ -127,7 +140,7 @@ describe("CaptureQueuePage", () => {
     mockContinue.mockRejectedValue(new Error("extension-unavailable"));
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: /Resume/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-paused/resume", { method: "POST" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-paused", { method: "PUT", body: JSON.stringify({ status: "queued", companyName: "Company paused" }) }));
     expect(await screen.findByText(/choose Start requested jobs/)).toBeTruthy();
   });
 
@@ -165,6 +178,7 @@ describe("CaptureQueuePage", () => {
   it("removes a finished job", async () => {
     serve([job("completed")]);
     renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Completed (1)" }));
     fireEvent.click(await screen.findByRole("button", { name: "Remove Company completed from the capture queue" }));
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-completed", { method: "DELETE" }));
   });
@@ -178,10 +192,12 @@ describe("CaptureQueuePage", () => {
     expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
   });
 
-  it("explains an empty queue", async () => {
+  it("opens on the company list when nothing is running, and explains an empty queue", async () => {
     serve([]);
     renderPage();
-    expect(await screen.findByText(/No capture jobs yet/)).toBeTruthy();
+    expect(await screen.findByText(/No captured companies yet/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "In progress (0)" }));
+    expect(screen.getByText(/No capture jobs yet/)).toBeTruthy();
   });
 
   it("explains a server without the queue instead of showing a raw 404", async () => {
@@ -199,13 +215,87 @@ describe("CaptureQueuePage", () => {
     expect(tabForState("queued")).toBe("active");
     expect(tabForState("interrupted")).toBe("attention");
     expect(tabForState("completed")).toBe("completed");
-    expect(actionForState("failed")).toBe("retry");
-    expect(actionForState("paused")).toBe("resume");
-    expect(actionForState("queued")).toBe("start");
-    expect(actionForState("running")).toBeNull();
-    expect(actionForState("completed")).toBeNull();
+    expect(actionForJob({ state: "failed" })).toBe("retry");
+    expect(actionForJob({ state: "paused" })).toBe("resume");
+    expect(actionForJob({ state: "queued" })).toBe("start");
+    expect(actionForJob({ state: "running" })).toBeNull();
+    expect(actionForJob({ state: "completed" })).toBeNull();
+    expect(actionForJob({ state: "running", mode: "unipile" })).toBe("pause");
+    expect(actionForJob({ state: "queued", mode: "unipile" })).toBe("pause");
+    expect(actionForJob({ state: "paused", mode: "unipile" })).toBe("resume");
     expect(companyPageUrl({ companyPublicId: "a b" })).toBe("https://www.linkedin.com/company/a%20b/");
     expect(queueProgress(job("paused", { expectedPeople: null }))).toBeNull();
     expect(queueProgress(job("paused", { peopleFound: 2000, expectedPeople: 1000 }))).toBe(100);
+  });
+
+  it("lists the workspace's companies with people saved, and selects all", async () => {
+    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("beta", { name: "Beta", peopleSaved: 0, peopleFound: 40, expectedPeople: 900 })] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
+    expect(await screen.findByText("Acme")).toBeTruthy();
+    expect(screen.getByText("12 people saved")).toBeTruthy();
+    expect(screen.getByText("40 of about 900 people saved")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/Select all/));
+    expect(screen.getByText(/Select all \(2 selected\)/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search companies"), { target: { value: "bet" } });
+    expect(screen.queryByText("Acme")).toBeNull();
+  });
+
+  it("captures selected companies in the extension, one after another", async () => {
+    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("beta", { name: "Beta" })] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
+    fireEvent.click(await screen.findByLabelText("Select Acme"));
+    fireEvent.click(screen.getByLabelText("Select Beta"));
+    fireEvent.click(screen.getByRole("button", { name: /Capture in extension \(2\)/ }));
+    await waitFor(() => expect(mockContinue).toHaveBeenCalledTimes(2));
+    expect(mockContinue).toHaveBeenNthCalledWith(1, "acme", "Acme");
+    expect(await screen.findByText(/2 companies were added to the Skout extension's queue/)).toBeTruthy();
+  });
+
+  it("queues companies for the extension when it cannot be reached", async () => {
+    serve([], 500, { companies: [company("acme", { name: "Acme" })] });
+    mockContinue.mockRejectedValue(new Error("extension-unavailable"));
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Companies (1)" }));
+    fireEvent.click(await screen.findByLabelText("Select Acme"));
+    fireEvent.click(screen.getByRole("button", { name: /Capture in extension/ }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/acme", { method: "PUT", body: JSON.stringify({ status: "queued", companyName: "Acme" }) }));
+    expect(await screen.findByText(/choose Start requested jobs/)).toBeTruthy();
+  });
+
+  it("captures selected companies automatically on the server", async () => {
+    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("nope", { name: "Nope" })] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
+    fireEvent.click(await screen.findByLabelText(/Select all/));
+    fireEvent.click(screen.getByRole("button", { name: /Capture automatically \(2\)/ }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/auto", { method: "POST", body: JSON.stringify({ companyPublicIds: ["acme", "nope"] }) }));
+    expect(await screen.findByText(/1 companies are being read automatically on the server/)).toBeTruthy();
+    expect(screen.getByText(/Skipped: nope \(Capture this company first\)/)).toBeTruthy();
+  });
+
+  it("explains why automatic capture is unavailable and disables it", async () => {
+    serve([], 500, { companies: [company("acme", { name: "Acme" })], auto: { available: false, reason: "Connect a LinkedIn account.", accountName: null } });
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Companies (1)" }));
+    expect(await screen.findByText("Automatic capture: Connect a LinkedIn account.")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Select Acme"));
+    expect((screen.getByRole("button", { name: /Capture automatically/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("pauses and resumes an automatic job on the server, and shows who started it", async () => {
+    serve([job("running", { mode: "unipile", startedBy: "Priya" }), job("paused", { mode: "unipile", stopReason: "Daily capture limit of 1000 leads reached." })]);
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "In progress (1)" }));
+    expect(await screen.findByText(/by Priya/)).toBeTruthy();
+    expect(screen.getAllByText("Automatic").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Pause/ }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-running/pause", { method: "POST" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Needs attention (1)" }));
+    expect(screen.getByText("Daily capture limit of 1000 leads reached.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Resume/ }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-paused/resume", { method: "POST" }));
+    expect(mockContinue).not.toHaveBeenCalled();
   });
 });
