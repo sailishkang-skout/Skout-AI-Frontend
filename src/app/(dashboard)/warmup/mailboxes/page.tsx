@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -17,10 +18,49 @@ import {
   type WarmupProvider,
 } from "@/lib/warmup-tool";
 
+type OAuthReturn = { ok: boolean; provider: string; reason: string | null };
+
+const PROVIDER_NAMES: Record<string, string> = { google: "Google", microsoft: "Microsoft" };
+
+const OAUTH_REASON_HINTS: Record<string, string> = {
+  warmup_tool_not_configured: "The Warm-Up service isn't configured on this environment.",
+  warmup_tool_unavailable: "The Warm-Up service couldn't be reached. Try again in a minute.",
+};
+
+/**
+ * The API's OAuth callback sends the browser back here with
+ * `?oauth=connected|error&provider=…&reason=…`. Read it once, then strip it
+ * from the URL so a refresh doesn't show the notice again.
+ */
+function useOAuthReturn(): OAuthReturn | null {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [notice] = useState<OAuthReturn | null>(() => {
+    const oauth = searchParams?.get("oauth");
+    if (oauth !== "connected" && oauth !== "error") return null;
+    return {
+      ok: oauth === "connected",
+      provider: searchParams?.get("provider") ?? "",
+      reason: searchParams?.get("reason"),
+    };
+  });
+
+  useEffect(() => {
+    if (notice) router.replace(pathname ?? "/warmup/mailboxes", { scroll: false });
+    // Run once on mount: the notice is captured in state already.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return notice;
+}
+
 export default function WarmupMailboxesPage() {
   const api = useWarmupToolApi();
   const authReady = useAuthReady();
   const qc = useQueryClient();
+  const oauthReturn = useOAuthReturn();
+  const oauthProviderName = oauthReturn ? PROVIDER_NAMES[oauthReturn.provider] ?? "provider" : "";
   const [emailAddress, setEmailAddress] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [provider, setProvider] = useState<WarmupProvider>("GMAIL");
@@ -77,6 +117,21 @@ export default function WarmupMailboxesPage() {
         title="Mailboxes"
         description="Register sending identities, connect OAuth, then enable them for warm-up. These are the inboxes that ramp volume and protect deliverability."
       />
+
+      {oauthReturn?.ok && (
+        <Alert variant="success" className="mb-4" dismissible title={`${oauthProviderName} mailbox connected`}>
+          OAuth is set up. Next, click Enable on the mailbox, then start it from Warm-up control.
+        </Alert>
+      )}
+      {oauthReturn && !oauthReturn.ok && (
+        <Alert variant="error" className="mb-4" dismissible title={`Could not connect ${oauthProviderName}`}>
+          {(oauthReturn.reason && OAUTH_REASON_HINTS[oauthReturn.reason]) ??
+            "The sign-in didn't complete. Click Connect again; if it keeps failing, share the code below with support."}
+          {oauthReturn.reason && (
+            <span className="mt-1 block font-mono text-xs opacity-70">{oauthReturn.reason}</span>
+          )}
+        </Alert>
+      )}
 
       <Card className="mb-6">
         <CardHeader>
