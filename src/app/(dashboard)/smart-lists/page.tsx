@@ -21,7 +21,8 @@ import { formatDateTime } from "@/lib/crm-display";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEnrichmentApi } from "@/lib/enrichment";
-import { useSmartListApi } from "@/lib/smart-lists";
+import { summarizeSmartListFilters, useSmartListApi } from "@/lib/smart-lists";
+import { SmartListFilterForm } from "@/components/smart-lists/smart-list-filter-form";
 import { Select } from "@/components/ui/select";
 import { SmartListRefreshHistoryDialog } from "@/components/smart-lists/refresh-history-dialog";
 import type { ProspectSummary, SmartListFilters, SmartListRefreshCadence } from "@/types/api";
@@ -33,17 +34,6 @@ const CADENCE_LABEL: Record<SmartListRefreshCadence, string> = {
 };
 
 const EMPTY_FILTERS: SmartListFilters = {};
-
-const FILTER_FIELDS: { key: keyof SmartListFilters; label: string; placeholder: string; type?: string }[] = [
-  { key: "query", label: "Query", placeholder: "Free-text search" },
-  { key: "industry", label: "Industry", placeholder: "e.g. Software" },
-  { key: "country", label: "Country", placeholder: "e.g. US" },
-  { key: "seniority", label: "Seniority", placeholder: "e.g. vp" },
-  { key: "minEmployees", label: "Min employees", placeholder: "10", type: "number" },
-  { key: "maxEmployees", label: "Max employees", placeholder: "1000", type: "number" },
-  { key: "tech", label: "Technology", placeholder: "e.g. HubSpot" },
-  { key: "signal", label: "Signal", placeholder: "e.g. hiring" },
-];
 
 const PREVIEW_LIMIT = 10;
 
@@ -182,20 +172,6 @@ export default function SmartListsPage() {
     },
   });
 
-  const setFilter = (key: keyof SmartListFilters, val: string) => {
-    const trimmed = val.trim();
-    setFilters((f) => {
-      const next = { ...f };
-      if (!trimmed) delete next[key];
-      else if (key === "minEmployees" || key === "maxEmployees") {
-        next[key] = Number(trimmed);
-      } else {
-        (next as Record<string, string>)[key] = trimmed;
-      }
-      return next;
-    });
-  };
-
   const previewHits = lastRun?.hits.slice(0, PREVIEW_LIMIT) ?? [];
   const previewMore = lastRun ? Math.max(0, lastRun.total - previewHits.length) : 0;
 
@@ -215,7 +191,9 @@ export default function SmartListsPage() {
             <Sparkles className="h-5 w-5 shrink-0 text-primary" aria-hidden />
             Create smart list
           </CardTitle>
-          <CardDescription>All filters are optional — leave blank to match broadly.</CardDescription>
+          <CardDescription>
+            Choices come from the prospects in your data, so a list can always match. All filters are optional.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="space-y-1.5">
@@ -230,22 +208,7 @@ export default function SmartListsPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {FILTER_FIELDS.map(({ key, label, placeholder, type }) => (
-              <div key={key} className="space-y-1.5">
-                <label htmlFor={`filter-${key}`} className="text-xs font-medium text-muted-foreground">
-                  {label}
-                </label>
-                <Input
-                  id={`filter-${key}`}
-                  type={type ?? "text"}
-                  placeholder={placeholder}
-                  value={filters[key] ?? ""}
-                  onChange={(e) => setFilter(key, e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
+          <SmartListFilterForm filters={filters} onChange={setFilters} />
 
           <Button
             onClick={() => create.mutate()}
@@ -452,9 +415,7 @@ export default function SmartListsPage() {
                 const f = list.filters as SmartListFilters;
                 const running = run.isPending && run.variables === list.id;
                 const activating = activate.isPending && activate.variables?.id === list.id;
-                const filterSummary =
-                  [f.industry, f.country, f.seniority, f.query].filter(Boolean).join(" · ") ||
-                  "No filters";
+                const filterSummary = summarizeSmartListFilters(f);
                 const isEditing = editingId === list.id;
                 const isConfirmingDelete = confirmDeleteId === list.id;
                 const renaming = rename.isPending && rename.variables?.id === list.id;
@@ -658,6 +619,11 @@ export default function SmartListsPage() {
 
 function formatApiError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
+    const message =
+      err.body && typeof err.body === "object" && "message" in err.body && typeof (err.body as { message: unknown }).message === "string"
+        ? (err.body as { message: string }).message
+        : null;
+    if (message) return message;
     const code =
       err.body && typeof err.body === "object" && "error" in err.body
         ? String((err.body as { error: string }).error)
