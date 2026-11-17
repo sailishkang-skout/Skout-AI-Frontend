@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ACCESS_QUERY_KEY, useAccess, useAccessApi } from "@/lib/access";
 import { ApiError } from "@/lib/api-client";
+import { useAuthAdapter } from "@/lib/auth";
 
 const CODE_ERRORS: Record<string, string> = {
   invalid_code: "That code isn't valid.",
@@ -31,6 +32,7 @@ export function EarlyAccessForm() {
   const api = useAccessApi();
   const access = useAccess();
   const request = access.data?.request;
+  const signOut = useAuthAdapter().useSignOut();
 
   const [company, setCompany] = useState(request?.company ?? "");
   const [role, setRole] = useState(request?.role_title ?? "");
@@ -44,6 +46,14 @@ export function EarlyAccessForm() {
   useEffect(() => {
     if (access.data?.status === "active") router.replace("/dashboard");
   }, [access.data?.status, router]);
+
+  // Saved answers can arrive after mount (a full page load): fill fields the user hasn't typed in.
+  useEffect(() => {
+    if (!request) return;
+    setCompany((v) => v || request.company || "");
+    setRole((v) => v || request.role_title || "");
+    setUseCase((v) => v || request.use_case || "");
+  }, [request]);
 
   async function saveDetails(e: React.FormEvent) {
     e.preventDefault();
@@ -137,6 +147,12 @@ export function EarlyAccessForm() {
           Unlock
         </Button>
       </form>
+
+      <div className="border-t pt-4 text-center">
+        <Button type="button" variant="ghost" size="sm" onClick={() => void signOut()}>
+          Use a different account
+        </Button>
+      </div>
     </div>
   );
 }

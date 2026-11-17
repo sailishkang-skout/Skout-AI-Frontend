@@ -1,4 +1,4 @@
-import { ApiError, getApiAuthToken } from "./api-client";
+import { ApiError, getApiAuthToken, handleAccessRefusal } from "./api-client";
 import { useAuthAdapter, AUTH_ENABLED } from "@/lib/auth";
 
 /** Dev/prod often expose CRM routes on the same API Gateway host as the main API (ALB path rules). */
@@ -67,6 +67,7 @@ export async function crmApiFetch<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => undefined);
+    handleAccessRefusal(res.status, body);
     const message =
       typeof body === "object" && body !== null && "error" in body
         ? String((body as { error: string }).error)

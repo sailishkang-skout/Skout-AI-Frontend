@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
@@ -14,6 +14,12 @@ const api = vi.hoisted(() => ({ get: vi.fn(), submit: vi.fn(), redeem: vi.fn() }
 vi.mock("@/lib/access", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/access")>()),
   useAccessApi: () => api,
+}));
+
+const signOut = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth")>()),
+  useAuthAdapter: () => ({ useSignOut: () => signOut }),
 }));
 
 import { EarlyAccessForm } from "./early-access-form";
@@ -90,6 +96,27 @@ describe("EarlyAccessForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/dashboard"));
     expect(api.redeem).toHaveBeenCalledWith("ABCD-EFGH");
+  });
+
+  it("lets a waiting user sign out and use a different account", async () => {
+    renderForm();
+    fireEvent.click(screen.getByRole("button", { name: "Use a different account" }));
+    await waitFor(() => expect(signOut).toHaveBeenCalled());
+  });
+
+  it("shows details saved earlier, even when they arrive after the page mounts", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(["access"], pending);
+    render(
+      <QueryClientProvider client={client}>
+        <EarlyAccessForm />
+      </QueryClientProvider>
+    );
+    act(() => {
+      client.setQueryData(["access"], { ...pending, request: { ...pending.request!, company: "Acme", role_title: "CTO", submitted: true } });
+    });
+    await waitFor(() => expect((screen.getByLabelText("Company") as HTMLInputElement).value).toBe("Acme"));
+    expect((screen.getByLabelText("Role") as HTMLInputElement).value).toBe("CTO");
   });
 
   it("sends an already active workspace to the dashboard", async () => {

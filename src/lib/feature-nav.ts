@@ -26,14 +26,14 @@ export const FEATURE_NAV_PREFIXES: Record<ProductFeature, readonly string[]> = {
   sequences: ["/sequences"],
   linkedin: ["/linkedin"],
   inbox: ["/inbox", "/deliverability"],
-  enrichment: ["/enrichment"],
+  enrichment: ["/enrichment", "/intelligence/email"],
   smart_lists: ["/smart-lists"],
   tam: ["/tam"],
   workflows: ["/workflows"],
-  crm: ["/crm"],
+  crm: ["/crm", "/admin/revenue"],
   warmup: ["/warmup"],
-  meeting_voice: [],
-  analytics: ["/analytics", "/admin/reporting"],
+  meeting_voice: ["/settings/calling", "/settings/numbers"],
+  analytics: ["/analytics", "/admin/reporting", "/admin/cro", "/admin/gtm-learning"],
 };
 
 const ENTRIES = PRODUCT_FEATURES.flatMap((f) => FEATURE_NAV_PREFIXES[f].map((p) => [p, f] as const)).sort(

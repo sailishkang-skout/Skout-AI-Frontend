@@ -10,6 +10,9 @@ import {
   isRetryableAuthError,
 } from "./api-client";
 
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock("sonner", () => ({ toast: { error: toastError } }));
+
 const mockFetch = vi.fn();
 
 beforeEach(() => {
@@ -336,5 +339,13 @@ describe("apiFetch — early access refusals", () => {
     mockFetch.mockResolvedValue(makeResponse(403, { code: "access_rejected" }));
     await expect(apiFetch("/api/v1/workspace/icp")).rejects.toBeInstanceOf(ApiError);
     expect(assign).not.toHaveBeenCalled();
+  });
+});
+
+describe("apiFetch — switched-off features", () => {
+  it("tells the user the area isn't on their plan", async () => {
+    mockFetch.mockResolvedValue(makeResponse(403, { code: "feature_disabled", feature: "sequences" }));
+    await expect(apiFetch("/api/v1/sequences")).rejects.toBeInstanceOf(ApiError);
+    expect(toastError).toHaveBeenCalledWith("This isn't on your plan.", expect.anything());
   });
 });

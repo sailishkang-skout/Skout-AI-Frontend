@@ -14,6 +14,16 @@ describe("feature-nav", () => {
     expect(featureForAppPath("/admin/reporting/x")).toBe("analytics");
   });
 
+  it("covers the pages that call gated APIs", () => {
+    expect(featureForAppPath("/settings/calling")).toBe("meeting_voice");
+    expect(featureForAppPath("/settings/numbers")).toBe("meeting_voice");
+    expect(featureForAppPath("/intelligence/email/inbox")).toBe("enrichment");
+    expect(featureForAppPath("/admin/cro")).toBe("analytics");
+    expect(featureForAppPath("/admin/gtm-learning")).toBe("analytics");
+    expect(featureForAppPath("/admin/revenue")).toBe("crm");
+    expect(featureForAppPath("/settings/team")).toBeNull();
+  });
+
   it("leaves ungated paths alone", () => {
     expect(featureForAppPath("/dashboard")).toBeNull();
     expect(featureForAppPath("/lists")).toBeNull();

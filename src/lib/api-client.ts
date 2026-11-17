@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { createClientLogger, logAndCapture } from "@/lib/logger";
 import {
   AuthErrorCode,
@@ -255,12 +256,18 @@ function logApiFailure(
 const EARLY_ACCESS_PATH = "/app/early-access";
 
 /**
- * Early access: the API answers 403 access_pending / access_rejected for a workspace that is not
- * approved yet. Wherever that happens (a stale tab, a race with AccessGate), go to the waiting page.
+ * Early access refusals from the API or the CRM service (403):
+ * - access_pending / access_rejected: the workspace is not approved yet; wherever that happens (a
+ *   stale tab, a race with AccessGate), go to the waiting page.
+ * - feature_disabled: the area is switched off for this workspace; say so instead of a raw error.
  */
-function redirectIfAccessRefused(status: number, body: unknown): void {
+export function handleAccessRefusal(status: number, body: unknown): void {
   if (status !== 403 || typeof window === "undefined") return;
   const code = (body as { code?: unknown } | undefined)?.code;
+  if (code === "feature_disabled") {
+    toast.error("This isn't on your plan.", { id: "feature-disabled", description: "Get in touch with us to add it." });
+    return;
+  }
   if (code !== "access_pending" && code !== "access_rejected") return;
   if (window.location.pathname.startsWith(EARLY_ACCESS_PATH)) return;
   window.location.assign(EARLY_ACCESS_PATH);
@@ -315,7 +322,7 @@ export async function apiFetch<T>(
       log.warn("Received AUTH_SESSION_REVOKED, signing out");
       handleSessionRevoked();
     }
-    redirectIfAccessRefused(res.status, errBody);
+    handleAccessRefusal(res.status, errBody);
     
     logApiFailure(method, path, error, { workspaceId });
     throw error;
