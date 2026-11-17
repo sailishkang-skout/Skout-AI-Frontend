@@ -355,15 +355,20 @@ describe("JobChanges", () => {
     );
     renderWithClient(<JobChanges />);
     expect(await screen.findByText("Priya Raman")).toBeTruthy();
-    expect(screen.getByText("Head of Revenue at Initech")).toBeTruthy();
-    expect(screen.getByText("VP Revenue at Umbrella")).toBeTruthy();
-    expect(screen.getByText(/does not message anyone or change an enrollment/)).toBeTruthy();
+    // One plain sentence, then the role before and the role now.
+    expect(screen.getByText("Priya Raman joined Umbrella as VP Revenue, after Head of Revenue at Initech.")).toBeTruthy();
+    expect(screen.getByText("New company")).toBeTruthy();
+    expect(screen.getByText("Before")).toBeTruthy();
+    expect(screen.getByText("Initech")).toBeTruthy();
+    expect(screen.getByText("Now")).toBeTruthy();
+    expect(screen.getByText("Umbrella")).toBeTruthy();
+    expect(screen.getByText(/does not message anyone or change a sequence enrollment/)).toBeTruthy();
     expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/job-changes?status=pending&page=1");
     fireEvent.click(screen.getByRole("button", { name: "Mark reviewed" }));
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/job-changes/22222222-2222-4222-8222-222222222222/review", expect.objectContaining({ method: "POST" }))
     );
-    expect(screen.getByText(/^Detected .* by comparing two captures of their profile/)).toBeTruthy();
+    expect(screen.getByText("Found by comparing two captures of their profile")).toBeTruthy();
   });
 
   it("shows the previous company for a move found in the work history", async () => {
@@ -377,10 +382,33 @@ describe("JobChanges", () => {
       pageSize: 25,
     });
     renderWithClient(<JobChanges />);
-    expect(await screen.findByText("Senior Consultant at EY Technology Solutions")).toBeTruthy();
-    expect(screen.getByText("AI Forward Deployed Engineer at Skout AI")).toBeTruthy();
-    expect(screen.getByText(/from a recent move in their LinkedIn work history/)).toBeTruthy();
-    expect(screen.getByText("Previous company not captured")).toBeTruthy();
+    expect(
+      await screen.findByText("Priya Raman joined Skout AI as AI Forward Deployed Engineer, after Senior Consultant at EY Technology Solutions.")
+    ).toBeTruthy();
+    expect(screen.getByText("EY Technology Solutions")).toBeTruthy();
+    expect(screen.getByText(/Found in their LinkedIn work history/)).toBeTruthy();
+    // The previous employer is unknown: said once, plainly.
+    expect(screen.getByText("Alex Kim joined Umbrella as VP Revenue. The previous employer was not captured.")).toBeTruthy();
+    expect(screen.getByText("Not captured")).toBeTruthy();
+  });
+
+  it("uses the API's summary, kind, start date and counts", async () => {
+    mockApiFetch.mockResolvedValue({
+      jobChanges: [jobChange({ kind: "new_role", summary: "Priya Raman has a new role at Initech: Head of Revenue → VP Revenue.", startedAt: "Mar 2026", headline: "VP Revenue at Initech" })],
+      total: 1,
+      page: 1,
+      pageSize: 25,
+      counts: { pending: 4, reviewed: 9, lastSevenDays: 2 },
+    });
+    renderWithClient(<JobChanges />);
+    expect(await screen.findByText("Priya Raman has a new role at Initech: Head of Revenue → VP Revenue.")).toBeTruthy();
+    expect(screen.getByText("New role")).toBeTruthy();
+    expect(screen.getByText("In the new role since Mar 2026")).toBeTruthy();
+    expect(screen.getByLabelText("Needs review: 4")).toBeTruthy();
+    expect(screen.getByLabelText("Reviewed: 9")).toBeTruthy();
+    expect(screen.getByLabelText("Found in the last 7 days: 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Reviewed" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/job-changes?status=reviewed&page=1"));
   });
 });
 

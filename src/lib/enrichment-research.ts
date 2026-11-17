@@ -126,6 +126,19 @@ export interface JobChange extends ChangeEvent {
   /** How it was found: two captures differ, or one capture's work history shows a recent move. Older APIs omit it. */
   detectedBy?: "capture_comparison" | "work_history";
   requiresReview: boolean;
+  /** What kind of move it is. Older APIs omit it. */
+  kind?: "new_company" | "new_role" | "left_company";
+  /** One plain sentence about the change, written by the API. */
+  summary?: string;
+  headline?: string | null;
+  /** Start of the new role as LinkedIn shows it ("Mar 2026"), when captured. */
+  startedAt?: string | null;
+}
+
+export interface JobChangeCounts {
+  pending: number;
+  reviewed: number;
+  lastSevenDays: number;
 }
 
 export interface Paged {
@@ -181,7 +194,7 @@ export function useResearchApi() {
       companyPeople: (id: string, filters: PeopleFilters & { group: "verified" | "candidates" }) =>
         apiFetch<Paged & { group: string; people: CompanyPerson[] }>(`${BASE}/companies/${id}/people${query(filters)}`),
       jobChanges: (filters: { status: "pending" | "reviewed" | "all"; page?: number; pageSize?: number }) =>
-        apiFetch<Paged & { jobChanges: JobChange[] }>(`${BASE}/job-changes${query(filters)}`),
+        apiFetch<Paged & { jobChanges: JobChange[]; counts?: JobChangeCounts }>(`${BASE}/job-changes${query(filters)}`),
       reviewJobChange: (id: string) => apiFetch<{ jobChange: ChangeEvent }>(`${BASE}/job-changes/${id}/review`, json({})),
       attachPublicUrl: (id: string, url: string) =>
         apiFetch<{ prospectId: string; linkedinUrl: string; merged: boolean }>(`${BASE}/people/${encodeURIComponent(id)}/public-url`, json({ url })),
