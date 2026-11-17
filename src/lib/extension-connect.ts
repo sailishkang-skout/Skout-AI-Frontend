@@ -241,3 +241,30 @@ export function continueCaptureQueueInExtension(companyPublicId: string, company
     }
   });
 }
+
+export interface ExtensionStatus {
+  connected: boolean;
+  version: string | null;
+  /** The extension can take capture jobs from this page (v0.11.20 and later). */
+  supportsQueue: boolean;
+}
+
+/** Whether the Skout extension is installed and reachable from this page, and its version. */
+export async function detectExtension(timeoutMs = 4000): Promise<ExtensionStatus> {
+  const found = await waitForExtensionDetection(timeoutMs);
+  const extensionId = resolveExtensionId();
+  if (!found || !extensionId || !canUseExternalMessaging()) return { connected: found, version: null, supportsQueue: false };
+  return new Promise((resolve) => {
+    try {
+      window.chrome!.runtime!.sendMessage(extensionId, { type: "ping" }, (response) => {
+        if (window.chrome?.runtime?.lastError || !response?.ok) {
+          resolve({ connected: found, version: null, supportsQueue: false });
+          return;
+        }
+        resolve({ connected: true, version: response.version ?? null, supportsQueue: response.captureQueue === true });
+      });
+    } catch {
+      resolve({ connected: found, version: null, supportsQueue: false });
+    }
+  });
+}

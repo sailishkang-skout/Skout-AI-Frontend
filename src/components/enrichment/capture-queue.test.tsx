@@ -1,21 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CaptureQueuePage, lastSevenDays } from "./capture-queue";
 import {
-  CaptureQueuePage,
-  actionForJob,
-  companyPageUrl,
-  queueProgress,
-  tabForState,
-  type CapturableCompany,
+  companyIdFromUrl,
+  jobActions,
+  jobProgress,
+  queueQueryString,
+  type CaptureJob,
+  type CaptureJobDetails,
   type CaptureJobState,
-  type CaptureQueueItem,
-} from "./capture-queue";
+} from "@/lib/capture-queue";
 
-const { mockApiFetch, mockHasPermission, mockContinue } = vi.hoisted(() => ({
+const { mockApiFetch, mockHasPermission, mockContinue, mockDetect } = vi.hoisted(() => ({
   mockApiFetch: vi.fn(),
   mockHasPermission: vi.fn<(permission: string) => boolean>(),
   mockContinue: vi.fn<(companyPublicId: string, name?: string) => Promise<void>>(),
+  mockDetect: vi.fn(),
 }));
 
 vi.mock("@/lib/api-client", () => {
@@ -32,45 +33,61 @@ vi.mock("@/lib/api-client", () => {
   };
 });
 vi.mock("@/lib/workspace-role", () => ({ useWorkspaceRole: () => ({ hasPermission: mockHasPermission }) }));
-vi.mock("@/lib/extension-connect", () => ({ continueCaptureQueueInExtension: mockContinue }));
+vi.mock("@/lib/extension-connect", () => ({ continueCaptureQueueInExtension: mockContinue, detectExtension: mockDetect }));
 
-const job = (state: CaptureJobState, overrides: Partial<CaptureQueueItem> = {}): CaptureQueueItem => ({
+const job = (state: CaptureJobState, overrides: Partial<CaptureJob> = {}): CaptureJob => ({
   companyPublicId: `co-${state}`,
   companyName: `Company ${state}`,
-  sourceUrl: "https://www.linkedin.com/company/co/",
+  sourceUrl: `https://www.linkedin.com/company/co-${state}/`,
   pagesRead: 25,
   peopleFound: 240,
   expectedPeople: 960,
   remainingPeople: 720,
   batches: 1,
+  peopleCreated: 200,
+  peopleMerged: 38,
+  peopleRejected: 2,
   complete: state === "completed",
-  status: state === "interrupted" ? "running" : state,
+  status: state === "interrupted" ? "running" : state === "partial" ? "failed" : state,
   state,
-  error: state === "failed" ? "Company content did not load." : null,
+  error: state === "failed" || state === "partial" ? "LinkedIn stopped showing results" : null,
+  mode: "extension",
+  nextRunAt: null,
+  attempts: 0,
+  startedBy: "Priya",
   stopReason: null,
-  createdAt: "2026-11-12T10:00:00.000Z",
+  createdAt: new Date(Date.now() - 3600_000).toISOString(),
   updatedAt: new Date().toISOString(),
   ...overrides,
 });
 
-const company = (id: string, overrides: Partial<CapturableCompany> = {}): CapturableCompany => ({
-  companyPublicId: id, name: `Co ${id}`, peopleSaved: 12, peopleFound: 0, expectedPeople: null, complete: null, status: null, mode: null, ...overrides,
+const stats = { total: 24, running: 3, completed: 18, failed: 3, paused: 0, peopleCaptured: 4000, daily: [] };
+const details = (item: CaptureJob): CaptureJobDetails => ({
+  item,
+  batches: [
+    { id: "r1", status: "completed", startedAt: new Date().toISOString(), completedAt: null, pagesRead: 25, received: 240, created: 200, merged: 38, rejected: 2, error: null },
+    { id: "r2", status: "failed", startedAt: new Date().toISOString(), completedAt: null, pagesRead: 3, received: 0, created: 0, merged: 0, rejected: 0, error: "LinkedIn rate limit exceeded" },
+  ],
+  peopleTotal: 240,
+  people: [{ id: "p1", name: "Jane Doe", title: "Engineer", linkedinUrl: "https://www.linkedin.com/in/jane/", verified: false, savedAt: new Date().toISOString() }],
 });
 
-function serve(items: CaptureQueueItem[], remainingToday = 500, { companies = [] as CapturableCompany[], auto = { available: true, reason: null, accountName: "Owner" } as unknown } = {}) {
+type Serve = { jobs?: CaptureJob[]; failed?: CaptureJob[]; status?: unknown; auto?: unknown; companies?: unknown[]; runs?: unknown[] };
+function serve({ jobs = [], failed = [], status = { enabled: true, caps: { maxPagesPerRun: 25, maxLeadsPerRun: 250, dailyLeadLimit: 1000 }, usage: { remainingToday: 500 } }, auto = { available: true, reason: null, accountName: "Owner LinkedIn" }, companies = [], runs = [] }: Serve = {}) {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url === "/enrichment/capture/queue") return { items };
-    if (url === "/enrichment/capture/companies") return { companies };
-    if (url === "/enrichment/capture/auto" && init?.method === "POST") {
-      const ids = JSON.parse(String(init.body)).companyPublicIds as string[];
-      return { queued: ids.filter((id) => id !== "nope"), skipped: ids.includes("nope") ? [{ companyPublicId: "nope", reason: "Capture this company first" }] : [] };
+    if (url.startsWith("/api/v1/enrichment/capture/queue?")) {
+      const params = new URLSearchParams(url.split("?")[1]);
+      const items = params.get("state") === "failed" ? failed : jobs;
+      return { items, total: items.length, page: Number(params.get("page")), pageSize: Number(params.get("pageSize")), stats };
     }
-    if (url === "/enrichment/capture/auto") return auto;
-    if (url.endsWith("/pause") && init?.method === "POST") return { item: {} };
-    if (url.startsWith("/enrichment/capture/queue/") && init?.method === "PUT") return { item: {} };
-    if (url === "/enrichment/capture/status") return { enabled: true, caps: { maxLeadsPerRun: 250, dailyLeadLimit: 1000 }, usage: { remainingToday } };
-    if (url.endsWith("/resume") && init?.method === "POST") return { item: {} };
-    if (url.startsWith("/enrichment/capture/queue/") && init?.method === "DELETE") return null;
+    const one = url.match(/^\/api\/v1\/enrichment\/capture\/queue\/([^/]+)$/);
+    if (one && !init?.method) return details([...jobs, ...failed].find((item) => item.companyPublicId === one[1])!);
+    if (url === "/api/v1/enrichment/capture/status") return status;
+    if (url === "/api/v1/enrichment/capture/auto" && !init?.method) return auto;
+    if (url === "/api/v1/enrichment/capture/auto") return { queued: JSON.parse(String(init!.body)).companyPublicIds, skipped: [] };
+    if (url === "/api/v1/enrichment/capture/companies") return { companies };
+    if (url === "/api/v1/enrichment/capture/runs") return { runs };
+    if (init?.method) return { item: {} };
     throw new Error(`Unexpected request: ${url}`);
   });
 }
@@ -88,214 +105,207 @@ describe("CaptureQueuePage", () => {
   beforeEach(() => {
     mockHasPermission.mockReturnValue(true);
     mockContinue.mockResolvedValue(undefined);
+    mockDetect.mockResolvedValue({ connected: true, version: "0.11.22", supportsQueue: true });
   });
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
   });
 
-  it("groups jobs into in progress, needs attention and completed, with counts", async () => {
-    serve([job("running"), job("review"), job("failed"), job("interrupted"), job("completed")]);
+  it("calls the API's real /api/v1 paths (a path without it is a 404 page)", async () => {
+    serve({ jobs: [job("running")] });
     renderPage();
-    expect(await screen.findByRole("tab", { name: "In progress (2)" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Needs attention (2)" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Completed (1)" })).toBeTruthy();
-    // Opens on what needs the user first.
-    expect(screen.getByRole("tab", { name: "Needs attention (2)" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("Company failed")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "In progress (2)" }));
-    expect(screen.getByText("Reading people")).toBeTruthy();
-    expect(screen.getByText("Waiting for your review")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Completed (1)" }));
-    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+    await screen.findByText("Company running");
+    const urls = mockApiFetch.mock.calls.map(([url]) => url as string);
+    expect(urls.length).toBeGreaterThan(3);
+    expect(urls.every((url) => url.startsWith("/api/v1/enrichment/"))).toBe(true);
   });
 
-  it("shows progress, the failure reason and the interruption", async () => {
-    serve([job("failed"), job("interrupted")]);
+  it("shows the dashboard totals, the capture sources and the extension status", async () => {
+    serve({ jobs: [job("running")] });
     renderPage();
-    expect((await screen.findAllByText(/240 of about 960 people saved · 1 batch · 25 result pages/)).length).toBe(2);
-    expect(screen.getByText(/Company content did not load\./)).toBeTruthy();
-    expect(screen.getByText(/The extension stopped reporting/)).toBeTruthy();
-    expect(screen.getAllByRole("progressbar")[0].getAttribute("aria-valuenow")).toBe("25");
+    expect(await screen.findByLabelText("Total jobs: 24")).toBeTruthy();
+    expect(screen.getByLabelText("Running: 3")).toBeTruthy();
+    expect(screen.getByLabelText("Completed: 18")).toBeTruthy();
+    expect(screen.getByLabelText("Failed: 3")).toBeTruthy();
+    expect(screen.getByText("System operational")).toBeTruthy();
+    expect(await screen.findByText("Connected · v0.11.22")).toBeTruthy();
+    expect(screen.getByText("Ready")).toBeTruthy();
+    expect(screen.getByText(/with Owner LinkedIn/)).toBeTruthy();
   });
 
-  it("retries a failed job through the extension", async () => {
-    serve([job("failed")]);
+  it("lists jobs with source, requested and captured people, progress, status and who started them", async () => {
+    serve({ jobs: [job("running"), job("completed", { mode: "unipile", peopleFound: 960 })] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: /Retry/ }));
-    await waitFor(() => expect(mockContinue).toHaveBeenCalledWith("co-failed", "Company failed"));
-    expect(await screen.findByText(/Retrying Company failed in the Skout extension/)).toBeTruthy();
+    const row = (await screen.findByText("Company running")).closest("tr")!;
+    expect(within(row).getByText("Manual")).toBeTruthy();
+    expect(within(row).getByText("960")).toBeTruthy();
+    expect(within(row).getByText("240")).toBeTruthy();
+    expect(within(row).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("25");
+    expect(within(row).getByText("Running")).toBeTruthy();
+    expect(within(row).getByText("Priya")).toBeTruthy();
+    const done = screen.getByText("Company completed").closest("tr")!;
+    expect(within(done).getByText("Automatic")).toBeTruthy();
+    expect(within(done).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
   });
 
-  it("resumes an interrupted job through the extension", async () => {
-    serve([job("interrupted")]);
+  it("filters by method, status, company and date through the API", async () => {
+    serve({ jobs: [job("running")] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: /Resume/ }));
-    await waitFor(() => expect(mockContinue).toHaveBeenCalledWith("co-interrupted", "Company interrupted"));
-    expect(await screen.findByText(/Resuming Company interrupted/)).toBeTruthy();
+    await screen.findByText("Company running");
+    fireEvent.change(screen.getByLabelText("Capture method"), { target: { value: "unipile" } });
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "partial" } });
+    fireEvent.change(screen.getByLabelText("Created from"), { target: { value: "2026-11-01" } });
+    await waitFor(() => {
+      const last = mockApiFetch.mock.calls.map(([url]) => url as string).filter((url) => url.startsWith("/api/v1/enrichment/capture/queue?") && !url.includes("state=failed&")).at(-1)!;
+      expect(last).toContain("mode=unipile");
+      expect(last).toContain("state=partial");
+      expect(last).toContain("from=");
+    });
+    fireEvent.change(screen.getByLabelText("Search companies"), { target: { value: "acme" } });
+    await waitFor(() => expect(mockApiFetch.mock.calls.some(([url]) => String(url).includes("q=acme"))).toBe(true), { timeout: 2000 });
   });
 
-  it("queues the job on the server when the extension cannot be reached", async () => {
-    serve([job("paused")]);
-    mockContinue.mockRejectedValue(new Error("extension-unavailable"));
+  it("opens a job's details: progress, duplicates, refused records, errors and the people captured", async () => {
+    serve({ jobs: [job("partial")] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: /Resume/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-paused", { method: "PUT", body: JSON.stringify({ status: "queued", companyName: "Company paused" }) }));
+    fireEvent.click(await screen.findByRole("button", { name: "View" }));
+    expect(await screen.findByText("38 already in the workspace")).toBeTruthy();
+    expect(screen.getByText("200 new people")).toBeTruthy();
+    expect(screen.getByText("2 records")).toBeTruthy();
+    expect(screen.getByText(/LinkedIn rate limit exceeded/)).toBeTruthy();
+    expect(screen.getByText("Jane Doe")).toBeTruthy();
+    expect(screen.getByText("People captured (240)")).toBeTruthy();
+  });
+
+  it("pauses an automatic job on the server", async () => {
+    serve({ jobs: [job("running", { mode: "unipile" })] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Pause Company running" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/capture/queue/co-running/pause", { method: "POST" }));
+    expect(await screen.findByText(/is paused/)).toBeTruthy();
+  });
+
+  it("resumes a manual job through the extension, or queues it for the extension when unreachable", async () => {
+    serve({ jobs: [job("paused")] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Resume Company paused" }));
+    await waitFor(() => expect(mockContinue).toHaveBeenCalledWith("co-paused", "Company paused"));
+    mockContinue.mockRejectedValueOnce(new Error("extension-unavailable"));
+    fireEvent.click(await screen.findByRole("button", { name: "Resume Company paused" }));
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/capture/queue/co-paused", { method: "PUT", body: JSON.stringify({ status: "queued", companyName: "Company paused" }) })
+    );
     expect(await screen.findByText(/choose Start requested jobs/)).toBeTruthy();
   });
 
-  it("tells the user to update an old extension", async () => {
-    serve([job("paused")]);
-    mockContinue.mockRejectedValue(new Error("extension-outdated"));
+  it("cancels a job from its details", async () => {
+    serve({ jobs: [job("queued")] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: /Resume/ }));
-    expect(await screen.findByText(/Update the Skout extension/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "View" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/capture/queue/co-queued/cancel", { method: "POST" }));
   });
 
-  it("shows an extension error instead of hiding it", async () => {
-    serve([job("failed")]);
-    mockContinue.mockRejectedValue(new Error("Daily capture limit of 1000 leads reached."));
+  it("lists failed jobs with their error and retries them", async () => {
+    serve({ jobs: [], failed: [job("failed", { mode: "unipile" })] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: /Retry/ }));
-    expect(await screen.findByText(/Daily capture limit of 1000 leads reached\./)).toBeTruthy();
+    const failedList = await screen.findByRole("list", { name: "Failed jobs" });
+    expect(within(failedList).getByText("Error: LinkedIn stopped showing results")).toBeTruthy();
+    fireEvent.click(within(failedList).getByRole("button", { name: "Retry Company failed" }));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/capture/queue/co-failed/resume", { method: "POST" }));
   });
 
-  it("keeps resume paused but visible when the daily limit is reached", async () => {
-    serve([job("paused")], 0);
-    renderPage();
-    expect(await screen.findByText("Daily capture limit reached")).toBeTruthy();
-    await waitFor(() => expect((screen.getByRole("button", { name: /Resume/ }) as HTMLButtonElement).disabled).toBe(true));
-  });
-
-  it("has no action for a job that is running, and cannot remove it", async () => {
-    serve([job("running")]);
-    renderPage();
-    expect(await screen.findByText("Company running")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Resume|Retry|Start in extension/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
-  });
-
-  it("removes a finished job", async () => {
-    serve([job("completed")]);
-    renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Completed (1)" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Remove Company completed from the capture queue" }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-completed", { method: "DELETE" }));
-  });
-
-  it("shows read-only viewers the jobs without actions", async () => {
-    mockHasPermission.mockImplementation((permission) => permission === "enrichment:read");
-    serve([job("failed")]);
-    renderPage();
-    expect(await screen.findByText("Company failed")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Retry/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
-  });
-
-  it("opens on the company list when nothing is running, and explains an empty queue", async () => {
-    serve([]);
-    renderPage();
-    expect(await screen.findByText(/No captured companies yet/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "In progress (0)" }));
-    expect(screen.getByText(/No capture jobs yet/)).toBeTruthy();
-  });
-
-  it("explains a server without the queue instead of showing a raw 404", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    mockApiFetch.mockImplementation(async (url: string) => {
-      if (url === "/enrichment/capture/queue") throw new ApiError("Request failed (404)", 404);
-      return { enabled: true, caps: { maxLeadsPerRun: 250, dailyLeadLimit: 1000 }, usage: { remainingToday: 500 } };
+  it("shows recent batches by company name", async () => {
+    serve({
+      jobs: [job("running", { companyPublicId: "acme", companyName: "Acme" })],
+      runs: [{ id: "r1", kind: "company", status: "completed", sourceUrl: "https://www.linkedin.com/company/acme/people/", leadsReceived: 250, leadsCreated: 240, leadsMerged: 10, leadsRejected: 0, errorMessage: null, startedAt: new Date().toISOString(), completedAt: null }],
     });
     renderPage();
-    expect(await screen.findByText("Capture queue isn't available on this server yet")).toBeTruthy();
-    expect(screen.queryByText(/Request failed/)).toBeNull();
+    const activity = await screen.findByRole("list", { name: "Recent activity" });
+    expect(within(activity).getByText("Acme")).toBeTruthy();
+    expect(within(activity).getByText(/240 added · 10 already saved/)).toBeTruthy();
   });
 
-  it("maps states to tabs and actions, and builds safe links", () => {
-    expect(tabForState("queued")).toBe("active");
-    expect(tabForState("interrupted")).toBe("attention");
-    expect(tabForState("completed")).toBe("completed");
-    expect(actionForJob({ state: "failed" })).toBe("retry");
-    expect(actionForJob({ state: "paused" })).toBe("resume");
-    expect(actionForJob({ state: "queued" })).toBe("start");
-    expect(actionForJob({ state: "running" })).toBeNull();
-    expect(actionForJob({ state: "completed" })).toBeNull();
-    expect(actionForJob({ state: "running", mode: "unipile" })).toBe("pause");
-    expect(actionForJob({ state: "queued", mode: "unipile" })).toBe("pause");
-    expect(actionForJob({ state: "paused", mode: "unipile" })).toBe("resume");
-    expect(companyPageUrl({ companyPublicId: "a b" })).toBe("https://www.linkedin.com/company/a%20b/");
-    expect(queueProgress(job("paused", { expectedPeople: null }))).toBeNull();
-    expect(queueProgress(job("paused", { peopleFound: 2000, expectedPeople: 1000 }))).toBe(100);
-  });
-
-  it("lists the workspace's companies with people saved, and selects all", async () => {
-    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("beta", { name: "Beta", peopleSaved: 0, peopleFound: 40, expectedPeople: 900 })] });
+  it("picks companies (select all) and starts automatic capture", async () => {
+    serve({ companies: [
+      { companyPublicId: "acme", name: "Acme", peopleSaved: 12, peopleFound: 0, expectedPeople: null, complete: null, status: null, mode: null },
+      { companyPublicId: "beta", name: "Beta", peopleSaved: 0, peopleFound: 40, expectedPeople: 900, complete: false, status: "running", mode: "extension" },
+    ] });
     renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
-    expect(await screen.findByText("Acme")).toBeTruthy();
-    expect(screen.getByText("12 people saved")).toBeTruthy();
-    expect(screen.getByText("40 of about 900 people saved")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
+    await screen.findByText("Beta");
     fireEvent.click(screen.getByLabelText(/Select all/));
-    expect(screen.getByText(/Select all \(2 selected\)/)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Search companies"), { target: { value: "bet" } });
-    expect(screen.queryByText("Acme")).toBeNull();
+    expect(screen.getByText(/already running; it will not start twice/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Start automatic capture \(2\)/ }));
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/enrichment/capture/auto", { method: "POST", body: JSON.stringify({ companyPublicIds: ["acme", "beta"] }) })
+    );
+    expect(await screen.findByText(/2 companies are being read automatically/)).toBeTruthy();
   });
 
-  it("captures selected companies in the extension, one after another", async () => {
-    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("beta", { name: "Beta" })] });
+  it("sends picked companies to the extension one at a time", async () => {
+    serve({ companies: [{ companyPublicId: "acme", name: "Acme", peopleSaved: 12, peopleFound: 0, expectedPeople: null, complete: null, status: null, mode: null }] });
     renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Pick companies" }));
     fireEvent.click(await screen.findByLabelText("Select Acme"));
-    fireEvent.click(screen.getByLabelText("Select Beta"));
-    fireEvent.click(screen.getByRole("button", { name: /Capture in extension \(2\)/ }));
-    await waitFor(() => expect(mockContinue).toHaveBeenCalledTimes(2));
-    expect(mockContinue).toHaveBeenNthCalledWith(1, "acme", "Acme");
-    expect(await screen.findByText(/2 companies were added to the Skout extension's queue/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Send to extension \(1\)/ }));
+    await waitFor(() => expect(mockContinue).toHaveBeenCalledWith("acme", "Acme"));
+    expect(await screen.findByText(/1 company was added to the Skout extension's queue/)).toBeTruthy();
   });
 
-  it("queues companies for the extension when it cannot be reached", async () => {
-    serve([], 500, { companies: [company("acme", { name: "Acme" })] });
-    mockContinue.mockRejectedValue(new Error("extension-unavailable"));
+  it("explains why automatic capture is not set up and disables it", async () => {
+    serve({ auto: { available: false, reason: "Connect a LinkedIn account to this workspace.", accountName: null }, companies: [{ companyPublicId: "acme", name: "Acme", peopleSaved: 1, peopleFound: 0, expectedPeople: null, complete: null, status: null, mode: null }] });
     renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Companies (1)" }));
+    expect(await screen.findByText("Not set up")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
     fireEvent.click(await screen.findByLabelText("Select Acme"));
-    fireEvent.click(screen.getByRole("button", { name: /Capture in extension/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/acme", { method: "PUT", body: JSON.stringify({ status: "queued", companyName: "Acme" }) }));
-    expect(await screen.findByText(/choose Start requested jobs/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Start automatic capture/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("captures selected companies automatically on the server", async () => {
-    serve([], 500, { companies: [company("acme", { name: "Acme" }), company("nope", { name: "Nope" })] });
+  it("shows read-only members the jobs without actions", async () => {
+    mockHasPermission.mockImplementation((permission) => permission === "enrichment:read");
+    serve({ jobs: [job("paused")] });
     renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Companies (2)" }));
-    fireEvent.click(await screen.findByLabelText(/Select all/));
-    fireEvent.click(screen.getByRole("button", { name: /Capture automatically \(2\)/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/auto", { method: "POST", body: JSON.stringify({ companyPublicIds: ["acme", "nope"] }) }));
-    expect(await screen.findByText(/1 companies are being read automatically on the server/)).toBeTruthy();
-    expect(screen.getByText(/Skipped: nope \(Capture this company first\)/)).toBeTruthy();
+    expect(await screen.findByText("Company paused")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Resume/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Configure/ })).toBeNull();
   });
 
-  it("explains why automatic capture is unavailable and disables it", async () => {
-    serve([], 500, { companies: [company("acme", { name: "Acme" })], auto: { available: false, reason: "Connect a LinkedIn account.", accountName: null } });
+  it("shows an empty state, and a clear error with retry", async () => {
+    serve({ jobs: [] });
     renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "Companies (1)" }));
-    expect(await screen.findByText("Automatic capture: Connect a LinkedIn account.")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Select Acme"));
-    expect((screen.getByRole("button", { name: /Capture automatically/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText("No capture jobs yet")).toBeTruthy();
+    cleanup();
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url.startsWith("/api/v1/enrichment/capture/queue?")) throw new Error("Request failed (500)");
+      return {};
+    });
+    renderPage();
+    expect(await screen.findByText("Request failed (500)")).toBeTruthy();
+    expect(screen.getByText("Capture service unreachable")).toBeTruthy();
+    await act(async () => {});
+  });
+});
+
+describe("capture queue helpers", () => {
+  it("offers actions that fit each state and source", () => {
+    expect(jobActions({ state: "queued", mode: "extension" })).toEqual(["start", "cancel"]);
+    expect(jobActions({ state: "running", mode: "unipile" })).toEqual(["pause", "cancel"]);
+    expect(jobActions({ state: "running", mode: "extension" })).toEqual(["cancel"]);
+    expect(jobActions({ state: "interrupted", mode: "extension" })).toEqual(["resume", "cancel"]);
+    expect(jobActions({ state: "partial", mode: "unipile" })).toEqual(["retry"]);
+    expect(jobActions({ state: "completed", mode: "unipile" })).toEqual([]);
   });
 
-  it("pauses and resumes an automatic job on the server, and shows who started it", async () => {
-    serve([job("running", { mode: "unipile", startedBy: "Priya" }), job("paused", { mode: "unipile", stopReason: "Daily capture limit of 1000 leads reached." })]);
-    renderPage();
-    fireEvent.click(await screen.findByRole("tab", { name: "In progress (1)" }));
-    expect(await screen.findByText(/by Priya/)).toBeTruthy();
-    expect(screen.getAllByText("Automatic").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Pause/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-running/pause", { method: "POST" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Needs attention (1)" }));
-    expect(screen.getByText("Daily capture limit of 1000 leads reached.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Resume/ }));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/enrichment/capture/queue/co-paused/resume", { method: "POST" }));
-    expect(mockContinue).not.toHaveBeenCalled();
+  it("builds the list query and reads progress, company ids and trends", () => {
+    const query = new URLSearchParams(queueQueryString({ q: " acme ", mode: "unipile", state: "failed", page: 2, pageSize: 10 }));
+    expect(Object.fromEntries(query)).toEqual({ q: "acme", mode: "unipile", state: "failed", page: "2", pageSize: "10" });
+    expect(jobProgress({ state: "running", complete: false, peopleFound: 50, expectedPeople: 200 })).toBe(25);
+    expect(jobProgress({ state: "running", complete: false, peopleFound: 50, expectedPeople: null })).toBeNull();
+    expect(companyIdFromUrl("https://www.linkedin.com/company/Acme%20Co/people/")).toBe("acme co");
+    expect(companyIdFromUrl("https://www.linkedin.com/sales/search/people")).toBeNull();
+    const now = new Date("2026-11-17T12:00:00Z");
+    expect(lastSevenDays([{ day: "2026-11-17", created: 4, completed: 1, failed: 0 }, { day: "2026-11-15", created: 2, completed: 0, failed: 1 }], (d) => d.created, now)).toEqual([0, 0, 0, 0, 2, 0, 4]);
   });
 });
