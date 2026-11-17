@@ -13,6 +13,7 @@ import {
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { AccessGate } from "@/components/access/access-gate";
 import { authQueryOptions, useAuthReady } from "@/lib/api-client";
 import { useIcpApi } from "@/lib/icp";
 import { isOnboardingComplete } from "@/lib/scoring";
@@ -106,9 +107,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <ProductTourProvider>
-      <IcpEnforcement>
-        <DashboardShellInner>{children}</DashboardShellInner>
-      </IcpEnforcement>
+      <AccessGate>
+        <IcpEnforcement>
+          <DashboardShellInner>{children}</DashboardShellInner>
+        </IcpEnforcement>
+      </AccessGate>
     </ProductTourProvider>
   );
 }

@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock("sonner", () => ({ toast: { error: toastError } }));
 import { crmApiFetch, getCrmApiBase } from "./crm-api-client";
 import { ApiError } from "./api-client";
 
@@ -100,5 +103,21 @@ describe("crmApiFetch", () => {
   it("throws ApiError on 403 (forbidden — role-based delete guard)", async () => {
     mockFetch.mockResolvedValue(makeResponse(403, { error: "forbidden" }, false));
     await expect(crmApiFetch("/api/v1/companies/1", { method: "DELETE" })).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe("crmApiFetch — early access refusals", () => {
+  it("sends a not-yet-approved workspace to the early access page", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, pathname: "/app/crm", assign });
+    mockFetch.mockResolvedValue(makeResponse(403, { error: "access_pending", code: "access_pending" }));
+    await expect(crmApiFetch("/companies")).rejects.toBeInstanceOf(ApiError);
+    expect(assign).toHaveBeenCalledWith("/app/early-access");
+  });
+
+  it("tells the user CRM isn't on their plan", async () => {
+    mockFetch.mockResolvedValue(makeResponse(403, { error: "feature_disabled", code: "feature_disabled", feature: "crm" }));
+    await expect(crmApiFetch("/companies")).rejects.toBeInstanceOf(ApiError);
+    expect(toastError).toHaveBeenCalledWith("This isn't on your plan.", expect.anything());
   });
 });

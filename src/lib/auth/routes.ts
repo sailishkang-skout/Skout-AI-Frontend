@@ -27,6 +27,8 @@ export const PUBLIC_ROUTE_SUFFIXES = [
 /** Only protect known app routes — unknown paths fall through to Next.js 404. */
 export const PROTECTED_ROUTE_SUFFIXES = [
   "/dashboard(.*)",
+  // Early access waiting page: signed-in only, outside the dashboard shell.
+  "/early-access(.*)",
   "/prospects(.*)",
   "/lists(.*)",
   "/smart-lists(.*)",

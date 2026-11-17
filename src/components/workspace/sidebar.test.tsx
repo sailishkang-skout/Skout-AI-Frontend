@@ -7,9 +7,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-function renderSidebar(permissions: string[]) {
+function renderSidebar(permissions: string[], features?: Record<string, boolean>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(["me"], { role: "member", permissions });
+  if (features) queryClient.setQueryData(["access"], { status: "active", features, request: null });
   return render(
     <QueryClientProvider client={queryClient}>
       <SidebarPanel />
@@ -73,5 +74,22 @@ describe("SidebarPanel — Pipeline/Prospects/Engage/Workflows grouping", () => 
     await none.findByText("Skout AI");
     expect(none.queryByRole("button", { name: "Enrichment" })).toBeNull();
     expect(none.queryByRole("button", { name: "LinkedIn Enrichment" })).toBeNull();
+  });
+});
+
+describe("SidebarPanel — early access feature switches", () => {
+  afterEach(() => cleanup());
+
+  it("hides a switched-off area and keeps the rest", async () => {
+    const { findByText, queryByText, getByText } = renderSidebar([], { sequences: false });
+    await findByText("Skout AI");
+    expect(queryByText("Sequences")).toBeNull();
+    expect(getByText("Lists & Smart Lists")).toBeTruthy();
+  });
+
+  it("shows everything when no switches are loaded", async () => {
+    const { findByText, getAllByText } = renderSidebar([]);
+    await findByText("Skout AI");
+    expect(getAllByText("Sequences").length).toBeGreaterThan(0);
   });
 });
