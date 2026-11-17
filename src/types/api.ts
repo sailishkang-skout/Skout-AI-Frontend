@@ -793,13 +793,33 @@ export interface IcpResponse {
 
 export interface SmartListFilters {
   query?: string;
+  jobTitle?: string;
+  /** Single-value fields from older lists; new lists use the plural, multi-value fields. */
   industry?: string;
   country?: string;
   seniority?: string;
+  industries?: string[];
+  countries?: string[];
+  seniorities?: string[];
   minEmployees?: number;
   maxEmployees?: number;
   tech?: string;
   signal?: string;
+}
+
+/** One choice for a smart-list filter, from the values actually stored in the search index. */
+export interface SmartListFacetOption {
+  value: string;
+  label: string;
+  /** Records storing this value; null when unknown (seniority also matches by job title). */
+  count: number | null;
+}
+
+export interface SmartListFacets {
+  total: number | null;
+  industry: SmartListFacetOption[];
+  country: SmartListFacetOption[];
+  seniority: SmartListFacetOption[];
 }
 
 export type SmartListRefreshCadence = "off" | "daily" | "weekly";
