@@ -1,5 +1,7 @@
 "use client";
 
+import { ACCESS_QUERY_KEY, type AccessState } from "@/lib/access";
+import { featureForAppPath, isFeatureOn, type FeatureMap } from "@/lib/feature-nav";
 import { useAuthAdapter, AUTH_ENABLED, useAuthUserMenu } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -110,12 +112,18 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-/** Drops items the user cannot open; a submenu (at any depth) with nothing left is dropped too. */
-function filterNavItem(item: NavItem, granted: readonly string[]): NavItem | null {
+/**
+ * Drops items the user cannot open (missing permission, or an area whose early access feature switch
+ * is off); a submenu (at any depth) with nothing left is dropped too.
+ */
+function filterNavItem(item: NavItem, granted: readonly string[], features?: Partial<FeatureMap>): NavItem | null {
   if (!hasNavPermission(item.requiredPermission, granted)) return null;
-  if (!item.children) return item;
+  if (!item.children) {
+    const feature = featureForAppPath(item.href);
+    return feature && !isFeatureOn(features, feature) ? null : item;
+  }
   const children = item.children
-    .map((child) => filterNavItem(child, granted))
+    .map((child) => filterNavItem(child, granted, features))
     .filter((child): child is NavItem => child !== null);
   return children.length ? { ...item, children } : null;
 }
@@ -128,13 +136,14 @@ function containsPath(item: NavItem, pathname: string): boolean {
 
 function filterNavGroups(
   groups: NavGroup[],
-  granted: readonly string[]
+  granted: readonly string[],
+  features?: Partial<FeatureMap>
 ): NavGroup[] {
   return groups
     .map((group) => ({
       ...group,
       items: group.items
-        .map((item) => filterNavItem(item, granted))
+        .map((item) => filterNavItem(item, granted, features))
         .filter((item): item is NavItem => item !== null),
     }))
     .filter((group) => group.items.length > 0);
@@ -493,6 +502,8 @@ export function SidebarPanel({
     staleTime: 30_000,
   });
   const grantedPermissions = me?.permissions ?? [];
+  // Read-only: AccessGate loads the switches; until it has, nothing is hidden (the API still enforces).
+  const { data: access } = useQuery<AccessState>({ queryKey: ACCESS_QUERY_KEY, enabled: false });
   const displayGroups = filterNavGroups([
     ...homeNav,
     ...prospectsNav,
@@ -501,7 +512,7 @@ export function SidebarPanel({
     ...workflowsNav,
     ...intelligenceNav,
     ...settingsNav,
-  ], grantedPermissions);
+  ], grantedPermissions, access?.features);
 
   return (
     <aside className={cn("flex h-full flex-col bg-muted/30", className)}>

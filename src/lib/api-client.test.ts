@@ -320,3 +320,21 @@ describe("apiFetch auth error body (integration)", () => {
     expect(isRetryableAuthError(err)).toBe(true);
   });
 });
+
+describe("apiFetch — early access refusals", () => {
+  it("sends a not-yet-approved workspace to the early access page", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, pathname: "/app/dashboard", assign });
+    mockFetch.mockResolvedValue(makeResponse(403, { code: "access_pending" }));
+    await expect(apiFetch("/api/v1/sequences")).rejects.toBeInstanceOf(ApiError);
+    expect(assign).toHaveBeenCalledWith("/app/early-access");
+  });
+
+  it("does not redirect again when already on the early access page", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, pathname: "/app/early-access", assign });
+    mockFetch.mockResolvedValue(makeResponse(403, { code: "access_rejected" }));
+    await expect(apiFetch("/api/v1/workspace/icp")).rejects.toBeInstanceOf(ApiError);
+    expect(assign).not.toHaveBeenCalled();
+  });
+});
