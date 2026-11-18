@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { authQueryOptions, useApiFetch, useAuthReady } from "./api-client";
-import type { FeatureMap } from "./feature-nav";
+import { isFeatureOn, type FeatureMap, type ProductFeature } from "./feature-nav";
 
 export type AccessStatus = "pending" | "invited" | "active" | "rejected";
 
@@ -52,4 +52,13 @@ export function useAccess() {
     staleTime: 30_000,
     ...authQueryOptions,
   });
+}
+
+/**
+ * Whether a feature is on, read from the access state AccessGate already loaded (no fetch of its
+ * own). Unknown switches count as on: the API still refuses what the workspace can't use.
+ */
+export function useFeatureOn(feature: ProductFeature): boolean {
+  const { data } = useQuery<AccessState>({ queryKey: ACCESS_QUERY_KEY, enabled: false });
+  return isFeatureOn(data?.features, feature);
 }

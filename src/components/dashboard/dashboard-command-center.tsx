@@ -11,16 +11,20 @@ import { useAuthReady } from "@/lib/api-client";
 import { useDexterPlatformApi } from "@/lib/dexter-platform";
 import { signalLabel, timeAgoShort, useSignalsApi } from "@/lib/signals";
 import type { DashboardSummary } from "@/types/api";
+import { FeatureLock } from "@/components/access/feature-lock";
+import { useFeatureOn } from "@/lib/access";
 
 export function DashboardCommandCenter({ summary }: { summary?: DashboardSummary }) {
   const authReady = useAuthReady();
   const dexterApi = useDexterPlatformApi();
   const signalsApi = useSignalsApi();
+  // Decisions come from Dexter (the AI feature): not requested when AI isn't on the plan.
+  const aiOn = useFeatureOn("ai");
 
   const decisions = useQuery({
     queryKey: ["decision-views", "open"],
     queryFn: () => dexterApi.listDecisions("open"),
-    enabled: authReady,
+    enabled: authReady && aiOn,
   });
 
   const signals = useQuery({
@@ -42,7 +46,8 @@ export function DashboardCommandCenter({ summary }: { summary?: DashboardSummary
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
+      <FeatureLock feature="ai" className="lg:col-span-2">
+      <Card className="h-full lg:col-span-2">
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-3">
           <div>
             <CardTitle className="text-base">Priority decisions</CardTitle>
@@ -76,6 +81,7 @@ export function DashboardCommandCenter({ summary }: { summary?: DashboardSummary
           )}
         </CardContent>
       </Card>
+      </FeatureLock>
 
       <Card>
         <CardHeader className="pb-3">
