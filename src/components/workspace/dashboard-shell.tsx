@@ -12,6 +12,7 @@ import {
 } from "@/components/onboarding/product-tour-provider";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { AccessGate } from "@/components/access/access-gate";
 import { authQueryOptions, useAuthReady } from "@/lib/api-client";
 import { useIcpApi } from "@/lib/icp";
@@ -97,6 +98,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <WorkspaceAiChat />
+      <CommandPalette />
       <Toaster theme="system" position="top-right" richColors closeButton />
     </div>
   );

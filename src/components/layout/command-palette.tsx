@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
@@ -15,33 +15,8 @@ const SEARCH_RESULT_LIMIT = 5;
 const MIN_SEARCH_LENGTH = 2;
 const DEBOUNCE_MS = 300;
 
-export interface CommandPaletteProps {
-  /**
-   * Whether the global shortcut (Cmd+K / Ctrl+K) is enabled.
-   * Disabled by default as Ctrl+K / Cmd+K shortcuts have been discontinued.
-   */
-  enableShortcut?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-export function CommandPalette({
-  enableShortcut = false,
-  open: controlledOpen,
-  onOpenChange,
-}: CommandPaletteProps = {}) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = useCallback(
-    (val: boolean | ((prev: boolean) => boolean)) => {
-      setInternalOpen((prev) => {
-        const nextVal = typeof val === "function" ? val(prev) : val;
-        onOpenChange?.(nextVal);
-        return nextVal;
-      });
-    },
-    [onOpenChange]
-  );
+export function CommandPalette() {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const router = useRouter();
@@ -51,16 +26,15 @@ export function CommandPalette({
   const dealsApi = useDealsApi();
 
   useEffect(() => {
-    if (!enableShortcut) return;
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        setOpen((open) => !open);
       }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [enableShortcut, setOpen]);
+  }, []);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
