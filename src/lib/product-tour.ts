@@ -523,18 +523,6 @@ export const TOUR_STEPS: TourStep[] = [
     ],
   },
   {
-    id: "model-performance",
-    target: "nav-model-performance",
-    href: "/admin/model-performance",
-    title: "Model performance",
-    body: "Monitor AI model quality signals and drift for workspace-facing copilots.",
-    details: [
-      "Owner/admin ops view — not required for day-to-day SDR work",
-      "Use when investigating bad Dexter or NBA suggestions",
-      "Pairs with Policy Gateway for safe automation modes",
-    ],
-  },
-  {
     id: "compliance",
     target: "nav-compliance",
     href: "/settings/compliance",

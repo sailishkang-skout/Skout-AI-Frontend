@@ -26,11 +26,11 @@ vi.mock("@/lib/crm/deals", () => ({
   useDealsApi: () => ({ list: mockListDeals }),
 }));
 
-function renderPalette() {
+function renderPalette(enableShortcut = true) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <CommandPalette />
+      <CommandPalette enableShortcut={enableShortcut} />
     </QueryClientProvider>
   );
 }
@@ -48,6 +48,12 @@ describe("CommandPalette — real CRM search", () => {
   });
 
   afterEach(() => cleanup());
+
+  it("does not open on Ctrl+K / Cmd+K when shortcut is disabled by default", () => {
+    renderPalette(false);
+    openPalette();
+    expect(screen.queryByPlaceholderText(/search companies, contacts, deals/i)).toBeNull();
+  });
 
   it("does not search until at least 2 characters are typed", async () => {
     renderPalette();

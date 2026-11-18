@@ -297,7 +297,6 @@ export const intelligenceNav: NavGroup[] = [
       { href: "/admin/reporting", label: "Reporting & forecasting", icon: BarChart3, tourId: "nav-reporting" },
       { href: "/admin/gtm-learning", label: "GTM-learning report", icon: TrendingUp, tourId: "nav-gtm-learning" },
       { href: "/admin/cro", label: "CRO Copilot", icon: ShieldCheck, tourId: "nav-cro-copilot" },
-      { href: "/admin/model-performance", label: "Model performance", icon: Activity, tourId: "nav-model-performance" },
       { href: "/admin/control-plane", label: "Control Plane", icon: ShieldCheck, tourId: "nav-control-plane" },
       { href: "/admin/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
       { href: "/decisions", label: "Decision views", icon: CheckSquare, tourId: "nav-decisions" },
