@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { DexterChat } from "@/components/ai/dexter-chat";
 import type { ChatContext } from "@/lib/ai-chat";
+import { useFeatureOn } from "@/lib/access";
 
 /**
  * Global Dexter AI agent — available on every dashboard page.
@@ -11,6 +12,8 @@ import type { ChatContext } from "@/lib/ai-chat";
  */
 export function WorkspaceAiChat() {
   const pathname = usePathname() || "/";
+  // Dexter is the AI feature: no floating chat when AI isn't on the workspace's plan.
+  const aiOn = useFeatureOn("ai");
 
   const context = useMemo<ChatContext>(() => {
     const ctx: ChatContext = { kind: "general", page: pathname };
@@ -21,5 +24,6 @@ export function WorkspaceAiChat() {
     return ctx;
   }, [pathname]);
 
+  if (!aiOn) return null;
   return <DexterChat context={context} />;
 }

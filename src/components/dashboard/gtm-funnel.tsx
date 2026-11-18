@@ -11,8 +11,9 @@ interface GtmFunnelProps {
     enriched: number;
     inSequence: number;
     replied: number;
-    meetings: number;
-    opportunities: number;
+    /** Absent when CRM isn't on the workspace's plan: the funnel then ends at "Replied". */
+    meetings?: number;
+    opportunities?: number;
   };
   isLoading?: boolean;
 }
@@ -27,7 +28,7 @@ export function GtmFunnel({ data, isLoading }: GtmFunnelProps) {
       { stage: "Replied", count: data.replied },
       { stage: "Meetings", count: data.meetings },
       { stage: "Opportunities", count: data.opportunities },
-    ];
+    ].filter((d): d is { stage: string; count: number } => d.count !== undefined);
   }, [data]);
 
   return (
