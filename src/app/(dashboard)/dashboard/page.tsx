@@ -18,12 +18,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GtmFunnel } from "@/components/dashboard/gtm-funnel";
 import { AiInsightsFeed } from "@/components/dashboard/ai-insights-feed";
 import { DashboardActivityFeed } from "@/components/dashboard/dashboard-activity-feed";
+import { FeatureLock } from "@/components/access/feature-lock";
+import { useFeatureOn } from "@/lib/access";
 
 export default function DashboardPage() {
   const authReady = useAuthReady();
   const dashboardApi = useDashboardApi();
   const dealsApi = useDealsApi();
   const meetingsApi = useMeetingsApi();
+  // Early access: areas not on the plan are blurred here, and their data is never requested.
+  const crmOn = useFeatureOn("crm");
 
   const summary = useQuery({
     queryKey: DASHBOARD_SUMMARY_KEY,
@@ -44,36 +48,37 @@ export default function DashboardPage() {
   const dealsCreated = useQuery({
     queryKey: ["dashboard", "deals-created-count"],
     queryFn: () => dealsApi.getCreatedCount(),
-    enabled: authReady,
+    enabled: authReady && crmOn,
     staleTime: 30_000,
   });
 
   const dealsSummary = useQuery({
     queryKey: ["dashboard", "deals-summary"],
     queryFn: () => dealsApi.getSummary(),
-    enabled: authReady,
+    enabled: authReady && crmOn,
     staleTime: 30_000,
   });
 
   const meetingsBooked = useQuery({
     queryKey: ["dashboard", "meetings-booked-count"],
     queryFn: () => meetingsApi.getBookedCount(),
-    enabled: authReady,
+    enabled: authReady && crmOn,
     staleTime: 30_000,
   });
 
   const data = summary.data;
 
-  const funnelLoading = funnel.isLoading || dealsCreated.isLoading || meetingsBooked.isLoading;
+  // Without CRM the funnel stops at "Replied": meetings and opportunities live in the CRM service.
+  const funnelLoading = funnel.isLoading || (crmOn && (dealsCreated.isLoading || meetingsBooked.isLoading));
   const funnelData =
-    funnel.data && dealsCreated.data && meetingsBooked.data
+    funnel.data && (!crmOn || (dealsCreated.data && meetingsBooked.data))
       ? {
           discovered: funnel.data.discovered,
           enriched: funnel.data.enriched,
           inSequence: funnel.data.inSequence,
           replied: funnel.data.replied,
-          meetings: meetingsBooked.data.count,
-          opportunities: dealsCreated.data.count,
+          meetings: crmOn ? meetingsBooked.data?.count : undefined,
+          opportunities: crmOn ? dealsCreated.data?.count : undefined,
         }
       : undefined;
 
@@ -124,19 +129,25 @@ export default function DashboardPage() {
           <>
             <StatCard icon={Coins} label="Credits remaining" value={data?.credits?.toLocaleString() ?? "—"} href="/settings/workspace" />
             <StatCard icon={Users} label="Total Prospects" value={data?.totalProspectsInLists?.toLocaleString() ?? "—"} href="/lists" />
-            <StatCard icon={Zap} label="Enriched (7d)" value={data?.enrichedThisWeek?.toLocaleString() ?? "—"} href="/enrichment" />
-            <StatCard
-              icon={Mail}
-              label="Active in Sequence"
-              value={funnel.data?.activeInSequence?.toLocaleString() ?? "—"}
-              href="/sequences"
-            />
-            <StatCard
-              icon={Briefcase}
-              label="Pipeline Ops"
-              value={dealsSummary.data?.openDeals?.toLocaleString() ?? "—"}
-              href="/crm/deals"
-            />
+            <FeatureLock feature="enrichment">
+              <StatCard icon={Zap} label="Enriched (7d)" value={data?.enrichedThisWeek?.toLocaleString() ?? "—"} href="/enrichment" />
+            </FeatureLock>
+            <FeatureLock feature="sequences">
+              <StatCard
+                icon={Mail}
+                label="Active in Sequence"
+                value={funnel.data?.activeInSequence?.toLocaleString() ?? "—"}
+                href="/sequences"
+              />
+            </FeatureLock>
+            <FeatureLock feature="crm">
+              <StatCard
+                icon={Briefcase}
+                label="Pipeline Ops"
+                value={dealsSummary.data?.openDeals?.toLocaleString() ?? "—"}
+                href="/crm/deals"
+              />
+            </FeatureLock>
           </>
         )}
       </div>
@@ -155,9 +166,11 @@ export default function DashboardPage() {
         
         {/* Right Column (1/3 width) */}
         <div className="flex flex-col gap-6">
-          <div className="flex-1 min-h-[350px]">
-            <AiInsightsFeed summary={data} isLoading={summary.isLoading} />
-          </div>
+          <FeatureLock feature="ai" className="flex-1 min-h-[350px]">
+            <div className="flex-1 min-h-[350px]">
+              <AiInsightsFeed summary={data} isLoading={summary.isLoading} />
+            </div>
+          </FeatureLock>
           <div className="flex-1 min-h-[350px]">
             <DashboardActivityFeed summary={data} isLoading={summary.isLoading} />
           </div>

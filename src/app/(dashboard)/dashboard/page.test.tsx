@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "./page";
 
 const mockGetSummary = vi.fn();
@@ -37,8 +37,9 @@ vi.mock("@/components/dashboard/dashboard-activity-feed", () => ({
   DashboardActivityFeed: () => null,
 }));
 
-function renderPage() {
+function renderPage(features?: Record<string, boolean>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (features) queryClient.setQueryData(["access"], { status: "active", features, request: null });
   return render(
     <QueryClientProvider client={queryClient}>
       <DashboardPage />
@@ -84,3 +85,46 @@ describe("DashboardPage — GTM Funnel and KPI cards wired to real data", () => 
     await screen.findByText(/loading funnel data/i);
   });
 });
+
+describe("DashboardPage — areas not on the plan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSummary.mockResolvedValue({
+      data: { workspaceName: "Acme", credits: 449, totalProspectsInLists: 5, icpConfigured: true, enrichedThisWeek: 2 },
+    });
+    mockGetFunnel.mockResolvedValue({
+      data: { discovered: 10, enriched: 4, inSequence: 3, replied: 1, activeInSequence: 7 },
+    });
+    mockGetCreatedCount.mockResolvedValue({ workspaceId: "ws-1", count: 2 });
+    mockGetSummaryDeals.mockResolvedValue({ workspaceId: "ws-1", openDeals: 12, valueByCurrency: [], stages: [] });
+    mockGetBookedCount.mockResolvedValue({ workspaceId: "ws-1", count: 5 });
+  });
+  afterEach(() => cleanup());
+
+  it("with CRM off, never calls the CRM service and blurs Pipeline Ops", async () => {
+    renderPage({ crm: false });
+    await screen.findByText("449");
+    expect(mockGetCreatedCount).not.toHaveBeenCalled();
+    expect(mockGetSummaryDeals).not.toHaveBeenCalled();
+    expect(mockGetBookedCount).not.toHaveBeenCalled();
+    const locked = screen.getByTestId("feature-locked-crm");
+    expect(locked.textContent).toContain("Pipeline Ops");
+    expect(locked.textContent).toContain("Not on your plan");
+  });
+
+  it("with CRM off, the funnel still renders from the non-CRM stages instead of waiting forever", async () => {
+    renderPage({ crm: false });
+    await screen.findByText("449");
+    await waitFor(() => expect(screen.queryByText("Loading funnel data...")).toBeNull());
+    expect(screen.queryByText(/Not enough data to generate funnel/)).toBeNull();
+  });
+
+  it("with Sequences off, blurs Active in Sequence and keeps the rest", async () => {
+    renderPage({ sequences: false });
+    await screen.findByText("449");
+    expect(screen.getByTestId("feature-locked-sequences").textContent).toContain("Active in Sequence");
+    expect(screen.queryByTestId("feature-locked-crm")).toBeNull();
+    await screen.findByText("12");
+  });
+});
+
