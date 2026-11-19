@@ -176,6 +176,14 @@ export function JobChanges() {
   const forbidden = feed.error instanceof ApiError && feed.error.status === 403;
   const rows = feed.data?.jobChanges ?? [];
   const counts = feed.data?.counts;
+  // Deduplicate job changes: keep only unique entries per person per detected time
+  const seen = new Set<string>();
+  const uniqueRows = rows.filter((change) => {
+    const key = `${change.prospectId}-${new Date(change.detectedAt).getTime()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   return (
     <PageShell>
@@ -242,7 +250,7 @@ export function JobChanges() {
           <Skeleton className="h-36 w-full rounded-lg" />
           <Skeleton className="h-36 w-full rounded-lg" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : uniqueRows.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center">
             <p className="font-medium">{status === "pending" ? "Nothing to review" : "No job changes"}</p>
@@ -254,7 +262,7 @@ export function JobChanges() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {rows.map((change) => (
+          {uniqueRows.map((change) => (
             <JobChangeRow
               key={change.id}
               change={change}
