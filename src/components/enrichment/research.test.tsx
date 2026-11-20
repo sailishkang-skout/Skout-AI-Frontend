@@ -375,7 +375,7 @@ describe("JobChanges", () => {
     mockApiFetch.mockResolvedValue({
       jobChanges: [
         jobChange({ detectedBy: "work_history", from: { company: "EY Technology Solutions", title: "Senior Consultant" }, to: { company: "Skout AI", title: "AI Forward Deployed Engineer" } }),
-        jobChange({ id: "33333333-3333-4333-8333-333333333333", fullName: "Alex Kim", from: { company: null, title: null } }),
+        jobChange({ id: "33333333-3333-4333-8333-333333333333", fullName: "Alex Kim", prospectId: "p2", detectedAt: "2026-10-08T09:00:00.000Z", from: { company: null, title: null } }),
       ],
       total: 2,
       page: 1,

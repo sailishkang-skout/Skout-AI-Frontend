@@ -64,6 +64,15 @@ export function ResearchOverview() {
     );
   }
   const { people, companies, jobChanges, captures } = overview.data;
+  const changesData = changes.data?.jobChanges ?? [];
+  // Deduplicate job changes: keep only unique entries per person per detected time
+  const seen = new Set<string>();
+  const uniqueChanges = changesData.filter((change) => {
+    const key = `${change.prospectId}-${new Date(change.detectedAt).getTime()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   if (people.total === 0 && companies.total === 0) {
     return (
       <Card className="mb-8" data-testid="research-overview-empty">
@@ -96,7 +105,7 @@ export function ResearchOverview() {
             {formatQueryError(changes.error, "Could not load the latest job changes.")}
           </Alert>
         )}
-        {(changes.data?.jobChanges.length ?? 0) > 0 && (
+        {(uniqueChanges.length ?? 0) > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">Latest job changes</h3>
@@ -104,7 +113,7 @@ export function ResearchOverview() {
                 Review all
               </Link>
             </div>
-            {changes.data!.jobChanges.map((change) => (
+            {uniqueChanges.map((change) => (
               <JobChangeRow key={change.id} change={change} />
             ))}
           </div>
