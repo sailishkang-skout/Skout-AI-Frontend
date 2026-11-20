@@ -309,6 +309,7 @@ describe("CompanyDetailView", () => {
         const page = Number(params.get("page") ?? 1);
         return { group: "candidates", people: page === 1 ? candidates : candidates.slice(0, 5), total: 20, page, pageSize: 15 };
       }
+      if (url.includes("/jobs?")) return { jobs: [], total: 0, notSeen: 0, lastScan: null, activeScan: null, scans: [] };
       return { company: company() };
     });
   });
@@ -331,7 +332,7 @@ describe("CompanyDetailView", () => {
     const badges = screen.getAllByTestId("evidence-badge");
     expect(badges.length).toBe(8);
     expect(badges.every((badge) => /LinkedIn company page · captured/.test(badge.textContent ?? ""))).toBe(true);
-    expect(screen.getByText(/at most 10 pages or 250 leads/)).toBeTruthy();
+    expect(screen.getByText(/at most 25 pages or 250 leads/)).toBeTruthy();
   });
 
   it("pages candidates 15 at a time and filters by department", async () => {

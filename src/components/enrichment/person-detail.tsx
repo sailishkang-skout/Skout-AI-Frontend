@@ -27,6 +27,7 @@ import {
 } from "@/lib/enrichment-research";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { safeWebUrl, websiteLabel } from "@/lib/safe-url";
+import { CaptureVerificationCard } from "./capture-verification-card";
 import { ContactDataPanel } from "./contact-data-panel";
 import { EmploymentBadge, EvidenceBadge, Fact, IdentityBadge } from "./evidence-badge";
 import { ReEnrichControl } from "./provider-jobs";
@@ -395,6 +396,8 @@ export function PersonDetailView({ prospectId }: { prospectId: string }) {
           </CardContent>
         </Card>
       )}
+
+      <CaptureVerificationCard verification={person.verification} subject="profile" />
 
       <Card>
         <CardContent className="space-y-3 p-6">
