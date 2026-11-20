@@ -62,6 +62,8 @@ export interface PersonDetail extends PersonSummary {
   /** The person's own site from their LinkedIn Contact info, plus any other links listed there. */
   website?: string | null;
   websites?: Array<{ url: string; label?: string }>;
+  /** What the capture's verification scan concluded. Older APIs omit it. */
+  verification?: import("@/lib/company-jobs").CaptureVerification | null;
   relationshipContext: Record<string, unknown> | null;
   experience: { current: CapturedItem[]; previous: CapturedItem[] };
   educations: CapturedItem[];
@@ -87,9 +89,13 @@ export interface CompanySummary {
   updatedAt: string;
   verifiedEmployees: number;
   discoveryCandidates: number;
+  /** Job roles the latest scans saw as open. Older APIs omit it. */
+  openRoles?: number;
 }
 
-export interface CompanyDetail extends Omit<CompanySummary, "verifiedEmployees" | "discoveryCandidates"> {
+export interface CompanyDetail extends Omit<CompanySummary, "verifiedEmployees" | "discoveryCandidates" | "openRoles"> {
+  /** What the capture's verification scan concluded. Older APIs omit it. */
+  verification?: import("@/lib/company-jobs").CaptureVerification | null;
   linkedinUrl: string | null;
   capture: {
     capturedAt: string | null;
