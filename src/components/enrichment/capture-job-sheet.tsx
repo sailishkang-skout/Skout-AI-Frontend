@@ -17,7 +17,7 @@ import {
   timeAgo,
   useCaptureQueueApi,
 } from "@/lib/capture-queue";
-import { ProgressBar, StateBadge, useJobActionRunner, type Notice } from "./capture-queue-parts";
+import { ProgressBar, StateBadge, WorkflowSteps, useJobActionRunner, type Notice } from "./capture-queue-parts";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -116,6 +116,7 @@ export function CaptureJobSheet({
               </Alert>
             )}
             <ProgressBar value={jobProgress(job)} label={`${name} capture progress`} />
+            <WorkflowSteps job={job} />
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <Fact label="Requested">{job.expectedPeople != null ? `${job.expectedPeople.toLocaleString()} on LinkedIn` : "Not shown by LinkedIn"}</Fact>
               <Fact label="Captured">{job.peopleFound.toLocaleString()} people</Fact>

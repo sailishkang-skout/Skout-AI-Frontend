@@ -33,6 +33,7 @@ import {
   isAutomatic,
   jobActions,
   jobProgress,
+  stepSummary,
   sourceLabel,
   timeAgo,
   useCaptureQueueApi,
@@ -390,6 +391,7 @@ export function CaptureQueuePage() {
                             <CompanyMark name={name} />
                             <div className="min-w-0">
                               <div className="truncate font-medium">{name}</div>
+                              {stepSummary(job) && <div className="text-xs text-muted-foreground" data-testid="step-summary">{stepSummary(job)}</div>}
                               {job.state === "failed" || job.state === "partial" ? (
                                 <div className="max-w-[16rem] truncate text-xs text-red-600 dark:text-red-400">{job.error || job.stopReason || ""}</div>
                               ) : job.state === "paused" && job.stopReason ? (
