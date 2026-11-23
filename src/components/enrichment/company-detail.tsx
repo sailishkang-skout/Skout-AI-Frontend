@@ -19,6 +19,8 @@ import { downloadBlob, factsByAttribute, formatCaptureDate, useResearchApi, type
 import { safeWebUrl, websiteLabel } from "@/lib/safe-url";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { EvidenceBadge, Fact, IdentityBadge, Pagination } from "./evidence-badge";
+import { CaptureVerificationCard } from "./capture-verification-card";
+import { CompanyJobRoles } from "./company-job-roles";
 import { ReEnrichControl } from "./provider-jobs";
 
 type Group = "verified" | "candidates";
@@ -246,12 +248,15 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
         </CardContent>
       </Card>
 
+      <CompanyJobRoles companyId={companyId} companyName={company.name} />
+      <CaptureVerificationCard verification={company.verification} subject="company" />
+
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-6">
           <div className="space-y-1">
             <h2 className="font-semibold">Find more people by department</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              In Sales Navigator, set Current company to {company.name} and one Function at a time, then capture the results with the extension. Each run reads at most 10 pages or 250 leads; repeated searches merge by LinkedIn identity. New people appear below as discovered candidates.
+              In Sales Navigator, set Current company to {company.name} and one Function at a time, then capture the results with the extension. Each run reads at most 25 pages or 250 leads; repeated searches merge by LinkedIn identity. New people appear below as discovered candidates.
             </p>
           </div>
           <Link href="/enrichment/capture" className="text-sm font-medium text-primary underline-offset-4 hover:underline">

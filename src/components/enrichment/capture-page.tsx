@@ -176,7 +176,7 @@ export function CapturePage() {
   const doneCount = SALES_NAVIGATOR_FUNCTIONS.filter((department) => departments[department] === "done").length;
   const capText = status
     ? `${status.caps.maxPagesPerRun} pages or ${status.caps.maxLeadsPerRun} leads`
-    : "10 pages or 250 leads";
+    : "25 pages or 250 leads";
   const captureBlocked = status ? !status.enabled || status.usage.remainingToday <= 0 : true;
 
   return (

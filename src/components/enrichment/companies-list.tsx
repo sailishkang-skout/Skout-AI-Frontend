@@ -105,6 +105,7 @@ export function CompaniesList() {
                 <div className="flex flex-wrap gap-1">
                   <Badge tone="success">{company.verifiedEmployees} verified</Badge>
                   <Badge tone="warning">{company.discoveryCandidates} candidates</Badge>
+                  {company.openRoles !== undefined && <Badge tone="info">{company.openRoles} open roles</Badge>}
                 </div>
               </CardContent>
             </Card>
