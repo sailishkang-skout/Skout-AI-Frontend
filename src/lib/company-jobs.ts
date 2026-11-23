@@ -55,6 +55,8 @@ export interface JobScan {
   jobsNew: number;
   jobsUpdated: number;
   verified: boolean;
+  /** What the scan captured and how it split; what it skipped (another company), failed to read, and left for the next scan. */
+  counts?: { captured: number; new: number; updated: number; unchanged: number; expected: number | null; skipped: number; failed: number; remaining: number; resumed: boolean };
   details: { passes?: Array<{ pass: number; method?: string; found: number; complete: boolean; note?: string }>; notes?: string[] };
   error: string | null;
   requestedAt: string | null;
@@ -202,3 +204,15 @@ export const SECTION_STATE_WORDS: Record<NonNullable<CaptureVerification["sectio
   restricted: "Restricted by LinkedIn",
   failed: "Could not be read",
 };
+
+/** A scan's counts in one line: captured (of expected), new, updated, skipped, failed and remaining. */
+export function scanCountsText(scan: Pick<JobScan, "jobsFound" | "jobsNew" | "jobsUpdated" | "counts">): string {
+  const counts = scan.counts;
+  const parts = [`${scan.jobsFound}${counts?.expected ? ` of ${counts.expected}` : ""} captured`, `${scan.jobsNew} new`, `${scan.jobsUpdated} updated`];
+  if (counts?.unchanged) parts.push(`${counts.unchanged} unchanged`);
+  if (counts?.skipped) parts.push(`${counts.skipped} skipped (another company)`);
+  if (counts?.failed) parts.push(`${counts.failed} failed`);
+  if (counts?.remaining) parts.push(`${counts.remaining} remaining`);
+  if (counts?.resumed) parts.push("resumed an earlier scan");
+  return parts.join(" · ");
+}

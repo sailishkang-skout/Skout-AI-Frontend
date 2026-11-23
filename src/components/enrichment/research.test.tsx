@@ -331,6 +331,8 @@ describe("CompanyDetailView", () => {
     expect(screen.getByText(/not the number of records that can be captured/)).toBeTruthy();
     const badges = screen.getAllByTestId("evidence-badge");
     expect(badges.length).toBe(8);
+    // The country is shown with where it came from, without pretending it is evidence from the page.
+    expect(screen.getByTestId("company-country").textContent).toMatch(/Country/);
     expect(badges.every((badge) => /LinkedIn company page · captured/.test(badge.textContent ?? ""))).toBe(true);
     expect(screen.getByText(/at most 25 pages or 250 leads/)).toBeTruthy();
   });

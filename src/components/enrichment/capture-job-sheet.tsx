@@ -105,6 +105,11 @@ export function CaptureJobSheet({
               <Alert variant="error">Error: {job.error}</Alert>
             )}
             {job.state === "paused" && job.stopReason && <Alert variant="warning">{job.stopReason}</Alert>}
+            {job.state === "retrying" && (
+              <Alert variant="warning">
+                The last attempt did not finish, so it is being tried again (attempt {job.attempts + 1}). It keeps the people already saved.
+              </Alert>
+            )}
             {job.state === "interrupted" && (
               <Alert variant="warning">
                 {job.mode === "unipile" ? "The server" : "The extension"} stopped reporting. Resume to continue from the last saved page.

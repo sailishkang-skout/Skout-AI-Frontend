@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyJobRoles } from "./company-job-roles";
 import { CaptureVerificationCard } from "./capture-verification-card";
-import { postedLabel, safeJobUrl, scanExplanation, timeAgo, type CompanyJobs, type JobRole, type JobScan } from "@/lib/company-jobs";
+import { postedLabel, safeJobUrl, scanCountsText, scanExplanation, timeAgo, type CompanyJobs, type JobRole, type JobScan } from "@/lib/company-jobs";
 
 const { mockApiFetch, mockHasPermission } = vi.hoisted(() => ({
   mockApiFetch: vi.fn(),
@@ -267,5 +267,19 @@ describe("CaptureVerificationCard", () => {
     render(<CaptureVerificationCard subject="company" verification={{ status: "verified", passes: 2, sections: { people: { found: 40, state: "complete" }, jobs: { found: 0, state: "none" } } }} />);
     expect(screen.getByText("Completed & verified")).toBeTruthy();
     expect(screen.getByText("Job roles")).toBeTruthy();
+  });
+});
+
+describe("scan counts and the queue's retrying state", () => {
+  it("states captured, new, updated, unchanged, skipped, failed and remaining counts", () => {
+    expect(scanCountsText({ jobsFound: 180, jobsNew: 12, jobsUpdated: 3, counts: { captured: 180, new: 12, updated: 3, unchanged: 165, expected: 240, skipped: 2, failed: 1, remaining: 60, resumed: true } }))
+      .toBe("180 of 240 captured · 12 new · 3 updated · 165 unchanged · 2 skipped (another company) · 1 failed · 60 remaining · resumed an earlier scan");
+    expect(scanCountsText({ jobsFound: 3, jobsNew: 0, jobsUpdated: 3 })).toBe("3 captured · 0 new · 3 updated");
+  });
+
+  it("shows the counts under the last scan", async () => {
+    serve(data({ total: 1, jobs: [job(1)], lastScan: scan("partial", { jobsFound: 180, jobsNew: 12, jobsUpdated: 3, counts: { captured: 180, new: 12, updated: 3, unchanged: 165, expected: 240, skipped: 0, failed: 0, remaining: 60, resumed: false } }) }));
+    renderIt();
+    expect(await screen.findByTestId("job-scan-counts")).toHaveProperty("textContent", "180 of 240 captured · 12 new · 3 updated · 165 unchanged · 60 remaining");
   });
 });
