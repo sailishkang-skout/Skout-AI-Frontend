@@ -15,6 +15,7 @@ import {
   WORK_MODE_LABELS,
   postedLabel,
   safeJobUrl,
+  scanCountsText,
   scanExplanation,
   timeAgo,
   useCompanyJobsApi,
@@ -107,9 +108,9 @@ function ScanSummary({ scan, active }: { scan: JobScan; active?: boolean }) {
         <span className="text-xs text-muted-foreground">
           {active ? "Current scan" : "Last scan"} · {timeAgo(when)}
           {scan.passes ? ` · ${scan.passes} scan${scan.passes === 1 ? "" : "s"}` : ""}
-          {!active && scan.jobsFound ? ` · ${scan.jobsNew} new, ${scan.jobsUpdated} updated` : ""}
         </span>
       </div>
+      {!active && (scan.jobsFound > 0 || scan.counts) && <p className="text-xs text-muted-foreground" data-testid="job-scan-counts">{scanCountsText(scan)}</p>}
       <p className="text-muted-foreground">{scanExplanation(scan)}</p>
       {notes.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">

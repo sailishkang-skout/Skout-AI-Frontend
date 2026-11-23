@@ -232,6 +232,15 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
             </Fact>
             <Fact label="Industry" fact={facts.industry}>{company.industry ?? "Not captured"}</Fact>
             <Fact label="Headquarters" fact={facts.headquarter}>{company.capture.headquarter ?? company.location ?? "Not captured"}</Fact>
+            <div className="space-y-1" data-testid="company-country">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Country</dt>
+              <dd className="text-sm">{company.capture.country ?? "Not determined"}</dd>
+              {company.capture.country && (
+                <p className="text-xs text-muted-foreground" data-testid="country-source">
+                  {company.capture.countrySource === "headquarters" ? "From the headquarters location" : "From the LinkedIn page"}
+                </p>
+              )}
+            </div>
             <Fact label="Company size" fact={facts.size}>{company.capture.size ?? "Not captured"}</Fact>
             <Fact label="Members shown on LinkedIn" fact={facts.employeesOnLi ?? facts.peopleStats}>
               {company.people.visibleAssociatedMembers ?? "Not captured"}

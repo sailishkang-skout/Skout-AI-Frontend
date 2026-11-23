@@ -105,6 +105,9 @@ export interface CompanyDetail extends Omit<CompanySummary, "verifiedEmployees" 
     website: string | null;
     size: string | null;
     headquarter: string | null;
+    /** The country the page gave, else the headquarters' country; null when neither tells (never guessed). */
+    country?: string | null;
+    countrySource?: "linkedin_page" | "headquarters" | null;
     foundedAt: string | null;
     specialties: string[];
     followers: number | null;

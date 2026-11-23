@@ -17,7 +17,8 @@ export type CaptureJobState =
   | "failed"
   | "skipped"
   | "cancelled"
-  | "interrupted";
+  | "interrupted"
+  | "retrying";
 
 export type CaptureMode = "extension" | "unipile";
 
@@ -183,6 +184,7 @@ export const STATE_LABELS: Record<CaptureJobState, string> = {
   skipped: "Skipped",
   cancelled: "Cancelled",
   interrupted: "Interrupted",
+  retrying: "Retrying",
 };
 
 export const STATE_TONES: Record<CaptureJobState, "success" | "warning" | "danger" | "info" | "muted"> = {
@@ -196,10 +198,11 @@ export const STATE_TONES: Record<CaptureJobState, "success" | "warning" | "dange
   skipped: "muted",
   cancelled: "muted",
   interrupted: "warning",
+  retrying: "info",
 };
 
 /** Status filter choices, in the order the dashboard offers them. */
-export const STATE_FILTERS: CaptureJobState[] = ["queued", "running", "review", "paused", "interrupted", "completed", "partial", "failed", "cancelled"];
+export const STATE_FILTERS: CaptureJobState[] = ["queued", "retrying", "running", "review", "paused", "interrupted", "completed", "partial", "failed", "cancelled"];
 
 export const isAutomatic = (job: Pick<CaptureJob, "mode">) => job.mode === "unipile";
 export const sourceLabel = (job: Pick<CaptureJob, "mode">) => (isAutomatic(job) ? "Automatic" : "Manual");
@@ -214,6 +217,7 @@ export function jobActions(job: Pick<CaptureJob, "state" | "mode">): JobAction[]
   const automatic = isAutomatic(job);
   switch (job.state) {
     case "queued":
+    case "retrying":
       return automatic ? ["pause", "cancel"] : ["start", "cancel"];
     case "running":
       return automatic ? ["pause", "cancel"] : ["cancel"];
