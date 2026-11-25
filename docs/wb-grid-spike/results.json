@@ -1,0 +1,684 @@
+{
+  "startedAt": "2026-11-25T07:00:03.284Z",
+  "env": {
+    "browser": "158.0.8127.37",
+    "node": "v24.12.0",
+    "platform": "darwin",
+    "cpu": "Apple M3",
+    "viewport": "1500x900",
+    "build": "next build (production)"
+  },
+  "baselineBytes": 299251,
+  "configs": {
+    "glide": {
+      "path": "/glide",
+      "latency0": {
+        "firstRowMs": 844,
+        "transferBytes": 398958,
+        "scriptRequests": 21,
+        "heapMbAtRest": 4.6,
+        "domNodesAtRest": 279,
+        "canvasCount": 5,
+        "fastScroll": {
+          "frames": 602,
+          "durationMs": 10047,
+          "avgFps": 59.9,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 33.3,
+          "over25ms": 1,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3470,
+            "last": 3489,
+            "loaded": 20
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 360,
+          "durationMs": 5998,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4044,
+            "last": 4063,
+            "loaded": 20
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 15,
+        "jumpToEndMs": 16,
+        "jumpToTopMs": 3,
+        "heapMbAfterScroll": 10,
+        "domNodesAfterScroll": 279,
+        "sourceStats": {
+          "requests": 24,
+          "rowsFetched": 4800,
+          "pagesResident": 24,
+          "rowsResident": 4800,
+          "evictions": 0,
+          "rowCount": 100000
+        }
+      },
+      "latency80": {
+        "firstRowMs": 548,
+        "transferBytes": 398958,
+        "scriptRequests": 21,
+        "heapMbAtRest": 4.6,
+        "domNodesAtRest": 279,
+        "canvasCount": 5,
+        "fastScroll": {
+          "frames": 602,
+          "durationMs": 10035,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 33.3,
+          "over25ms": 1,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3470,
+            "last": 3489,
+            "loaded": 20
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 361,
+          "durationMs": 6018,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4044,
+            "last": 4063,
+            "loaded": 20
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 98,
+        "jumpToEndMs": 99,
+        "jumpToTopMs": 4,
+        "heapMbAfterScroll": 10,
+        "domNodesAfterScroll": 279,
+        "sourceStats": {
+          "requests": 24,
+          "rowsFetched": 4800,
+          "pagesResident": 24,
+          "rowsResident": 4800,
+          "evictions": 0,
+          "rowCount": 100000
+        }
+      },
+      "features": {
+        "click selects one cell": {
+          "ok": true,
+          "cells": 1
+        },
+        "drag selects a 4x3 block": {
+          "ok": true,
+          "cells": 12
+        },
+        "shift-click extends a range": {
+          "ok": true,
+          "cells": 9
+        },
+        "ctrl/cmd-click adds a second area": {
+          "ok": true,
+          "cells": 10
+        },
+        "keyboard: arrows move, shift+arrows extend": {
+          "ok": true,
+          "cells": 3
+        },
+        "copy puts the selected block on the clipboard as TSV that matches the data": {
+          "ok": true,
+          "chars": 93
+        },
+        "paste writes text cells and skips result (number) columns": {
+          "ok": true,
+          "a": "Ada",
+          "b": "Globex"
+        },
+        "column resize by dragging the header edge": {
+          "ok": true,
+          "before": 150,
+          "after": 210
+        },
+        "frozen column stays put while scrolling sideways": {
+          "ok": true,
+          "frozenColumns": 1,
+          "method": "pixel-compare of column 0 before/after a 900px sideways scroll"
+        },
+        "inline cell editing (double-click, type, Enter)": {
+          "ok": true,
+          "edited": "Edited"
+        }
+      },
+      "copyAll": {
+        "ok": true,
+        "selectedCells": 3000000,
+        "ms": 2969,
+        "lines": 100000,
+        "chars": 29225524,
+        "rowsResidentAfter": 5000
+      }
+    },
+    "tanstack-windowed": {
+      "path": "/tanstack",
+      "latency0": {
+        "firstRowMs": 539,
+        "transferBytes": 328039,
+        "scriptRequests": 19,
+        "heapMbAtRest": 4.7,
+        "domNodesAtRest": 1023,
+        "canvasCount": 0,
+        "fastScroll": {
+          "frames": 601,
+          "durationMs": 10034,
+          "avgFps": 59.9,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 33.3,
+          "over25ms": 1,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3687,
+            "last": 3707,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 360,
+          "durationMs": 6000,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4296,
+            "last": 4316,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 17,
+        "jumpToEndMs": 26,
+        "jumpToTopMs": 15,
+        "heapMbAfterScroll": 10,
+        "domNodesAfterScroll": 1023,
+        "sourceStats": {
+          "requests": 25,
+          "rowsFetched": 5000,
+          "pagesResident": 25,
+          "rowsResident": 5000,
+          "evictions": 0,
+          "rowCount": 100000,
+          "rowsInTable": 30
+        }
+      },
+      "latency80": {
+        "firstRowMs": 536,
+        "transferBytes": 328039,
+        "scriptRequests": 19,
+        "heapMbAtRest": 5.1,
+        "domNodesAtRest": 1023,
+        "canvasCount": 0,
+        "fastScroll": {
+          "frames": 601,
+          "durationMs": 10032,
+          "avgFps": 59.9,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 33.4,
+          "over25ms": 1,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3687,
+            "last": 3707,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 359,
+          "durationMs": 5984,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4296,
+            "last": 4316,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 91,
+        "jumpToEndMs": 99,
+        "jumpToTopMs": 7,
+        "heapMbAfterScroll": 10.8,
+        "domNodesAfterScroll": 1023,
+        "sourceStats": {
+          "requests": 25,
+          "rowsFetched": 5000,
+          "pagesResident": 25,
+          "rowsResident": 5000,
+          "evictions": 0,
+          "rowCount": 100000,
+          "rowsInTable": 30
+        }
+      },
+      "features": {
+        "click selects one cell": {
+          "ok": true,
+          "cells": 1
+        },
+        "drag selects a 4x3 block": {
+          "ok": true,
+          "cells": 12
+        },
+        "shift-click extends a range": {
+          "ok": true,
+          "cells": 9
+        },
+        "ctrl/cmd-click adds a second area": {
+          "ok": true,
+          "cells": 10
+        },
+        "keyboard: arrows move, shift+arrows extend": {
+          "ok": true,
+          "cells": 3
+        },
+        "copy puts the selected block on the clipboard as TSV that matches the data": {
+          "ok": true,
+          "chars": 93
+        },
+        "paste writes text cells and skips result (number) columns": {
+          "ok": true,
+          "a": "Ada",
+          "b": "Globex"
+        },
+        "column resize by dragging the header edge": {
+          "ok": true,
+          "before": 150,
+          "after": 210
+        },
+        "frozen column stays put while scrolling sideways": {
+          "ok": true,
+          "frozenColumns": 1,
+          "method": "pixel-compare of column 0 before/after a 900px sideways scroll"
+        },
+        "inline cell editing (double-click, type, Enter)": {
+          "ok": null,
+          "note": "not implemented in the POC (custom editor needed)"
+        }
+      },
+      "copyAll": {
+        "ok": true,
+        "selectedCells": 3000000,
+        "ms": 1571,
+        "lines": 100000,
+        "chars": 29225524,
+        "rowsResidentAfter": 5000
+      }
+    },
+    "tanstack-full": {
+      "path": "/tanstack?mode=full",
+      "latency0": {
+        "firstRowMs": 823,
+        "transferBytes": 328038,
+        "scriptRequests": 19,
+        "heapMbAtRest": 125.8,
+        "domNodesAtRest": 1023,
+        "canvasCount": 0,
+        "fastScroll": {
+          "frames": 601,
+          "durationMs": 10042,
+          "avgFps": 59.8,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 33.4,
+          "over25ms": 2,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3687,
+            "last": 3707,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 360,
+          "durationMs": 6001,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4296,
+            "last": 4316,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 17,
+        "jumpToEndMs": 17,
+        "jumpToTopMs": 4,
+        "heapMbAfterScroll": 127.1,
+        "domNodesAfterScroll": 1023,
+        "sourceStats": {
+          "requests": 0,
+          "rowsFetched": 0,
+          "pagesResident": 0,
+          "rowsResident": 0,
+          "evictions": 0,
+          "rowCount": 100000,
+          "fullBuildMs": 165,
+          "rowsInTable": 100000
+        }
+      },
+      "latency80": {
+        "firstRowMs": 953,
+        "transferBytes": 328038,
+        "scriptRequests": 19,
+        "heapMbAtRest": 125.8,
+        "domNodesAtRest": 1023,
+        "canvasCount": 0,
+        "fastScroll": {
+          "frames": 602,
+          "durationMs": 10076,
+          "avgFps": 59.7,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 33.4,
+          "over25ms": 3,
+          "over50ms": 0,
+          "scrolledPx": 120000,
+          "lastVisible": {
+            "first": 3687,
+            "last": 3707,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 50
+        },
+        "slowScroll": {
+          "frames": 359,
+          "durationMs": 5983,
+          "avgFps": 60,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 16.8,
+          "over25ms": 0,
+          "over50ms": 0,
+          "scrolledPx": 18000,
+          "lastVisible": {
+            "first": 4296,
+            "last": 4316,
+            "loaded": 21
+          },
+          "placeholderSamples": 0,
+          "samples": 30
+        },
+        "jumpTo50000Ms": 18,
+        "jumpToEndMs": 16,
+        "jumpToTopMs": 4,
+        "heapMbAfterScroll": 127.1,
+        "domNodesAfterScroll": 1023,
+        "sourceStats": {
+          "requests": 0,
+          "rowsFetched": 0,
+          "pagesResident": 0,
+          "rowsResident": 0,
+          "evictions": 0,
+          "rowCount": 100000,
+          "fullBuildMs": 151,
+          "rowsInTable": 100000
+        }
+      },
+      "features": {
+        "click selects one cell": {
+          "ok": true,
+          "cells": 1
+        },
+        "drag selects a 4x3 block": {
+          "ok": true,
+          "cells": 12
+        },
+        "shift-click extends a range": {
+          "ok": true,
+          "cells": 9
+        },
+        "ctrl/cmd-click adds a second area": {
+          "ok": true,
+          "cells": 10
+        },
+        "keyboard: arrows move, shift+arrows extend": {
+          "ok": true,
+          "cells": 3
+        },
+        "copy puts the selected block on the clipboard as TSV that matches the data": {
+          "ok": true,
+          "chars": 93
+        },
+        "paste writes text cells and skips result (number) columns": {
+          "ok": true,
+          "a": "Ada",
+          "b": "Globex"
+        },
+        "column resize by dragging the header edge": {
+          "ok": true,
+          "before": 150,
+          "after": 210
+        },
+        "frozen column stays put while scrolling sideways": {
+          "ok": true,
+          "frozenColumns": 1,
+          "method": "pixel-compare of column 0 before/after a 900px sideways scroll"
+        },
+        "inline cell editing (double-click, type, Enter)": {
+          "ok": null,
+          "note": "not implemented in the POC (custom editor needed)"
+        }
+      },
+      "copyAll": {
+        "ok": true,
+        "selectedCells": 3000000,
+        "ms": 1482,
+        "lines": 100000,
+        "chars": 29225524,
+        "rowsResidentAfter": 0
+      }
+    }
+  },
+  "wide": {
+    "glide": {
+      "firstRowMs": 596,
+      "fastScroll": {
+        "frames": 400,
+        "durationMs": 6674,
+        "avgFps": 59.9,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 33.4,
+        "over25ms": 1,
+        "over50ms": 0,
+        "scrolledPx": 80000,
+        "lastVisible": {
+          "first": 2341,
+          "last": 2360,
+          "loaded": 20
+        },
+        "placeholderSamples": 0,
+        "samples": 34
+      },
+      "domNodes": 280,
+      "heapMb": 9.2
+    },
+    "tanstack-windowed": {
+      "firstRowMs": 690,
+      "fastScroll": {
+        "frames": 401,
+        "durationMs": 6686,
+        "avgFps": 60,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 33.3,
+        "over25ms": 1,
+        "over50ms": 0,
+        "scrolledPx": 80000,
+        "lastVisible": {
+          "first": 2487,
+          "last": 2507,
+          "loaded": 21
+        },
+        "placeholderSamples": 0,
+        "samples": 34
+      },
+      "domNodes": 2183,
+      "heapMb": 10.3
+    },
+    "tanstack-full": {
+      "firstRowMs": 1040,
+      "fastScroll": {
+        "frames": 401,
+        "durationMs": 6717,
+        "avgFps": 59.7,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 33.4,
+        "over25ms": 2,
+        "over50ms": 0,
+        "scrolledPx": 80000,
+        "lastVisible": {
+          "first": 2487,
+          "last": 2507,
+          "loaded": 21
+        },
+        "placeholderSamples": 0,
+        "samples": 34
+      },
+      "domNodes": 2183,
+      "heapMb": 197.9
+    }
+  },
+  "throttled": {
+    "glide": {
+      "cpu4x": {
+        "avgFps": 59.9,
+        "p50": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 33.5,
+        "over25ms": 1,
+        "over50ms": 0,
+        "frames": 401
+      },
+      "cpu8x": {
+        "avgFps": 59.8,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 50,
+        "over25ms": 1,
+        "over50ms": 0,
+        "frames": 402
+      }
+    },
+    "tanstack-windowed": {
+      "cpu4x": {
+        "avgFps": 51,
+        "p50": 16.7,
+        "p95": 33.4,
+        "p99": 33.4,
+        "max": 66.6,
+        "over25ms": 82,
+        "over50ms": 1,
+        "frames": 477
+      },
+      "cpu8x": {
+        "avgFps": 30,
+        "p50": 33.3,
+        "p95": 66.6,
+        "p99": 66.7,
+        "max": 116.6,
+        "over25ms": 237,
+        "over50ms": 61,
+        "frames": 472
+      }
+    },
+    "tanstack-full": {
+      "cpu4x": {
+        "avgFps": 52.3,
+        "p50": 16.7,
+        "p95": 33.3,
+        "p99": 33.4,
+        "max": 66.7,
+        "over25ms": 69,
+        "over50ms": 1,
+        "frames": 479
+      },
+      "cpu8x": {
+        "avgFps": 30.8,
+        "p50": 16.7,
+        "p95": 50.1,
+        "p99": 66.7,
+        "max": 116.6,
+        "over25ms": 217,
+        "over50ms": 48,
+        "frames": 462
+      }
+    }
+  }
+}
