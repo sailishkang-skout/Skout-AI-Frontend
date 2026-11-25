@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,11 +13,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { ApiError, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useProviderApi } from "@/lib/enrichment-provider";
+import { parseLinkedinUrl } from "@/lib/linkedin-url";
 import { useWorkspaceRole } from "@/lib/workspace-role";
 import { JobStatusLine, RecentJobs } from "./provider-jobs";
 
 const POLL_MS = 3000;
-const LINKEDIN_URL = /^https:\/\/(www\.)?linkedin\.com\/(in|company)\/[^/?#]+/i;
 
 export function AddLinkedinProfile() {
   const api = useProviderApi();
@@ -29,7 +30,11 @@ export function AddLinkedinProfile() {
   const [reused, setReused] = useState(false);
 
   const create = useMutation({
-    mutationFn: () => api.createJob(url.trim()),
+    mutationFn: () => {
+      const clean = parseLinkedinUrl(url);
+      if (!clean.ok) throw new Error(clean.reason);
+      return api.createJob(clean.url);
+    },
     onSuccess: async (created) => {
       setJobId(created.job.id);
       setReused(created.reused);
@@ -46,7 +51,8 @@ export function AddLinkedinProfile() {
   const providers = useQuery({ queryKey: ["enrichment-provider", "providers"], queryFn: api.providers, enabled: authReady });
 
   const trimmed = url.trim();
-  const looksValid = LINKEDIN_URL.test(trimmed);
+  const parsed = trimmed ? parseLinkedinUrl(trimmed) : null;
+  const looksValid = Boolean(parsed?.ok);
   const job = current.data?.job;
   const hasConnection = providers.data?.connections?.some((connection) => connection.status === "active") ?? true;
 
@@ -97,8 +103,16 @@ export function AddLinkedinProfile() {
                   Add and enrich
                 </Button>
               </div>
-              {trimmed && !looksValid && (
-                <p className="text-sm text-muted-foreground">Enter a public profile (/in/…) or company (/company/…) URL. Sales Navigator links are not accepted.</p>
+              {parsed?.ok && (
+                <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="url-detected">
+                  <Badge tone="success">{parsed.kind === "person" ? "Person" : "Company"}</Badge>
+                  <span className="break-all text-muted-foreground">{parsed.url}</span>
+                </p>
+              )}
+              {parsed && !parsed.ok && (
+                <p className="text-sm text-red-700 dark:text-red-300" role="alert">
+                  {parsed.reason}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">
                 Only the URL is saved when you submit. Nothing is filled in unless a provider returns it, and one URL has at most one run at a time.

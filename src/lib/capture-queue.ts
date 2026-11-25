@@ -22,6 +22,24 @@ export type CaptureJobState =
 
 export type CaptureMode = "extension" | "unipile";
 
+export type WorkflowStep = "company" | "jobs" | "people" | "verify";
+export type StepStatus = "pending" | "running" | "done" | "partial" | "failed" | "skipped";
+export interface StepResult {
+  status: StepStatus;
+  found?: number;
+  captured?: number;
+  updated?: number;
+  duplicates?: number;
+  refused?: number;
+  failed?: number;
+  error?: string;
+  note?: string;
+}
+export const WORKFLOW_STEPS: WorkflowStep[] = ["company", "jobs", "people", "verify"];
+export const STEP_LABELS: Record<WorkflowStep, string> = { company: "Company profile", jobs: "Job roles", people: "Employees", verify: "Verification" };
+export const STEP_STATUS_LABELS: Record<StepStatus, string> = { pending: "Waiting", running: "In progress", done: "Done", partial: "Partial", failed: "Failed", skipped: "Skipped" };
+export const STEP_STATUS_TONES: Record<StepStatus, "success" | "warning" | "danger" | "info" | "muted"> = { pending: "muted", running: "info", done: "success", partial: "warning", failed: "danger", skipped: "muted" };
+
 export interface CaptureJob {
   companyPublicId: string;
   companyName: string | null;
@@ -43,6 +61,9 @@ export interface CaptureJob {
   attempts: number;
   startedBy: string | null;
   stopReason: string | null;
+  /** Company workflow: the step the extension is on and what each step produced. Null for people-only jobs. */
+  step?: WorkflowStep | null;
+  stepDetail?: Partial<Record<WorkflowStep, StepResult>> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -245,7 +266,33 @@ export const ACTION_LABELS: Record<JobAction, string> = {
 };
 
 /** Percent of the job done: LinkedIn's member count when known, else 100 for a finished job. */
-export function jobProgress(job: Pick<CaptureJob, "state" | "complete" | "peopleFound" | "expectedPeople">): number | null {
+/** The steps of a company workflow in order, each with its result (pending when not reported yet). Empty for people-only jobs. */
+export function workflowSteps(job: Pick<CaptureJob, "step" | "stepDetail" | "state">): Array<{ key: WorkflowStep; label: string; result: StepResult; current: boolean }> {
+  if (!job.step && !job.stepDetail) return [];
+  return WORKFLOW_STEPS.map((key) => {
+    const reported = job.stepDetail?.[key];
+    const current = job.step === key && ["running", "review", "queued", "retrying"].includes(job.state);
+    return { key, label: STEP_LABELS[key], result: reported ?? { status: current ? "running" : "pending" }, current };
+  });
+}
+
+/** "Step 2 of 4 · Job roles" for a job that is mid-workflow; null otherwise. */
+export function stepSummary(job: Pick<CaptureJob, "step" | "state">): string | null {
+  if (!job.step || ["completed", "partial", "cancelled"].includes(job.state)) return null;
+  return `Step ${WORKFLOW_STEPS.indexOf(job.step) + 1} of ${WORKFLOW_STEPS.length} · ${STEP_LABELS[job.step]}`;
+}
+
+export function jobProgress(job: Pick<CaptureJob, "state" | "complete" | "peopleFound" | "expectedPeople"> & Partial<Pick<CaptureJob, "step" | "stepDetail">>): number | null {
+  // A company workflow's progress is its steps: a step done (or partial) is a quarter, the employees step is measured against LinkedIn's total.
+  if (job.step || job.stepDetail) {
+    if (job.state === "completed") return 100;
+    const detail = job.stepDetail ?? {};
+    let done = WORKFLOW_STEPS.filter((key) => ["done", "partial", "skipped"].includes(detail[key]?.status ?? "")).length;
+    let extra = 0;
+    if (detail.people?.status !== "done" && detail.people?.status !== "partial" && job.expectedPeople) extra = Math.min(1, job.peopleFound / job.expectedPeople) * 0.9;
+    done = Math.min(done, WORKFLOW_STEPS.length);
+    return Math.min(99, Math.round(((done + extra) / WORKFLOW_STEPS.length) * 100));
+  }
   if (job.complete || job.state === "completed") return 100;
   if (!job.expectedPeople) return null;
   return Math.min(100, Math.round((job.peopleFound / job.expectedPeople) * 100));

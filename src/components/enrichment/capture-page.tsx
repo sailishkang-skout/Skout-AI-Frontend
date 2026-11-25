@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageShell } from "@/components/layout/page-shell";
 import { ApiError, formatQueryError, useApiFetch, useAuthReady } from "@/lib/api-client";
 import { useWorkspaceRole } from "@/lib/workspace-role";
+import { ResultsBar, StatGrid } from "./list-ui";
 
 interface CaptureStatus {
   enabled: boolean;
@@ -130,6 +131,8 @@ export function CapturePage() {
 
   const [company, setCompany] = useState("");
   const [departments, setDepartments] = useState<DepartmentState>({});
+  const [runStatus, setRunStatus] = useState<"" | CaptureRun["status"]>("");
+  const [runKind, setRunKind] = useState<"" | CaptureRun["kind"]>("");
   const [confirmDisable, setConfirmDisable] = useState(false);
   const [disableReason, setDisableReason] = useState("");
 
@@ -167,7 +170,11 @@ export function CapturePage() {
 
   const status = statusQuery.data;
   const forbidden = statusQuery.error instanceof ApiError && statusQuery.error.status === 403;
-  const runs = runsQuery.data?.runs ?? [];
+  const allRuns = runsQuery.data?.runs ?? [];
+  const runs = allRuns.filter((run) => (!runStatus || run.status === runStatus) && (!runKind || run.kind === runKind));
+  const runsFiltered = Boolean(runStatus || runKind);
+  const failedRuns = allRuns.filter((run) => ["failed", "halted", "rejected"].includes(run.status)).length;
+  const peopleSaved = allRuns.reduce((total, run) => total + run.leadsCreated + run.leadsMerged, 0);
   const companyNames = useMemo(
     () => Array.from(new Set((companiesQuery.data?.companies ?? []).map((item) => item.name).filter(Boolean))).sort(),
     [companiesQuery.data]
@@ -204,6 +211,16 @@ export function CapturePage() {
           {formatQueryError(updateSettings.error, "Could not change the capture setting.")}
         </Alert>
       )}
+
+      <StatGrid
+        loading={statusQuery.isLoading || runsQuery.isLoading}
+        items={[
+          { label: "Capture", value: status ? (status.enabled ? "Active" : "Blocked") : "—", tone: status?.enabled ? "success" : "warning" },
+          { label: "Leads left today", value: status ? status.usage.remainingToday : 0, note: status ? `of ${status.caps.dailyLeadLimit} daily` : undefined },
+          { label: "Recent runs", value: allRuns.length, note: failedRuns ? `${failedRuns} failed or halted` : "None failed" },
+          { label: "People saved (recent runs)", value: peopleSaved, note: "New and merged" },
+        ]}
+      />
 
       {statusQuery.isLoading ? (
         <Skeleton className="h-28 w-full rounded-lg" />
@@ -376,17 +393,42 @@ export function CapturePage() {
       {!forbidden && (
         <Card>
           <CardContent className="space-y-3 p-6">
-            <h2 className="font-semibold">Recent capture runs</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-semibold">Recent capture runs</h2>
+              <div className="flex gap-2">
+                <Select aria-label="Run status" value={runStatus} onChange={(event) => setRunStatus(event.target.value as typeof runStatus)}>
+                  <option value="">Any status</option>
+                  {(Object.keys(RUN_STATUS) as CaptureRun["status"][]).map((key) => (
+                    <option key={key} value={key}>
+                      {`${RUN_STATUS[key].label} runs`}
+                    </option>
+                  ))}
+                </Select>
+                <Select aria-label="Run type" value={runKind} onChange={(event) => setRunKind(event.target.value as typeof runKind)}>
+                  <option value="">Any type</option>
+                  {(Object.keys(RUN_KIND_LABELS) as CaptureRun["kind"][]).map((key) => (
+                    <option key={key} value={key}>
+                      {`${RUN_KIND_LABELS[key]} runs`}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            {!runsQuery.isLoading && !runsQuery.isError && allRuns.length > 0 && (
+              <ResultsBar shown={runs.length} total={allRuns.length} noun="runs" filtered={runsFiltered} onClear={() => { setRunStatus(""); setRunKind(""); }} />
+            )}
             {runsQuery.isError ? (
               <Alert variant="error" onRetry={() => runsQuery.refetch()}>
                 {formatQueryError(runsQuery.error, "Could not load capture runs.")}
               </Alert>
             ) : runsQuery.isLoading ? (
               <Skeleton className="h-16 w-full rounded-lg" />
-            ) : runs.length === 0 ? (
+            ) : allRuns.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No captures yet. A run appears here once the extension saves a reviewed capture.
               </p>
+            ) : runs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No runs match these filters.</p>
             ) : (
               <ul className="divide-y">
                 {runs.map((run) => {

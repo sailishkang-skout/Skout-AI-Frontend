@@ -159,4 +159,27 @@ describe("CapturePage", () => {
     await screen.findByText("Enabled");
     expect(screen.queryByRole("button", { name: "Disable capture now" })).toBeNull();
   });
+
+  it("summarises capture at the top and filters the recent runs", async () => {
+    serve({
+      runs: [
+        run(),
+        run({ id: "run-2", status: "failed", errorMessage: "LinkedIn stopped showing results" }),
+        run({ id: "run-3", kind: "company", status: "completed" }),
+      ],
+    });
+    renderPage();
+    await screen.findByText("LinkedIn stopped showing results");
+    const stats = screen.getByTestId("stat-grid");
+    expect(within(stats).getByText("Active")).toBeTruthy();
+    expect(within(stats).getByText("1 failed or halted")).toBeTruthy();
+    expect(screen.getByTestId("results-bar").textContent).toContain("Showing 3 of 3 runs");
+    fireEvent.change(screen.getByLabelText("Run status"), { target: { value: "failed" } });
+    expect(screen.getByTestId("results-bar").textContent).toContain("Showing 1 of 3 runs matching your filters");
+    expect(screen.getByText("LinkedIn stopped showing results")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Run type"), { target: { value: "company" } });
+    expect(await screen.findByText("No runs match these filters.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByTestId("results-bar").textContent).toContain("Showing 3 of 3 runs");
+  });
 });

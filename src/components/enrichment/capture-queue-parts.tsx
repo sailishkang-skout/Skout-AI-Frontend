@@ -11,6 +11,9 @@ import {
   STATE_TONES,
   isAutomatic,
   useCaptureQueueApi,
+  STEP_STATUS_LABELS,
+  STEP_STATUS_TONES,
+  workflowSteps,
   type CaptureJob,
   type CaptureJobState,
   type JobAction,
@@ -25,6 +28,41 @@ export function StateBadge({ state }: { state: CaptureJobState }) {
       {state === "running" && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
       {STATE_LABELS[state]}
     </Badge>
+  );
+}
+
+/** The four steps of a company job, each with its own status and what it produced. */
+export function WorkflowSteps({ job }: { job: Pick<CaptureJob, "step" | "stepDetail" | "state"> }) {
+  const steps = workflowSteps(job);
+  if (!steps.length) return null;
+  const counts = (key: string, r: (typeof steps)[number]["result"]) => {
+    const parts: string[] = [];
+    if (key === "jobs" && r.found != null) parts.push(`${r.found.toLocaleString()} found`, ...(r.updated ? [`${r.updated} updated`] : []));
+    if (key === "people" && r.captured != null) parts.push(`${r.captured.toLocaleString()} captured`, ...(r.duplicates ? [`${r.duplicates.toLocaleString()} duplicates`] : []), ...(r.refused ? [`${r.refused.toLocaleString()} refused`] : []));
+    if (key === "verify" && r.status === "done") parts.push(`${(r.found ?? 0).toLocaleString()} roles · ${(r.captured ?? 0).toLocaleString()} people in the workspace`);
+    if (r.failed) parts.push(`${r.failed} failed`);
+    return parts.join(" · ");
+  };
+  return (
+    <ol className="space-y-2" aria-label="Capture workflow steps" data-testid="workflow-steps">
+      {steps.map((step, index) => (
+        <li key={step.key} className="flex items-start gap-3 rounded-md border p-3" aria-current={step.current ? "step" : undefined} data-testid={`step-${step.key}`}>
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">{index + 1}</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">{step.label}</span>
+              <Badge tone={STEP_STATUS_TONES[step.result.status]} className="gap-1 whitespace-nowrap">
+                {step.result.status === "running" && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                {STEP_STATUS_LABELS[step.result.status]}
+              </Badge>
+            </div>
+            {counts(step.key, step.result) && <p className="text-xs text-muted-foreground">{counts(step.key, step.result)}</p>}
+            {step.result.error && <p className="text-xs text-red-600 dark:text-red-400">{step.result.error}</p>}
+            {step.result.note && <p className="text-xs text-muted-foreground">{step.result.note}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
