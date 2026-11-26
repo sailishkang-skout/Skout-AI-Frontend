@@ -4,6 +4,10 @@ import { RUN_ACCESS_MESSAGE } from "@/lib/workbook-permissions";
 import WorkbooksV2Page from "./page";
 
 const mockPermissions = vi.fn();
+// The import itself is tested with its component.
+vi.mock("@/components/workbooks-v2/csv-import", () => ({
+  CsvImport: ({ canEdit }: { canEdit: boolean }) => <div>{canEdit ? "import: may edit" : "import: view only"}</div>,
+}));
 vi.mock("@/lib/workspace-role", () => ({
   useWorkspaceRole: () => {
     const keys: string[] = mockPermissions();
@@ -38,5 +42,15 @@ describe("Workbooks V2 entry page", () => {
     mockPermissions.mockReturnValue([]);
     render(<WorkbooksV2Page />);
     expect(screen.queryByText(RUN_ACCESS_MESSAGE)).toBeNull();
+    expect(screen.queryByText(/^import:/)).toBeNull();
+  });
+
+  it("offers CSV import according to edit access", () => {
+    render(<WorkbooksV2Page />);
+    expect(screen.getByText("import: may edit")).toBeTruthy();
+    cleanup();
+    mockPermissions.mockReturnValue(["enrichment:read"]);
+    render(<WorkbooksV2Page />);
+    expect(screen.getByText("import: view only")).toBeTruthy();
   });
 });
