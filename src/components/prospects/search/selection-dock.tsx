@@ -2,14 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronUp, Loader2, X, Zap } from "lucide-react";
+import { ChevronUp, Loader2, Table2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Mode = "add" | "enrich";
+type Mode = "add" | "enrich" | "workbook";
+
+/** Workbooks V2 the selection can go into. Left out where the workspace or person cannot add to one. */
+export interface WorkbookTargets {
+  /** Undefined while loading. */
+  items: { id: string; name: string; rowCount: number }[] | undefined;
+  failed: boolean;
+  onAdd: (workbook: { id: string; name: string }) => void;
+  pending: boolean;
+}
 
 /**
- * Floating bar shown while people are selected. Both actions need a list (Enrich runs a
- * workbook on a list), so each opens the same list picker and acts on the list picked.
+ * Floating bar shown while people are selected. Add to list and Enrich need a list (Enrich runs a
+ * workbook on a list), so each opens the same list picker and acts on the list picked. Add to
+ * workbook (WB2-021) opens a Workbooks V2 picker.
  */
 export function SelectionDock({
   count,
@@ -19,6 +29,7 @@ export function SelectionDock({
   onClear,
   addPending,
   enrichPending,
+  workbooks,
 }: {
   count: number;
   lists: { id: string; name: string; prospectCount: number }[];
@@ -27,6 +38,7 @@ export function SelectionDock({
   onClear: () => void;
   addPending: boolean;
   enrichPending: boolean;
+  workbooks?: WorkbookTargets;
 }) {
   const [mode, setMode] = useState<Mode | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -80,6 +92,19 @@ export function SelectionDock({
           {enrichPending ? <Loader2 className="animate-spin" /> : <Zap />}
           Enrich
         </Button>
+        {workbooks ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-full border-background/30 bg-transparent text-background hover:bg-background/10 hover:text-background"
+            onClick={() => setMode(mode === "workbook" ? null : "workbook")}
+            disabled={workbooks.pending}
+          >
+            {workbooks.pending ? <Loader2 className="animate-spin" /> : <Table2 />}
+            Add to workbook
+          </Button>
+        ) : null}
         <button
           type="button"
           onClick={onClear}
@@ -89,7 +114,41 @@ export function SelectionDock({
           <X className="h-4 w-4" />
         </button>
 
-        {mode && (
+        {mode === "workbook" && workbooks ? (
+          <div
+            role="menu"
+            className="absolute bottom-14 left-1/2 w-[280px] -translate-x-1/2 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-xl"
+          >
+            <div className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Add {count} to a workbook
+            </div>
+            <div className="max-h-60 overflow-y-auto">
+              {workbooks.items?.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    workbooks.onAdd(w);
+                    setMode(null);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-muted"
+                >
+                  <span className="truncate">{w.name}</span>
+                  <span className="text-muted-foreground">{w.rowCount.toLocaleString("en-US")} rows</span>
+                </button>
+              ))}
+            </div>
+            {workbooks.failed ? <p className="px-2.5 py-2 text-[13px] text-muted-foreground">Your workbooks could not be loaded.</p> : null}
+            {!workbooks.failed && !workbooks.items ? <p className="px-2.5 py-2 text-[13px] text-muted-foreground">Loading workbooks…</p> : null}
+            {workbooks.items?.length === 0 ? <p className="px-2.5 py-2 text-[13px] text-muted-foreground">You have no workbooks yet.</p> : null}
+            <Link href="/enrichment/workbooks-v2" role="menuitem" className="block rounded-lg px-2.5 py-2 text-[13px] text-primary hover:bg-muted">
+              {workbooks.items?.length ? "Open Workbooks V2" : "Create a workbook first"}
+            </Link>
+          </div>
+        ) : null}
+
+        {(mode === "add" || mode === "enrich") && (
           <div
             role="menu"
             className="absolute bottom-14 left-1/2 w-[280px] -translate-x-1/2 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-xl"
