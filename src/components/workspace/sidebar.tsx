@@ -195,6 +195,8 @@ export const prospectsNav: NavGroup[] = [
           // Normal enrichment: email, phone and firmographic lookups through providers.
           { href: "/enrichment", label: "Overview", icon: LayoutDashboard, exact: true, requiredPermission: "enrichment:read" },
           { href: "/enrichment/workbooks", label: "Workbooks", icon: Table2, requiredPermission: "enrichment:read" },
+          // Only when the workspace has WORKBOOKS_V2 on (filterNavItem drops it otherwise).
+          { href: "/enrichment/workbooks-v2", label: "Workbooks V2 (beta)", icon: Table2, requiredPermission: "enrichment:read" },
           { href: "/enrichment/providers", label: "Providers", icon: Plug, requiredPermission: "enrichment:admin" },
         ],
       },
