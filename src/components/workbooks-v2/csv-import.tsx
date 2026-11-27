@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError, authQueryOptions, formatQueryError, useAuthReady } from "@/lib/api-client";
-import { STATUS_LABEL, fileProblem, isRunning, useWorkbookImportApi, type confirmBody } from "@/lib/workbooks-v2-import";
+import { STATUS_LABEL, fileProblem, importTitle, isRunning, useWorkbookImportApi, type confirmBody } from "@/lib/workbooks-v2-import";
 import { ImportProgress } from "./import-progress";
 import { MappingStep } from "./mapping-step";
 
@@ -33,7 +33,7 @@ function reasons(error: unknown, fallback: string): string[] {
  * the first rows, confirm, and follow the import. Imports are read back from the server, so leaving and returning
  * shows where each one is.
  */
-export function CsvImport({ canEdit }: { canEdit: boolean }) {
+export function CsvImport({ canEdit, onWorkbook }: { canEdit: boolean; onWorkbook?: (workbook: { id: string; name: string } | null) => void }) {
   const api = useWorkbookImportApi();
   const client = useQueryClient();
   const authReady = useAuthReady();
@@ -118,13 +118,21 @@ export function CsvImport({ canEdit }: { canEdit: boolean }) {
     },
   });
 
-  // When an import ends the workbook's row count and columns have changed.
+  // When an import ends the workbook's rows, row count and columns have changed.
   const status = item?.status;
   useEffect(() => {
     if (status !== "completed" && status !== "failed") return;
     void client.invalidateQueries({ queryKey: KEY, exact: true });
     void client.invalidateQueries({ queryKey: [...KEY, workbookId, "imports"] });
+    void client.invalidateQueries({ queryKey: [...KEY, workbookId, "rows"] });
+    void client.invalidateQueries({ queryKey: [...KEY, workbookId, "columns"] });
   }, [status, client, workbookId]);
+
+  // The rest of the page works on the workbook chosen here.
+  const selectedName = list.find((w) => w.id === workbookId)?.name;
+  useEffect(() => {
+    onWorkbook?.(workbookId && selectedName !== undefined ? { id: workbookId, name: selectedName } : null);
+  }, [workbookId, selectedName, onWorkbook]);
 
   const reset = () => {
     setImportId(null);
@@ -278,7 +286,7 @@ export function CsvImport({ canEdit }: { canEdit: boolean }) {
             <ul className="divide-y rounded-md border text-sm">
               {imports.data.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate">{i.fileName}</span>
+                  <span className="min-w-0 flex-1 truncate">{importTitle(i)}</span>
                   <Badge tone={statusTone(i.status)}>{STATUS_LABEL[i.status]}</Badge>
                   {isRunning(i.status) ? <span className="tabular-nums text-muted-foreground">{i.progress}%</span> : null}
                   {i.status === "completed" || i.status === "failed" ? <span className="text-muted-foreground">{i.counts.imported.toLocaleString("en-US")} added</span> : null}
@@ -286,7 +294,7 @@ export function CsvImport({ canEdit }: { canEdit: boolean }) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`View ${i.fileName}`}
+                    aria-label={`View ${importTitle(i)}`}
                     onClick={() => {
                       reset();
                       setImportId(i.id);

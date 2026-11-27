@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { STATUS_LABEL, isRunning, type WorkbookImport } from "@/lib/workbooks-v2-import";
+import { STATUS_LABEL, importTitle, isRunning, type WorkbookImport } from "@/lib/workbooks-v2-import";
 
 /** How an import is going, straight from the server's counts, and its report of rows that were not added. */
 export function ImportProgress({
@@ -13,26 +13,31 @@ export function ImportProgress({
   downloadError,
   onDownload,
   onClose,
+  closeLabel,
 }: {
   item: WorkbookImport;
   downloading: boolean;
   downloadError: string | null;
   onDownload: () => void;
   onClose: () => void;
+  /** What closing does once the import has ended; by default, choosing another file. */
+  closeLabel?: string;
 }) {
   const { counts, status } = item;
+  const file = item.sourceType === "csv";
   const figures: Array<[string, number]> = [
-    ["Total rows", counts.total],
+    [file ? "Total rows" : "Selected", counts.total],
     ["Processed", counts.processed],
-    ["Imported", counts.imported],
-    ["Duplicates skipped", counts.duplicates],
-    ["Invalid or failed", counts.failed],
-    ["Empty rows skipped", counts.skipped],
+    [file ? "Imported" : "Added", counts.imported],
+    [file ? "Duplicates skipped" : "Already in workbook", counts.duplicates],
+    [file ? "Invalid or failed" : "Over the row limit", counts.failed],
+    [file ? "Empty rows skipped" : "Not found", counts.skipped],
   ];
+  const left = counts.duplicates + counts.failed + counts.skipped;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{item.fileName}</span>
+        <span className="font-medium">{importTitle(item)}</span>
         <Badge tone={statusTone(status)}>{STATUS_LABEL[status]}</Badge>
         <span className="text-muted-foreground" aria-live="polite">
           {item.progress}%
@@ -57,7 +62,18 @@ export function ImportProgress({
         ))}
       </dl>
       {item.error ? <Alert variant={status === "failed" ? "error" : "default"}>{item.error.message}</Alert> : null}
-      {status === "completed" ? <Alert variant="success">{counts.imported.toLocaleString("en-US")} rows were added to the workbook.</Alert> : null}
+      {item.truncated ? (
+        <Alert variant="warning">
+          {item.truncated.matched.toLocaleString("en-US")} prospects matched; only the first {item.truncated.considered.toLocaleString("en-US")} fit a workbook and were considered.
+        </Alert>
+      ) : null}
+      {status === "completed" && counts.imported === 0 ? <Alert variant="warning">No rows were added to the workbook.</Alert> : null}
+      {status === "completed" && counts.imported > 0 ? (
+        <Alert variant={!file && left > 0 ? "warning" : "success"}>
+          <p>{counts.imported.toLocaleString("en-US")} rows were added to the workbook.</p>
+          {!file && left > 0 ? <p>{left.toLocaleString("en-US")} were not added; the report says why.</p> : null}
+        </Alert>
+      ) : null}
       {isRunning(status) ? <p className="text-sm text-muted-foreground">You can keep working or leave this page; the import carries on.</p> : null}
       {downloadError ? <Alert variant="error">{downloadError}</Alert> : null}
       <div className="flex flex-wrap gap-3">
@@ -68,7 +84,7 @@ export function ImportProgress({
           </Button>
         ) : null}
         <Button type="button" variant={isRunning(status) ? "ghost" : "default"} onClick={onClose}>
-          {isRunning(status) ? "Close" : "Import another file"}
+          {isRunning(status) ? "Close" : (closeLabel ?? "Import another file")}
         </Button>
       </div>
     </div>

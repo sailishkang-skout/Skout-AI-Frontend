@@ -42,6 +42,9 @@ function item(over: Omit<Partial<WorkbookImport>, "counts"> & { counts?: Partial
   return {
     id: "imp-12345678",
     workbookId: "wb-1",
+    sourceType: "csv",
+    sourceName: null,
+    truncated: null,
     status: "awaiting_confirmation",
     fileName: "leads.csv",
     fileBytes: 2048,

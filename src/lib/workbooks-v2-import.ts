@@ -48,6 +48,7 @@ export interface WorkbookColumn {
   id: string;
   name: string;
   type: string;
+  hidden?: boolean;
   config: { dataType?: DataType } & Record<string, unknown>;
 }
 
@@ -71,6 +72,11 @@ export type ImportStatus = "awaiting_confirmation" | "queued" | "processing" | "
 export interface WorkbookImport {
   id: string;
   workbookId: string;
+  sourceType: "csv" | "list" | "smart_list" | "search";
+  /** The list or smart list rows came from. */
+  sourceName: string | null;
+  /** Set when more prospects matched than the workbook can hold. */
+  truncated: { matched: number; considered: number } | null;
   status: ImportStatus;
   fileName: string;
   fileBytes: number;
@@ -91,6 +97,14 @@ export const STATUS_LABEL: Record<ImportStatus, string> = {
   failed: "Failed",
   cancelled: "Cancelled",
 };
+
+/** What an import is called in lists and headings. */
+export function importTitle(item: Pick<WorkbookImport, "sourceType" | "sourceName" | "fileName">): string {
+  if (item.sourceType === "list") return `List: ${item.sourceName ?? "unnamed"}`;
+  if (item.sourceType === "smart_list") return `Smart list: ${item.sourceName ?? "unnamed"}`;
+  if (item.sourceType === "search") return "Search selection";
+  return item.fileName;
+}
 
 export const isRunning = (status: ImportStatus) => status === "queued" || status === "processing";
 
