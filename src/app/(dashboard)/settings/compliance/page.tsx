@@ -17,6 +17,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -387,12 +388,23 @@ function DsarPanel() {
     },
   });
 
+  /** The erasure request whose completion is being confirmed. */
+  const [erasing, setErasing] = useState<DsarRow | null>(null);
   const updateStatus = useMutation({
     mutationFn: (v: { id: string; status: DsarRow["status"] }) => api.updateDsar(v.id, v.status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["dsar"] }),
+    onSuccess: ({ erasure }) => {
+      if (erasure) {
+        const n = (count: number, word: string) => `${count.toLocaleString("en-US")} ${word}${count === 1 ? "" : "s"}`;
+        const cleared = erasure.cellsCleared ? ` and cleared ${n(erasure.cellsCleared, "other cell")}` : "";
+        toast.success(`Removed ${n(erasure.rowsRemoved, "workbook row")}${cleared}. The address is on the suppression list.`, "Erasure completed");
+        qc.invalidateQueries({ queryKey: ["suppressions"] });
+      }
+      qc.invalidateQueries({ queryKey: ["dsar"] });
+    },
     onError: (err) => {
       toast.error(formatQueryError(err, "Failed to update DSAR request"), "Update Failed");
     },
+    onSettled: () => setErasing(null),
   });
 
   return (
@@ -485,7 +497,8 @@ function DsarPanel() {
                       size="sm"
                       className="h-6 px-2 text-[10px]"
                       disabled={updateStatus.isPending}
-                      onClick={() => updateStatus.mutate({ id: row.id, status: "completed" })}
+                      // An erasure deletes data, so it is confirmed first.
+                      onClick={() => (row.requestType === "erasure" ? setErasing(row) : updateStatus.mutate({ id: row.id, status: "completed" }))}
                     >
                       Complete
                     </Button>
@@ -505,6 +518,25 @@ function DsarPanel() {
           ))
         )}
       </div>
+
+      {erasing ? (
+        <Dialog open onClose={() => (updateStatus.isPending ? undefined : setErasing(null))} title="Complete this erasure request?">
+          <div className="space-y-4 p-1 text-sm">
+            <p>
+              Do the other erasure steps first. Completing this permanently removes <span className="font-mono">{erasing.subjectEmail}</span> from every Workbooks V2 workbook and adds the address to the suppression list.
+            </p>
+            <p>Removed rows can’t be restored.</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" disabled={updateStatus.isPending} onClick={() => setErasing(null)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="destructive" disabled={updateStatus.isPending} onClick={() => updateStatus.mutate({ id: erasing.id, status: "completed" })}>
+                {updateStatus.isPending ? "Removing…" : "Remove and complete"}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </>
   );
 }

@@ -18,7 +18,7 @@ vi.mock("@glideapps/glide-data-grid", () => ({
 }));
 
 const view = (over: Partial<CellView> = {}): CellView => ({ text: "a", editable: true, ...over });
-const theme = { invalid: { bgCell: "amber" }, pending: { textDark: "grey" }, fixed: { bgCell: "plain" } };
+const theme = { invalid: { bgCell: "amber" }, pending: { textDark: "grey" }, suppressed: { bgCell: "shaded" }, fixed: { bgCell: "plain" } };
 
 function show(over: Partial<SheetProps> = {}) {
   const props: SheetProps = {
@@ -51,6 +51,7 @@ describe("GlideSheet", () => {
     expect(toGridCell(view({ editable: false }), theme)).toMatchObject({ allowOverlay: false, readonly: true, themeOverride: theme.fixed });
     expect(toGridCell(view({ tone: "invalid" }), theme)).toMatchObject({ themeOverride: theme.invalid });
     expect(toGridCell(view({ tone: "pending" }), theme)).toMatchObject({ themeOverride: theme.pending });
+    expect(toGridCell(view({ tone: "suppressed" }), theme)).toMatchObject({ themeOverride: theme.suppressed, allowOverlay: true });
     expect(toGridCell(view({ loading: true }), theme)).toMatchObject({ kind: "loading" });
     // What is copied is the value itself, never a label drawn with it.
     expect(toGridCell(view({ text: "a@x.com", badge: "From your Skout data" }), theme)).toMatchObject({ data: "a@x.com", displayData: "a@x.com" });

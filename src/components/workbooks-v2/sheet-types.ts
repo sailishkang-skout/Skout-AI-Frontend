@@ -16,8 +16,8 @@ export interface CellView {
   text: string;
   editable: boolean;
   loading?: boolean;
-  /** `invalid`: kept but flagged. `pending`: not saved yet. */
-  tone?: "invalid" | "pending";
+  /** `invalid`: kept but flagged. `pending`: not saved yet. `suppressed`: a row columns will skip. */
+  tone?: "invalid" | "pending" | "suppressed";
   /** A label drawn under the value. */
   badge?: string;
 }

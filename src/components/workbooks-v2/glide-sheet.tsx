@@ -24,9 +24,9 @@ import type { CellView, Rect, SheetProps, SheetSelection } from "./sheet-types";
 
 const ROW_HEIGHT = 44;
 
-export function toGridCell(view: CellView, theme: { invalid: Partial<Theme>; pending: Partial<Theme>; fixed: Partial<Theme> }): GridCell {
+export function toGridCell(view: CellView, theme: { invalid: Partial<Theme>; pending: Partial<Theme>; suppressed: Partial<Theme>; fixed: Partial<Theme> }): GridCell {
   if (view.loading) return { kind: GridCellKind.Loading, allowOverlay: false };
-  const themeOverride = view.tone === "invalid" ? theme.invalid : view.tone === "pending" ? theme.pending : view.editable ? undefined : theme.fixed;
+  const themeOverride = view.tone ? theme[view.tone] : view.editable ? undefined : theme.fixed;
   return {
     kind: GridCellKind.Text,
     data: view.text,
@@ -80,6 +80,7 @@ function useAppTheme() {
       cells: {
         invalid: { textDark: dark ? "#fcd34d" : "#92400e", bgCell: dark ? "#3f2d10" : "#fef3c7" } satisfies Partial<Theme>,
         pending: { textDark: muted } satisfies Partial<Theme>,
+        suppressed: { textDark: muted, bgCell: hsl("--muted", "#f5f3f8") } satisfies Partial<Theme>,
         fixed: { bgCell: hsl("--background", "#fcfbfe") } satisfies Partial<Theme>,
       },
     };

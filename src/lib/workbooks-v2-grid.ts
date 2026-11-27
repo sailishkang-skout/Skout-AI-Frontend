@@ -8,6 +8,8 @@ export const MAX_PASTE_CELLS = 100_000;
 export const MAX_COPY_ROWS = 10_000;
 export const SOURCE_COLUMN = "__source";
 export const FROM_SKOUT = "From your Skout data";
+export const SUPPRESSED = "Suppressed";
+export const SUPPRESSED_NOTE = "This person is on your suppression list or has opted out. Enrichment, AI and action columns skip this row.";
 
 const n = (value: number) => value.toLocaleString("en-US");
 const plural = (count: number, word: string) => `${n(count)} ${word}${count === 1 ? "" : "s"}`;
@@ -38,8 +40,12 @@ export function cellText(value: WorkbookCell["value"] | undefined): string {
   return value === null || value === undefined ? "" : String(value);
 }
 
+/** What the Source column says: for a suppressed row, that first, so it is read and copied with the row. */
+export const sourceText = (row: Pick<WorkbookRow, "source" | "suppressed">) => (row.suppressed ? `${SUPPRESSED} · ${sourceLabel(row.source)}` : sourceLabel(row.source));
+
 /** Why a flagged cell is flagged. */
 export function cellProblem(cell: WorkbookCell | undefined, column: WorkbookColumn | undefined): string | null {
+  if (cell?.state === "skipped" && cell.errorCode === "suppressed") return "Skipped because this person is suppressed or has opted out.";
   if (cell?.state !== "error") return null;
   const type = column?.config.dataType;
   return column?.type === "input" && type ? `Doesn't fit this ${dataTypeLabel(type)} column. Kept as entered.` : "This cell has an error.";

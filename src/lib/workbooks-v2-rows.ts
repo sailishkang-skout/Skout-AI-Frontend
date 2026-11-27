@@ -8,12 +8,16 @@ export interface WorkbookCell {
   /** "cache": copied from what Skout already holds, for no credits. */
   foundVia: string | null;
   verification: string | null;
+  /** Why a cell was flagged or skipped, e.g. `suppressed`. */
+  errorCode?: string | null;
 }
 
 export interface WorkbookRow {
   id: number;
   prospectId: string | null;
   source: { type: string } & Record<string, unknown>;
+  /** The row's person is on the suppression list or has opted out (WB2-027). */
+  suppressed?: boolean;
   cells: Record<string, WorkbookCell>;
 }
 

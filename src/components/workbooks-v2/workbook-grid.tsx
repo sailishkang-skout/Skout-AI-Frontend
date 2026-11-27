@@ -14,6 +14,8 @@ import {
   FROM_SKOUT,
   MAX_COPY_ROWS,
   SOURCE_COLUMN,
+  SUPPRESSED,
+  SUPPRESSED_NOTE,
   VERIFICATION,
   cellProblem,
   cellText,
@@ -21,7 +23,7 @@ import {
   incompatibleMessage,
   pasteSummary,
   planPaste,
-  sourceLabel,
+  sourceText,
   tooLarge,
   tooLargeToClear,
   type IncompatibleColumn,
@@ -157,15 +159,20 @@ export function WorkbookGrid({ workbook, canEdit }: { workbook: { id: string; na
       }
       const saved = rowAt(row);
       if (!saved) return { text: "", editable: false, loading: true };
-      if (column.id === SOURCE_COLUMN) return { text: sourceLabel(saved.source), editable: false };
+      // The whole row is shaded, and labelled in its first column, which is the one in view.
+      const label = saved.suppressed && col === 0 ? SUPPRESSED : null;
+      const shade = saved.suppressed ? { tone: "suppressed" as const } : {};
+      if (column.id === SOURCE_COLUMN) return { text: sourceText(saved), editable: false, ...shade };
       const edit = unsavedEdits.get(saved.id);
       if (edit && column.id in edit) return { text: edit[column.id] ?? "", editable: canType, tone: "pending" };
       const value = saved.cells[column.id];
+      const badge = label ?? (value?.foundVia === "cache" ? FROM_SKOUT : null);
       return {
         text: cellText(value?.value),
         editable: canType,
+        ...shade,
         ...(value?.state === "error" ? { tone: "invalid" as const } : {}),
-        ...(value?.foundVia === "cache" ? { badge: FROM_SKOUT } : {}),
+        ...(badge ? { badge } : {}),
       };
     },
     [columns, canEdit, total, pending, rowAt, unsavedEdits]
@@ -333,7 +340,7 @@ export function WorkbookGrid({ workbook, canEdit }: { workbook: { id: string; na
           Array.from({ length: rect.width }, (_, i) => {
             const column = columns[rect.x + i];
             if (!saved || !column) return cell(rect.x + i, row);
-            return { text: column.id === SOURCE_COLUMN ? sourceLabel(saved.source) : cellText(saved.cells[column.id]?.value), editable: false };
+            return { text: column.id === SOURCE_COLUMN ? sourceText(saved) : cellText(saved.cells[column.id]?.value), editable: false };
           })
         );
       }
@@ -485,6 +492,7 @@ export function WorkbookGrid({ workbook, canEdit }: { workbook: { id: string; na
             {chosenCell?.foundVia === "cache" ? <span className="text-blue-700 dark:text-blue-300">{FROM_SKOUT}</span> : null}
             {chosenCell?.foundVia === "cache" && chosenCell.verification ? <span>{VERIFICATION[chosenCell.verification] ?? chosenCell.verification}</span> : null}
             {problem ? <span className="text-amber-700 dark:text-amber-300">{problem}</span> : null}
+            {chosenRow?.suppressed ? <span className="font-medium">{SUPPRESSED_NOTE}</span> : null}
           </p>
         ) : null}
         {canEdit && editable ? (

@@ -69,11 +69,20 @@ export function useComplianceApi() {
         body: JSON.stringify(input),
       }),
     updateDsar: (id: string, status: DsarRow["status"], notes?: string) =>
-      fetchApi<{ data: DsarRow }>(`/api/v1/dsar/${encodeURIComponent(id)}`, {
+      fetchApi<{ data: DsarRow; erasure?: DsarErasure }>(`/api/v1/dsar/${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify({ status, notes }),
       }),
   };
+}
+
+/** What completing an erasure request removed from Workbooks V2 (WB2-027). */
+export interface DsarErasure {
+  rowsRemoved: number;
+  cellsCleared: number;
+  workbooks: number;
+  reportsCleaned: number;
+  previewsCancelled: number;
 }
 
 export interface DsarRow {

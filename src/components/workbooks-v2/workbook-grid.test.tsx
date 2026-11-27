@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
-import { FROM_SKOUT } from "@/lib/workbooks-v2-grid";
+import { FROM_SKOUT, SUPPRESSED, SUPPRESSED_NOTE } from "@/lib/workbooks-v2-grid";
 import type { PasteBody, WorkbookRow } from "@/lib/workbooks-v2-rows";
 import type { SheetProps } from "./sheet-types";
 import { WorkbookGrid } from "./workbook-grid";
@@ -148,6 +148,44 @@ describe("Workbook grid", () => {
     expect(details.textContent).toContain("Verified");
     select(2, 0);
     expect(screen.getByTestId("cell-details").textContent).toContain("Doesn't fit this Domain column");
+  });
+
+  it("shades and labels a suppressed row, says what it means, and copies the label with where it came from", async () => {
+    server.rows = [
+      { ...row(1, { n: cell("Ann", { foundVia: "cache" }), e: cell("ann@acme.com"), d: cell("not a domain", { state: "error" }), f: cell(null, { state: "skipped", errorCode: "suppressed" }) }, "paste"), suppressed: true },
+      { ...row(2, { n: cell("Bo", { foundVia: "cache" }) }), suppressed: false },
+    ];
+    show();
+    await ready();
+    expect(sheet.props.cell(0, 0)).toMatchObject({ text: "Ann", badge: SUPPRESSED, tone: "suppressed", editable: true });
+    expect(sheet.props.cell(1, 0)).toMatchObject({ tone: "suppressed" });
+    expect(sheet.props.cell(1, 0).badge).toBeUndefined();
+    // A value that doesn't fit its column is still shown as such.
+    expect(sheet.props.cell(2, 0).tone).toBe("invalid");
+    expect(sheet.props.cell(4, 0)).toMatchObject({ text: `${SUPPRESSED} · Pasted`, tone: "suppressed" });
+    expect(sheet.props.cell(0, 1)).toMatchObject({ badge: FROM_SKOUT });
+    expect(sheet.props.cell(0, 1).tone).toBeUndefined();
+    expect(text(4, 1)).toBe("Added by hand");
+    expect((await sheet.props.loadCells({ x: 4, y: 0, width: 1, height: 1 }))[0]![0]!.text).toBe(`${SUPPRESSED} · Pasted`);
+
+    select(1, 0);
+    expect(screen.getByTestId("cell-details").textContent).toContain(SUPPRESSED_NOTE);
+    select(3, 0);
+    expect(screen.getByTestId("cell-details").textContent).toContain("Skipped because this person is suppressed");
+    select(0, 1);
+    expect(screen.getByTestId("cell-details").textContent).not.toContain(SUPPRESSED_NOTE);
+  });
+
+  it("labels a row as soon as what is typed in it is answered as suppressed", async () => {
+    rowsApi.editRow.mockImplementation(async (_wb: string, id: number, cells: Record<string, string>) => {
+      server.rows = server.rows.map((r) => (r.id === id ? { ...r, suppressed: true, cells: { ...r.cells, ...toCells(cells) } as WorkbookRow["cells"] } : r));
+      return { data: server.rows.find((r) => r.id === id)! };
+    });
+    show();
+    await ready();
+    await type(1, 0, "gone@acme.com");
+    await waitFor(() => expect(sheet.props.cell(0, 0).badge).toBe(SUPPRESSED));
+    expect(sheet.props.cell(0, 1).badge).toBeUndefined();
   });
 
   it("gives a viewer no empty row, no editing and no pasting", async () => {
