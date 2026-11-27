@@ -16,6 +16,7 @@ describe("Workbooks V2 page", () => {
       if (path.startsWith("/api/v1/workbooks-v2?")) return { data: [{ id: "w1", name: "Leads", rowCount: 0 }, { id: "w2", name: "Accounts", rowCount: 0 }], total: 2 };
       if (path.includes("/rows?")) return { data: [], window: { total: 0, hasMore: false } };
       if (path.endsWith("/imports") || path.endsWith("/sheet-sources") || path === "/api/v1/lists") return { data: [] };
+      if (path.endsWith("/webhook")) return { data: null };
       return { data: { columns: [] } };
     });
     render(
@@ -35,6 +36,9 @@ describe("Workbooks V2 page", () => {
     await waitFor(() => expect(api.mock.calls.some(([p]) => String(p).startsWith("/api/v1/workbooks-v2/w2/rows?"))).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Add rows" }));
     expect(screen.getByRole("dialog").textContent).toContain("Add rows to “Accounts”");
+    // The webhook shown is that workbook’s too.
+    await waitFor(() => expect(api.mock.calls.some(([p]) => p === "/api/v1/workbooks-v2/w2/webhook")).toBe(true));
+    expect(screen.getByRole("region", { name: "Inbound webhook" }).textContent).toContain("“Accounts”");
   });
 
   it("shows a viewer the grid area and offers no way to add rows or columns", async () => {
@@ -44,5 +48,7 @@ describe("Workbooks V2 page", () => {
     expect(screen.queryByTestId("paste-target")).toBeNull();
     expect(screen.queryByRole("button", { name: "Add rows" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add column" })).toBeNull();
+    expect(await screen.findByText(/No webhook has been set up/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Create webhook" })).toBeNull();
   });
 });

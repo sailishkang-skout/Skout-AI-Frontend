@@ -31,7 +31,7 @@ export const DEDUPE_OPTIONS = [
 export type DedupeKey = (typeof DEDUPE_OPTIONS)[number]["value"];
 
 /** The column types each key can be read from; the first is its own type. */
-const KEY_TYPES: Record<Exclude<DedupeKey, "none">, DataType[]> = {
+export const KEY_TYPES: Record<Exclude<DedupeKey, "none">, DataType[]> = {
   email: ["email", "text"],
   linkedin_url: ["linkedin_url", "url", "text"],
   domain: ["domain", "url", "text"],

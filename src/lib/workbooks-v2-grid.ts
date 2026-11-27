@@ -27,6 +27,7 @@ export function sourceLabel(source: WorkbookRow["source"]): string {
     const tab = [source.spreadsheetName, source.tabName].filter((part) => typeof part === "string" && part).join(" · ");
     return named("Google Sheets", tab);
   }
+  if (source.type === "webhook") return "Webhook";
   if (source.type === "paste") return "Pasted";
   if (source.type === "manual") return "Added by hand";
   return source.type;

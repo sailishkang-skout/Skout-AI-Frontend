@@ -30,6 +30,7 @@ describe("grid columns", () => {
   it("shows values, sources and why a cell is flagged", () => {
     expect([cellText(true), cellText(false), cellText(0), cellText(null), cellText(undefined)]).toEqual(["Yes", "No", "0", "", ""]);
     expect(sourceLabel({ type: "paste" })).toBe("Pasted");
+    expect(sourceLabel({ type: "webhook", webhookId: "w", receivedAt: "2026-11-27T10:00:00Z" })).toBe("Webhook");
     expect(sourceLabel({ type: "manual" })).toBe("Added by hand");
     expect(sourceLabel({ type: "list", listName: "Q4" })).toBe("List: Q4");
     expect(sourceLabel({ type: "csv", fileName: "a.csv" })).toBe("CSV: a.csv");
