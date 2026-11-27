@@ -30,6 +30,10 @@ import { tokensFor } from "@/components/prospects/search/filter-tokens";
 import { ProspectResults, type RevealKind, type RevealState } from "@/components/prospects/search/prospect-results";
 import { SelectionDock } from "@/components/prospects/search/selection-dock";
 import type { ProspectSnapshotInput, ProspectSummary, SearchProspectsResponse } from "@/types/api";
+import { useFeatureOn } from "@/lib/access";
+import { useWorkbookPermissions } from "@/lib/workbook-permissions";
+import { useWorkbookImportApi } from "@/lib/workbooks-v2-import";
+import { MAX_CHOSEN, additionSummary, useWorkbookProspectsApi } from "@/lib/workbooks-v2-prospects";
 
 const VIEW_KEY = "skout.prospectSearch.view";
 
@@ -396,6 +400,38 @@ export default function ProspectSearchPage() {
     },
   });
 
+  // WB2-021 — "Add to workbook": offered when the workspace has Workbooks V2 and this person may edit it.
+  const workbooksV2 = useFeatureOn("workbooks_v2");
+  const { canEdit: canEditWorkbooks } = useWorkbookPermissions();
+  const canAddToWorkbook = workbooksV2 && canEditWorkbooks;
+  const workbookImportApi = useWorkbookImportApi();
+  const workbookProspectsApi = useWorkbookProspectsApi();
+  const workbooks = useQuery({
+    queryKey: ["workbooks-v2"],
+    queryFn: () => workbookImportApi.workbooks(),
+    enabled: authReady && canAddToWorkbook && selected.size > 0,
+  });
+  const [workbookNote, setWorkbookNote] = useState<ReturnType<typeof additionSummary> | null>(null);
+  const addToWorkbook = useMutation({
+    mutationFn: async (workbook: { id: string; name: string }) => {
+      const ids = Array.from(selected);
+      if (ids.length > MAX_CHOSEN) throw new Error(`Choose at most ${MAX_CHOSEN.toLocaleString("en-US")} people at a time.`);
+      const item = await workbookProspectsApi.add(workbook.id, { type: "search" }, { prospectIds: ids });
+      return { item, chosen: ids.length, workbook };
+    },
+    onMutate: () => setWorkbookNote(null),
+    onSuccess: ({ item, chosen, workbook }) => {
+      setWorkbookNote(additionSummary(item, chosen, workbook.name));
+      // A failed addition keeps the selection, so it can be sent again; nobody is added twice.
+      if (item.status !== "failed") setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["workbooks-v2"] });
+    },
+    onError: (err) => {
+      const message = err instanceof ApiError ? formatQueryError(err, "Couldn't add prospects to that workbook.") : (err as Error).message;
+      setWorkbookNote({ tone: "error", text: message || "Couldn't add prospects to that workbook." });
+    },
+  });
+
   // ADI-15 (§4, §10.1) — "Enrich" carries the selection into a workbook run instead of
   // landing on an empty one. A workbook run always targets a list (there's no workbook-run
   // path that accepts raw prospectIds without one), so this adds the selection to the chosen
@@ -659,7 +695,33 @@ export default function ProspectSearchPage() {
           </div>
         )}
 
+        {workbookNote ? (
+          // Stays on screen, above the selection dock when there is one: the dock can be used from anywhere on the page.
+          <div className={cn("pointer-events-none sticky z-20 mt-4 flex justify-center", selected.size ? "bottom-24" : "bottom-6")}>
+            <div className="pointer-events-auto w-full max-w-xl rounded-xl bg-card shadow-2xl">
+              <Alert variant={workbookNote.tone}>
+                <p>{workbookNote.text}</p>
+                <span className="mt-1 flex gap-4">
+                  {workbookNote.tone !== "error" ? (
+                    <Link href="/enrichment/workbooks-v2" className="font-medium underline underline-offset-4">
+                      Open Workbooks V2
+                    </Link>
+                  ) : null}
+                  <button type="button" className="font-medium underline underline-offset-4" onClick={() => setWorkbookNote(null)}>
+                    Dismiss
+                  </button>
+                </span>
+              </Alert>
+            </div>
+          </div>
+        ) : null}
+
         <SelectionDock
+          workbooks={
+            canAddToWorkbook
+              ? { items: workbooks.data?.data, failed: workbooks.isError, onAdd: (w) => addToWorkbook.mutate(w), pending: addToWorkbook.isPending }
+              : undefined
+          }
           count={selected.size}
           lists={lists.data?.data ?? []}
           onAdd={(listId) => addToList.mutate(listId)}
