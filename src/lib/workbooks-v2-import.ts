@@ -1,4 +1,4 @@
-import { useApiFetch, useApiFetchBlob } from "./api-client";
+import { ApiError, formatQueryError, useApiFetch, useApiFetchBlob } from "./api-client";
 
 /**
  * CSV import for Workbooks V2 (WB2-020). The API checks everything; the checks here only let a person fix a problem
@@ -72,7 +72,7 @@ export type ImportStatus = "awaiting_confirmation" | "queued" | "processing" | "
 export interface WorkbookImport {
   id: string;
   workbookId: string;
-  sourceType: "csv" | "list" | "smart_list" | "search";
+  sourceType: "csv" | "list" | "smart_list" | "search" | "hubspot" | "salesforce" | "pipedrive";
   /** The list or smart list rows came from. */
   sourceName: string | null;
   /** Set when more prospects matched than the workbook can hold. */
@@ -107,6 +107,19 @@ export function importTitle(item: Pick<WorkbookImport, "sourceType" | "sourceNam
 }
 
 export const isRunning = (status: ImportStatus) => status === "queued" || status === "processing";
+
+export const isCrmImport = (item: Pick<WorkbookImport, "sourceType">) => item.sourceType === "hubspot" || item.sourceType === "salesforce" || item.sourceType === "pipedrive";
+
+/** The server's reasons for refusing a request: each mapping problem if it listed them, else its message. */
+export function refusalReasons(error: unknown, fallback: string): string[] {
+  if (!error) return [];
+  if (error instanceof ApiError) {
+    const details = (error.body as { details?: { errors?: Array<{ message?: string }> } } | undefined)?.details;
+    const listed = details?.errors?.flatMap((e) => (e.message ? [e.message] : []));
+    if (listed?.length) return Array.from(new Set(listed));
+  }
+  return [formatQueryError(error, fallback)];
+}
 
 /** Why a chosen file cannot be uploaded, or null. */
 export function fileProblem(file: { name: string; size: number }): string | null {
@@ -161,7 +174,8 @@ export interface MappingCheck {
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-export function checkMapping(headers: CsvHeader[], choices: Choice[], columns: WorkbookColumn[], dedupe: DedupeState): MappingCheck {
+/** `strict`: a column type outside what the source field fits is refused, as the API does for a CRM. */
+export function checkMapping(headers: CsvHeader[], choices: Choice[], columns: WorkbookColumn[], dedupe: DedupeState, strict = false): MappingCheck {
   const columnErrors: Record<number, string> = {};
   const warnings: Record<number, string> = {};
   const used = new Map<string, number>();
@@ -196,6 +210,10 @@ export function checkMapping(headers: CsvHeader[], choices: Choice[], columns: W
     const type = targetType(choice, columns);
     if (!type) {
       columnErrors[header.index] = "This column no longer exists.";
+      return;
+    }
+    if (strict && !header.fits.includes(type)) {
+      columnErrors[header.index] = `This field can’t go into a ${dataTypeLabel(type).toLowerCase()} column. Choose a text column, or one that matches.`;
       return;
     }
     mapped.push({ header: header.index, type });

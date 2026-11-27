@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { STATUS_LABEL, importTitle, isRunning, type WorkbookImport } from "@/lib/workbooks-v2-import";
+import { STATUS_LABEL, importTitle, isCrmImport, isRunning, type WorkbookImport } from "@/lib/workbooks-v2-import";
 
 /** How an import is going, straight from the server's counts, and its report of rows that were not added. */
 export function ImportProgress({
@@ -25,13 +25,14 @@ export function ImportProgress({
 }) {
   const { counts, status } = item;
   const file = item.sourceType === "csv";
+  const crm = isCrmImport(item);
   const figures: Array<[string, number]> = [
-    [file ? "Total rows" : "Selected", counts.total],
+    [file ? "Total rows" : crm ? "In the selection" : "Selected", counts.total],
     ["Processed", counts.processed],
     [file ? "Imported" : "Added", counts.imported],
-    [file ? "Duplicates skipped" : "Already in workbook", counts.duplicates],
-    [file ? "Invalid or failed" : "Over the row limit", counts.failed],
-    [file ? "Empty rows skipped" : "Not found", counts.skipped],
+    [file ? "Duplicates skipped" : crm ? "Duplicates skipped" : "Already in workbook", counts.duplicates],
+    [file ? "Invalid or failed" : crm ? "Invalid or over the limit" : "Over the row limit", counts.failed],
+    [file ? "Empty rows skipped" : crm ? "Empty or no longer there" : "Not found", counts.skipped],
   ];
   const left = counts.duplicates + counts.failed + counts.skipped;
   return (
@@ -64,7 +65,9 @@ export function ImportProgress({
       {item.error ? <Alert variant={status === "failed" ? "error" : "default"}>{item.error.message}</Alert> : null}
       {item.truncated ? (
         <Alert variant="warning">
-          {item.truncated.matched.toLocaleString("en-US")} prospects matched; only the first {item.truncated.considered.toLocaleString("en-US")} fit a workbook and were considered.
+          {crm
+            ? `The workbook filled up: the first ${item.truncated.considered.toLocaleString("en-US")} of about ${item.truncated.matched.toLocaleString("en-US")} records were read.`
+            : `${item.truncated.matched.toLocaleString("en-US")} prospects matched; only the first ${item.truncated.considered.toLocaleString("en-US")} fit a workbook and were considered.`}
         </Alert>
       ) : null}
       {status === "completed" && counts.imported === 0 ? <Alert variant="warning">No rows were added to the workbook.</Alert> : null}

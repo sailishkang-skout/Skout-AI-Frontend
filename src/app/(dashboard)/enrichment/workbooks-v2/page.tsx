@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddProspects } from "@/components/workbooks-v2/add-prospects";
+import { CrmImport } from "@/components/workbooks-v2/crm-import";
 import { CsvImport } from "@/components/workbooks-v2/csv-import";
 import { WorkbookGrid } from "@/components/workbooks-v2/workbook-grid";
 import { RUN_ACCESS_MESSAGE, useWorkbookPermissions } from "@/lib/workbook-permissions";
@@ -16,8 +17,9 @@ import { RUN_ACCESS_MESSAGE, useWorkbookPermissions } from "@/lib/workbook-permi
 /**
  * Entry point for Workbooks V2 (WB2-002). The route is only reachable when the workspace has the
  * WORKBOOKS_V2 switch on: AccessGate (in the dashboard shell) shows "not on your plan" otherwise, and the
- * API refuses /workbooks-v2 for workspaces without it. CSV import (WB2-020), adding Skout prospects (WB2-021) and a
- * first grid for looking at, typing and pasting rows (WB2-022) live here; the full grid is built in WB2-071.
+ * API refuses /workbooks-v2 for workspaces without it. CSV import (WB2-020), adding Skout prospects (WB2-021), CRM
+ * import (WB2-023) and a first grid for looking at, typing and pasting rows (WB2-022) live here; the full grid is built
+ * in WB2-071.
  */
 export default function WorkbooksV2Page() {
   const { canEdit, canRun, known } = useWorkbookPermissions();
@@ -35,6 +37,7 @@ export default function WorkbooksV2Page() {
       {known && !canRun ? <Alert variant="default">{RUN_ACCESS_MESSAGE}</Alert> : null}
       {known ? <CsvImport canEdit={canEdit} onWorkbook={setWorkbook} /> : null}
       {known && canEdit && workbook ? <AddProspects workbook={workbook} /> : null}
+      {known && canEdit && workbook ? <CrmImport key={workbook.id} workbook={workbook} /> : null}
       {known && workbook ? <WorkbookGrid workbook={workbook} canEdit={canEdit} /> : null}
       <Card>
         <CardContent className="flex items-start gap-3 p-5">

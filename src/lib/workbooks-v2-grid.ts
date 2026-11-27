@@ -20,6 +20,8 @@ export function sourceLabel(source: WorkbookRow["source"]): string {
   if (source.type === "list") return named("List", source.listName);
   if (source.type === "smart_list") return named("Smart list", source.smartListName);
   if (source.type === "search") return "Search";
+  const crm: Record<string, string> = { hubspot: "HubSpot", salesforce: "Salesforce", pipedrive: "Pipedrive" };
+  if (crm[source.type]) return named(crm[source.type]!, source.viewName);
   if (source.type === "paste") return "Pasted";
   if (source.type === "manual") return "Added by hand";
   return source.type;

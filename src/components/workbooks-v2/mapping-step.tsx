@@ -12,6 +12,7 @@ import {
   checkMapping,
   confirmBody,
   initialChoices,
+  isCrmImport,
   type Choice,
   type DataType,
   type DedupeState,
@@ -45,8 +46,12 @@ export function MappingStep({
 }) {
   const [choices, setChoices] = useState<Choice[]>(() => initialChoices(preview));
   const [dedupe, setDedupe] = useState<DedupeState>({ key: null });
-  const check = checkMapping(preview.headers, choices, columns, dedupe);
+  // A CRM field goes only where it fits; a file's column may go anywhere, and rows that don't fit are reported.
+  const crm = isCrmImport(upload);
+  const check = checkMapping(preview.headers, choices, columns, dedupe, crm);
   const inputs = columns.filter((c) => c.type === "input");
+  const fits = (header: number, type: DataType) => !crm || preview.headers[header]!.fits.includes(type);
+  const source = crm ? "selection" : "file";
   const total = upload.counts.total;
   const keyLabel = DEDUPE_OPTIONS.find((o) => o.value === dedupe.key)?.label;
   const nameOf = (header: number) => preview.headers[header]?.name || `Column ${header + 1}`;
@@ -69,7 +74,8 @@ export function MappingStep({
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{upload.fileName}</span> has {total.toLocaleString("en-US")} row{total === 1 ? "" : "s"}. Nothing is added until you confirm.
+        <span className="font-medium text-foreground">{upload.fileName}</span> {crm ? (total ? "has about" : "has") : "has"}{" "}
+        {crm && !total ? "an unknown number of records" : `${total.toLocaleString("en-US")} ${crm ? "record" : "row"}${total === 1 ? "" : "s"}`}. Nothing is added until you confirm.
       </p>
 
       <section aria-labelledby="import-mapping">
@@ -97,7 +103,7 @@ export function MappingStep({
                       {inputs.length ? (
                         <optgroup label="Workbook columns">
                           {inputs.map((c) => (
-                            <option key={c.id} value={c.id}>
+                            <option key={c.id} value={c.id} disabled={!fits(header.index, c.config.dataType ?? "text")}>
                               {c.name}
                             </option>
                           ))}
@@ -118,7 +124,7 @@ export function MappingStep({
                           value={choice.dataType}
                           onChange={(e) => change(header.index, { ...choice, dataType: e.target.value as DataType })}
                         >
-                          {DATA_TYPES.map((t) => (
+                          {DATA_TYPES.filter((t) => fits(header.index, t.value)).map((t) => (
                             <option key={t.value} value={t.value}>
                               {t.label}
                             </option>
@@ -164,7 +170,7 @@ export function MappingStep({
               </Select>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              A row is skipped when its {keyLabel} is already in {check.keyHeader === null ? "that column" : `“${destination(check.keyHeader)}”`} or appears earlier in the file. Existing rows are never changed. Rows with no {keyLabel} are imported.
+              A row is skipped when its {keyLabel} is already in {check.keyHeader === null ? "that column" : `“${destination(check.keyHeader)}”`} or appears earlier in the {source}. Existing rows are never changed. Rows with no {keyLabel} are imported.
             </p>
           </>
         ) : null}
@@ -172,14 +178,16 @@ export function MappingStep({
 
       <section aria-labelledby="import-preview">
         <h3 id="import-preview" className="mb-2 text-sm font-semibold">
-          {total > preview.rows.length ? `First ${preview.rows.length} of ${total.toLocaleString("en-US")} rows` : `All ${preview.rows.length} rows`}
+          {total > preview.rows.length || (crm && !total)
+            ? `First ${preview.rows.length}${total ? ` of ${total.toLocaleString("en-US")}` : ""} ${crm ? "records" : "rows"}`
+            : `All ${preview.rows.length} ${crm ? "records" : "rows"}`}
         </h3>
         <div className="max-h-96 overflow-auto rounded-md border">
           <table className="w-full border-collapse text-left text-xs">
             <thead className="sticky top-0 bg-muted">
               <tr>
                 <th scope="col" className="px-2 py-1.5 font-medium">
-                  Line
+                  {crm ? "Record" : "Line"}
                 </th>
                 {preview.headers.map((h) => (
                   <th key={h.index} scope="col" className="min-w-32 px-2 py-1.5 align-top font-medium">
@@ -220,7 +228,7 @@ export function MappingStep({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" disabled={busy || check.blocker !== null} onClick={() => onConfirm(confirmBody(choices, dedupe, check.keyHeader))}>
-          {busy ? "Working…" : `Import ${total.toLocaleString("en-US")} row${total === 1 ? "" : "s"}`}
+          {busy ? "Working…" : crm && !total ? "Import all records" : `Import ${total.toLocaleString("en-US")} ${crm ? "record" : "row"}${total === 1 ? "" : "s"}`}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel

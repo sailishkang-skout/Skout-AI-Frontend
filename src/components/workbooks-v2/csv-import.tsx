@@ -9,24 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { ApiError, authQueryOptions, formatQueryError, useAuthReady } from "@/lib/api-client";
-import { STATUS_LABEL, fileProblem, importTitle, isRunning, useWorkbookImportApi, type confirmBody } from "@/lib/workbooks-v2-import";
+import { authQueryOptions, formatQueryError, useAuthReady } from "@/lib/api-client";
+import { STATUS_LABEL, fileProblem, importTitle, isRunning, refusalReasons, useWorkbookImportApi, type confirmBody } from "@/lib/workbooks-v2-import";
 import { ImportProgress } from "./import-progress";
 import { MappingStep } from "./mapping-step";
 
 export const POLL_MS = 1_500;
 const KEY = ["workbooks-v2"] as const;
-
-/** The server's reasons for refusing a request: each mapping problem if it listed them, else its message. */
-function reasons(error: unknown, fallback: string): string[] {
-  if (!error) return [];
-  if (error instanceof ApiError) {
-    const details = (error.body as { details?: { errors?: Array<{ message?: string }> } } | undefined)?.details;
-    const listed = details?.errors?.flatMap((e) => (e.message ? [e.message] : []));
-    if (listed?.length) return Array.from(new Set(listed));
-  }
-  return [formatQueryError(error, fallback)];
-}
 
 /**
  * Importing a CSV file into a Workbooks V2 workbook (WB2-020): choose the workbook and file, map the columns and check
@@ -228,7 +217,7 @@ export function CsvImport({ canEdit, onWorkbook }: { canEdit: boolean; onWorkboo
                 preview={item.preview}
                 columns={columns.data}
                 busy={confirm.isPending || cancel.isPending}
-                errors={[...reasons(confirm.error, "The import could not be started."), ...reasons(cancel.error, "The import could not be cancelled.")]}
+                errors={[...refusalReasons(confirm.error, "The import could not be started."), ...refusalReasons(cancel.error, "The import could not be cancelled.")]}
                 onConfirm={(body) => confirm.mutate(body)}
                 onCancel={() => cancel.mutate()}
               />
