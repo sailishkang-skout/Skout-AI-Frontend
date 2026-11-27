@@ -10,14 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddProspects } from "@/components/workbooks-v2/add-prospects";
 import { CsvImport } from "@/components/workbooks-v2/csv-import";
-import { RowsTable } from "@/components/workbooks-v2/rows-table";
+import { WorkbookGrid } from "@/components/workbooks-v2/workbook-grid";
 import { RUN_ACCESS_MESSAGE, useWorkbookPermissions } from "@/lib/workbook-permissions";
 
 /**
  * Entry point for Workbooks V2 (WB2-002). The route is only reachable when the workspace has the
  * WORKBOOKS_V2 switch on: AccessGate (in the dashboard shell) shows "not on your plan" otherwise, and the
- * API refuses /workbooks-v2 for workspaces without it. CSV import (WB2-020), adding Skout prospects and a read-only
- * look at the rows (WB2-021) live here; the workbook grid itself is built in later tickets.
+ * API refuses /workbooks-v2 for workspaces without it. CSV import (WB2-020), adding Skout prospects (WB2-021) and a
+ * first grid for looking at, typing and pasting rows (WB2-022) live here; the full grid is built in WB2-071.
  */
 export default function WorkbooksV2Page() {
   const { canEdit, canRun, known } = useWorkbookPermissions();
@@ -35,15 +35,15 @@ export default function WorkbooksV2Page() {
       {known && !canRun ? <Alert variant="default">{RUN_ACCESS_MESSAGE}</Alert> : null}
       {known ? <CsvImport canEdit={canEdit} onWorkbook={setWorkbook} /> : null}
       {known && canEdit && workbook ? <AddProspects workbook={workbook} /> : null}
-      {known && workbook ? <RowsTable workbookId={workbook.id} /> : null}
+      {known && workbook ? <WorkbookGrid workbook={workbook} canEdit={canEdit} /> : null}
       <Card>
         <CardContent className="flex items-start gap-3 p-5">
           <Table2 className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="space-y-2 text-sm">
             <p className="font-medium">Your workspace has early access to Workbooks V2.</p>
             <p className="text-muted-foreground">
-              The new workbook is still being built: you can add rows and look through them, but there is no grid to
-              edit or run them in yet. Your existing workbooks are unchanged and keep working.
+              The new workbook is still being built: you can add rows, type and paste, but you can&apos;t sort, filter,
+              undo or run columns yet. Your existing workbooks are unchanged and keep working.
             </p>
             <Link href="/enrichment/workbooks" className="font-medium text-primary underline-offset-4 hover:underline">
               Go to your workbooks

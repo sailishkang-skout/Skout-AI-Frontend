@@ -37,10 +37,12 @@ describe("Workbooks V2 page", () => {
     expect(screen.getByRole("dialog").textContent).toContain("Add rows to “Accounts”");
   });
 
-  it("shows rows to a viewer and offers no way to add them", async () => {
+  it("shows a viewer the grid area and offers no way to add rows or columns", async () => {
     permissions = ["enrichment:read"];
     show();
-    expect(await screen.findByText("This workbook has no rows yet.")).toBeTruthy();
+    expect(await screen.findByText("This workbook has no columns yet.")).toBeTruthy();
+    expect(screen.queryByTestId("paste-target")).toBeNull();
     expect(screen.queryByRole("button", { name: "Add rows" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add column" })).toBeNull();
   });
 });
