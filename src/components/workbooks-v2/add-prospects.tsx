@@ -15,15 +15,17 @@ import { isRunning, useWorkbookImportApi, type WorkbookImport } from "@/lib/work
 import { MAX_CHOSEN, SMART_LIST_BROWSE_LIMIT, SOURCE_PAGE_SIZE, useWorkbookProspectsApi, type ProspectSelection, type ProspectSource } from "@/lib/workbooks-v2-prospects";
 import { ApolloPicker } from "./apollo-picker";
 import { POLL_MS } from "./csv-import";
+import { SheetSources } from "./sheet-sources";
+import { SheetsPicker } from "./sheets-picker";
 import { ImportConfirm } from "./import-confirm";
 import { ImportProgress } from "./import-progress";
 
-type Kind = "list" | "smart_list" | "apollo";
-const TABS: Record<Kind, string> = { list: "Lists", smart_list: "Smart lists", apollo: "Apollo" };
+type Kind = "list" | "smart_list" | "apollo" | "google_sheets";
+const TABS: Record<Kind, string> = { list: "Lists", smart_list: "Smart lists", apollo: "Apollo", google_sheets: "Google Sheets" };
 const KEY = "workbooks-v2";
 const n = (value: number) => value.toLocaleString("en-US");
 
-/** Choose a list or smart list, look through who is in it, and pick who to add; or go to Apollo. */
+/** Choose a list or smart list, look through who is in it, and pick who to add; or go to Apollo or Google Sheets. */
 function SourcePicker({
   workbookId,
   busy,
@@ -35,7 +37,7 @@ function SourcePicker({
   busy: boolean;
   error: string | null;
   onAdd: (source: ProspectSource, selection: ProspectSelection) => void;
-  /** An Apollo preview, waiting to be mapped and confirmed. */
+  /** An Apollo or Google Sheets preview, waiting to be mapped and confirmed. */
   onPreview: (item: WorkbookImport) => void;
 }) {
   const listsApi = useEnrichmentApi();
@@ -95,11 +97,11 @@ function SourcePicker({
       ))}
     </div>
   );
-  if (kind === "apollo") {
+  if (kind === "apollo" || kind === "google_sheets") {
     return (
       <div className="space-y-4">
         {tabs}
-        <ApolloPicker workbookId={workbookId} onPreview={onPreview} />
+        {kind === "apollo" ? <ApolloPicker workbookId={workbookId} onPreview={onPreview} /> : <SheetsPicker workbookId={workbookId} onPreview={onPreview} />}
       </div>
     );
   }
@@ -215,7 +217,7 @@ function SourcePicker({
   );
 }
 
-/** "Add rows" from Skout lists, smart lists and Apollo, and how that addition is going. */
+/** "Add rows" from Skout lists, smart lists, Apollo and Google Sheets, and how that addition is going. */
 export function AddProspects({ workbook }: { workbook: { id: string; name: string } }) {
   const api = useWorkbookProspectsApi();
   const imports = useWorkbookImportApi();
@@ -227,7 +229,7 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
 
   const refresh = useCallback(() => {
     void client.invalidateQueries({ queryKey: [KEY], exact: true });
-    for (const part of ["imports", "rows", "columns", "source"]) void client.invalidateQueries({ queryKey: [KEY, workbook.id, part] });
+    for (const part of ["imports", "rows", "columns", "source", "sheet-sources"]) void client.invalidateQueries({ queryKey: [KEY, workbook.id, part] });
   }, [client, workbook.id]);
 
   const current = useQuery({
@@ -278,8 +280,8 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
       <CardContent className="space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold">Add rows from Skout or Apollo</h2>
-            <p className="text-sm text-muted-foreground">From your lists, smart lists or saved Apollo contacts. Adding them uses no Skout credits and runs nothing.</p>
+            <h2 className="text-base font-semibold">Add rows</h2>
+            <p className="text-sm text-muted-foreground">From your lists, smart lists, saved Apollo contacts or a Google Sheet. Adding them uses no Skout credits and runs nothing.</p>
           </div>
           <Button
             type="button"
@@ -318,6 +320,7 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
             onClose={() => setImportId(null)}
           />
         ) : null}
+        <SheetSources key={workbook.id} workbookId={workbook.id} onImport={show} />
       </CardContent>
       <Dialog open={open} onClose={close} title={`Add rows to “${workbook.name}”`} className="max-w-2xl">
         <SourcePicker

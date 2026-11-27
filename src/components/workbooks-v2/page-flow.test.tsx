@@ -15,7 +15,7 @@ describe("Workbooks V2 page", () => {
     api.mockImplementation(async (path: string) => {
       if (path.startsWith("/api/v1/workbooks-v2?")) return { data: [{ id: "w1", name: "Leads", rowCount: 0 }, { id: "w2", name: "Accounts", rowCount: 0 }], total: 2 };
       if (path.includes("/rows?")) return { data: [], window: { total: 0, hasMore: false } };
-      if (path.endsWith("/imports") || path === "/api/v1/lists") return { data: [] };
+      if (path.endsWith("/imports") || path.endsWith("/sheet-sources") || path === "/api/v1/lists") return { data: [] };
       return { data: { columns: [] } };
     });
     render(

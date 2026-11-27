@@ -242,7 +242,11 @@ export function CsvImport({ canEdit, onWorkbook }: { canEdit: boolean; onWorkboo
               <p className="text-sm text-muted-foreground">Loading the workbook’s columns…</p>
             )
           ) : (
-            <p className="text-sm text-muted-foreground">This file is waiting for someone with edit access to confirm it.</p>
+            <p className="text-sm text-muted-foreground">
+              {item.sourceType === "google_sheets"
+                ? "This preview is waiting for the person who made it; only they can see and confirm it."
+                : "This file is waiting for someone with edit access to confirm it."}
+            </p>
           )
         ) : null}
 

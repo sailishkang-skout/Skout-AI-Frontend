@@ -11,8 +11,10 @@ import {
   MAX_COLUMN_NAME,
   checkMapping,
   confirmBody,
+  identityProblem,
   initialChoices,
   isRecordImport,
+  suggestedIdColumn,
   type Choice,
   type DataType,
   type DedupeState,
@@ -49,9 +51,14 @@ export function MappingStep({
   // A CRM or Apollo field goes only where it fits; a file's column may go anywhere, and rows that don't fit are reported.
   const crm = isRecordImport(upload);
   const check = checkMapping(preview.headers, choices, columns, dedupe, crm);
+  // A sheet is pulled from again later, so its rows need a way to be recognised.
+  const sheet = preview.sheet;
+  const [idColumn, setIdColumn] = useState<number | null>(() => suggestedIdColumn(preview));
+  const identity = identityProblem(preview, choices);
+  const blocker = check.blocker ?? identity;
   const inputs = columns.filter((c) => c.type === "input");
   const fits = (header: number, type: DataType) => !crm || preview.headers[header]!.fits.includes(type);
-  const source = crm ? "selection" : "file";
+  const source = crm ? "selection" : sheet ? "tab" : "file";
   const total = upload.counts.total;
   const keyLabel = DEDUPE_OPTIONS.find((o) => o.value === dedupe.key)?.label;
   const nameOf = (header: number) => preview.headers[header]?.name || `Column ${header + 1}`;
@@ -76,6 +83,7 @@ export function MappingStep({
       <p className="text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{upload.fileName}</span> {crm ? (total ? "has about" : "has") : "has"}{" "}
         {crm && !total ? "an unknown number of records" : `${total.toLocaleString("en-US")} ${crm ? "record" : "row"}${total === 1 ? "" : "s"}`}. Nothing is added until you confirm.
+        {sheet ? " These are the rows as the tab held them when you previewed it." : ""}
       </p>
 
       <section aria-labelledby="import-mapping">
@@ -176,6 +184,41 @@ export function MappingStep({
         ) : null}
       </fieldset>
 
+      {sheet ? (
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-semibold">Recognising rows when you pull new ones</legend>
+          {sheet.source ? (
+            <p className="text-sm">
+              This tab was imported before. Its rows are recognised by {sheet.source.idHeading !== null ? `the column “${sheet.source.idHeading}”` : "their contents"}, so rows
+              already added aren’t added again.
+            </p>
+          ) : (
+            <>
+              <Select
+                aria-label="Recognise rows by"
+                className="max-w-md"
+                value={idColumn ?? ""}
+                onChange={(e) => setIdColumn(e.target.value === "" ? null : Number(e.target.value))}
+              >
+                <option value="">Their contents</option>
+                {preview.headers.map((h) => (
+                  <option key={h.index} value={h.index}>
+                    The column “{nameOf(h.index)}”{sheet.unique[h.index] === true ? " (different on every row)" : ""}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {idColumn === null
+                  ? "Rows may be moved. A row you edit in the columns you import will be added again as a new row. A column with a unique ID avoids that."
+                  : sheet.unique[idColumn] === false
+                    ? "Some rows share this value or have none: only the first of each is imported, and rows without it are skipped."
+                    : "Rows may be moved and edited. A row is added once for each value in this column; rows without one are skipped."}
+              </p>
+            </>
+          )}
+        </fieldset>
+      ) : null}
+
       <section aria-labelledby="import-preview">
         <h3 id="import-preview" className="mb-2 text-sm font-semibold">
           {total > preview.rows.length || (crm && !total)
@@ -187,7 +230,7 @@ export function MappingStep({
             <thead className="sticky top-0 bg-muted">
               <tr>
                 <th scope="col" className="px-2 py-1.5 font-medium">
-                  {crm ? "Record" : "Line"}
+                  {crm ? "Record" : sheet ? "Row" : "Line"}
                 </th>
                 {preview.headers.map((h) => (
                   <th key={h.index} scope="col" className="min-w-32 px-2 py-1.5 align-top font-medium">
@@ -227,13 +270,13 @@ export function MappingStep({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" disabled={busy || check.blocker !== null} onClick={() => onConfirm(confirmBody(choices, dedupe, check.keyHeader))}>
+        <Button type="button" disabled={busy || blocker !== null} onClick={() => onConfirm(confirmBody(choices, dedupe, check.keyHeader, sheet ? idColumn : undefined))}>
           {busy ? "Working…" : crm && !total ? "Import all records" : `Import ${total.toLocaleString("en-US")} ${crm ? "record" : "row"}${total === 1 ? "" : "s"}`}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-        {check.blocker ? <p className="text-sm text-muted-foreground">{check.blocker}</p> : null}
+        {blocker ? <p className="text-sm text-muted-foreground">{blocker}</p> : null}
       </div>
     </div>
   );

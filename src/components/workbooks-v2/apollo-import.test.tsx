@@ -102,7 +102,7 @@ describe("Add rows from Apollo", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "Add rows" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Lists", "Smart lists", "Apollo"]);
+    expect(within(dialog).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Lists", "Smart lists", "Apollo", "Google Sheets"]);
     expect(apollo.source).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("tab", { name: "Apollo" }));
     expect(within(dialog).getByRole("tab", { name: "Apollo" }).getAttribute("aria-selected")).toBe("true");

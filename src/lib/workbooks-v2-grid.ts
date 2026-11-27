@@ -23,6 +23,10 @@ export function sourceLabel(source: WorkbookRow["source"]): string {
   const crm: Record<string, string> = { hubspot: "HubSpot", salesforce: "Salesforce", pipedrive: "Pipedrive" };
   if (crm[source.type]) return named(crm[source.type]!, source.viewName);
   if (source.type === "apollo") return source.viewName ? `Apollo: ${source.viewName}` : source.searchKeywords || source.searchStages ? "Apollo search" : "Apollo";
+  if (source.type === "google_sheets") {
+    const tab = [source.spreadsheetName, source.tabName].filter((part) => typeof part === "string" && part).join(" · ");
+    return named("Google Sheets", tab);
+  }
   if (source.type === "paste") return "Pasted";
   if (source.type === "manual") return "Added by hand";
   return source.type;

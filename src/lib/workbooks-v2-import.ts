@@ -61,10 +61,21 @@ export interface CsvHeader {
 
 export type SuggestedTarget = { columnId: string } | { newColumn: { name: string; dataType: DataType } } | null;
 
+/** What a Google Sheets preview says about recognising rows later. */
+export interface SheetPreview {
+  spreadsheetName: string;
+  tabName: string;
+  /** Per heading: whether it has a different value on every row; null where not checked. */
+  unique: Array<boolean | null>;
+  /** Set when this tab was imported into the workbook before: how rows are recognised is then fixed. */
+  source: { id: string; idColumn: number | null; idHeading: string | null; identityColumnIds: string[] } | null;
+}
+
 export interface ImportPreview {
   headers: CsvHeader[];
   rows: Array<{ line: number; values: string[]; problem?: string }>;
   suggestions: Array<{ header: number; target: SuggestedTarget }>;
+  sheet?: SheetPreview;
 }
 
 export type ImportStatus = "awaiting_confirmation" | "queued" | "processing" | "completed" | "failed" | "cancelled";
@@ -72,7 +83,7 @@ export type ImportStatus = "awaiting_confirmation" | "queued" | "processing" | "
 export interface WorkbookImport {
   id: string;
   workbookId: string;
-  sourceType: "csv" | "list" | "smart_list" | "search" | "hubspot" | "salesforce" | "pipedrive" | "apollo";
+  sourceType: "csv" | "list" | "smart_list" | "search" | "hubspot" | "salesforce" | "pipedrive" | "apollo" | "google_sheets";
   /** The list or smart list rows came from. */
   sourceName: string | null;
   /** Set when more matched than the workbook can hold, or (`source_limit`) than the source lets anyone read. */
@@ -80,7 +91,9 @@ export interface WorkbookImport {
   status: ImportStatus;
   fileName: string;
   fileBytes: number;
-  counts: { total: number; processed: number; imported: number; duplicates: number; skipped: number; failed: number };
+  /** Google Sheets only: the tab being read. */
+  sheet?: { sourceId: string | null; spreadsheetName: string; tabName: string; pull: boolean } | null;
+  counts: { total: number; processed: number; imported: number; duplicates: number; skipped: number; failed: number; alreadyImported?: number };
   progress: number;
   background: boolean;
   error: { code: string; message: string } | null;
@@ -244,8 +257,29 @@ export function checkMapping(headers: CsvHeader[], choices: Choice[], columns: W
 
 type ConfirmColumn = { header: number; columnId: string } | { header: number; newColumn: { name: string; dataType: DataType } };
 
-export function confirmBody(choices: Choice[], dedupe: DedupeState, keyHeader: number | null) {
+/** A column that looks like an identifier and differs on every row, to suggest for recognising rows. */
+export function suggestedIdColumn(preview: ImportPreview): number | null {
+  const sheet = preview.sheet;
+  if (!sheet) return null;
+  if (sheet.source) return sheet.source.idColumn;
+  const found = preview.headers.find((h) => sheet.unique[h.index] === true && /(^|[^a-z])id($|[^a-z])|e-?mail|linkedin/i.test(h.name));
+  return found ? found.index : null;
+}
+
+/** Why a tab imported before can't be confirmed as chosen, or null. */
+export function identityProblem(preview: ImportPreview, choices: Choice[]): string | null {
+  const source = preview.sheet?.source;
+  if (!source) return null;
+  if (source.idHeading !== null) {
+    return source.idColumn === null ? `The tab no longer has the column “${source.idHeading}” that its rows are recognised by. Stop pulling from this tab, then import it again.` : null;
+  }
+  const filled = new Set(choices.flatMap((c) => (c.kind === "existing" ? [c.columnId] : [])));
+  return source.identityColumnIds.every((id) => filled.has(id)) ? null : "Rows of this tab are recognised by the columns it filled first, so keep all of those mapped.";
+}
+
+export function confirmBody(choices: Choice[], dedupe: DedupeState, keyHeader: number | null, idColumn?: number | null) {
   return {
+    ...(idColumn === undefined ? {} : { idColumn }),
     columns: choices.flatMap<ConfirmColumn>((choice, header) => {
       if (choice.kind === "existing") return [{ header, columnId: choice.columnId }];
       if (choice.kind === "new") return [{ header, newColumn: { name: choice.name.trim(), dataType: choice.dataType } }];

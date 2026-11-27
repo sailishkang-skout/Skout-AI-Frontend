@@ -26,7 +26,17 @@ export function ImportProgress({
   const { counts, status } = item;
   const file = item.sourceType === "csv";
   const crm = isRecordImport(item);
-  const figures: Array<[string, number]> = [
+  const sheet = item.sheet ?? null;
+  const figures: Array<[string, number]> = sheet
+    ? [
+        ["Rows in the tab", counts.total],
+        ["Processed", counts.processed],
+        ["Added", counts.imported],
+        ["Already imported", counts.alreadyImported ?? 0],
+        ["Duplicates skipped", counts.duplicates],
+        ["Invalid, empty or over the limit", counts.failed + counts.skipped],
+      ]
+    : [
     [file ? "Total rows" : crm ? "In the selection" : "Selected", counts.total],
     ["Processed", counts.processed],
     [file ? "Imported" : "Added", counts.imported],
@@ -72,7 +82,13 @@ export function ImportProgress({
             : `${item.truncated.matched.toLocaleString("en-US")} prospects matched; only the first ${item.truncated.considered.toLocaleString("en-US")} fit a workbook and were considered.`}
         </Alert>
       ) : null}
-      {status === "completed" && counts.imported === 0 ? <Alert variant="warning">No rows were added to the workbook.</Alert> : null}
+      {status === "completed" && counts.imported === 0 ? (
+        sheet?.pull && counts.duplicates + counts.failed + counts.skipped === 0 ? (
+          <Alert variant="success">No new rows: everything in the tab has already been added.</Alert>
+        ) : (
+          <Alert variant="warning">No rows were added to the workbook.</Alert>
+        )
+      ) : null}
       {status === "completed" && counts.imported > 0 ? (
         <Alert variant={!file && left > 0 ? "warning" : "success"}>
           <p>{counts.imported.toLocaleString("en-US")} rows were added to the workbook.</p>
