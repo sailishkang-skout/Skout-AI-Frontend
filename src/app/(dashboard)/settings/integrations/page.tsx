@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatQueryError, useAuthReady } from "@/lib/api-client";
 import { GuideLink } from "@/components/guides/guide-link";
+import { GoogleSheetsCard } from "@/components/settings/google-sheets-card";
 import { useGoogleCalendarApi } from "@/lib/google-calendar";
 import { type IntegrationItem, useIntegrationsApi } from "@/lib/integrations";
 
@@ -334,6 +335,7 @@ export default function IntegrationsSettingsPage() {
       )}
 
       <GoogleCalendarCard />
+      <GoogleSheetsCard />
 
       {messaging.length > 0 && (
         <div className="space-y-3">

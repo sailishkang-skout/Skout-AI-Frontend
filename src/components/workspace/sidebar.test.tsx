@@ -93,3 +93,42 @@ describe("SidebarPanel — early access feature switches", () => {
     expect(getAllByText("Sequences").length).toBeGreaterThan(0);
   });
 });
+
+describe("SidebarPanel — WORKBOOKS_V2 entry point", () => {
+  afterEach(() => cleanup());
+
+  const open = async (features?: Record<string, boolean>) => {
+    const view = renderSidebar(["enrichment:read"], features);
+    await view.findByText("Skout AI");
+    fireEvent.click(view.getByRole("button", { name: "Enrichment" }));
+    return view;
+  };
+
+  it("workspace A (flag off): shows the existing Workbooks and no V2 entry", async () => {
+    const { getByText, queryByText } = await open({ workbooks_v2: false });
+    expect(getByText("Workbooks")).toBeTruthy();
+    expect(queryByText("Workbooks V2 (beta)")).toBeNull();
+  });
+
+  it("workspace B (flag on): shows the V2 entry next to the existing Workbooks", async () => {
+    const { getByText, getByRole } = await open({ workbooks_v2: true });
+    expect(getByText("Workbooks")).toBeTruthy();
+    expect(getByRole("link", { name: /Workbooks V2/ }).getAttribute("href")).toBe("/enrichment/workbooks-v2");
+  });
+
+  it("hides the V2 entry while the switches are loading or when the flag is missing", async () => {
+    for (const features of [undefined, {}, { enrichment: true }] as Array<Record<string, boolean> | undefined>) {
+      const { getByText, queryByText, unmount } = await open(features);
+      expect(getByText("Workbooks")).toBeTruthy();
+      expect(queryByText("Workbooks V2 (beta)")).toBeNull();
+      unmount();
+    }
+  });
+
+  it("still hides V2 from someone without enrichment access even when the flag is on", async () => {
+    const view = renderSidebar([], { workbooks_v2: true });
+    await view.findByText("Skout AI");
+    expect(view.queryByText("Workbooks V2 (beta)")).toBeNull();
+  });
+});
+

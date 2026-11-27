@@ -1,0 +1,14 @@
+diff --git a/dist/esm/data-editor/data-editor.js b/dist/esm/data-editor/data-editor.js
+index ec05aa9866c70032fc5509ff557cb8c542e384ed..23c0099a3d0f294ec20b7261c65d35640d2971fd 100644
+--- a/dist/esm/data-editor/data-editor.js
++++ b/dist/esm/data-editor/data-editor.js
+@@ -26,7 +26,8 @@ import { withAlpha } from "../internal/data-grid/color-parser.js";
+ import { combineRects, getClosestRect, pointInRect } from "../common/math.js";
+ import { groupHeaderKind, outOfBoundsKind, headerKind, mouseEventArgsAreEqual, } from "../internal/data-grid/event-args.js";
+ import { useKeybindingsWithDefaults } from "./data-editor-keybindings.js";
+-const DataGridOverlayEditor = React.lazy(async () => await import("../internal/data-grid-overlay-editor/data-grid-overlay-editor.js"));
++// Skout patch (WB2-022): loaded with the grid. Loaded lazily, the first characters typed after a page opened were lost.
++import DataGridOverlayEditor from "../internal/data-grid-overlay-editor/data-grid-overlay-editor.js";
+ // There must be a better way
+ let idCounter = 0;
+ function getSpanStops(cells) {
