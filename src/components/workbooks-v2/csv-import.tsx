@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileUp } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
@@ -116,6 +116,19 @@ export function CsvImport({ canEdit, onWorkbook }: { canEdit: boolean; onWorkboo
     void client.invalidateQueries({ queryKey: [...KEY, workbookId, "rows"] });
     void client.invalidateQueries({ queryKey: [...KEY, workbookId, "columns"] });
   }, [status, client, workbookId]);
+
+  // An import left running while the page was away is followed only by the list below, so the rows are refreshed from
+  // there too, once it is no longer running.
+  const running = imports.data?.filter((i) => isRunning(i.status)).map((i) => i.id).join(" ");
+  const wasRunning = useRef({ workbookId: "", ids: "" });
+  useEffect(() => {
+    if (running === undefined) return;
+    const before = wasRunning.current;
+    wasRunning.current = { workbookId, ids: running };
+    if (before.workbookId !== workbookId || !before.ids.split(" ").some((id) => id && !running.split(" ").includes(id))) return;
+    void client.invalidateQueries({ queryKey: KEY, exact: true });
+    for (const part of ["rows", "columns"]) void client.invalidateQueries({ queryKey: [...KEY, workbookId, part] });
+  }, [running, client, workbookId]);
 
   // The rest of the page works on the workbook chosen here.
   const selectedName = list.find((w) => w.id === workbookId)?.name;

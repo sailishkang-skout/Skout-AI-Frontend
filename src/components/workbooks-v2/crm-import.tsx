@@ -11,11 +11,11 @@ import { useFeatureOn } from "@/lib/access";
 import { ApiError, authQueryOptions, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useCrmApi } from "@/lib/crm";
 import { OBJECT_LABEL, importBody, selectionProblem, useWorkbookCrmApi, type CrmObject, type CrmProvider, type CrmSelection } from "@/lib/workbooks-v2-crm";
-import { isRunning, refusalReasons, useWorkbookImportApi, type confirmBody } from "@/lib/workbooks-v2-import";
+import { isRunning, useWorkbookImportApi } from "@/lib/workbooks-v2-import";
 import { POLL_MS } from "./csv-import";
 import { CrmFieldPicker, CrmSelectionPicker } from "./crm-selection";
+import { ImportConfirm } from "./import-confirm";
 import { ImportProgress } from "./import-progress";
-import { MappingStep } from "./mapping-step";
 
 const KEY = "workbooks-v2";
 
@@ -81,12 +81,6 @@ function CrmImportCard({ workbook }: { workbook: { id: string; name: string } })
     refetchInterval: (query) => (query.state.data && isRunning(query.state.data.status) ? POLL_MS : false),
   });
   const item = importId ? current.data : undefined;
-  const columns = useQuery({
-    ...authQueryOptions,
-    queryKey: [KEY, workbook.id, "columns"],
-    queryFn: () => imports.columns(workbook.id),
-    enabled: authReady && item?.status === "awaiting_confirmation",
-  });
   const show = (next: NonNullable<typeof item>) => {
     client.setQueryData([KEY, next.workbookId, "import", next.id], next);
     setImportId(next.id);
@@ -110,21 +104,6 @@ function CrmImportCard({ workbook }: { workbook: { id: string; name: string } })
       // The API refused, so the next attempt is a new question.
       if (error instanceof ApiError && error.status < 500) asked.current = { body: "", key: "" };
       if (RECONNECT.has(codeOf(error) ?? "")) recheck();
-    },
-  });
-  const confirm = useMutation({
-    mutationFn: (body: ReturnType<typeof confirmBody>) => imports.confirm(workbook.id, importId!, body),
-    onSuccess: show,
-    onError: (error) => {
-      if (RECONNECT.has(codeOf(error) ?? "")) recheck();
-      void current.refetch();
-    },
-  });
-  const cancel = useMutation({
-    mutationFn: () => imports.cancel(workbook.id, importId!),
-    onSuccess: () => {
-      setImportId(null);
-      refresh();
     },
   });
   const download = useMutation({
@@ -152,8 +131,6 @@ function CrmImportCard({ workbook }: { workbook: { id: string; name: string } })
   const restart = () => {
     setImportId(null);
     preview.reset();
-    confirm.reset();
-    cancel.reset();
     download.reset();
   };
   const changed = () => {
@@ -196,24 +173,19 @@ function CrmImportCard({ workbook }: { workbook: { id: string; name: string } })
                   <p className="text-sm text-muted-foreground">Loading the import…</p>
                 )
               ) : item.status === "awaiting_confirmation" && item.preview ? (
-                columns.data ? (
-                  <MappingStep
-                    key={item.id}
-                    upload={item}
-                    preview={item.preview}
-                    columns={columns.data}
-                    busy={confirm.isPending || cancel.isPending}
-                    errors={[...refusalReasons(confirm.error, "The import could not be started."), ...refusalReasons(cancel.error, "The import could not be cancelled.")]}
-                    onConfirm={(body) => confirm.mutate(body)}
-                    onCancel={() => cancel.mutate()}
-                  />
-                ) : columns.isError ? (
-                  <Alert variant="error" onRetry={() => void columns.refetch()}>
-                    {formatQueryError(columns.error, "The workbook’s columns could not be loaded.")}
-                  </Alert>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Loading the workbook’s columns…</p>
-                )
+                <ImportConfirm
+                  key={item.id}
+                  item={{ ...item, preview: item.preview }}
+                  onConfirmed={show}
+                  onCancelled={() => {
+                    setImportId(null);
+                    refresh();
+                  }}
+                  onRefused={(error) => {
+                    if (RECONNECT.has(codeOf(error) ?? "")) recheck();
+                    void current.refetch();
+                  }}
+                />
               ) : (
                 <>
                   {current.isError ? <Alert variant="warning">The latest progress could not be loaded. Trying again.</Alert> : null}

@@ -355,6 +355,25 @@ describe("CSV import", () => {
     });
   });
 
+  it("refreshes the rows when an import found already running ends, and not before", async () => {
+    const running = item({ id: "bg", sourceType: "apollo", fileName: "Apollo contacts", status: "processing", preview: null, progress: 40 });
+    api.list.mockResolvedValueOnce([running]).mockResolvedValueOnce([running]).mockResolvedValue([{ ...running, status: "completed", progress: 100 }]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidated = vi.spyOn(client, "invalidateQueries");
+    const refreshed = (part: string) => invalidated.mock.calls.some(([f]) => JSON.stringify(f?.queryKey) === JSON.stringify(["workbooks-v2", "wb-1", part]));
+    render(
+      <QueryClientProvider client={client}>
+        <CsvImport canEdit />
+      </QueryClientProvider>
+    );
+    await screen.findByText("40%");
+    expect(refreshed("rows")).toBe(false);
+    await screen.findByText("Completed", {}, { timeout: 12_000 });
+    await waitFor(() => expect(refreshed("rows")).toBe(true));
+    expect(refreshed("columns")).toBe(true);
+    expect(api.workbooks.mock.calls.length).toBeGreaterThan(1);
+  }, 20_000);
+
   it("lets someone without edit access follow imports but not start one", async () => {
     const waiting = item();
     api.list.mockResolvedValue([waiting]);

@@ -11,17 +11,33 @@ import { Dialog } from "@/components/ui/dialog";
 import { authQueryOptions, formatQueryError, useAuthReady } from "@/lib/api-client";
 import { useEnrichmentApi } from "@/lib/enrichment";
 import { useSmartListApi } from "@/lib/smart-lists";
-import { isRunning, useWorkbookImportApi } from "@/lib/workbooks-v2-import";
+import { isRunning, useWorkbookImportApi, type WorkbookImport } from "@/lib/workbooks-v2-import";
 import { MAX_CHOSEN, SMART_LIST_BROWSE_LIMIT, SOURCE_PAGE_SIZE, useWorkbookProspectsApi, type ProspectSelection, type ProspectSource } from "@/lib/workbooks-v2-prospects";
+import { ApolloPicker } from "./apollo-picker";
 import { POLL_MS } from "./csv-import";
+import { ImportConfirm } from "./import-confirm";
 import { ImportProgress } from "./import-progress";
 
-type Kind = "list" | "smart_list";
+type Kind = "list" | "smart_list" | "apollo";
+const TABS: Record<Kind, string> = { list: "Lists", smart_list: "Smart lists", apollo: "Apollo" };
 const KEY = "workbooks-v2";
 const n = (value: number) => value.toLocaleString("en-US");
 
-/** Choose a list or smart list, look through who is in it, and pick who to add. */
-function SourcePicker({ workbookId, busy, error, onAdd }: { workbookId: string; busy: boolean; error: string | null; onAdd: (source: ProspectSource, selection: ProspectSelection) => void }) {
+/** Choose a list or smart list, look through who is in it, and pick who to add; or go to Apollo. */
+function SourcePicker({
+  workbookId,
+  busy,
+  error,
+  onAdd,
+  onPreview,
+}: {
+  workbookId: string;
+  busy: boolean;
+  error: string | null;
+  onAdd: (source: ProspectSource, selection: ProspectSelection) => void;
+  /** An Apollo preview, waiting to be mapped and confirmed. */
+  onPreview: (item: WorkbookImport) => void;
+}) {
   const listsApi = useEnrichmentApi();
   const smartApi = useSmartListApi();
   const api = useWorkbookProspectsApi();
@@ -42,7 +58,8 @@ function SourcePicker({ workbookId, busy, error, onAdd }: { workbookId: string; 
   const members = useQuery({
     ...authQueryOptions,
     queryKey: [KEY, workbookId, "source", kind, sourceId, page],
-    queryFn: () => api.browse(workbookId, kind, sourceId!, page),
+    // The Apollo tab has no source to pick, so this never asks on its behalf.
+    queryFn: () => api.browse(workbookId, kind === "smart_list" ? kind : "list", sourceId!, page),
     enabled: authReady && Boolean(sourceId),
   });
 
@@ -69,15 +86,27 @@ function SourcePicker({ workbookId, busy, error, onAdd }: { workbookId: string; 
   const allOnPage = selectable.length > 0 && selectable.every((id) => chosen.has(id));
   const tooMany = chosen.size > MAX_CHOSEN;
 
+  const tabs = (
+    <div role="tablist" aria-label="Where to add from" className="flex gap-2">
+      {(Object.keys(TABS) as Kind[]).map((value) => (
+        <Button key={value} type="button" role="tab" aria-selected={kind === value} size="sm" variant={kind === value ? "default" : "outline"} onClick={() => open(value, null)}>
+          {TABS[value]}
+        </Button>
+      ))}
+    </div>
+  );
+  if (kind === "apollo") {
+    return (
+      <div className="space-y-4">
+        {tabs}
+        <ApolloPicker workbookId={workbookId} onPreview={onPreview} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Where to add from" className="flex gap-2">
-        {(["list", "smart_list"] as const).map((value) => (
-          <Button key={value} type="button" role="tab" aria-selected={kind === value} size="sm" variant={kind === value ? "default" : "outline"} onClick={() => open(value, null)}>
-            {value === "list" ? "Lists" : "Smart lists"}
-          </Button>
-        ))}
-      </div>
+      {tabs}
 
       {loadingSources.isError ? (
         <Alert variant="error" onRetry={() => void loadingSources.refetch()}>
@@ -186,7 +215,7 @@ function SourcePicker({ workbookId, busy, error, onAdd }: { workbookId: string; 
   );
 }
 
-/** "Add rows" from Skout lists and smart lists, and how that addition is going. */
+/** "Add rows" from Skout lists, smart lists and Apollo, and how that addition is going. */
 export function AddProspects({ workbook }: { workbook: { id: string; name: string } }) {
   const api = useWorkbookProspectsApi();
   const imports = useWorkbookImportApi();
@@ -212,12 +241,7 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
 
   const add = useMutation({
     mutationFn: ({ source, selection }: { source: ProspectSource; selection: ProspectSelection }) => api.add(workbook.id, source, selection),
-    onSuccess: (next) => {
-      client.setQueryData([KEY, next.workbookId, "import", next.id], next);
-      setImportId(next.id);
-      setOpen(false);
-      refresh();
-    },
+    onSuccess: (next) => show(next),
   });
   const download = useMutation({
     mutationFn: async (id: string) => {
@@ -229,6 +253,13 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
       URL.revokeObjectURL(url);
     },
   });
+
+  const show = (next: WorkbookImport) => {
+    client.setQueryData([KEY, next.workbookId, "import", next.id], next);
+    setImportId(next.id);
+    setOpen(false);
+    refresh();
+  };
 
   const status = item?.status;
   useEffect(() => {
@@ -247,8 +278,8 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
       <CardContent className="space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold">Add rows from Skout</h2>
-            <p className="text-sm text-muted-foreground">From your lists and smart lists. Details you already have are copied in without using credits.</p>
+            <h2 className="text-base font-semibold">Add rows from Skout or Apollo</h2>
+            <p className="text-sm text-muted-foreground">From your lists, smart lists or saved Apollo contacts. Adding them uses no Skout credits and runs nothing.</p>
           </div>
           <Button
             type="button"
@@ -266,7 +297,18 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
             {formatQueryError(current.error, "This addition could not be loaded.")}
           </Alert>
         ) : null}
-        {item ? (
+        {item?.status === "awaiting_confirmation" && item.preview ? (
+          <ImportConfirm
+            key={item.id}
+            item={{ ...item, preview: item.preview }}
+            onConfirmed={show}
+            onCancelled={() => {
+              setImportId(null);
+              refresh();
+            }}
+            onRefused={() => void current.refetch()}
+          />
+        ) : item ? (
           <ImportProgress
             item={item}
             closeLabel="Done"
@@ -283,6 +325,7 @@ export function AddProspects({ workbook }: { workbook: { id: string; name: strin
           busy={add.isPending}
           error={add.error ? formatQueryError(add.error, "The prospects could not be added.") : null}
           onAdd={(source, selection) => add.mutate({ source, selection })}
+          onPreview={show}
         />
       </Dialog>
     </Card>

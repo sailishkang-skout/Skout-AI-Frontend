@@ -12,7 +12,7 @@ import {
   checkMapping,
   confirmBody,
   initialChoices,
-  isCrmImport,
+  isRecordImport,
   type Choice,
   type DataType,
   type DedupeState,
@@ -46,8 +46,8 @@ export function MappingStep({
 }) {
   const [choices, setChoices] = useState<Choice[]>(() => initialChoices(preview));
   const [dedupe, setDedupe] = useState<DedupeState>({ key: null });
-  // A CRM field goes only where it fits; a file's column may go anywhere, and rows that don't fit are reported.
-  const crm = isCrmImport(upload);
+  // A CRM or Apollo field goes only where it fits; a file's column may go anywhere, and rows that don't fit are reported.
+  const crm = isRecordImport(upload);
   const check = checkMapping(preview.headers, choices, columns, dedupe, crm);
   const inputs = columns.filter((c) => c.type === "input");
   const fits = (header: number, type: DataType) => !crm || preview.headers[header]!.fits.includes(type);

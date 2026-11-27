@@ -72,11 +72,11 @@ export type ImportStatus = "awaiting_confirmation" | "queued" | "processing" | "
 export interface WorkbookImport {
   id: string;
   workbookId: string;
-  sourceType: "csv" | "list" | "smart_list" | "search" | "hubspot" | "salesforce" | "pipedrive";
+  sourceType: "csv" | "list" | "smart_list" | "search" | "hubspot" | "salesforce" | "pipedrive" | "apollo";
   /** The list or smart list rows came from. */
   sourceName: string | null;
-  /** Set when more prospects matched than the workbook can hold. */
-  truncated: { matched: number; considered: number } | null;
+  /** Set when more matched than the workbook can hold, or (`source_limit`) than the source lets anyone read. */
+  truncated: { matched: number; considered: number; reason?: "source_limit" } | null;
   status: ImportStatus;
   fileName: string;
   fileBytes: number;
@@ -108,7 +108,8 @@ export function importTitle(item: Pick<WorkbookImport, "sourceType" | "sourceNam
 
 export const isRunning = (status: ImportStatus) => status === "queued" || status === "processing";
 
-export const isCrmImport = (item: Pick<WorkbookImport, "sourceType">) => item.sourceType === "hubspot" || item.sourceType === "salesforce" || item.sourceType === "pipedrive";
+/** Records read from a CRM or Apollo, whose fields are mapped to columns. */
+export const isRecordImport = (item: Pick<WorkbookImport, "sourceType">) => ["hubspot", "salesforce", "pipedrive", "apollo"].includes(item.sourceType);
 
 /** The server's reasons for refusing a request: each mapping problem if it listed them, else its message. */
 export function refusalReasons(error: unknown, fallback: string): string[] {

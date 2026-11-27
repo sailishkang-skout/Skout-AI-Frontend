@@ -116,8 +116,8 @@ export function CrmSelectionPicker({ info, selection, onChange }: { info: CrmObj
   );
 }
 
-/** Which of the CRM's fields to bring in. */
-export function CrmFieldPicker({ info, chosen, onChange }: { info: CrmObjectInfo; chosen: string[]; onChange: (fields: string[]) => void }) {
+/** Which of the CRM's or Apollo's fields to bring in. */
+export function CrmFieldPicker({ info, chosen, onChange }: { info: { fields: Array<{ name: string; label: string }> }; chosen: string[]; onChange: (fields: string[]) => void }) {
   const [search, setSearch] = useState("");
   const wanted = search.trim().toLowerCase();
   const shown = info.fields.filter((f) => !wanted || f.label.toLowerCase().includes(wanted) || f.name.toLowerCase().includes(wanted));
