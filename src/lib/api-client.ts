@@ -294,7 +294,8 @@ export async function apiFetch<T>(
   if (workspaceId) {
     headers.set("X-Workspace-Id", workspaceId);
   }
-  if (body !== undefined && body !== null && body !== "") {
+  // A caller sending something other than JSON (a file, say) names its type itself.
+  if (body !== undefined && body !== null && body !== "" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
